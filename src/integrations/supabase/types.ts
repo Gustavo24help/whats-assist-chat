@@ -14,7 +14,239 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clientes: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          status_conversa:
+            | Database["public"]["Enums"]["status_conversa_enum"]
+            | null
+          tags: string[] | null
+          telefone: string
+          ultima_interacao: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          status_conversa?:
+            | Database["public"]["Enums"]["status_conversa_enum"]
+            | null
+          tags?: string[] | null
+          telefone: string
+          ultima_interacao?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          status_conversa?:
+            | Database["public"]["Enums"]["status_conversa_enum"]
+            | null
+          tags?: string[] | null
+          telefone?: string
+          ultima_interacao?: string | null
+        }
+        Relationships: []
+      }
+      fichas_de_servico: {
+        Row: {
+          cliente_id: string
+          cpf: string | null
+          created_at: string | null
+          descricao: string | null
+          endereco: string | null
+          horario_agendamento: string | null
+          id: string
+          notas: string | null
+          pagamento_gerar_link: boolean | null
+          pagamento_parcelas: number | null
+          pagamento_tipo:
+            | Database["public"]["Enums"]["tipo_pagamento_enum"]
+            | null
+          prestador_id: string | null
+          status: Database["public"]["Enums"]["status_ficha_enum"] | null
+          updated_at: string | null
+          valor_mao_obra: number | null
+          valor_pecas: number | null
+          valor_total: number | null
+        }
+        Insert: {
+          cliente_id: string
+          cpf?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          endereco?: string | null
+          horario_agendamento?: string | null
+          id?: string
+          notas?: string | null
+          pagamento_gerar_link?: boolean | null
+          pagamento_parcelas?: number | null
+          pagamento_tipo?:
+            | Database["public"]["Enums"]["tipo_pagamento_enum"]
+            | null
+          prestador_id?: string | null
+          status?: Database["public"]["Enums"]["status_ficha_enum"] | null
+          updated_at?: string | null
+          valor_mao_obra?: number | null
+          valor_pecas?: number | null
+          valor_total?: number | null
+        }
+        Update: {
+          cliente_id?: string
+          cpf?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          endereco?: string | null
+          horario_agendamento?: string | null
+          id?: string
+          notas?: string | null
+          pagamento_gerar_link?: boolean | null
+          pagamento_parcelas?: number | null
+          pagamento_tipo?:
+            | Database["public"]["Enums"]["tipo_pagamento_enum"]
+            | null
+          prestador_id?: string | null
+          status?: Database["public"]["Enums"]["status_ficha_enum"] | null
+          updated_at?: string | null
+          valor_mao_obra?: number | null
+          valor_pecas?: number | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fichas_de_servico_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fichas_de_servico_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensagens: {
+        Row: {
+          arquivo_url: string | null
+          cliente_id: string
+          data_hora: string | null
+          ficha_id: string | null
+          id: string
+          remetente: string
+          status: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          texto: string | null
+          tipo: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+        }
+        Insert: {
+          arquivo_url?: string | null
+          cliente_id: string
+          data_hora?: string | null
+          ficha_id?: string | null
+          id?: string
+          remetente: string
+          status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          texto?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+        }
+        Update: {
+          arquivo_url?: string | null
+          cliente_id?: string
+          data_hora?: string | null
+          ficha_id?: string | null
+          id?: string
+          remetente?: string
+          status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          texto?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orcamentos: {
+        Row: {
+          created_at: string | null
+          data_envio: string | null
+          descricao: string
+          enviado: boolean | null
+          ficha_id: string
+          id: string
+          status: Database["public"]["Enums"]["status_orcamento_enum"] | null
+          valor: number
+        }
+        Insert: {
+          created_at?: string | null
+          data_envio?: string | null
+          descricao: string
+          enviado?: boolean | null
+          ficha_id: string
+          id?: string
+          status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
+          valor: number
+        }
+        Update: {
+          created_at?: string | null
+          data_envio?: string | null
+          descricao?: string
+          enviado?: boolean | null
+          ficha_id?: string
+          id?: string
+          status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamentos_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prestadores: {
+        Row: {
+          created_at: string | null
+          especialidade: string | null
+          id: string
+          nome: string
+          telefone: string
+        }
+        Insert: {
+          created_at?: string | null
+          especialidade?: string | null
+          id?: string
+          nome: string
+          telefone: string
+        }
+        Update: {
+          created_at?: string | null
+          especialidade?: string | null
+          id?: string
+          nome?: string
+          telefone?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +255,18 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      status_conversa_enum: "aberta" | "fechada"
+      status_ficha_enum: "pendente" | "em_andamento" | "concluido"
+      status_mensagem_enum: "enviado" | "recebido" | "lido"
+      status_orcamento_enum: "pendente" | "aprovado" | "rejeitado"
+      tipo_mensagem_enum: "texto" | "arquivo"
+      tipo_pagamento_enum:
+        | "dinheiro"
+        | "cartao_credito"
+        | "cartao_debito"
+        | "pix"
+        | "boleto"
+        | "transferencia"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +393,20 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      status_conversa_enum: ["aberta", "fechada"],
+      status_ficha_enum: ["pendente", "em_andamento", "concluido"],
+      status_mensagem_enum: ["enviado", "recebido", "lido"],
+      status_orcamento_enum: ["pendente", "aprovado", "rejeitado"],
+      tipo_mensagem_enum: ["texto", "arquivo"],
+      tipo_pagamento_enum: [
+        "dinheiro",
+        "cartao_credito",
+        "cartao_debito",
+        "pix",
+        "boleto",
+        "transferencia",
+      ],
+    },
   },
 } as const
