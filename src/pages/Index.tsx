@@ -1,11 +1,93 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { ConversationList } from "@/components/ConversationList";
+import { ChatWindow } from "@/components/ChatWindow";
+import { FichaPanel } from "@/components/FichaPanel";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
+import { toast } from "sonner";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const [selectedCliente, setSelectedCliente] = useState<any>(null);
+  const [fichaOpen, setFichaOpen] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth");
+      }
+    };
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/auth");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Logout realizado com sucesso!");
+    navigate("/auth");
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="h-screen flex flex-col bg-background">
+      <header className="h-14 border-b bg-card flex items-center justify-between px-4">
+        <h1 className="text-lg font-semibold">Central de Atendimento WhatsApp</h1>
+        <Button variant="ghost" size="sm" onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sair
+        </Button>
+      </header>
+
+      <div className="flex-1 flex overflow-hidden">
+        <div className="w-80">
+          <ConversationList
+            selectedClienteId={selectedCliente?.id || null}
+            onSelectCliente={setSelectedCliente}
+          />
+        </div>
+
+        {selectedCliente ? (
+          <>
+            <div className={fichaOpen ? "flex-1" : "flex-1"}>
+              <ChatWindow
+                clienteId={selectedCliente.id}
+                clienteNome={selectedCliente.nome}
+                statusConversa={selectedCliente.status_conversa}
+                onOpenFicha={() => setFichaOpen(true)}
+              />
+            </div>
+
+            {fichaOpen && (
+              <div className="w-96">
+                <FichaPanel
+                  clienteId={selectedCliente.id}
+                  clienteNome={selectedCliente.nome}
+                  onClose={() => setFichaOpen(false)}
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-muted/20">
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold text-muted-foreground mb-2">
+                Selecione uma conversa
+              </h2>
+              <p className="text-muted-foreground">
+                Escolha um cliente na lista para começar o atendimento
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
