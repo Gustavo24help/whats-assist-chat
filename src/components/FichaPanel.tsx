@@ -1,37 +1,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { X, FileText, DollarSign } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Plus, Send } from "lucide-react";
-import { toast } from "sonner";
+import { FichaServicoTab } from "./FichaServicoTab";
+import { OrcamentosTab } from "./OrcamentosTab";
 
 interface Ficha {
   id: string;
-  descricao: string | null;
-  notas: string | null;
-  valor_total: number;
-  valor_mao_obra: number;
-  valor_pecas: number;
-  cpf: string | null;
-  endereco: string | null;
-  prestador_id: string | null;
-  horario_agendamento: string | null;
-  pagamento_tipo: string | null;
-  pagamento_parcelas: number;
-  pagamento_gerar_link: boolean;
-  status: "pendente" | "em_andamento" | "concluido";
-}
-
-interface Orcamento {
-  id: string;
-  valor: number;
-  descricao: string;
-  enviado: boolean;
-  status: string;
+  nome_ficha: string | null;
 }
 
 interface FichaPanelProps {
@@ -41,248 +19,107 @@ interface FichaPanelProps {
 }
 
 export const FichaPanel = ({ clienteId, clienteNome, onClose }: FichaPanelProps) => {
-  const [ficha, setFicha] = useState<Ficha | null>(null);
-  const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
-  const [novoOrcamento, setNovoOrcamento] = useState({ valor: "", descricao: "" });
+  const [fichas, setFichas] = useState<Ficha[]>([]);
+  const [fichaAtual, setFichaAtual] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFicha();
+    fetchFichas();
   }, [clienteId]);
 
-  // Listener realtime para atualização da ficha
-  useEffect(() => {
-    if (!ficha?.id) return;
-
-    const channel = supabase
-      .channel(`ficha-${ficha.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'fichas_de_servico',
-          filter: `id=eq.${ficha.id}`,
-        },
-        () => {
-          fetchFicha();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [ficha?.id]);
-
-  const fetchFicha = async () => {
-    const { data: fichaData } = await supabase
-      .from('fichas_de_servico')
-      .select('*')
-      .eq('cliente_id', clienteId)
-      .maybeSingle();
-
-    if (fichaData) {
-      setFicha(fichaData);
-      fetchOrcamentos(fichaData.id);
-    }
-  };
-
-  const fetchOrcamentos = async (fichaId: string) => {
+  const fetchFichas = async () => {
     const { data } = await supabase
-      .from('orcamentos')
-      .select('*')
-      .eq('ficha_id', fichaId);
+      .from('fichas_de_servico')
+      .select('id, nome_ficha')
+      .eq('cliente_id', clienteId)
+      .order('created_at', { ascending: false });
 
-    if (data) setOrcamentos(data);
+    if (data && data.length > 0) {
+      setFichas(data);
+      setFichaAtual(data[0].id);
+    }
   };
 
   const criarFicha = async () => {
     const { data, error } = await supabase
       .from('fichas_de_servico')
-      .insert({ cliente_id: clienteId })
+      .insert({
+        cliente_id: clienteId,
+        nome_ficha: `Ficha ${clienteNome} - ${new Date().toLocaleDateString()}`,
+        status: 'pendente',
+        valor_total: 0,
+        valor_mao_obra: 0,
+        valor_pecas: 0,
+      })
       .select()
       .single();
 
     if (!error && data) {
-      setFicha(data);
-      toast.success("Ficha criada com sucesso!");
-    }
-  };
-
-  const salvarFicha = async () => {
-    if (!ficha) return;
-
-    const { error } = await supabase
-      .from('fichas_de_servico')
-      .update({
-        descricao: ficha.descricao,
-        notas: ficha.notas,
-        valor_total: ficha.valor_total,
-        valor_mao_obra: ficha.valor_mao_obra,
-        valor_pecas: ficha.valor_pecas,
-        cpf: ficha.cpf,
-        endereco: ficha.endereco,
-        status: ficha.status
-      })
-      .eq('id', ficha.id);
-
-    if (!error) {
-      toast.success("Ficha salva com sucesso!");
-    }
-  };
-
-  const criarOrcamento = async () => {
-    if (!ficha || !novoOrcamento.valor || !novoOrcamento.descricao) return;
-
-    const { error } = await supabase
-      .from('orcamentos')
-      .insert({
-        ficha_id: ficha.id,
-        valor: parseFloat(novoOrcamento.valor),
-        descricao: novoOrcamento.descricao
-      });
-
-    if (!error) {
-      toast.success("Orçamento criado!");
-      setNovoOrcamento({ valor: "", descricao: "" });
-      fetchOrcamentos(ficha.id);
+      fetchFichas();
     }
   };
 
   return (
     <div className="h-full flex flex-col bg-card border-l">
       <div className="p-4 border-b flex items-center justify-between">
-        <h2 className="font-semibold text-lg">Ficha de Serviço</h2>
+        <h2 className="font-semibold text-lg">Ficha - {clienteNome}</h2>
         <Button variant="ghost" size="icon" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {!ficha ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">Nenhuma ficha encontrada</p>
-            <Button onClick={criarFicha}>
-              <Plus className="mr-2 h-4 w-4" />
-              Criar Ficha
-            </Button>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-3">
-              <div>
-                <Label>Descrição</Label>
-                <Textarea
-                  value={ficha.descricao || ""}
-                  onChange={(e) => setFicha({ ...ficha, descricao: e.target.value })}
-                  placeholder="Descrição do serviço..."
-                />
-              </div>
-
-              <div>
-                <Label>Notas</Label>
-                <Textarea
-                  value={ficha.notas || ""}
-                  onChange={(e) => setFicha({ ...ficha, notas: e.target.value })}
-                  placeholder="Observações adicionais..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Valor Peças</Label>
-                  <Input
-                    type="number"
-                    value={ficha.valor_pecas}
-                    onChange={(e) => setFicha({ ...ficha, valor_pecas: parseFloat(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <Label>Valor Mão de Obra</Label>
-                  <Input
-                    type="number"
-                    value={ficha.valor_mao_obra}
-                    onChange={(e) => setFicha({ ...ficha, valor_mao_obra: parseFloat(e.target.value) })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label>CPF</Label>
-                <Input
-                  value={ficha.cpf || ""}
-                  onChange={(e) => setFicha({ ...ficha, cpf: e.target.value })}
-                  placeholder="000.000.000-00"
-                />
-              </div>
-
-              <div>
-                <Label>Endereço</Label>
-                <Input
-                  value={ficha.endereco || ""}
-                  onChange={(e) => setFicha({ ...ficha, endereco: e.target.value })}
-                  placeholder="Endereço completo..."
-                />
-              </div>
-
-              <div>
-                <Label>Status</Label>
-                <Select 
-                  value={ficha.status} 
-                  onValueChange={(value: "pendente" | "em_andamento" | "concluido") => 
-                    setFicha({ ...ficha, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pendente">Pendente</SelectItem>
-                    <SelectItem value="em_andamento">Em Andamento</SelectItem>
-                    <SelectItem value="concluido">Concluído</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button onClick={salvarFicha} className="w-full">Salvar Ficha</Button>
+      {fichas.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+          <p className="text-muted-foreground text-center mb-4">
+            Nenhuma ficha de serviço encontrada para este cliente
+          </p>
+          <Button onClick={criarFicha}>
+            Criar Nova Ficha
+          </Button>
+        </div>
+      ) : (
+        <>
+          {fichas.length > 1 && (
+            <div className="p-4 border-b">
+              <Select value={fichaAtual || ''} onValueChange={setFichaAtual}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma ficha" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fichas.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.nome_ficha || `Ficha ${f.id.slice(0, 8)}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Orçamentos</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {orcamentos.map((orc) => (
-                  <div key={orc.id} className="p-3 border rounded-lg">
-                    <p className="font-medium">{orc.descricao}</p>
-                    <p className="text-sm text-muted-foreground">
-                      R$ {orc.valor.toFixed(2)} - {orc.status}
-                    </p>
-                  </div>
-                ))}
+          {fichaAtual && (
+            <Tabs defaultValue="ficha" className="flex-1 flex flex-col">
+              <TabsList className="mx-4 mt-4">
+                <TabsTrigger value="ficha" className="flex-1">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Ficha de Serviço
+                </TabsTrigger>
+                <TabsTrigger value="orcamentos" className="flex-1">
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  Orçamentos
+                </TabsTrigger>
+              </TabsList>
 
-                <div className="space-y-2">
-                  <Input
-                    placeholder="Descrição do orçamento"
-                    value={novoOrcamento.descricao}
-                    onChange={(e) => setNovoOrcamento({ ...novoOrcamento, descricao: e.target.value })}
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Valor"
-                    value={novoOrcamento.valor}
-                    onChange={(e) => setNovoOrcamento({ ...novoOrcamento, valor: e.target.value })}
-                  />
-                  <Button onClick={criarOrcamento} className="w-full" size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Orçamento
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
+              <TabsContent value="ficha" className="flex-1 overflow-hidden">
+                <FichaServicoTab fichaId={fichaAtual} />
+              </TabsContent>
+
+              <TabsContent value="orcamentos" className="flex-1 overflow-hidden">
+                <OrcamentosTab fichaId={fichaAtual} />
+              </TabsContent>
+            </Tabs>
+          )}
+        </>
+      )}
     </div>
   );
 };

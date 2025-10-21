@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      categorias: {
+        Row: {
+          created_at: string | null
+          id: number
+          nome: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          nome: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          nome?: string
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           created_at: string | null
@@ -52,6 +70,7 @@ export type Database = {
       }
       fichas_de_servico: {
         Row: {
+          categoria_id: number | null
           cliente_id: string
           cpf: string | null
           created_at: string | null
@@ -59,6 +78,8 @@ export type Database = {
           endereco: string | null
           horario_agendamento: string | null
           id: string
+          id_zoho: string | null
+          nome_ficha: string | null
           notas: string | null
           pagamento_gerar_link: boolean | null
           pagamento_parcelas: number | null
@@ -73,6 +94,7 @@ export type Database = {
           valor_total: number | null
         }
         Insert: {
+          categoria_id?: number | null
           cliente_id: string
           cpf?: string | null
           created_at?: string | null
@@ -80,6 +102,8 @@ export type Database = {
           endereco?: string | null
           horario_agendamento?: string | null
           id?: string
+          id_zoho?: string | null
+          nome_ficha?: string | null
           notas?: string | null
           pagamento_gerar_link?: boolean | null
           pagamento_parcelas?: number | null
@@ -94,6 +118,7 @@ export type Database = {
           valor_total?: number | null
         }
         Update: {
+          categoria_id?: number | null
           cliente_id?: string
           cpf?: string | null
           created_at?: string | null
@@ -101,6 +126,8 @@ export type Database = {
           endereco?: string | null
           horario_agendamento?: string | null
           id?: string
+          id_zoho?: string | null
+          nome_ficha?: string | null
           notas?: string | null
           pagamento_gerar_link?: boolean | null
           pagamento_parcelas?: number | null
@@ -184,6 +211,8 @@ export type Database = {
       }
       orcamentos: {
         Row: {
+          categoria: string | null
+          cpf_prestador: string | null
           created_at: string | null
           data_envio: string | null
           descricao: string
@@ -192,8 +221,12 @@ export type Database = {
           id: string
           status: Database["public"]["Enums"]["status_orcamento_enum"] | null
           valor: number
+          valor_mao_obra: number | null
+          valor_pecas: number | null
         }
         Insert: {
+          categoria?: string | null
+          cpf_prestador?: string | null
           created_at?: string | null
           data_envio?: string | null
           descricao: string
@@ -202,8 +235,12 @@ export type Database = {
           id?: string
           status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
           valor: number
+          valor_mao_obra?: number | null
+          valor_pecas?: number | null
         }
         Update: {
+          categoria?: string | null
+          cpf_prestador?: string | null
           created_at?: string | null
           data_envio?: string | null
           descricao?: string
@@ -212,6 +249,8 @@ export type Database = {
           id?: string
           status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
           valor?: number
+          valor_mao_obra?: number | null
+          valor_pecas?: number | null
         }
         Relationships: [
           {
@@ -225,23 +264,38 @@ export type Database = {
       }
       prestadores: {
         Row: {
+          categoria: string | null
+          cnpj: string | null
+          cpf: string | null
           created_at: string | null
           especialidade: string | null
           id: string
+          id_azure: string | null
+          id_crm: string | null
           nome: string
           telefone: string
         }
         Insert: {
+          categoria?: string | null
+          cnpj?: string | null
+          cpf?: string | null
           created_at?: string | null
           especialidade?: string | null
           id?: string
+          id_azure?: string | null
+          id_crm?: string | null
           nome: string
           telefone: string
         }
         Update: {
+          categoria?: string | null
+          cnpj?: string | null
+          cpf?: string | null
           created_at?: string | null
           especialidade?: string | null
           id?: string
+          id_azure?: string | null
+          id_crm?: string | null
           nome?: string
           telefone?: string
         }
