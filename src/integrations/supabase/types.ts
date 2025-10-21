@@ -216,50 +216,44 @@ export type Database = {
       orcamentos: {
         Row: {
           categoria: string | null
-          cpf_prestador: string | null
-          created_at: string | null
-          data_envio: string | null
-          descricao: string
-          enviado: boolean | null
-          ficha_id: string
+          data_criacao: string | null
+          ficha_nome: string
           id: string
+          observacoes: string | null
+          prestador_cpf: string
           status: Database["public"]["Enums"]["status_orcamento_enum"] | null
-          valor: number
           valor_mao_obra: number | null
           valor_pecas: number | null
+          valor_total: number | null
         }
         Insert: {
           categoria?: string | null
-          cpf_prestador?: string | null
-          created_at?: string | null
-          data_envio?: string | null
-          descricao: string
-          enviado?: boolean | null
-          ficha_id: string
+          data_criacao?: string | null
+          ficha_nome: string
           id?: string
+          observacoes?: string | null
+          prestador_cpf: string
           status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
-          valor: number
           valor_mao_obra?: number | null
           valor_pecas?: number | null
+          valor_total?: number | null
         }
         Update: {
           categoria?: string | null
-          cpf_prestador?: string | null
-          created_at?: string | null
-          data_envio?: string | null
-          descricao?: string
-          enviado?: boolean | null
-          ficha_id?: string
+          data_criacao?: string | null
+          ficha_nome?: string
           id?: string
+          observacoes?: string | null
+          prestador_cpf?: string
           status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
-          valor?: number
           valor_mao_obra?: number | null
           valor_pecas?: number | null
+          valor_total?: number | null
         }
         Relationships: [
           {
             foreignKeyName: "orcamentos_ficha_id_fkey"
-            columns: ["ficha_id"]
+            columns: ["ficha_nome"]
             isOneToOne: false
             referencedRelation: "fichas_de_servico"
             referencedColumns: ["id"]
