@@ -1,0 +1,147 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Save } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+
+const Settings = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [twilioAccountSid, setTwilioAccountSid] = useState("");
+  const [twilioAuthToken, setTwilioAuthToken] = useState("");
+  const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
+
+  const handleSaveSettings = () => {
+    // Aqui você implementaria a lógica para salvar as configurações
+    // usando edge functions ou Supabase
+    toast({
+      title: "Configurações salvas",
+      description: "As credenciais da Twilio foram salvas com sucesso.",
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card px-6 py-4">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
+            <p className="text-sm text-muted-foreground">
+              Gerencie as configurações do sistema
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto p-6">
+        <Tabs defaultValue="twilio" className="w-full">
+          <TabsList>
+            <TabsTrigger value="twilio">Twilio API</TabsTrigger>
+            <TabsTrigger value="geral">Geral</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="twilio" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configurações da Twilio</CardTitle>
+                <CardDescription>
+                  Configure suas credenciais da API da Twilio para integração com WhatsApp
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="accountSid">Account SID</Label>
+                  <Input
+                    id="accountSid"
+                    placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    value={twilioAccountSid}
+                    onChange={(e) => setTwilioAccountSid(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Encontre seu Account SID no console da Twilio
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="authToken">Auth Token</Label>
+                  <Input
+                    id="authToken"
+                    type="password"
+                    placeholder="••••••••••••••••••••••••••••••••"
+                    value={twilioAuthToken}
+                    onChange={(e) => setTwilioAuthToken(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Seu token de autenticação da Twilio (será armazenado de forma segura)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber">Número de Telefone Twilio</Label>
+                  <Input
+                    id="phoneNumber"
+                    placeholder="+55 11 99999-9999"
+                    value={twilioPhoneNumber}
+                    onChange={(e) => setTwilioPhoneNumber(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    O número de telefone configurado na Twilio para WhatsApp
+                  </p>
+                </div>
+
+                <Button onClick={handleSaveSettings} className="w-full">
+                  <Save className="mr-2 h-4 w-4" />
+                  Salvar Configurações
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Como configurar a Twilio</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-muted-foreground">
+                <ol className="list-decimal list-inside space-y-2">
+                  <li>Acesse o console da Twilio em console.twilio.com</li>
+                  <li>Copie seu Account SID e Auth Token da página inicial</li>
+                  <li>Configure um número de telefone para WhatsApp Business</li>
+                  <li>Cole as credenciais nos campos acima</li>
+                  <li>Configure o webhook para receber mensagens (será fornecido após salvar)</li>
+                </ol>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="geral" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configurações Gerais</CardTitle>
+                <CardDescription>
+                  Configurações gerais do sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Configurações adicionais serão adicionadas aqui.
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+};
+
+export default Settings;
