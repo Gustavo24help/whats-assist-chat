@@ -43,15 +43,17 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
     const nomeGerado = `${clienteNome}@${new Date().toISOString().split('T')[0].replace(/-/g, '')}`;
     const { data, error } = await supabase
       .from('fichas_de_servico')
-      .insert({
-        id: nomeGerado, // ID = nome da ficha
+      .insert([{
+        id: nomeGerado,
         telefone_cliente: clienteTelefone,
         nome_ficha: nomeGerado,
-        status: 'pendente',
+        status: 'Ficha Criada',
         valor_total: 0,
         valor_mao_obra: 0,
         valor_pecas: 0,
-      })
+        pagamento_parcelas: 1,
+        pagamento_gerar_link: false,
+      }] as any)
       .select()
       .single();
 

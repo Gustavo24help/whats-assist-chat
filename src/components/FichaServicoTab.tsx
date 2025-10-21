@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,6 +14,7 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { debounce } from "lodash-es";
 
 interface FichaServicoTabProps {
   fichaId: string;
@@ -65,6 +68,75 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
   const [agendamento, setAgendamento] = useState<Date | undefined>();
 
+  // Auto-save debounced
+  const autoSave = useCallback(
+    debounce(async (fichaData: Ficha, agendamentoData: Date | undefined) => {
+      try {
+        const { error } = await supabase
+          .from('fichas_de_servico')
+          .upsert([{
+            id: fichaData.id,
+            telefone_cliente: fichaData.telefone_cliente,
+            nome_ficha: fichaData.nome_ficha,
+            descricao: fichaData.descricao,
+            status: fichaData.status as any,
+            prestador_id: fichaData.prestador_id,
+            valor_total: fichaData.valor_total,
+            valor_mao_obra: fichaData.valor_mao_obra,
+            valor_pecas: fichaData.valor_pecas,
+            horario_agendamento: agendamentoData?.toISOString(),
+            cpf: fichaData.cpf,
+            endereco: fichaData.endereco,
+            pagamento_tipo: fichaData.pagamento_tipo as any,
+            pagamento_parcelas: fichaData.pagamento_parcelas,
+            pagamento_gerar_link: fichaData.pagamento_gerar_link,
+            notas: fichaData.notas,
+            categoria_id: fichaData.categoria_id,
+            id_zoho: fichaData.id_zoho,
+          }] as any, { onConflict: 'id' });
+
+        if (error) throw error;
+
+        // Disparar webhook
+        const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
+        if (webhookUrl) {
+          try {
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: fichaData.id,
+                telefone_cliente: fichaData.telefone_cliente,
+                nome_ficha: fichaData.nome_ficha,
+                status: fichaData.status,
+                categoria_id: fichaData.categoria_id,
+                descricao: fichaData.descricao,
+                prestador_id: fichaData.prestador_id,
+                valor_total: fichaData.valor_total,
+                valor_mao_obra: fichaData.valor_mao_obra,
+                valor_pecas: fichaData.valor_pecas,
+                horario_agendamento: agendamentoData?.toISOString(),
+                cpf: fichaData.cpf,
+                endereco: fichaData.endereco,
+                pagamento_gerar_link: fichaData.pagamento_gerar_link,
+                pagamento_tipo: fichaData.pagamento_tipo,
+                pagamento_parcelas: fichaData.pagamento_parcelas,
+                id_zoho: fichaData.id_zoho,
+                notas: fichaData.notas,
+              }),
+            });
+          } catch (webhookError) {
+            console.error('Erro ao enviar webhook:', webhookError);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao salvar ficha:', error);
+        toast.error("Erro ao salvar ficha");
+      }
+    }, 1000),
+    []
+  );
+
   useEffect(() => {
     fetchFicha();
     fetchPrestadores();
@@ -112,278 +184,265 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (data) setPrestadores(data as Prestador[]);
   };
 
-  const salvarFicha = async () => {
+  const updateFicha = (updates: Partial<Ficha>) => {
     if (!ficha) return;
+    const updatedFicha = { ...ficha, ...updates };
+    setFicha(updatedFicha);
+    autoSave(updatedFicha, agendamento);
+  };
 
-    try {
-      const { error } = await supabase
-        .from('fichas_de_servico')
-        .update({
-          nome_ficha: ficha.nome_ficha,
-          descricao: ficha.descricao,
-          status: ficha.status as any,
-          prestador_id: ficha.prestador_id,
-          valor_total: ficha.valor_total,
-          valor_mao_obra: ficha.valor_mao_obra,
-          valor_pecas: ficha.valor_pecas,
-          horario_agendamento: agendamento?.toISOString(),
-          cpf: ficha.cpf,
-          endereco: ficha.endereco,
-          pagamento_tipo: ficha.pagamento_tipo as any,
-          pagamento_parcelas: ficha.pagamento_parcelas,
-          pagamento_gerar_link: ficha.pagamento_gerar_link,
-          notas: ficha.notas,
-          categoria_id: ficha.categoria_id,
-          id_zoho: ficha.id_zoho,
-        })
-        .eq('id', fichaId);
-
-      if (error) throw error;
-
-      // Disparar webhook
-      const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
-      if (webhookUrl) {
-        try {
-          // Buscar dados completos para enviar no webhook
-          const { data: fichaCompleta } = await supabase
-            .from('fichas_de_servico')
-            .select('*')
-            .eq('id', fichaId)
-            .maybeSingle();
-
-          if (fichaCompleta) {
-            await fetch(webhookUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: fichaCompleta.id,
-                telefone_cliente: fichaCompleta.telefone_cliente,
-                nome_ficha: fichaCompleta.nome_ficha,
-                status: fichaCompleta.status,
-                categoria_id: fichaCompleta.categoria_id,
-                descricao: fichaCompleta.descricao,
-                prestador_id: fichaCompleta.prestador_id,
-                valor_total: fichaCompleta.valor_total,
-                valor_mao_obra: fichaCompleta.valor_mao_obra,
-                valor_pecas: fichaCompleta.valor_pecas,
-                horario_agendamento: fichaCompleta.horario_agendamento,
-                cpf: fichaCompleta.cpf,
-                endereco: fichaCompleta.endereco,
-                pagamento_gerar_link: fichaCompleta.pagamento_gerar_link,
-                pagamento_tipo: fichaCompleta.pagamento_tipo,
-                pagamento_parcelas: fichaCompleta.pagamento_parcelas,
-                id_zoho: fichaCompleta.id_zoho,
-                notas: fichaCompleta.notas,
-              }),
-            });
-          }
-        } catch (webhookError) {
-          console.error('Erro ao enviar webhook:', webhookError);
-          toast.warning("Ficha salva, mas erro ao enviar webhook");
-        }
-      }
-
-      toast.success("Ficha atualizada com sucesso!");
-    } catch (error) {
-      console.error('Erro ao salvar ficha:', error);
-      toast.error("Erro ao salvar ficha");
+  const updateAgendamento = (date: Date | undefined) => {
+    setAgendamento(date);
+    if (ficha) {
+      autoSave(ficha, date);
     }
   };
 
   if (!ficha) return <div className="p-4">Carregando...</div>;
 
   return (
-    <div className="p-4 space-y-4 overflow-y-auto h-full">
-      <div>
-        <Label htmlFor="nome_ficha">Nome da Ficha</Label>
-        <Input
-          id="nome_ficha"
-          value={ficha.nome_ficha || ''}
-          onChange={(e) => setFicha({ ...ficha, nome_ficha: e.target.value })}
-        />
-      </div>
+    <div className="h-full overflow-y-auto">
+      <Accordion type="multiple" defaultValue={["geral", "agendamento", "valores"]} className="px-4 pb-4">
+        {/* 1. Informações Gerais */}
+        <AccordionItem value="geral">
+          <AccordionTrigger>Informações Gerais</AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-2">
+            <div>
+              <Label htmlFor="nome_ficha">Nome da Ficha (ID)</Label>
+              <Input
+                id="nome_ficha"
+                value={ficha.nome_ficha || ''}
+                onChange={(e) => updateFicha({ nome_ficha: e.target.value })}
+              />
+            </div>
 
-      <div>
-        <Label htmlFor="descricao">Descrição</Label>
-        <Textarea
-          id="descricao"
-          value={ficha.descricao || ''}
-          onChange={(e) => setFicha({ ...ficha, descricao: e.target.value })}
-          rows={3}
-        />
-      </div>
+            <div>
+              <Label htmlFor="telefone_cliente">Telefone Cliente</Label>
+              <Input
+                id="telefone_cliente"
+                value={ficha.telefone_cliente || ''}
+                disabled
+                className="bg-muted"
+              />
+            </div>
 
-      <div>
-        <Label htmlFor="status">Status</Label>
-        <Select value={ficha.status} onValueChange={(value) => setFicha({ ...ficha, status: value })}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((status) => (
-              <SelectItem key={status} value={status}>
-                {status}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select value={ficha.status} onValueChange={(value) => updateFicha({ status: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div>
-        <Label htmlFor="prestador">Prestador</Label>
-        <Select 
-          value={ficha.prestador_id || ''} 
-          onValueChange={(value) => setFicha({ ...ficha, prestador_id: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione um prestador" />
-          </SelectTrigger>
-          <SelectContent>
-            {prestadores.map((prestador) => (
-              <SelectItem key={prestador.cpf} value={prestador.cpf}>
-                {prestador.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+            <div>
+              <Label htmlFor="categoria_id">Categoria</Label>
+              <Input
+                id="categoria_id"
+                type="number"
+                value={ficha.categoria_id || ''}
+                onChange={(e) => updateFicha({ categoria_id: parseInt(e.target.value) || null })}
+              />
+            </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <Label htmlFor="valor_total">Valor Total</Label>
-          <Input
-            id="valor_total"
-            type="number"
-            value={ficha.valor_total}
-            onChange={(e) => setFicha({ ...ficha, valor_total: parseFloat(e.target.value) || 0 })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="valor_mao_obra">Mão de Obra</Label>
-          <Input
-            id="valor_mao_obra"
-            type="number"
-            value={ficha.valor_mao_obra}
-            onChange={(e) => setFicha({ ...ficha, valor_mao_obra: parseFloat(e.target.value) || 0 })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="valor_pecas">Peças</Label>
-          <Input
-            id="valor_pecas"
-            type="number"
-            value={ficha.valor_pecas}
-            onChange={(e) => setFicha({ ...ficha, valor_pecas: parseFloat(e.target.value) || 0 })}
-          />
-        </div>
-      </div>
+            <div>
+              <Label htmlFor="descricao">Descrição</Label>
+              <Textarea
+                id="descricao"
+                value={ficha.descricao || ''}
+                onChange={(e) => updateFicha({ descricao: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </AccordionContent>
+        </AccordionItem>
 
-      <div>
-        <Label>Agendamento</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                "w-full justify-start text-left font-normal",
-                !agendamento && "text-muted-foreground"
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {agendamento ? format(agendamento, "PPP", { locale: ptBR }) : "Selecionar data"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              selected={agendamento}
-              onSelect={setAgendamento}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
+        {/* 2. Agendamento */}
+        <AccordionItem value="agendamento">
+          <AccordionTrigger>Agendamento</AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-2">
+            <div>
+              <Label htmlFor="prestador">Prestador</Label>
+              <Select 
+                value={ficha.prestador_id || ''} 
+                onValueChange={(value) => updateFicha({ prestador_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um prestador" />
+                </SelectTrigger>
+                <SelectContent>
+                  {prestadores.map((prestador) => (
+                    <SelectItem key={prestador.cpf} value={prestador.cpf}>
+                      {prestador.nome} - {prestador.cpf}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div>
-        <Label htmlFor="cpf">CPF do Cliente</Label>
-        <Input
-          id="cpf"
-          value={ficha.cpf || ''}
-          onChange={(e) => setFicha({ ...ficha, cpf: e.target.value })}
-        />
-      </div>
+            <div>
+              <Label>Data e Horário do Agendamento</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !agendamento && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {agendamento ? format(agendamento, "PPP", { locale: ptBR }) : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={agendamento}
+                    onSelect={updateAgendamento}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
 
-      <div>
-        <Label htmlFor="endereco">Endereço</Label>
-        <Textarea
-          id="endereco"
-          value={ficha.endereco || ''}
-          onChange={(e) => setFicha({ ...ficha, endereco: e.target.value })}
-          rows={2}
-        />
-      </div>
+        {/* 3. Valores */}
+        <AccordionItem value="valores">
+          <AccordionTrigger>Valores</AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-2">
+            <div>
+              <Label htmlFor="valor_total">Valor Total</Label>
+              <Input
+                id="valor_total"
+                type="number"
+                step="0.01"
+                value={ficha.valor_total}
+                onChange={(e) => updateFicha({ valor_total: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
 
-      <div>
-        <Label htmlFor="pagamento_tipo">Forma de Pagamento</Label>
-        <Select 
-          value={ficha.pagamento_tipo || ''} 
-          onValueChange={(value) => setFicha({ ...ficha, pagamento_tipo: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="dinheiro">Dinheiro</SelectItem>
-            <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
-            <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
-            <SelectItem value="pix">PIX</SelectItem>
-            <SelectItem value="boleto">Boleto</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+            <div>
+              <Label htmlFor="valor_mao_obra">Valor Mão de Obra</Label>
+              <Input
+                id="valor_mao_obra"
+                type="number"
+                step="0.01"
+                value={ficha.valor_mao_obra}
+                onChange={(e) => updateFicha({ valor_mao_obra: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
 
-      <div>
-        <Label htmlFor="parcelas">Parcelamento</Label>
-        <Input
-          id="parcelas"
-          type="number"
-          value={ficha.pagamento_parcelas}
-          onChange={(e) => setFicha({ ...ficha, pagamento_parcelas: parseInt(e.target.value) || 1 })}
-        />
-      </div>
+            <div>
+              <Label htmlFor="valor_pecas">Valor Peças</Label>
+              <Input
+                id="valor_pecas"
+                type="number"
+                step="0.01"
+                value={ficha.valor_pecas}
+                onChange={(e) => updateFicha({ valor_pecas: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+          </AccordionContent>
+        </AccordionItem>
 
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="gerar_link"
-          checked={ficha.pagamento_gerar_link}
-          onChange={(e) => setFicha({ ...ficha, pagamento_gerar_link: e.target.checked })}
-        />
-        <Label htmlFor="gerar_link">Gerar Link de Pagamento</Label>
-      </div>
+        {/* 4. Pagamento */}
+        <AccordionItem value="pagamento">
+          <AccordionTrigger>Pagamento</AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="gerar_link"
+                checked={ficha.pagamento_gerar_link}
+                onCheckedChange={(checked) => updateFicha({ pagamento_gerar_link: checked as boolean })}
+              />
+              <Label htmlFor="gerar_link" className="cursor-pointer">Gerar Link de Pagamento</Label>
+            </div>
 
-      <div>
-        <Label htmlFor="id_zoho">ID Zoho</Label>
-        <Input
-          id="id_zoho"
-          value={ficha.id_zoho || ''}
-          onChange={(e) => setFicha({ ...ficha, id_zoho: e.target.value })}
-        />
-      </div>
+            <div>
+              <Label htmlFor="pagamento_tipo">Forma de Pagamento</Label>
+              <Select 
+                value={ficha.pagamento_tipo || ''} 
+                onValueChange={(value) => updateFicha({ pagamento_tipo: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div>
-        <Label htmlFor="notas">Notas</Label>
-        <Textarea
-          id="notas"
-          value={ficha.notas || ''}
-          onChange={(e) => setFicha({ ...ficha, notas: e.target.value })}
-          rows={3}
-        />
-      </div>
+            <div>
+              <Label htmlFor="parcelas">Parcelamento</Label>
+              <Input
+                id="parcelas"
+                type="number"
+                min="1"
+                value={ficha.pagamento_parcelas}
+                onChange={(e) => updateFicha({ pagamento_parcelas: parseInt(e.target.value) || 1 })}
+              />
+            </div>
+          </AccordionContent>
+        </AccordionItem>
 
-      <Button onClick={salvarFicha} className="w-full">
-        Salvar Ficha
-      </Button>
+        {/* 5. Informações do Cliente */}
+        <AccordionItem value="cliente">
+          <AccordionTrigger>Informações do Cliente</AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-2">
+            <div>
+              <Label htmlFor="cpf">CPF Cliente</Label>
+              <Input
+                id="cpf"
+                value={ficha.cpf || ''}
+                onChange={(e) => updateFicha({ cpf: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="endereco">Endereço</Label>
+              <Textarea
+                id="endereco"
+                value={ficha.endereco || ''}
+                onChange={(e) => updateFicha({ endereco: e.target.value })}
+                rows={2}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="id_zoho">ID Zoho Ficha</Label>
+              <Input
+                id="id_zoho"
+                value={ficha.id_zoho || ''}
+                onChange={(e) => updateFicha({ id_zoho: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="notas">Notas</Label>
+              <Textarea
+                id="notas"
+                value={ficha.notas || ''}
+                onChange={(e) => updateFicha({ notas: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 };
