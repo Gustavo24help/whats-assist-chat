@@ -66,11 +66,19 @@ const STATUS_OPTIONS = [
 export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
-  const [agendamento, setAgendamento] = useState<Date | undefined>();
+  const [dataAgendamento, setDataAgendamento] = useState<string>('');
+  const [horaAgendamento, setHoraAgendamento] = useState<string>('');
 
   // Auto-save debounced
   const autoSave = useCallback(
-    debounce(async (fichaData: Ficha, agendamentoData: Date | undefined) => {
+    debounce(async (fichaData: Ficha, dataAgend: string, horaAgend: string) => {
+      // Combinar data e hora em formato ISO
+      let agendamentoISO: string | undefined;
+      if (dataAgend && horaAgend) {
+        agendamentoISO = `${dataAgend}T${horaAgend}:00`;
+      } else if (dataAgend) {
+        agendamentoISO = `${dataAgend}T00:00:00`;
+      }
       try {
         const { error } = await supabase
           .from('fichas_de_servico')
@@ -84,7 +92,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             valor_total: fichaData.valor_total,
             valor_mao_obra: fichaData.valor_mao_obra,
             valor_pecas: fichaData.valor_pecas,
-            horario_agendamento: agendamentoData?.toISOString(),
+            horario_agendamento: agendamentoISO,
             cpf: fichaData.cpf,
             endereco: fichaData.endereco,
             pagamento_tipo: fichaData.pagamento_tipo as any,
@@ -115,7 +123,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 valor_total: fichaData.valor_total,
                 valor_mao_obra: fichaData.valor_mao_obra,
                 valor_pecas: fichaData.valor_pecas,
-                horario_agendamento: agendamentoData?.toISOString(),
+                horario_agendamento: agendamentoISO,
                 cpf: fichaData.cpf,
                 endereco: fichaData.endereco,
                 pagamento_gerar_link: fichaData.pagamento_gerar_link,
@@ -169,8 +177,18 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
     if (!error && data) {
       setFicha(data);
+      
+      // Separar data e hora do agendamento
       if (data.horario_agendamento) {
-        setAgendamento(new Date(data.horario_agendamento));
+        const dataHora = new Date(data.horario_agendamento);
+        const ano = dataHora.getFullYear();
+        const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
+        const dia = String(dataHora.getDate()).padStart(2, '0');
+        const hora = String(dataHora.getHours()).padStart(2, '0');
+        const min = String(dataHora.getMinutes()).padStart(2, '0');
+        
+        setDataAgendamento(`${ano}-${mes}-${dia}`);
+        setHoraAgendamento(`${hora}:${min}`);
       }
     }
   };
@@ -188,18 +206,33 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (!ficha) return;
     const updatedFicha = { ...ficha, ...updates };
     setFicha(updatedFicha);
-    autoSave(updatedFicha, agendamento);
+    autoSave(updatedFicha, dataAgendamento, horaAgendamento);
   };
 
-  const updateAgendamento = (date: Date | undefined) => {
-    setAgendamento(date);
+  const updateDataAgendamento = (data: string) => {
+    setDataAgendamento(data);
     if (ficha) {
-      autoSave(ficha, date);
+      autoSave(ficha, data, horaAgendamento);
+    }
+  };
+
+  const updateHoraAgendamento = (hora: string) => {
+    setHoraAgendamento(hora);
+    if (ficha) {
+      autoSave(ficha, dataAgendamento, hora);
     }
   };
 
   const salvarManualmente = async () => {
     if (!ficha) return;
+    
+    // Combinar data e hora
+    let agendamentoISO: string | undefined;
+    if (dataAgendamento && horaAgendamento) {
+      agendamentoISO = `${dataAgendamento}T${horaAgendamento}:00`;
+    } else if (dataAgendamento) {
+      agendamentoISO = `${dataAgendamento}T00:00:00`;
+    }
     
     try {
       const { error } = await supabase
@@ -214,7 +247,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           valor_total: ficha.valor_total,
           valor_mao_obra: ficha.valor_mao_obra,
           valor_pecas: ficha.valor_pecas,
-          horario_agendamento: agendamento?.toISOString(),
+          horario_agendamento: agendamentoISO,
           cpf: ficha.cpf,
           endereco: ficha.endereco,
           pagamento_tipo: ficha.pagamento_tipo as any,
@@ -245,7 +278,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               valor_total: ficha.valor_total,
               valor_mao_obra: ficha.valor_mao_obra,
               valor_pecas: ficha.valor_pecas,
-              horario_agendamento: agendamento?.toISOString(),
+              horario_agendamento: agendamentoISO,
               cpf: ficha.cpf,
               endereco: ficha.endereco,
               pagamento_gerar_link: ficha.pagamento_gerar_link,
@@ -270,9 +303,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   if (!ficha) return <div className="p-4">Carregando...</div>;
 
   return (
-    <div className="relative h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto pb-20">
-        <Accordion type="multiple" defaultValue={["geral", "agendamento", "valores"]} className="px-4 pt-4">
+    <div className="relative h-full flex flex-col max-h-screen">
+      <div className="flex-1 overflow-y-auto pb-24">
+        <Accordion type="multiple" defaultValue={["geral", "agendamento", "valores"]} className="px-4 pt-4 pb-4">
         {/* 1. Informações Gerais */}
         <AccordionItem value="geral">
           <AccordionTrigger>Informações Gerais</AccordionTrigger>
@@ -358,29 +391,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             </div>
 
             <div>
-              <Label>Data e Horário do Agendamento</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !agendamento && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {agendamento ? format(agendamento, "PPP", { locale: ptBR }) : "Selecionar data"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={agendamento}
-                    onSelect={updateAgendamento}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="data_agendamento">Data do Agendamento</Label>
+              <Input
+                id="data_agendamento"
+                type="date"
+                value={dataAgendamento}
+                onChange={(e) => updateDataAgendamento(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="hora_agendamento">Horário do Agendamento</Label>
+              <Input
+                id="hora_agendamento"
+                type="time"
+                value={horaAgendamento}
+                onChange={(e) => updateHoraAgendamento(e.target.value)}
+              />
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -516,9 +543,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       </div>
 
       {/* Botão flutuante de salvar */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent border-t">
-        <Button onClick={salvarManualmente} className="w-full shadow-lg">
-          Salvar Ficha
+      <div className="sticky bottom-0 left-0 right-0 p-3 bg-background border-t border-border z-10 shadow-lg">
+        <Button onClick={salvarManualmente} className="w-full">
+          💾 Salvar Ficha
         </Button>
       </div>
     </div>
