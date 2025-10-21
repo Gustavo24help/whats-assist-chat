@@ -5,7 +5,7 @@ import { ConversationList } from "@/components/ConversationList";
 import { ChatWindow } from "@/components/ChatWindow";
 import { FichaPanel } from "@/components/FichaPanel";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -41,10 +41,16 @@ const Index = () => {
     <div className="h-screen flex flex-col bg-background">
       <header className="h-14 border-b bg-card flex items-center justify-between px-4">
         <h1 className="text-lg font-semibold">Central de Atendimento WhatsApp</h1>
-        <Button variant="ghost" size="sm" onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Sair
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+            <Settings className="mr-2 h-4 w-4" />
+            Configurações
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
