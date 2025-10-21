@@ -311,7 +311,22 @@ export type Database = {
     }
     Enums: {
       status_conversa_enum: "aberta" | "fechada"
-      status_ficha_enum: "pendente" | "em_andamento" | "concluido"
+      status_ficha_enum:
+        | "Não foi adiante"
+        | "Ficha Criada"
+        | "Contato Inicial"
+        | "Dúvida Prestador"
+        | "Orçamento Enviado"
+        | "Negociação"
+        | "Visita Técnica"
+        | "Orçamento Aprovado / Agendamento"
+        | "Orçamento Não Aprovado"
+        | "Agendado"
+        | "Em andamento"
+        | "Finalizado"
+        | "Garantia"
+        | "Perdido"
+        | "pendente"
       status_mensagem_enum: "enviado" | "recebido" | "lido"
       status_orcamento_enum: "pendente" | "aprovado" | "rejeitado"
       tipo_mensagem_enum: "texto" | "arquivo"
@@ -450,7 +465,23 @@ export const Constants = {
   public: {
     Enums: {
       status_conversa_enum: ["aberta", "fechada"],
-      status_ficha_enum: ["pendente", "em_andamento", "concluido"],
+      status_ficha_enum: [
+        "Não foi adiante",
+        "Ficha Criada",
+        "Contato Inicial",
+        "Dúvida Prestador",
+        "Orçamento Enviado",
+        "Negociação",
+        "Visita Técnica",
+        "Orçamento Aprovado / Agendamento",
+        "Orçamento Não Aprovado",
+        "Agendado",
+        "Em andamento",
+        "Finalizado",
+        "Garantia",
+        "Perdido",
+        "pendente",
+      ],
       status_mensagem_enum: ["enviado", "recebido", "lido"],
       status_orcamento_enum: ["pendente", "aprovado", "rejeitado"],
       tipo_mensagem_enum: ["texto", "arquivo"],

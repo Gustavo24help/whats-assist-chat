@@ -198,11 +198,81 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
   };
 
+  const salvarManualmente = async () => {
+    if (!ficha) return;
+    
+    try {
+      const { error } = await supabase
+        .from('fichas_de_servico')
+        .upsert([{
+          id: ficha.id,
+          telefone_cliente: ficha.telefone_cliente,
+          nome_ficha: ficha.nome_ficha,
+          descricao: ficha.descricao,
+          status: ficha.status as any,
+          prestador_id: ficha.prestador_id,
+          valor_total: ficha.valor_total,
+          valor_mao_obra: ficha.valor_mao_obra,
+          valor_pecas: ficha.valor_pecas,
+          horario_agendamento: agendamento?.toISOString(),
+          cpf: ficha.cpf,
+          endereco: ficha.endereco,
+          pagamento_tipo: ficha.pagamento_tipo as any,
+          pagamento_parcelas: ficha.pagamento_parcelas,
+          pagamento_gerar_link: ficha.pagamento_gerar_link,
+          notas: ficha.notas,
+          categoria_id: ficha.categoria_id,
+          id_zoho: ficha.id_zoho,
+        }] as any);
+
+      if (error) throw error;
+
+      // Disparar webhook
+      const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: ficha.id,
+              telefone_cliente: ficha.telefone_cliente,
+              nome_ficha: ficha.nome_ficha,
+              status: ficha.status,
+              categoria_id: ficha.categoria_id,
+              descricao: ficha.descricao,
+              prestador_id: ficha.prestador_id,
+              valor_total: ficha.valor_total,
+              valor_mao_obra: ficha.valor_mao_obra,
+              valor_pecas: ficha.valor_pecas,
+              horario_agendamento: agendamento?.toISOString(),
+              cpf: ficha.cpf,
+              endereco: ficha.endereco,
+              pagamento_gerar_link: ficha.pagamento_gerar_link,
+              pagamento_tipo: ficha.pagamento_tipo,
+              pagamento_parcelas: ficha.pagamento_parcelas,
+              id_zoho: ficha.id_zoho,
+              notas: ficha.notas,
+            }),
+          });
+        } catch (webhookError) {
+          console.error('Erro ao enviar webhook:', webhookError);
+        }
+      }
+
+      toast.success("Ficha salva com sucesso!");
+    } catch (error) {
+      console.error('Erro ao salvar ficha:', error);
+      toast.error("Erro ao salvar ficha");
+    }
+  };
+
   if (!ficha) return <div className="p-4">Carregando...</div>;
 
   return (
-    <div className="h-full overflow-y-auto">
-      <Accordion type="multiple" defaultValue={["geral", "agendamento", "valores"]} className="px-4 pb-4">
+    <div className="relative h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto pb-20">
+        <Accordion type="multiple" defaultValue={["geral", "agendamento", "valores"]} className="px-4 pt-4">
         {/* 1. Informações Gerais */}
         <AccordionItem value="geral">
           <AccordionTrigger>Informações Gerais</AccordionTrigger>
@@ -443,6 +513,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+      </div>
+
+      {/* Botão flutuante de salvar */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent border-t">
+        <Button onClick={salvarManualmente} className="w-full shadow-lg">
+          Salvar Ficha
+        </Button>
+      </div>
     </div>
   );
 };
