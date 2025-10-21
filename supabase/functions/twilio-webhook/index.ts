@@ -38,28 +38,40 @@ serve(async (req) => {
       console.log("Criando novo cliente:", from);
       const { data: novoCliente, error: createError } = await supabase
         .from('clientes')
-        .insert([
-          {
-            telefone: from,
-            nome: 'Desconhecido',
-            status_conversa: 'aberta',
-            ultima_interacao: new Date().toISOString(),
-          }
-        ])
+        .insert({
+          telefone: from,
+          nome: 'Desconhecido',
+          status_conversa: 'aberta',
+          ultima_interacao: new Date().toISOString(),
+          tags: null, // Explicitly set to null instead of empty array string
+        })
         .select()
         .single();
 
       if (createError) {
         console.error("Erro ao criar cliente:", createError);
-        throw createError;
+        // Return 200 to prevent Twilio retries
+        return new Response(
+          '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+          {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'text/xml',
+            },
+          }
+        );
       }
       cliente = novoCliente;
     } else {
       // Atualizar última interação
-      await supabase
+      const { error: updateError } = await supabase
         .from('clientes')
         .update({ ultima_interacao: new Date().toISOString() })
         .eq('id', cliente.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar última interação:", updateError);
+      }
     }
 
     console.log("Cliente identificado:", cliente.id);
@@ -73,15 +85,26 @@ serve(async (req) => {
       arquivo_url: mediaUrl || null,
       status: 'recebido',
       data_hora: new Date().toISOString(),
+      ficha_id: null, // Explicitly set optional fields
     };
 
     const { error: mensagemError } = await supabase
       .from('mensagens')
-      .insert([mensagem]);
+      .insert(mensagem);
 
     if (mensagemError) {
       console.error("Erro ao salvar mensagem:", mensagemError);
-      throw mensagemError;
+      console.error("Dados da mensagem:", JSON.stringify(mensagem));
+      // Return 200 to prevent Twilio retries
+      return new Response(
+        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/xml',
+          },
+        }
+      );
     }
 
     console.log("Mensagem salva com sucesso");
@@ -99,11 +122,14 @@ serve(async (req) => {
   } catch (error) {
     console.error("Erro no webhook:", error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    // Always return 200 to Twilio to prevent retries
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
       {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/xml',
+        },
       }
     );
   }

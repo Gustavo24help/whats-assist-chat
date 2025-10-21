@@ -99,7 +99,7 @@ serve(async (req) => {
       .single();
 
     if (clienteData) {
-      await supabase.from('mensagens').insert([{
+      const { error: insertError } = await supabase.from('mensagens').insert({
         cliente_id: clienteData.id,
         remetente: 'atendente',
         texto: message,
@@ -107,13 +107,22 @@ serve(async (req) => {
         arquivo_url: mediaUrl || null,
         status: 'enviado',
         data_hora: new Date().toISOString(),
-      }]);
+      });
+
+      if (insertError) {
+        console.error("Erro ao inserir mensagem:", insertError);
+        throw new Error(`Erro ao salvar mensagem: ${insertError.message}`);
+      }
 
       // Atualizar última interação
-      await supabase
+      const { error: updateError } = await supabase
         .from('clientes')
         .update({ ultima_interacao: new Date().toISOString() })
         .eq('id', clienteData.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar cliente:", updateError);
+      }
     }
 
     return new Response(
