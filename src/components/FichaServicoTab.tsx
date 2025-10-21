@@ -19,6 +19,7 @@ interface FichaServicoTabProps {
 
 interface Ficha {
   id: string;
+  telefone_cliente: string;
   nome_ficha: string | null;
   descricao: string | null;
   status: string;
@@ -33,10 +34,12 @@ interface Ficha {
   pagamento_parcelas: number;
   pagamento_gerar_link: boolean;
   notas: string | null;
+  categoria_id: number | null;
+  id_zoho: string | null;
 }
 
 interface Prestador {
-  id: string;
+  cpf: string;
   nome: string;
 }
 
@@ -90,7 +93,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       .from('fichas_de_servico')
       .select('*')
       .eq('id', fichaId)
-      .single();
+      .maybeSingle();
 
     if (!error && data) {
       setFicha(data);
@@ -103,10 +106,10 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const fetchPrestadores = async () => {
     const { data } = await supabase
       .from('prestadores')
-      .select('id, nome')
+      .select('cpf, nome')
       .order('nome');
 
-    if (data) setPrestadores(data);
+    if (data) setPrestadores(data as Prestador[]);
   };
 
   const salvarFicha = async () => {
@@ -130,6 +133,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           pagamento_parcelas: ficha.pagamento_parcelas,
           pagamento_gerar_link: ficha.pagamento_gerar_link,
           notas: ficha.notas,
+          categoria_id: ficha.categoria_id,
+          id_zoho: ficha.id_zoho,
         })
         .eq('id', fichaId);
 
@@ -139,16 +144,42 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
       if (webhookUrl) {
         try {
-          await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...ficha,
-              horario_agendamento: agendamento?.toISOString(),
-            }),
-          });
+          // Buscar dados completos para enviar no webhook
+          const { data: fichaCompleta } = await supabase
+            .from('fichas_de_servico')
+            .select('*')
+            .eq('id', fichaId)
+            .maybeSingle();
+
+          if (fichaCompleta) {
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: fichaCompleta.id,
+                telefone_cliente: fichaCompleta.telefone_cliente,
+                nome_ficha: fichaCompleta.nome_ficha,
+                status: fichaCompleta.status,
+                categoria_id: fichaCompleta.categoria_id,
+                descricao: fichaCompleta.descricao,
+                prestador_id: fichaCompleta.prestador_id,
+                valor_total: fichaCompleta.valor_total,
+                valor_mao_obra: fichaCompleta.valor_mao_obra,
+                valor_pecas: fichaCompleta.valor_pecas,
+                horario_agendamento: fichaCompleta.horario_agendamento,
+                cpf: fichaCompleta.cpf,
+                endereco: fichaCompleta.endereco,
+                pagamento_gerar_link: fichaCompleta.pagamento_gerar_link,
+                pagamento_tipo: fichaCompleta.pagamento_tipo,
+                pagamento_parcelas: fichaCompleta.pagamento_parcelas,
+                id_zoho: fichaCompleta.id_zoho,
+                notas: fichaCompleta.notas,
+              }),
+            });
+          }
         } catch (webhookError) {
           console.error('Erro ao enviar webhook:', webhookError);
+          toast.warning("Ficha salva, mas erro ao enviar webhook");
         }
       }
 
@@ -209,7 +240,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </SelectTrigger>
           <SelectContent>
             {prestadores.map((prestador) => (
-              <SelectItem key={prestador.id} value={prestador.id}>
+              <SelectItem key={prestador.cpf} value={prestador.cpf}>
                 {prestador.nome}
               </SelectItem>
             ))}
@@ -224,7 +255,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             id="valor_total"
             type="number"
             value={ficha.valor_total}
-            onChange={(e) => setFicha({ ...ficha, valor_total: parseFloat(e.target.value) })}
+            onChange={(e) => setFicha({ ...ficha, valor_total: parseFloat(e.target.value) || 0 })}
           />
         </div>
         <div>
@@ -233,7 +264,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             id="valor_mao_obra"
             type="number"
             value={ficha.valor_mao_obra}
-            onChange={(e) => setFicha({ ...ficha, valor_mao_obra: parseFloat(e.target.value) })}
+            onChange={(e) => setFicha({ ...ficha, valor_mao_obra: parseFloat(e.target.value) || 0 })}
           />
         </div>
         <div>
@@ -242,7 +273,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             id="valor_pecas"
             type="number"
             value={ficha.valor_pecas}
-            onChange={(e) => setFicha({ ...ficha, valor_pecas: parseFloat(e.target.value) })}
+            onChange={(e) => setFicha({ ...ficha, valor_pecas: parseFloat(e.target.value) || 0 })}
           />
         </div>
       </div>
@@ -274,7 +305,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       </div>
 
       <div>
-        <Label htmlFor="cpf">CPF</Label>
+        <Label htmlFor="cpf">CPF do Cliente</Label>
         <Input
           id="cpf"
           value={ficha.cpf || ''}
@@ -303,7 +334,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="dinheiro">Dinheiro</SelectItem>
-            <SelectItem value="cartao">Cartão</SelectItem>
+            <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+            <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
             <SelectItem value="pix">PIX</SelectItem>
             <SelectItem value="boleto">Boleto</SelectItem>
           </SelectContent>
@@ -316,7 +348,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           id="parcelas"
           type="number"
           value={ficha.pagamento_parcelas}
-          onChange={(e) => setFicha({ ...ficha, pagamento_parcelas: parseInt(e.target.value) })}
+          onChange={(e) => setFicha({ ...ficha, pagamento_parcelas: parseInt(e.target.value) || 1 })}
         />
       </div>
 
@@ -328,6 +360,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           onChange={(e) => setFicha({ ...ficha, pagamento_gerar_link: e.target.checked })}
         />
         <Label htmlFor="gerar_link">Gerar Link de Pagamento</Label>
+      </div>
+
+      <div>
+        <Label htmlFor="id_zoho">ID Zoho</Label>
+        <Input
+          id="id_zoho"
+          value={ficha.id_zoho || ''}
+          onChange={(e) => setFicha({ ...ficha, id_zoho: e.target.value })}
+        />
       </div>
 
       <div>

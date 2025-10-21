@@ -56,7 +56,7 @@ const Index = () => {
       <div className="flex-1 flex overflow-hidden">
         <div className="w-80">
           <ConversationList
-            selectedClienteId={selectedCliente?.id || null}
+            selectedClienteTelefone={selectedCliente?.telefone || null}
             onSelectCliente={setSelectedCliente}
           />
         </div>
@@ -65,7 +65,7 @@ const Index = () => {
           <>
             <div className={fichaOpen ? "flex-1" : "flex-1"}>
               <ChatWindow
-                clienteId={selectedCliente.id}
+                clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
                 statusConversa={selectedCliente.status_conversa}
                 onOpenFicha={() => setFichaOpen(true)}
@@ -75,7 +75,7 @@ const Index = () => {
             {fichaOpen && (
               <div className="w-96">
                 <FichaPanel
-                  clienteId={selectedCliente.id}
+                  clienteTelefone={selectedCliente.telefone}
                   clienteNome={selectedCliente.nome}
                   onClose={() => setFichaOpen(false)}
                 />

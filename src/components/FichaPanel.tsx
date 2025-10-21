@@ -13,24 +13,24 @@ interface Ficha {
 }
 
 interface FichaPanelProps {
-  clienteId: string;
+  clienteTelefone: string; // Usar telefone como ID
   clienteNome: string;
   onClose: () => void;
 }
 
-export const FichaPanel = ({ clienteId, clienteNome, onClose }: FichaPanelProps) => {
+export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanelProps) => {
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [fichaAtual, setFichaAtual] = useState<string | null>(null);
 
   useEffect(() => {
     fetchFichas();
-  }, [clienteId]);
+  }, [clienteTelefone]);
 
   const fetchFichas = async () => {
     const { data } = await supabase
       .from('fichas_de_servico')
       .select('id, nome_ficha')
-      .eq('cliente_id', clienteId)
+      .eq('telefone_cliente', clienteTelefone)
       .order('created_at', { ascending: false });
 
     if (data && data.length > 0) {
@@ -40,11 +40,13 @@ export const FichaPanel = ({ clienteId, clienteNome, onClose }: FichaPanelProps)
   };
 
   const criarFicha = async () => {
+    const nomeGerado = `${clienteNome}@${new Date().toISOString().split('T')[0].replace(/-/g, '')}`;
     const { data, error } = await supabase
       .from('fichas_de_servico')
       .insert({
-        cliente_id: clienteId,
-        nome_ficha: `Ficha ${clienteNome} - ${new Date().toLocaleDateString()}`,
+        id: nomeGerado, // ID = nome da ficha
+        telefone_cliente: clienteTelefone,
+        nome_ficha: nomeGerado,
         status: 'pendente',
         valor_total: 0,
         valor_mao_obra: 0,

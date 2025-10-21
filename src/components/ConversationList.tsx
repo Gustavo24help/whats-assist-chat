@@ -9,20 +9,19 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Cliente {
-  id: string;
+  telefone: string; // PK agora é telefone
   nome: string;
-  telefone: string;
   status_conversa: "aberta" | "fechada";
   ultima_interacao: string;
   tags: string[];
 }
 
 interface ConversationListProps {
-  selectedClienteId: string | null;
+  selectedClienteTelefone: string | null;
   onSelectCliente: (cliente: Cliente) => void;
 }
 
-export const ConversationList = ({ selectedClienteId, onSelectCliente }: ConversationListProps) => {
+export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: ConversationListProps) => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -119,11 +118,11 @@ export const ConversationList = ({ selectedClienteId, onSelectCliente }: Convers
       <div className="flex-1 overflow-y-auto">
         {filteredClientes.map((cliente) => (
           <div
-            key={cliente.id}
+            key={cliente.telefone}
             onClick={() => onSelectCliente(cliente)}
             className={cn(
               "p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors",
-              selectedClienteId === cliente.id && "bg-muted"
+              selectedClienteTelefone === cliente.telefone && "bg-muted"
             )}
           >
             <div className="flex items-start justify-between mb-2">

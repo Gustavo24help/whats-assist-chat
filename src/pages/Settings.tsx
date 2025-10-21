@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,13 @@ const Settings = () => {
   const [twilioAccountSid, setTwilioAccountSid] = useState("");
   const [twilioAuthToken, setTwilioAuthToken] = useState("");
   const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("");
+
+  // Carregar webhook salvo ao montar componente
+  useEffect(() => {
+    const saved = localStorage.getItem('webhook_ficha_atualizada');
+    if (saved) setWebhookUrl(saved);
+  }, []);
 
   const handleSaveSettings = () => {
     // Aqui você implementaria a lógica para salvar as configurações
@@ -21,6 +28,14 @@ const Settings = () => {
     toast({
       title: "Configurações salvas",
       description: "As credenciais da Twilio foram salvas com sucesso.",
+    });
+  };
+
+  const handleSaveWebhook = () => {
+    localStorage.setItem('webhook_ficha_atualizada', webhookUrl);
+    toast({
+      title: "Webhook salvo",
+      description: "O webhook foi configurado com sucesso.",
     });
   };
 
@@ -126,9 +141,38 @@ const Settings = () => {
           <TabsContent value="geral" className="space-y-4">
             <Card>
               <CardHeader>
+                <CardTitle>Webhooks</CardTitle>
+                <CardDescription>
+                  Configure os endpoints para receber notificações de eventos
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="webhook_ficha">Webhook de Atualização da Ficha</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="webhook_ficha"
+                      placeholder="https://seu-endpoint.com/webhook/ficha-atualizada"
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                    />
+                    <Button onClick={handleSaveWebhook}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enviaremos um POST com os dados completos da ficha sempre que ela for criada ou alterada
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>Configurações Gerais</CardTitle>
                 <CardDescription>
-                  Configurações gerais do sistema
+                  Outras configurações do sistema
                 </CardDescription>
               </CardHeader>
               <CardContent>

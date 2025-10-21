@@ -28,16 +28,16 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar ou criar contato
+    // Buscar ou criar contato (telefone é a PK)
     let { data: cliente, error: clienteError } = await supabase
       .from('clientes')
       .select('*')
       .eq('telefone', from)
-      .single();
+      .maybeSingle();
 
     if (!cliente) {
       console.log("Criando novo cliente:", from);
-      const nomeCliente = profileName || from.replace('whatsapp:', '') || 'Desconhecido';
+      const nomeCliente = profileName || from.replace('whatsapp:', '').replace('+', '') || 'Desconhecido';
       const { data: novoCliente, error: createError } = await supabase
         .from('clientes')
         .insert({
@@ -45,7 +45,7 @@ serve(async (req) => {
           nome: nomeCliente,
           status_conversa: 'aberta',
           ultima_interacao: new Date().toISOString(),
-          tags: null,
+          tags: [],
         })
         .select()
         .single();
@@ -67,28 +67,28 @@ serve(async (req) => {
     } else {
       // Atualizar última interação e nome se disponível
       const updateData: any = { ultima_interacao: new Date().toISOString() };
-      if (profileName && cliente.nome === 'Desconhecido') {
+      if (profileName && (cliente.nome === 'Desconhecido' || cliente.nome === from)) {
         updateData.nome = profileName;
       }
       
       const { error: updateError } = await supabase
         .from('clientes')
         .update(updateData)
-        .eq('id', cliente.id);
+        .eq('telefone', cliente.telefone);
 
       if (updateError) {
         console.error("Erro ao atualizar última interação:", updateError);
       }
     }
 
-    console.log("Cliente identificado:", cliente.id);
+    console.log("Cliente identificado:", cliente.telefone);
 
     // Salvar mensagem
     const mensagem = {
-      cliente_id: cliente.id,
+      cliente_id: cliente.telefone, // Usar telefone como FK
       remetente: 'cliente',
       texto: body || '',
-      tipo: numMedia && parseInt(numMedia) > 0 ? 'midia' : 'texto',
+      tipo: numMedia && parseInt(numMedia) > 0 ? 'arquivo' : 'texto',
       arquivo_url: mediaUrl || null,
       status: 'recebido',
       data_hora: new Date().toISOString(),

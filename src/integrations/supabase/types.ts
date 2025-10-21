@@ -35,7 +35,6 @@ export type Database = {
       clientes: {
         Row: {
           created_at: string | null
-          id: string
           nome: string
           status_conversa:
             | Database["public"]["Enums"]["status_conversa_enum"]
@@ -46,7 +45,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          id?: string
           nome?: string
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
@@ -57,7 +55,6 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          id?: string
           nome?: string
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
@@ -71,7 +68,6 @@ export type Database = {
       fichas_de_servico: {
         Row: {
           categoria_id: number | null
-          cliente_id: string
           cpf: string | null
           created_at: string | null
           descricao: string | null
@@ -88,6 +84,7 @@ export type Database = {
             | null
           prestador_id: string | null
           status: Database["public"]["Enums"]["status_ficha_enum"] | null
+          telefone_cliente: string
           updated_at: string | null
           valor_mao_obra: number | null
           valor_pecas: number | null
@@ -95,13 +92,12 @@ export type Database = {
         }
         Insert: {
           categoria_id?: number | null
-          cliente_id: string
           cpf?: string | null
           created_at?: string | null
           descricao?: string | null
           endereco?: string | null
           horario_agendamento?: string | null
-          id?: string
+          id: string
           id_zoho?: string | null
           nome_ficha?: string | null
           notas?: string | null
@@ -112,6 +108,7 @@ export type Database = {
             | null
           prestador_id?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
+          telefone_cliente: string
           updated_at?: string | null
           valor_mao_obra?: number | null
           valor_pecas?: number | null
@@ -119,7 +116,6 @@ export type Database = {
         }
         Update: {
           categoria_id?: number | null
-          cliente_id?: string
           cpf?: string | null
           created_at?: string | null
           descricao?: string | null
@@ -136,6 +132,7 @@ export type Database = {
             | null
           prestador_id?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
+          telefone_cliente?: string
           updated_at?: string | null
           valor_mao_obra?: number | null
           valor_pecas?: number | null
@@ -143,10 +140,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fichas_de_servico_cliente_id_fkey"
-            columns: ["cliente_id"]
+            foreignKeyName: "fichas_de_servico_categoria_id_fkey"
+            columns: ["categoria_id"]
             isOneToOne: false
-            referencedRelation: "clientes"
+            referencedRelation: "categorias"
             referencedColumns: ["id"]
           },
           {
@@ -154,7 +151,14 @@ export type Database = {
             columns: ["prestador_id"]
             isOneToOne: false
             referencedRelation: "prestadores"
-            referencedColumns: ["id"]
+            referencedColumns: ["cpf"]
+          },
+          {
+            foreignKeyName: "fichas_de_servico_telefone_cliente_fkey"
+            columns: ["telefone_cliente"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["telefone"]
           },
         ]
       }
@@ -198,7 +202,7 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
-            referencedColumns: ["id"]
+            referencedColumns: ["telefone"]
           },
           {
             foreignKeyName: "mensagens_ficha_id_fkey"
@@ -266,10 +270,9 @@ export type Database = {
         Row: {
           categoria: string | null
           cnpj: string | null
-          cpf: string | null
+          cpf: string
           created_at: string | null
           especialidade: string | null
-          id: string
           id_azure: string | null
           id_crm: string | null
           nome: string
@@ -278,10 +281,9 @@ export type Database = {
         Insert: {
           categoria?: string | null
           cnpj?: string | null
-          cpf?: string | null
+          cpf: string
           created_at?: string | null
           especialidade?: string | null
-          id?: string
           id_azure?: string | null
           id_crm?: string | null
           nome: string
@@ -290,10 +292,9 @@ export type Database = {
         Update: {
           categoria?: string | null
           cnpj?: string | null
-          cpf?: string | null
+          cpf?: string
           created_at?: string | null
           especialidade?: string | null
-          id?: string
           id_azure?: string | null
           id_crm?: string | null
           nome?: string

@@ -20,43 +20,29 @@ interface Mensagem {
 }
 
 interface ChatWindowProps {
-  clienteId: string;
+  clienteTelefone: string; // Usar telefone como ID
   clienteNome: string;
   statusConversa: "aberta" | "fechada";
   onOpenFicha: () => void;
 }
 
-export const ChatWindow = ({ clienteId, clienteNome, statusConversa, onOpenFicha }: ChatWindowProps) => {
+export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha }: ChatWindowProps) => {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
-  const [telefoneCliente, setTelefoneCliente] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchClienteData = async () => {
-      const { data } = await supabase
-        .from('clientes')
-        .select('telefone')
-        .eq('id', clienteId)
-        .single();
-      
-      if (data) {
-        setTelefoneCliente(data.telefone);
-      }
-    };
-
-    fetchClienteData();
     fetchMensagens();
 
     const channel = supabase
-      .channel(`mensagens-${clienteId}`)
+      .channel(`mensagens-${clienteTelefone}`)
       .on(
         'postgres_changes',
         { 
           event: '*', 
           schema: 'public', 
           table: 'mensagens',
-          filter: `cliente_id=eq.${clienteId}`
+          filter: `cliente_id=eq.${clienteTelefone}`
         },
         () => fetchMensagens()
       )
@@ -65,7 +51,7 @@ export const ChatWindow = ({ clienteId, clienteNome, statusConversa, onOpenFicha
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clienteId]);
+  }, [clienteTelefone]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -75,7 +61,7 @@ export const ChatWindow = ({ clienteId, clienteNome, statusConversa, onOpenFicha
     const { data, error } = await supabase
       .from('mensagens')
       .select('*')
-      .eq('cliente_id', clienteId)
+      .eq('cliente_id', clienteTelefone)
       .order('data_hora', { ascending: true });
 
     if (!error && data) {
@@ -95,7 +81,7 @@ export const ChatWindow = ({ clienteId, clienteNome, statusConversa, onOpenFicha
       // Enviar via Twilio
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
-          to: telefoneCliente,
+          to: clienteTelefone,
           message: novaMsg,
         },
       });
@@ -127,7 +113,7 @@ export const ChatWindow = ({ clienteId, clienteNome, statusConversa, onOpenFicha
             <p className="text-sm text-muted-foreground">
               {statusConversa === "aberta" ? "Conversa aberta" : "Conversa fechada - Use templates"}
             </p>
-            {telefoneCliente && <StatusConexaoTwilio telefoneCliente={telefoneCliente} />}
+            <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
           </div>
         </div>
         <Button onClick={onOpenFicha} variant="outline" size="sm">
