@@ -20,8 +20,9 @@ serve(async (req) => {
     const body = formData.get('Body') as string; // Texto da mensagem
     const mediaUrl = formData.get('MediaUrl0') as string; // URL do anexo (se houver)
     const numMedia = formData.get('NumMedia') as string;
+    const profileName = formData.get('ProfileName') as string; // Nome do perfil WhatsApp
 
-    console.log("Mensagem recebida:", { from, body, numMedia });
+    console.log("Mensagem recebida:", { from, body, numMedia, profileName });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -36,14 +37,15 @@ serve(async (req) => {
 
     if (!cliente) {
       console.log("Criando novo cliente:", from);
+      const nomeCliente = profileName || from.replace('whatsapp:', '') || 'Desconhecido';
       const { data: novoCliente, error: createError } = await supabase
         .from('clientes')
         .insert({
           telefone: from,
-          nome: 'Desconhecido',
+          nome: nomeCliente,
           status_conversa: 'aberta',
           ultima_interacao: new Date().toISOString(),
-          tags: null, // Explicitly set to null instead of empty array string
+          tags: null,
         })
         .select()
         .single();
@@ -63,10 +65,15 @@ serve(async (req) => {
       }
       cliente = novoCliente;
     } else {
-      // Atualizar última interação
+      // Atualizar última interação e nome se disponível
+      const updateData: any = { ultima_interacao: new Date().toISOString() };
+      if (profileName && cliente.nome === 'Desconhecido') {
+        updateData.nome = profileName;
+      }
+      
       const { error: updateError } = await supabase
         .from('clientes')
-        .update({ ultima_interacao: new Date().toISOString() })
+        .update(updateData)
         .eq('id', cliente.id);
 
       if (updateError) {
@@ -79,13 +86,13 @@ serve(async (req) => {
     // Salvar mensagem
     const mensagem = {
       cliente_id: cliente.id,
-      remetente: from,
+      remetente: 'cliente',
       texto: body || '',
       tipo: numMedia && parseInt(numMedia) > 0 ? 'midia' : 'texto',
       arquivo_url: mediaUrl || null,
       status: 'recebido',
       data_hora: new Date().toISOString(),
-      ficha_id: null, // Explicitly set optional fields
+      ficha_id: null,
     };
 
     const { error: mensagemError } = await supabase
