@@ -49,6 +49,31 @@ export const FichaPanel = ({ clienteId, clienteNome, onClose }: FichaPanelProps)
     fetchFicha();
   }, [clienteId]);
 
+  // Listener realtime para atualização da ficha
+  useEffect(() => {
+    if (!ficha?.id) return;
+
+    const channel = supabase
+      .channel(`ficha-${ficha.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'fichas_de_servico',
+          filter: `id=eq.${ficha.id}`,
+        },
+        () => {
+          fetchFicha();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [ficha?.id]);
+
   const fetchFicha = async () => {
     const { data: fichaData } = await supabase
       .from('fichas_de_servico')

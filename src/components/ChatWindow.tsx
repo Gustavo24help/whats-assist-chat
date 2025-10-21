@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
 
 interface Mensagem {
   id: string;
@@ -28,9 +29,23 @@ interface ChatWindowProps {
 export const ChatWindow = ({ clienteId, clienteNome, statusConversa, onOpenFicha }: ChatWindowProps) => {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
+  const [telefoneCliente, setTelefoneCliente] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const fetchClienteData = async () => {
+      const { data } = await supabase
+        .from('clientes')
+        .select('telefone')
+        .eq('id', clienteId)
+        .single();
+      
+      if (data) {
+        setTelefoneCliente(data.telefone);
+      }
+    };
+
+    fetchClienteData();
     fetchMensagens();
 
     const channel = supabase
@@ -76,24 +91,30 @@ export const ChatWindow = ({ clienteId, clienteNome, statusConversa, onOpenFicha
       return;
     }
 
-    const { error } = await supabase
-      .from('mensagens')
-      .insert({
-        cliente_id: clienteId,
-        texto: novaMsg,
-        tipo: 'texto',
-        remetente: 'atendente',
-        status: 'enviado'
+    try {
+      // Enviar via Twilio
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: {
+          to: telefoneCliente,
+          message: novaMsg,
+        },
       });
 
-    if (error) {
-      toast.error("Erro ao enviar mensagem");
-    } else {
+      if (error) throw error;
+
+      if (!data.success) {
+        if (data.error === 'FORA_JANELA_24H') {
+          toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
+          return;
+        }
+        throw new Error(data.error || "Erro ao enviar mensagem");
+      }
+
       setNovaMsg("");
-      await supabase
-        .from('clientes')
-        .update({ ultima_interacao: new Date().toISOString() })
-        .eq('id', clienteId);
+      toast.success("Mensagem enviada via WhatsApp");
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error);
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mensagem");
     }
   };
 
@@ -102,9 +123,12 @@ export const ChatWindow = ({ clienteId, clienteNome, statusConversa, onOpenFicha
       <div className="p-4 border-b flex items-center justify-between bg-card">
         <div>
           <h2 className="font-semibold text-lg">{clienteNome}</h2>
-          <p className="text-sm text-muted-foreground">
-            {statusConversa === "aberta" ? "Conversa aberta" : "Conversa fechada - Use templates"}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">
+              {statusConversa === "aberta" ? "Conversa aberta" : "Conversa fechada - Use templates"}
+            </p>
+            {telefoneCliente && <StatusConexaoTwilio telefoneCliente={telefoneCliente} />}
+          </div>
         </div>
         <Button onClick={onOpenFicha} variant="outline" size="sm">
           <FileText className="mr-2 h-4 w-4" />

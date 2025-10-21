@@ -1,1 +1,7 @@
 project_id = "halqtsowfqkczvlvwmdd"
+
+[functions.twilio-webhook]
+verify_jwt = false
+
+[functions.send-whatsapp]
+verify_jwt = false
