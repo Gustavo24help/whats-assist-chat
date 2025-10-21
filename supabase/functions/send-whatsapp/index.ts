@@ -62,9 +62,14 @@ serve(async (req) => {
     // Enviar via Twilio
     const auth = btoa(`${twilioAccountSid}:${twilioAuthToken}`);
     
+    // Garantir que o número From tenha o mesmo formato que o To (com prefixo whatsapp: se necessário)
+    const fromNumber = to.startsWith('whatsapp:') && !twilioPhoneNumber.startsWith('whatsapp:') 
+      ? `whatsapp:${twilioPhoneNumber}` 
+      : twilioPhoneNumber;
+    
     const body = new URLSearchParams();
     body.append('To', to);
-    body.append('From', twilioPhoneNumber);
+    body.append('From', fromNumber);
     body.append('Body', message);
     if (mediaUrl) {
       body.append('MediaUrl', mediaUrl);
