@@ -96,38 +96,30 @@ serve(async (req) => {
 
     console.log("Mensagem enviada com sucesso:", twilioData.sid);
 
-    // Salvar mensagem no banco
-    const { data: clienteData } = await supabase
+    // Salvar mensagem no banco (usando telefone como PK de clientes)
+    const { error: insertError } = await supabase.from('mensagens').insert({
+      cliente_id: to,
+      remetente: 'atendente',
+      texto: message,
+      tipo: mediaUrl ? 'arquivo' : 'texto',
+      arquivo_url: mediaUrl || null,
+      status: 'enviado',
+      data_hora: new Date().toISOString(),
+    });
+
+    if (insertError) {
+      console.error("Erro ao inserir mensagem:", insertError);
+      throw new Error(`Erro ao salvar mensagem: ${insertError.message}`);
+    }
+
+    // Atualizar última interação
+    const { error: updateError } = await supabase
       .from('clientes')
-      .select('id')
-      .eq('telefone', to)
-      .single();
+      .update({ ultima_interacao: new Date().toISOString() })
+      .eq('telefone', to);
 
-    if (clienteData) {
-      const { error: insertError } = await supabase.from('mensagens').insert({
-        cliente_id: clienteData.id,
-        remetente: 'atendente',
-        texto: message,
-        tipo: mediaUrl ? 'midia' : 'texto',
-        arquivo_url: mediaUrl || null,
-        status: 'enviado',
-        data_hora: new Date().toISOString(),
-      });
-
-      if (insertError) {
-        console.error("Erro ao inserir mensagem:", insertError);
-        throw new Error(`Erro ao salvar mensagem: ${insertError.message}`);
-      }
-
-      // Atualizar última interação
-      const { error: updateError } = await supabase
-        .from('clientes')
-        .update({ ultima_interacao: new Date().toISOString() })
-        .eq('id', clienteData.id);
-
-      if (updateError) {
-        console.error("Erro ao atualizar cliente:", updateError);
-      }
+    if (updateError) {
+      console.error("Erro ao atualizar cliente:", updateError);
     }
 
     return new Response(
