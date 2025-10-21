@@ -12,7 +12,7 @@ import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
 interface Mensagem {
   id: string;
   texto: string;
-  tipo: "texto" | "arquivo";
+  tipo: "texto" | "arquivo" | "imagem" | "video" | "audio";
   arquivo_url: string | null;
   data_hora: string;
   remetente: "cliente" | "atendente";
@@ -29,7 +29,9 @@ interface ChatWindowProps {
 export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha }: ChatWindowProps) => {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchMensagens();
@@ -69,6 +71,84 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (statusConversa === "fechada") {
+      toast.error("Conversa fechada! Use templates aprovados para enviar mensagens.");
+      return;
+    }
+
+    // Verificar tipo de arquivo
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const isAudio = file.type.startsWith('audio/');
+
+    if (!isImage && !isVideo && !isAudio) {
+      toast.error("Apenas imagens, vídeos e áudios são suportados");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Criar FormData para envio
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Upload do arquivo (você pode usar um serviço como Cloudinary, AWS S3, etc)
+      // Por enquanto, vamos usar uma URL temporária
+      const mediaUrl = URL.createObjectURL(file);
+      
+      // Determinar tipo de mensagem
+      let tipoMensagem: "imagem" | "video" | "audio" = "imagem";
+      if (isVideo) tipoMensagem = "video";
+      if (isAudio) tipoMensagem = "audio";
+
+      // Salvar mensagem localmente primeiro (otimistic update)
+      const novaMensagem = {
+        cliente_id: clienteTelefone,
+        remetente: 'atendente',
+        texto: file.name,
+        tipo: tipoMensagem,
+        arquivo_url: mediaUrl,
+        status: 'enviado',
+        data_hora: new Date().toISOString(),
+      };
+
+      // Enviar via Twilio com mídia
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: {
+          to: clienteTelefone,
+          message: `📎 ${file.name}`,
+          mediaUrl: mediaUrl, // Em produção, isso deve ser uma URL pública permanente
+        },
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        if (data.error === 'FORA_JANELA_24H') {
+          toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
+          return;
+        }
+        throw new Error(data.error || "Erro ao enviar mídia");
+      }
+
+      toast.success(`${tipoMensagem} enviada via WhatsApp`);
+      
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error("Erro ao enviar mídia:", error);
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mídia");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const enviarMensagem = async () => {
     if (!novaMsg.trim()) return;
 
@@ -102,6 +182,32 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       console.error("Erro ao enviar mensagem:", error);
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mensagem");
     }
+  };
+
+  const renderMedia = (msg: Mensagem) => {
+    if (!msg.arquivo_url) return null;
+
+    if (msg.tipo === 'imagem') {
+      return <img src={msg.arquivo_url} alt="Imagem" className="max-w-full rounded mt-2" />;
+    }
+    
+    if (msg.tipo === 'video') {
+      return (
+        <video controls className="max-w-full rounded mt-2">
+          <source src={msg.arquivo_url} />
+        </video>
+      );
+    }
+    
+    if (msg.tipo === 'audio') {
+      return (
+        <audio controls className="mt-2 w-full">
+          <source src={msg.arquivo_url} />
+        </audio>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -139,7 +245,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   : "bg-muted"
               )}
             >
-              <p className="text-sm">{msg.texto}</p>
+              {msg.texto && <p className="text-sm">{msg.texto}</p>}
+              {renderMedia(msg)}
               <p className={cn(
                 "text-xs mt-1",
                 msg.remetente === "atendente" 
@@ -156,7 +263,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
       <div className="p-4 border-t bg-card">
         <div className="flex gap-2">
-          <Button variant="outline" size="icon">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*,audio/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={statusConversa === "fechada" || uploading}
+          >
             <Paperclip className="h-4 w-4" />
           </Button>
           <Input

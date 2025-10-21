@@ -323,7 +323,7 @@ export type Database = {
         | "pendente"
       status_mensagem_enum: "enviado" | "recebido" | "lido"
       status_orcamento_enum: "pendente" | "aprovado" | "rejeitado"
-      tipo_mensagem_enum: "texto" | "arquivo"
+      tipo_mensagem_enum: "texto" | "arquivo" | "imagem" | "video" | "audio"
       tipo_pagamento_enum:
         | "dinheiro"
         | "cartao_credito"
@@ -478,7 +478,7 @@ export const Constants = {
       ],
       status_mensagem_enum: ["enviado", "recebido", "lido"],
       status_orcamento_enum: ["pendente", "aprovado", "rejeitado"],
-      tipo_mensagem_enum: ["texto", "arquivo"],
+      tipo_mensagem_enum: ["texto", "arquivo", "imagem", "video", "audio"],
       tipo_pagamento_enum: [
         "dinheiro",
         "cartao_credito",

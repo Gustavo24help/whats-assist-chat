@@ -18,11 +18,24 @@ serve(async (req) => {
     const formData = await req.formData();
     const from = formData.get('From') as string; // Número do remetente
     const body = formData.get('Body') as string; // Texto da mensagem
-    const mediaUrl = formData.get('MediaUrl0') as string; // URL do anexo (se houver)
     const numMedia = formData.get('NumMedia') as string;
     const profileName = formData.get('ProfileName') as string; // Nome do perfil WhatsApp
+    
+    // Coletar todas as mídias (até 10 arquivos)
+    const mediaUrls: string[] = [];
+    const mediaTypes: string[] = [];
+    const numMediaInt = parseInt(numMedia || '0');
+    
+    for (let i = 0; i < numMediaInt; i++) {
+      const mediaUrl = formData.get(`MediaUrl${i}`) as string;
+      const mediaType = formData.get(`MediaContentType${i}`) as string;
+      if (mediaUrl) {
+        mediaUrls.push(mediaUrl);
+        mediaTypes.push(mediaType || 'unknown');
+      }
+    }
 
-    console.log("Mensagem recebida:", { from, body, numMedia, profileName });
+    console.log("Mensagem recebida:", { from, body, numMedia, mediaUrls, mediaTypes, profileName });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -83,38 +96,70 @@ serve(async (req) => {
 
     console.log("Cliente identificado:", cliente.telefone);
 
-    // Salvar mensagem
-    const mensagem = {
-      cliente_id: cliente.telefone, // Usar telefone como FK
-      remetente: 'cliente',
-      texto: body || '',
-      tipo: numMedia && parseInt(numMedia) > 0 ? 'arquivo' : 'texto',
-      arquivo_url: mediaUrl || null,
-      status: 'recebido',
-      data_hora: new Date().toISOString(),
-      ficha_id: null,
+    // Determinar tipo de mensagem baseado na mídia
+    const getTipoMensagem = (contentType: string): string => {
+      if (contentType.startsWith('image/')) return 'imagem';
+      if (contentType.startsWith('video/')) return 'video';
+      if (contentType.startsWith('audio/')) return 'audio';
+      return 'arquivo';
     };
 
-    const { error: mensagemError } = await supabase
-      .from('mensagens')
-      .insert(mensagem);
+    // Se há mídia, criar uma mensagem para cada arquivo
+    if (mediaUrls.length > 0) {
+      for (let i = 0; i < mediaUrls.length; i++) {
+        const mensagem = {
+          cliente_id: cliente.telefone,
+          remetente: 'cliente',
+          texto: body || `Arquivo ${i + 1}`,
+          tipo: getTipoMensagem(mediaTypes[i]),
+          arquivo_url: mediaUrls[i],
+          status: 'recebido',
+          data_hora: new Date().toISOString(),
+          ficha_id: null,
+        };
 
-    if (mensagemError) {
-      console.error("Erro ao salvar mensagem:", mensagemError);
-      console.error("Dados da mensagem:", JSON.stringify(mensagem));
-      // Return 200 to prevent Twilio retries
-      return new Response(
-        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'text/xml',
-          },
+        const { error: mensagemError } = await supabase
+          .from('mensagens')
+          .insert(mensagem);
+
+        if (mensagemError) {
+          console.error("Erro ao salvar mensagem de mídia:", mensagemError);
         }
-      );
+      }
+    } else {
+      // Mensagem de texto apenas
+      const mensagem = {
+        cliente_id: cliente.telefone,
+        remetente: 'cliente',
+        texto: body || '',
+        tipo: 'texto',
+        arquivo_url: null,
+        status: 'recebido',
+        data_hora: new Date().toISOString(),
+        ficha_id: null,
+      };
+
+      const { error: mensagemError } = await supabase
+        .from('mensagens')
+        .insert(mensagem);
+
+      if (mensagemError) {
+        console.error("Erro ao salvar mensagem:", mensagemError);
+        console.error("Dados da mensagem:", JSON.stringify(mensagem));
+        // Return 200 to prevent Twilio retries
+        return new Response(
+          '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+          {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'text/xml',
+            },
+          }
+        );
+      }
     }
 
-    console.log("Mensagem salva com sucesso");
+    console.log("Mensagem(ns) salva(s) com sucesso");
 
     // Resposta TwiML vazia (não responde automaticamente)
     return new Response(
