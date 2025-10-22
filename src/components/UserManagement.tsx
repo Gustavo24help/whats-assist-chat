@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,8 +19,7 @@ interface UserProfile {
 }
 
 export const UserManagement = () => {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { isAdmin, loading, refreshUserProfile } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   
@@ -30,69 +30,10 @@ export const UserManagement = () => {
   const [newUserRole, setNewUserRole] = useState<'admin' | 'user'>('user');
 
   useEffect(() => {
-    checkAdminStatus();
-  }, []);
-
-  useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && !loading) {
       fetchUsers();
     }
-  }, [isAdmin]);
-
-  const checkAdminStatus = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      console.log('🔍 UserManagement - Verificando admin:', { 
-        userId: user?.id,
-        userEmail: user?.email 
-      });
-
-      if (!user) {
-        console.log('❌ UserManagement - Sem usuário logado');
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      // Verificar role diretamente no banco
-      const { data: roleData, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      console.log('📊 UserManagement - Dados da role:', { 
-        userId: user.id,
-        roleData,
-        roleValue: roleData?.role,
-        roleType: typeof roleData?.role,
-        error 
-      });
-
-      if (error) {
-        console.error('❌ UserManagement - Erro ao verificar role:', error);
-        setIsAdmin(false);
-      } else {
-        // Normalizar para lowercase e verificar
-        const role = roleData?.role?.toLowerCase();
-        const isUserAdmin = role === 'admin';
-        
-        console.log('✅ UserManagement - Resultado final:', { 
-          roleOriginal: roleData?.role,
-          roleNormalized: role,
-          isAdmin: isUserAdmin 
-        });
-        
-        setIsAdmin(isUserAdmin);
-      }
-    } catch (error) {
-      console.error('❌ UserManagement - Erro ao verificar status de admin:', error);
-      setIsAdmin(false);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isAdmin, loading]);
 
   const fetchUsers = async () => {
     try {
@@ -169,7 +110,12 @@ export const UserManagement = () => {
       if (error) throw error;
 
       toast.success('Permissão atualizada com sucesso');
+      
+      // Atualizar lista de usuários
       fetchUsers();
+      
+      // Atualizar perfil do usuário atual se alterou a própria role
+      await refreshUserProfile();
     } catch (error: any) {
       console.error('Erro ao atualizar permissão:', error);
       toast.error(error.message || 'Erro ao atualizar permissão');

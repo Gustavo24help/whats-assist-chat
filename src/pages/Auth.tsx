@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,20 +12,19 @@ import { MessageCircle } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const { user, userProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
+  // Redirecionar se já estiver logado
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate("/");
-      }
-    };
-    checkSession();
-  }, [navigate]);
+    if (user) {
+      console.log('✅ Auth - Usuário já logado, redirecionando');
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,9 +32,7 @@ const Auth = () => {
 
     try {
       console.log('🔐 Auth - Iniciando login para:', email);
-
-      // Limpar cache antigo de sessão
-      localStorage.removeItem('session_temporary');
+      console.log('🔐 Auth - Lembrar login:', rememberMe);
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -48,25 +46,38 @@ const Auth = () => {
         userEmail: data.user?.email
       });
 
-      // Se não marcar "lembrar", define expiração de sessão
-      if (!rememberMe) {
-        localStorage.setItem('session_temporary', 'true');
-      }
-
-      // Verificar role imediatamente após login
+      // Buscar role DIRETAMENTE DO BANCO - FONTE DE VERDADE
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', data.user?.id)
         .maybeSingle();
 
-      console.log('📊 Auth - Role do usuário logado:', {
+      console.log('📊 Auth - Role carregado do banco:', {
         userId: data.user?.id,
-        role: roleData?.role,
+        roleRaw: roleData?.role,
+        roleType: typeof roleData?.role,
+        roleNormalized: roleData?.role?.toLowerCase(),
         error: roleError
       });
 
-      toast.success("Login realizado com sucesso!");
+      const normalizedRole = roleData?.role?.toLowerCase();
+      const isUserAdmin = normalizedRole === 'admin';
+
+      console.log('✅ Auth - Análise final do role:', {
+        roleOriginal: roleData?.role,
+        roleNormalized: normalizedRole,
+        isAdmin: isUserAdmin
+      });
+
+      // Mensagem personalizada
+      if (isUserAdmin) {
+        toast.success(`Bem-vindo, Administrador!`);
+      } else {
+        toast.success("Login realizado com sucesso!");
+      }
+
+      // AuthContext vai recarregar automaticamente o perfil
       navigate("/");
     } catch (error: any) {
       console.error('❌ Auth - Erro no login:', error);

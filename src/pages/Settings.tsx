@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
 import { PasswordChange } from "@/components/PasswordChange";
 import { AccountInfo } from "@/components/AccountInfo";
@@ -15,72 +15,16 @@ import { AccountInfo } from "@/components/AccountInfo";
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { isAdmin, loading } = useAuth();
   const [twilioAccountSid, setTwilioAccountSid] = useState("");
   const [twilioAuthToken, setTwilioAuthToken] = useState("");
   const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
 
   useEffect(() => {
-    checkAdminStatus();
     const saved = localStorage.getItem('webhook_ficha_atualizada');
     if (saved) setWebhookUrl(saved);
   }, []);
-
-  const checkAdminStatus = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      console.log('🔍 Settings - Verificando admin:', { 
-        userId: user?.id,
-        userEmail: user?.email 
-      });
-
-      if (!user) {
-        console.log('❌ Settings - Sem usuário logado');
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      const { data: roleData, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      console.log('📊 Settings - Dados da role:', { 
-        userId: user.id,
-        roleData,
-        roleValue: roleData?.role,
-        roleType: typeof roleData?.role,
-        error 
-      });
-
-      if (error) {
-        console.error('❌ Settings - Erro ao verificar role:', error);
-        setIsAdmin(false);
-      } else {
-        // Normalizar para lowercase e verificar
-        const role = roleData?.role?.toLowerCase();
-        const isUserAdmin = role === 'admin';
-        
-        console.log('✅ Settings - Resultado final:', { 
-          roleOriginal: roleData?.role,
-          roleNormalized: role,
-          isAdmin: isUserAdmin 
-        });
-        
-        setIsAdmin(isUserAdmin);
-      }
-    } catch (error) {
-      console.error('❌ Settings - Erro ao verificar status de admin:', error);
-      setIsAdmin(false);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSaveSettings = () => {
     // Aqui você implementaria a lógica para salvar as configurações

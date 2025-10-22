@@ -1,76 +1,10 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const AccountInfo = () => {
-  const [userInfo, setUserInfo] = useState<{
-    email: string;
-    fullName: string;
-    role: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadUserInfo();
-  }, []);
-
-  const loadUserInfo = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      console.log('🔍 AccountInfo - Carregando info do usuário:', { 
-        userId: user?.id,
-        userEmail: user?.email 
-      });
-
-      if (!user) {
-        console.log('❌ AccountInfo - Sem usuário logado');
-        setLoading(false);
-        return;
-      }
-
-      // Buscar perfil
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      // Buscar role
-      const { data: roleData, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      console.log('📊 AccountInfo - Dados da role:', { 
-        userId: user.id,
-        roleData,
-        roleValue: roleData?.role,
-        error 
-      });
-
-      // Normalizar role para lowercase
-      const normalizedRole = roleData?.role?.toLowerCase() || 'user';
-
-      setUserInfo({
-        email: user.email || '',
-        fullName: profile?.full_name || 'Sem nome',
-        role: normalizedRole
-      });
-
-      console.log('✅ AccountInfo - Info carregada:', { 
-        email: user.email,
-        role: normalizedRole 
-      });
-    } catch (error) {
-      console.error('❌ AccountInfo - Erro ao carregar informações do usuário:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { userProfile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -96,16 +30,16 @@ export const AccountInfo = () => {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">Nome</p>
-          <p className="text-base">{userInfo?.fullName}</p>
+          <p className="text-base">{userProfile?.fullName}</p>
         </div>
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">Email</p>
-          <p className="text-base">{userInfo?.email}</p>
+          <p className="text-base">{userProfile?.email}</p>
         </div>
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">Tipo de Usuário</p>
-          <Badge variant={userInfo?.role === 'admin' ? 'default' : 'secondary'}>
-            {userInfo?.role === 'admin' ? 'Administrador' : 'Usuário Comum'}
+          <Badge variant={userProfile?.role === 'admin' ? 'default' : 'secondary'}>
+            {userProfile?.role === 'admin' ? 'Administrador' : 'Usuário Comum'}
           </Badge>
         </div>
       </CardContent>
