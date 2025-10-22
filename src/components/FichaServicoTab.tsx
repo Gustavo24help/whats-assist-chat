@@ -62,7 +62,45 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
   const [dataAgendamento, setDataAgendamento] = useState<string>('');
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
+  const [statusAnterior, setStatusAnterior] = useState<string>('');
 
+  // Função centralizada para enviar webhook
+  const enviarWebhook = async (fichaData: Ficha, agendamentoISO: string | undefined) => {
+    const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
+    if (webhookUrl) {
+      try {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: fichaData.id,
+            telefone_cliente: fichaData.telefone_cliente,
+            nome_ficha: fichaData.nome_ficha,
+            status: fichaData.status,
+            categoria_id: fichaData.categoria_id,
+            descricao: fichaData.descricao,
+            prestador_id: fichaData.prestador_id,
+            valor_total: fichaData.valor_total,
+            valor_mao_obra: fichaData.valor_mao_obra,
+            valor_pecas: fichaData.valor_pecas,
+            horario_agendamento: agendamentoISO,
+            cpf: fichaData.cpf,
+            endereco: fichaData.endereco,
+            pagamento_gerar_link: fichaData.pagamento_gerar_link,
+            pagamento_tipo: fichaData.pagamento_tipo,
+            pagamento_parcelas: fichaData.pagamento_parcelas,
+            id_zoho: fichaData.id_zoho,
+            notas: fichaData.notas,
+          }),
+        });
+        console.log("Webhook enviado", fichaData);
+      } catch (webhookError) {
+        console.error('Erro ao enviar webhook:', webhookError);
+      }
+    }
+  };
+
+  // AutoSave SEM webhook - apenas salva no banco
   const autoSave = useCallback(
     debounce(async (fichaData: Ficha, dataAgend: string, horaAgend: string) => {
       let agendamentoISO: string | undefined;
@@ -96,38 +134,6 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           }] as any, { onConflict: 'id' });
 
         if (error) throw error;
-
-        const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
-        if (webhookUrl) {
-          try {
-            await fetch(webhookUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: fichaData.id,
-                telefone_cliente: fichaData.telefone_cliente,
-                nome_ficha: fichaData.nome_ficha,
-                status: fichaData.status,
-                categoria_id: fichaData.categoria_id,
-                descricao: fichaData.descricao,
-                prestador_id: fichaData.prestador_id,
-                valor_total: fichaData.valor_total,
-                valor_mao_obra: fichaData.valor_mao_obra,
-                valor_pecas: fichaData.valor_pecas,
-                horario_agendamento: agendamentoISO,
-                cpf: fichaData.cpf,
-                endereco: fichaData.endereco,
-                pagamento_gerar_link: fichaData.pagamento_gerar_link,
-                pagamento_tipo: fichaData.pagamento_tipo,
-                pagamento_parcelas: fichaData.pagamento_parcelas,
-                id_zoho: fichaData.id_zoho,
-                notas: fichaData.notas,
-              }),
-            });
-          } catch (webhookError) {
-            console.error('Erro ao enviar webhook:', webhookError);
-          }
-        }
       } catch (error) {
         console.error('Erro ao salvar ficha:', error);
         toast.error("Erro ao salvar ficha");
@@ -168,17 +174,19 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
     if (!error && data) {
       setFicha(data);
+      setStatusAnterior(data.status); // Armazenar status atual
       
+      // Extrair data/hora sem conversão de timezone
       if (data.horario_agendamento) {
-        const dataHora = new Date(data.horario_agendamento);
-        const ano = dataHora.getFullYear();
-        const mes = String(dataHora.getMonth() + 1).padStart(2, '0');
-        const dia = String(dataHora.getDate()).padStart(2, '0');
-        const hora = String(dataHora.getHours()).padStart(2, '0');
-        const min = String(dataHora.getMinutes()).padStart(2, '0');
-        
-        setDataAgendamento(`${ano}-${mes}-${dia}`);
-        setHoraAgendamento(`${hora}:${min}`);
+        const horarioStr = data.horario_agendamento;
+        // Formato esperado: "2025-01-22T14:00:00" ou "2025-01-22T14:00:00+00:00"
+        const partes = horarioStr.split('T');
+        if (partes.length === 2) {
+          const dataStr = partes[0]; // "2025-01-22"
+          const horaStr = partes[1].substring(0, 5); // "14:00"
+          setDataAgendamento(dataStr);
+          setHoraAgendamento(horaStr);
+        }
       }
     }
   };
@@ -192,11 +200,53 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (data) setPrestadores(data as Prestador[]);
   };
 
-  const updateFicha = (updates: Partial<Ficha>) => {
+  const updateFicha = async (updates: Partial<Ficha>) => {
     if (!ficha) return;
     const updatedFicha = { ...ficha, ...updates };
     setFicha(updatedFicha);
-    autoSave(updatedFicha, dataAgendamento, horaAgendamento);
+    
+    // Se o status mudou, enviar webhook imediatamente
+    if (updates.status && updates.status !== statusAnterior) {
+      setStatusAnterior(updates.status);
+      
+      let agendamentoISO: string | undefined;
+      if (dataAgendamento && horaAgendamento) {
+        agendamentoISO = `${dataAgendamento}T${horaAgendamento}:00`;
+      } else if (dataAgendamento) {
+        agendamentoISO = `${dataAgendamento}T00:00:00`;
+      }
+      
+      // Salvar no banco
+      await supabase
+        .from('fichas_de_servico')
+        .upsert([{
+          id: updatedFicha.id,
+          telefone_cliente: updatedFicha.telefone_cliente,
+          nome_ficha: updatedFicha.nome_ficha,
+          descricao: updatedFicha.descricao,
+          status: updatedFicha.status as any,
+          prestador_id: updatedFicha.prestador_id,
+          valor_total: updatedFicha.valor_total,
+          valor_mao_obra: updatedFicha.valor_mao_obra,
+          valor_pecas: updatedFicha.valor_pecas,
+          horario_agendamento: agendamentoISO,
+          cpf: updatedFicha.cpf,
+          endereco: updatedFicha.endereco,
+          pagamento_tipo: updatedFicha.pagamento_tipo as any,
+          pagamento_parcelas: updatedFicha.pagamento_parcelas,
+          pagamento_gerar_link: updatedFicha.pagamento_gerar_link,
+          notas: updatedFicha.notas,
+          categoria_id: updatedFicha.categoria_id,
+          id_zoho: updatedFicha.id_zoho,
+        }] as any, { onConflict: 'id' });
+      
+      // Enviar webhook
+      await enviarWebhook(updatedFicha, agendamentoISO);
+      toast.success("Status alterado - Webhook enviado");
+    } else {
+      // Para outros campos, apenas autosave sem webhook
+      autoSave(updatedFicha, dataAgendamento, horaAgendamento);
+    }
   };
 
   const updateDataAgendamento = (data: string) => {
@@ -249,37 +299,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
       if (error) throw error;
 
-      const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
-      if (webhookUrl) {
-        try {
-          await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: ficha.id,
-              telefone_cliente: ficha.telefone_cliente,
-              nome_ficha: ficha.nome_ficha,
-              status: ficha.status,
-              categoria_id: ficha.categoria_id,
-              descricao: ficha.descricao,
-              prestador_id: ficha.prestador_id,
-              valor_total: ficha.valor_total,
-              valor_mao_obra: ficha.valor_mao_obra,
-              valor_pecas: ficha.valor_pecas,
-              horario_agendamento: agendamentoISO,
-              cpf: ficha.cpf,
-              endereco: ficha.endereco,
-              pagamento_gerar_link: ficha.pagamento_gerar_link,
-              pagamento_tipo: ficha.pagamento_tipo,
-              pagamento_parcelas: ficha.pagamento_parcelas,
-              id_zoho: ficha.id_zoho,
-              notas: ficha.notas,
-            }),
-          });
-        } catch (webhookError) {
-          console.error('Erro ao enviar webhook:', webhookError);
-        }
-      }
+      // Enviar webhook ao salvar manualmente
+      await enviarWebhook(ficha, agendamentoISO);
 
       toast.success("Ficha salva com sucesso!");
     } catch (error) {

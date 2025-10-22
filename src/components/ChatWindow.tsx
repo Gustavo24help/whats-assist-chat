@@ -92,40 +92,45 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
     setUploading(true);
     try {
-      // Criar FormData para envio
-      const formData = new FormData();
-      formData.append('file', file);
+      // Upload para Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `chat-media/${clienteTelefone}/${fileName}`;
 
-      // Upload do arquivo (você pode usar um serviço como Cloudinary, AWS S3, etc)
-      // Por enquanto, vamos usar uma URL temporária
-      const mediaUrl = URL.createObjectURL(file);
+      const { error: uploadError } = await supabase.storage
+        .from('chat-files')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error("Erro ao fazer upload:", uploadError);
+        throw new Error("Erro ao fazer upload do arquivo");
+      }
+
+      // Obter URL pública
+      const { data: urlData } = supabase.storage
+        .from('chat-files')
+        .getPublicUrl(filePath);
+
+      const mediaUrl = urlData.publicUrl;
       
       // Determinar tipo de mensagem
       let tipoMensagem: "imagem" | "video" | "audio" = "imagem";
       if (isVideo) tipoMensagem = "video";
       if (isAudio) tipoMensagem = "audio";
 
-      // Salvar mensagem localmente primeiro (otimistic update)
-      const novaMensagem = {
-        cliente_id: clienteTelefone,
-        remetente: 'atendente',
-        texto: file.name,
-        tipo: tipoMensagem,
-        arquivo_url: mediaUrl,
-        status: 'enviado',
-        data_hora: new Date().toISOString(),
-      };
-
       // Enviar via Twilio com mídia
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
           to: clienteTelefone,
           message: `📎 ${file.name}`,
-          mediaUrl: mediaUrl, // Em produção, isso deve ser uma URL pública permanente
+          mediaUrl: mediaUrl,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao enviar via Twilio:", error);
+        throw error;
+      }
 
       if (!data.success) {
         if (data.error === 'FORA_JANELA_24H') {

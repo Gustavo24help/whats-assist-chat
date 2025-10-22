@@ -9,7 +9,6 @@ import { toast } from "sonner";
 
 export const PasswordChange = () => {
   const [loading, setLoading] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -29,19 +28,22 @@ export const PasswordChange = () => {
     setLoading(true);
 
     try {
+      // Atualizar senha do usuário logado
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao alterar senha:", error);
+        throw error;
+      }
 
       toast.success("Senha alterada com sucesso!");
-      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (error: any) {
-      console.error('Error changing password:', error);
-      toast.error(error.message || "Erro ao alterar senha");
+      console.error("Erro ao alterar senha:", error);
+      toast.error(error.message || "Erro ao alterar senha. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -61,16 +63,6 @@ export const PasswordChange = () => {
       <CardContent>
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="current_password">Senha Atual</Label>
-            <Input
-              id="current_password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="new_password">Nova Senha</Label>
             <Input
               id="new_password"
@@ -79,6 +71,7 @@ export const PasswordChange = () => {
               onChange={(e) => setNewPassword(e.target.value)}
               required
               minLength={6}
+              placeholder="Mínimo 6 caracteres"
             />
           </div>
           <div className="space-y-2">
@@ -90,6 +83,7 @@ export const PasswordChange = () => {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               minLength={6}
+              placeholder="Digite a senha novamente"
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
