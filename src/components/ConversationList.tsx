@@ -3,11 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Circle } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { TagManager } from "./TagManager";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Cliente {
   telefone: string;
@@ -16,18 +17,22 @@ interface Cliente {
   ultima_interacao: string;
   tags: string[];
   nome_ficha?: string;
+  status_ficha?: string;
+  unread_count?: number;
 }
 
 interface ConversationListProps {
   selectedClienteTelefone: string | null;
   onSelectCliente: (cliente: Cliente) => void;
+  unreadMessages: Record<string, number>;
 }
 
-export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: ConversationListProps) => {
+export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unreadMessages }: ConversationListProps) => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"todas" | "aberta" | "fechada">("todas");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [conversaFilter, setConversaFilter] = useState<"todas" | "aberta" | "fechada">("todas");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
 
@@ -51,18 +56,27 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: C
   useEffect(() => {
     let filtered = clientes;
 
+    // Filtro por busca de texto
     if (searchTerm) {
       filtered = filtered.filter(c => 
         c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.telefone.includes(searchTerm) ||
-        (c.nome_ficha && c.nome_ficha.toLowerCase().includes(searchTerm.toLowerCase()))
+        (c.nome_ficha && c.nome_ficha.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (c.tags && c.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
       );
     }
 
-    if (statusFilter !== "todas") {
-      filtered = filtered.filter(c => c.status_conversa === statusFilter);
+    // Filtro por status da ficha
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(c => c.status_ficha === statusFilter);
     }
 
+    // Filtro por status da conversa
+    if (conversaFilter !== "todas") {
+      filtered = filtered.filter(c => c.status_conversa === conversaFilter);
+    }
+
+    // Filtro por tags selecionadas
     if (selectedTags.length > 0) {
       filtered = filtered.filter(c => 
         c.tags && selectedTags.some(tag => c.tags.includes(tag))
@@ -79,7 +93,7 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: C
       }
     });
     setAllTags(Array.from(tags));
-  }, [clientes, searchTerm, statusFilter, selectedTags]);
+  }, [clientes, searchTerm, statusFilter, conversaFilter, selectedTags]);
 
   const fetchClientes = async () => {
     const { data: clientesData, error } = await supabase
@@ -88,12 +102,12 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: C
       .order('ultima_interacao', { ascending: false });
 
     if (!error && clientesData) {
-      // Buscar nome da última ficha de cada cliente
+      // Buscar nome e status da última ficha de cada cliente
       const clientesComFicha = await Promise.all(
         clientesData.map(async (cliente) => {
           const { data: fichaData } = await supabase
             .from('fichas_de_servico')
-            .select('nome_ficha')
+            .select('nome_ficha, status')
             .eq('telefone_cliente', cliente.telefone)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -101,7 +115,9 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: C
 
           return {
             ...cliente,
-            nome_ficha: fichaData?.nome_ficha || undefined
+            nome_ficha: fichaData?.nome_ficha || undefined,
+            status_ficha: fichaData?.status || undefined,
+            unread_count: unreadMessages[cliente.telefone] || 0
           };
         })
       );
@@ -117,6 +133,26 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: C
     }
   };
 
+  const getStatusColor = (status?: string) => {
+    if (!status) return "hsl(var(--muted-foreground))";
+    
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes("andamento") || statusLower.includes("agendado")) {
+      return "hsl(var(--status-pending))";
+    }
+    if (statusLower.includes("finalizado") || statusLower.includes("aprovado")) {
+      return "hsl(var(--status-approved))";
+    }
+    if (statusLower.includes("cancelado") || statusLower.includes("perdido") || statusLower.includes("não")) {
+      return "hsl(var(--status-rejected))";
+    }
+    return "hsl(var(--status-closed))";
+  };
+
+  const getStatusText = (status?: string) => {
+    return status || "";
+  };
+
   return (
     <div className="h-full flex flex-col bg-card border-r">
       <div className="p-4 border-b space-y-3">
@@ -125,34 +161,49 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: C
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, telefone ou ficha..."
+            placeholder="Buscar por nome, telefone, ficha ou tags..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
           />
         </div>
 
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Todos os status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            <SelectItem value="Ficha Criada">Ficha Criada</SelectItem>
+            <SelectItem value="Contato Inicial">Contato Inicial</SelectItem>
+            <SelectItem value="Orçamento Enviado">Orçamento Enviado</SelectItem>
+            <SelectItem value="Agendado">Agendado</SelectItem>
+            <SelectItem value="Em andamento">Em Andamento</SelectItem>
+            <SelectItem value="Finalizado">Finalizado</SelectItem>
+          </SelectContent>
+        </Select>
+
         <div className="flex gap-2">
           <Button
             size="sm"
-            variant={statusFilter === "todas" ? "default" : "outline"}
-            onClick={() => setStatusFilter("todas")}
+            variant={conversaFilter === "todas" ? "default" : "outline"}
+            onClick={() => setConversaFilter("todas")}
             className="flex-1"
           >
             Todas
           </Button>
           <Button
             size="sm"
-            variant={statusFilter === "aberta" ? "default" : "outline"}
-            onClick={() => setStatusFilter("aberta")}
+            variant={conversaFilter === "aberta" ? "default" : "outline"}
+            onClick={() => setConversaFilter("aberta")}
             className="flex-1"
           >
             Abertas
           </Button>
           <Button
             size="sm"
-            variant={statusFilter === "fechada" ? "default" : "outline"}
-            onClick={() => setStatusFilter("fechada")}
+            variant={conversaFilter === "fechada" ? "default" : "outline"}
+            onClick={() => setConversaFilter("fechada")}
             className="flex-1"
           >
             Fechadas
@@ -184,30 +235,42 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: C
             key={cliente.telefone}
             onClick={() => onSelectCliente(cliente)}
             className={cn(
-              "p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors",
+              "p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors relative",
               selectedClienteTelefone === cliente.telefone && "bg-muted"
             )}
           >
+            {cliente.unread_count && cliente.unread_count > 0 && (
+              <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-secondary flex items-center justify-center">
+                <span className="text-xs text-secondary-foreground font-semibold">
+                  {cliente.unread_count}
+                </span>
+              </div>
+            )}
+
             <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <h3 className="font-medium truncate">{cliente.nome}</h3>
-                <Circle 
-                  className={cn(
-                    "h-2 w-2 fill-current shrink-0",
-                    cliente.status_conversa === "aberta" ? "text-green-500" : "text-gray-400"
-                  )} 
-                />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium truncate">{cliente.nome}</h3>
+                  <TagManager 
+                    clienteTelefone={cliente.telefone} 
+                    currentTags={cliente.tags || []} 
+                    onTagsUpdate={fetchClientes}
+                  />
+                </div>
                 {cliente.nome_ficha && (
-                  <span className="text-xs text-muted-foreground truncate">
-                    • {cliente.nome_ficha}
-                  </span>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    📋 {cliente.nome_ficha}
+                  </p>
+                )}
+                {cliente.status_ficha && getStatusText(cliente.status_ficha) && (
+                  <p 
+                    className="text-xs mt-0.5 font-medium truncate"
+                    style={{ color: getStatusColor(cliente.status_ficha) }}
+                  >
+                    {getStatusText(cliente.status_ficha)}
+                  </p>
                 )}
               </div>
-              <TagManager 
-                clienteTelefone={cliente.telefone} 
-                currentTags={cliente.tags || []} 
-                onTagsUpdate={fetchClientes}
-              />
             </div>
             
             <p className="text-sm text-muted-foreground mb-2">{cliente.telefone}</p>
@@ -222,9 +285,17 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente }: C
               </div>
             )}
             
-            <p className="text-xs text-muted-foreground">
-              {format(new Date(cliente.ultima_interacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </p>
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-muted-foreground">
+                {format(new Date(cliente.ultima_interacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+              <Badge 
+                variant={cliente.status_conversa === "aberta" ? "default" : "secondary"}
+                className="text-xs"
+              >
+                {cliente.status_conversa === "aberta" ? "Aberta" : "Fechada"}
+              </Badge>
+            </div>
           </div>
         ))}
       </div>

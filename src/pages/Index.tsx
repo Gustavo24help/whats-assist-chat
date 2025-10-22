@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
+import { NotificationSystem } from "@/components/NotificationSystem";
 
 const Index = () => {
   const navigate = useNavigate();
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [fichaOpen, setFichaOpen] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -38,8 +40,29 @@ const Index = () => {
     navigate("/auth");
   };
 
+  const handleNewMessage = (clienteId: string) => {
+    setUnreadMessages(prev => ({
+      ...prev,
+      [clienteId]: (prev[clienteId] || 0) + 1
+    }));
+  };
+
+  const handleSelectCliente = (cliente: any) => {
+    setSelectedCliente(cliente);
+    // Clear unread count when opening conversation
+    setUnreadMessages(prev => ({
+      ...prev,
+      [cliente.telefone]: 0
+    }));
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
+      <NotificationSystem 
+        onNewMessage={handleNewMessage}
+        currentClienteId={selectedCliente?.telefone || null}
+      />
+      
       <header className="h-16 border-b bg-background flex items-center justify-between px-6 shadow-sm">
         <Logo />
         <div className="flex gap-2">
@@ -58,7 +81,8 @@ const Index = () => {
         <div className="w-80 border-r bg-background shadow-sm">
           <ConversationList
             selectedClienteTelefone={selectedCliente?.telefone || null}
-            onSelectCliente={setSelectedCliente}
+            onSelectCliente={handleSelectCliente}
+            unreadMessages={unreadMessages}
           />
         </div>
 

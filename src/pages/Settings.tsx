@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { UserManagement } from "@/components/UserManagement";
+import { PasswordChange } from "@/components/PasswordChange";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -60,11 +62,21 @@ const Settings = () => {
       </header>
 
       <main className="container mx-auto p-6">
-        <Tabs defaultValue="twilio" className="w-full">
+        <Tabs defaultValue="users" className="w-full">
           <TabsList>
+            <TabsTrigger value="users">Usuários</TabsTrigger>
+            <TabsTrigger value="password">Senha</TabsTrigger>
             <TabsTrigger value="twilio">Twilio API</TabsTrigger>
             <TabsTrigger value="geral">Geral</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="users" className="space-y-4">
+            <UserManagement />
+          </TabsContent>
+
+          <TabsContent value="password" className="space-y-4">
+            <PasswordChange />
+          </TabsContent>
 
           <TabsContent value="twilio" className="space-y-4">
             <Card>

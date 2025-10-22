@@ -13,7 +13,6 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -30,26 +29,13 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
-        if (error) throw error;
-        toast.success("Conta criada! Faça login para continuar.");
-        setIsSignUp(false);
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        toast.success("Login realizado com sucesso!");
-        navigate("/");
-      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      toast.success("Login realizado com sucesso!");
+      navigate("/");
     } catch (error: any) {
       toast.error(error.message || "Erro ao autenticar");
     } finally {
@@ -66,7 +52,7 @@ const Auth = () => {
           </div>
           <CardTitle className="text-2xl">Central de Atendimento</CardTitle>
           <CardDescription>
-            {isSignUp ? "Crie sua conta para começar" : "Faça login para acessar o sistema"}
+            Faça login para acessar o sistema
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -94,15 +80,7 @@ const Auth = () => {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Carregando..." : isSignUp ? "Criar Conta" : "Entrar"}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => setIsSignUp(!isSignUp)}
-            >
-              {isSignUp ? "Já tem conta? Faça login" : "Não tem conta? Cadastre-se"}
+              {loading ? "Carregando..." : "Entrar"}
             </Button>
           </form>
         </CardContent>
