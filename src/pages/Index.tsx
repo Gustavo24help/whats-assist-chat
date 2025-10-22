@@ -74,7 +74,7 @@ const Index = () => {
             </div>
 
             {fichaOpen && (
-              <div className="w-[40%] border-l bg-background shadow-lg overflow-y-auto">
+              <div className="w-[65%] border-l bg-background shadow-lg">
                 <FichaPanel
                   clienteTelefone={selectedCliente.telefone}
                   clienteNome={selectedCliente.nome}

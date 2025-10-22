@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 interface OrcamentosTabProps {
   fichaId: string;
@@ -21,6 +22,7 @@ interface Orcamento {
   categoria: string | null;
   status: string;
   data_criacao: string;
+  prestador_nome?: string;
 }
 
 export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
@@ -55,7 +57,78 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
       .eq('ficha_nome', fichaId)
       .order('data_criacao', { ascending: false });
 
-    if (data) setOrcamentos(data);
+    if (data) {
+      // Buscar nome dos prestadores
+      const orcamentosComNome = await Promise.all(
+        data.map(async (orc) => {
+          const { data: prestadorData } = await supabase
+            .from('prestadores')
+            .select('nome')
+            .eq('cpf', orc.prestador_cpf)
+            .maybeSingle();
+
+          return {
+            ...orc,
+            prestador_nome: prestadorData?.nome || orc.prestador_cpf
+          };
+        })
+      );
+      setOrcamentos(orcamentosComNome);
+    }
+  };
+
+  const aprovarOrcamento = async (orc: Orcamento) => {
+    try {
+      // Atualizar status do orçamento
+      const { error: orcError } = await supabase
+        .from('orcamentos')
+        .update({ status: 'aprovado' })
+        .eq('id', orc.id);
+
+      if (orcError) throw orcError;
+
+      // Atualizar ficha com valores do orçamento
+      const { error: fichaError } = await supabase
+        .from('fichas_de_servico')
+        .update({
+          valor_total: orc.valor_total || 0,
+          valor_mao_obra: orc.valor_mao_obra || 0,
+          valor_pecas: orc.valor_pecas || 0,
+          prestador_id: orc.prestador_cpf
+        })
+        .eq('id', fichaId);
+
+      if (fichaError) throw fichaError;
+
+      // Criar mensagem no chat (inserir na tabela mensagens)
+      const valorFormatado = orc.valor_total?.toFixed(2) || '0.00';
+      const mensagemTexto = `💰 Orçamento aprovado: R$ ${valorFormatado}. Prestador: ${orc.prestador_nome || orc.prestador_cpf}.`;
+
+      // Buscar telefone do cliente pela ficha
+      const { data: fichaData } = await supabase
+        .from('fichas_de_servico')
+        .select('telefone_cliente')
+        .eq('id', fichaId)
+        .single();
+
+      if (fichaData) {
+        await supabase
+          .from('mensagens')
+          .insert({
+            cliente_id: fichaData.telefone_cliente,
+            remetente: 'atendente',
+            texto: mensagemTexto,
+            tipo: 'texto',
+            status: 'enviado'
+          });
+      }
+
+      toast.success("Orçamento aprovado! Valores atualizados na ficha.");
+      fetchOrcamentos();
+    } catch (error) {
+      console.error('Erro ao aprovar orçamento:', error);
+      toast.error("Erro ao aprovar orçamento");
+    }
   };
 
   return (
@@ -81,8 +154,8 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
               </CardHeader>
               <CardContent className="space-y-3 pb-4">
                 <div className="text-sm">
-                  <span className="font-medium text-foreground">Prestador CPF:</span> 
-                  <span className="text-muted-foreground ml-1">{orc.prestador_cpf}</span>
+                  <span className="font-medium text-foreground">Prestador:</span> 
+                  <span className="text-muted-foreground ml-1">{orc.prestador_nome || orc.prestador_cpf}</span>
                 </div>
 
                 {orc.valor_total !== null && (
@@ -130,6 +203,7 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
                       variant="secondary"
                       size="sm"
                       className="shadow-sm hover:shadow-md transition-shadow"
+                      onClick={() => aprovarOrcamento(orc)}
                     >
                       <Check className="mr-1 h-4 w-4" />
                       Aprovar

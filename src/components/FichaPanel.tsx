@@ -63,8 +63,8 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
   };
 
   return (
-    <div className="h-full flex flex-col bg-card border-l">
-      <div className="p-4 border-b flex items-center justify-between">
+    <div className="h-full flex flex-col bg-card border-l overflow-hidden">
+      <div className="p-4 border-b flex items-center justify-between shrink-0">
         <h2 className="font-semibold text-lg">Ficha - {clienteNome}</h2>
         <Button variant="ghost" size="icon" onClick={onClose}>
           <X className="h-4 w-4" />
@@ -101,8 +101,8 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
           )}
 
           {fichaAtual && (
-            <Tabs defaultValue="ficha" className="flex-1 flex flex-col">
-              <TabsList className="mx-4 mt-4">
+            <Tabs defaultValue="ficha" className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="mx-4 mt-4 shrink-0">
                 <TabsTrigger value="ficha" className="flex-1">
                   <FileText className="mr-2 h-4 w-4" />
                   Ficha de Serviço
@@ -113,11 +113,11 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="ficha" className="flex-1 overflow-hidden">
+              <TabsContent value="ficha" className="flex-1 overflow-y-auto">
                 <FichaServicoTab fichaId={fichaAtual} />
               </TabsContent>
 
-              <TabsContent value="orcamentos" className="flex-1 overflow-hidden">
+              <TabsContent value="orcamentos" className="flex-1 overflow-y-auto">
                 <OrcamentosTab fichaId={fichaAtual} />
               </TabsContent>
             </Tabs>

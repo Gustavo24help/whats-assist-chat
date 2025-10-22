@@ -291,25 +291,35 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   if (!ficha) return <div className="p-6">Carregando...</div>;
 
   return (
-    <div className="p-6 space-y-6 pb-24 overflow-y-auto">
-      <Accordion type="multiple" defaultValue={["informacoes-gerais", "agendamento", "valores"]} className="w-full space-y-4">
-        <AccordionItem value="informacoes-gerais" className="border rounded-lg shadow-sm bg-card">
-          <AccordionTrigger className="px-4 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-              <span className="font-semibold">Informações Gerais</span>
+    <div className="p-8 space-y-8 pb-28">
+      <Accordion type="multiple" defaultValue={["informacoes-gerais", "agendamento", "valores"]} className="w-full space-y-6">
+        <AccordionItem value="informacoes-gerais" className="border rounded-lg shadow-md bg-card">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline">
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-lg">Informações Gerais</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <div className="space-y-4 pt-2">
+          <AccordionContent className="px-6 pb-6">
+            <div className="space-y-5 pt-4">
               <div>
                 <Label htmlFor="nome_ficha" className="text-sm font-medium">Nome da Ficha</Label>
                 <Input
                   id="nome_ficha"
                   value={ficha?.nome_ficha || ""}
-                  onChange={(e) => updateFicha({ nome_ficha: e.target.value })}
-                  placeholder="Identificação da ficha"
-                  className="mt-1.5"
+                  disabled
+                  className="mt-2 bg-muted cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="id_zoho" className="text-sm font-medium">ID Zoho</Label>
+                <Input
+                  id="id_zoho"
+                  value={ficha?.id_zoho || ""}
+                  disabled
+                  placeholder="Não atribuído"
+                  className="mt-2 bg-muted cursor-not-allowed"
                 />
               </div>
 
@@ -319,7 +329,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.status || "pendente"}
                   onValueChange={(value) => updateFicha({ status: value })}
                 >
-                  <SelectTrigger id="status" className="mt-1.5">
+                  <SelectTrigger id="status" className="mt-2">
                     <SelectValue placeholder="Selecione o status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -339,7 +349,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.descricao || ""}
                   onChange={(e) => updateFicha({ descricao: e.target.value })}
                   placeholder="Descrição do serviço"
-                  className="mt-1.5"
+                  className="mt-2"
                 />
               </div>
 
@@ -350,7 +360,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.cpf || ""}
                   onChange={(e) => updateFicha({ cpf: e.target.value })}
                   placeholder="000.000.000-00"
-                  className="mt-1.5"
+                  className="mt-2"
                 />
               </div>
 
@@ -361,51 +371,29 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.endereco || ""}
                   onChange={(e) => updateFicha({ endereco: e.target.value })}
                   placeholder="Endereço completo"
-                  className="mt-1.5"
+                  className="mt-2"
                 />
               </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="agendamento" className="border rounded-lg shadow-sm bg-card">
-          <AccordionTrigger className="px-4 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-primary" />
-              <span className="font-semibold">Agendamento</span>
+        <AccordionItem value="agendamento" className="border rounded-lg shadow-md bg-card">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-lg">Agendamento</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <div className="space-y-4 pt-2">
-              <div>
-                <Label htmlFor="data_agendamento" className="text-sm font-medium">Data do Agendamento</Label>
-                <Input
-                  id="data_agendamento"
-                  type="date"
-                  value={dataAgendamento}
-                  onChange={(e) => updateDataAgendamento(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="hora_agendamento" className="text-sm font-medium">Horário do Agendamento</Label>
-                <Input
-                  id="hora_agendamento"
-                  type="time"
-                  value={horaAgendamento}
-                  onChange={(e) => updateHoraAgendamento(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-
+          <AccordionContent className="px-6 pb-6">
+            <div className="space-y-5 pt-4">
               <div>
                 <Label htmlFor="prestador_id" className="text-sm font-medium">Prestador de Serviço</Label>
                 <Select
                   value={ficha?.prestador_id || ""}
                   onValueChange={(value) => updateFicha({ prestador_id: value })}
                 >
-                  <SelectTrigger id="prestador_id" className="mt-1.5">
+                  <SelectTrigger id="prestador_id" className="mt-2">
                     <SelectValue placeholder="Selecione o prestador" />
                   </SelectTrigger>
                   <SelectContent>
@@ -417,19 +405,41 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <Label htmlFor="data_agendamento" className="text-sm font-medium">Data do Agendamento</Label>
+                <Input
+                  id="data_agendamento"
+                  type="date"
+                  value={dataAgendamento}
+                  onChange={(e) => updateDataAgendamento(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="hora_agendamento" className="text-sm font-medium">Horário do Agendamento</Label>
+                <Input
+                  id="hora_agendamento"
+                  type="time"
+                  value={horaAgendamento}
+                  onChange={(e) => updateHoraAgendamento(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="valores" className="border rounded-lg shadow-sm bg-card">
-          <AccordionTrigger className="px-4 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-primary" />
-              <span className="font-semibold">Valores</span>
+        <AccordionItem value="valores" className="border rounded-lg shadow-md bg-card">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline">
+            <div className="flex items-center gap-3">
+              <DollarSign className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-lg">Valores</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <div className="space-y-4 pt-2">
+          <AccordionContent className="px-6 pb-6">
+            <div className="space-y-5 pt-4">
               <div>
                 <Label htmlFor="valor_total" className="text-sm font-medium">Valor Total</Label>
                 <Input
@@ -439,7 +449,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.valor_total || ""}
                   onChange={(e) => updateFicha({ valor_total: parseFloat(e.target.value) || 0 })}
                   placeholder="0.00"
-                  className="mt-1.5"
+                  className="mt-2"
                 />
               </div>
 
@@ -452,7 +462,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.valor_mao_obra || ""}
                   onChange={(e) => updateFicha({ valor_mao_obra: parseFloat(e.target.value) || 0 })}
                   placeholder="0.00"
-                  className="mt-1.5"
+                  className="mt-2"
                 />
               </div>
 
@@ -465,26 +475,26 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.valor_pecas || ""}
                   onChange={(e) => updateFicha({ valor_pecas: parseFloat(e.target.value) || 0 })}
                   placeholder="0.00"
-                  className="mt-1.5"
+                  className="mt-2"
                 />
               </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="pagamento" className="border rounded-lg shadow-sm bg-card">
-          <AccordionTrigger className="px-4 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-primary" />
-              <span className="font-semibold">Pagamento</span>
+        <AccordionItem value="pagamento" className="border rounded-lg shadow-md bg-card">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline">
+            <div className="flex items-center gap-3">
+              <CreditCard className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-lg">Pagamento</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <div className="space-y-4 pt-2">
+          <AccordionContent className="px-6 pb-6">
+            <div className="space-y-5 pt-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="pagamento_gerar_link"
-                  checked={ficha?.pagamento_gerar_link || false}
+                  checked={ficha?.pagamento_gerar_link ?? true}
                   onCheckedChange={(checked) => updateFicha({ pagamento_gerar_link: checked as boolean })}
                 />
                 <Label htmlFor="pagamento_gerar_link" className="cursor-pointer text-sm font-medium">
@@ -498,7 +508,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.pagamento_tipo || ""}
                   onValueChange={(value) => updateFicha({ pagamento_tipo: value })}
                 >
-                  <SelectTrigger id="pagamento_tipo" className="mt-1.5">
+                  <SelectTrigger id="pagamento_tipo" className="mt-2">
                     <SelectValue placeholder="Selecione a forma de pagamento" />
                   </SelectTrigger>
                   <SelectContent>
@@ -519,29 +529,29 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   min="1"
                   value={ficha?.pagamento_parcelas || 1}
                   onChange={(e) => updateFicha({ pagamento_parcelas: parseInt(e.target.value) || 1 })}
-                  className="mt-1.5"
+                  className="mt-2"
                 />
               </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="informacoes-cliente" className="border rounded-lg shadow-sm bg-card">
-          <AccordionTrigger className="px-4 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" />
-              <span className="font-semibold">Informações do Cliente</span>
+        <AccordionItem value="informacoes-cliente" className="border rounded-lg shadow-md bg-card">
+          <AccordionTrigger className="px-6 py-4 hover:no-underline">
+            <div className="flex items-center gap-3">
+              <User className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-lg">Informações do Cliente</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <div className="space-y-4 pt-2">
+          <AccordionContent className="px-6 pb-6">
+            <div className="space-y-5 pt-4">
               <div>
                 <Label htmlFor="telefone_cliente" className="text-sm font-medium">Telefone do Cliente</Label>
                 <Input
                   id="telefone_cliente"
                   value={ficha?.telefone_cliente || ""}
                   disabled
-                  className="bg-muted mt-1.5"
+                  className="bg-muted mt-2 cursor-not-allowed"
                 />
               </div>
               
@@ -552,7 +562,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.notas || ""}
                   onChange={(e) => updateFicha({ notas: e.target.value })}
                   placeholder="Observações e anotações"
-                  className="mt-1.5"
+                  className="mt-2"
                 />
               </div>
             </div>
@@ -562,10 +572,10 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
       <Button 
         onClick={salvarManualmente} 
-        className="fixed bottom-6 right-6 shadow-lg z-50"
+        className="fixed bottom-8 right-8 shadow-2xl z-50 hover:shadow-3xl transition-shadow"
         size="lg"
       >
-        <Save className="mr-2 h-4 w-4" />
+        <Save className="mr-2 h-5 w-5" />
         Salvar Ficha
       </Button>
     </div>

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Send, FileText, Paperclip, FileIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -157,18 +157,38 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       return;
     }
 
+    const mensagemTexto = novaMsg;
+    setNovaMsg(""); // Limpar imediatamente para UX
+
+    // Optimistic update - adicionar mensagem localmente
+    const tempId = `temp-${Date.now()}`;
+    const novaMensagemTemp: Mensagem = {
+      id: tempId,
+      texto: mensagemTexto,
+      tipo: "texto",
+      arquivo_url: null,
+      data_hora: new Date().toISOString(),
+      remetente: "atendente",
+      status: "enviado"
+    };
+    
+    setMensagens(prev => [...prev, novaMensagemTemp]);
+
     try {
       // Enviar via Twilio
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
           to: clienteTelefone,
-          message: novaMsg,
+          message: mensagemTexto,
         },
       });
 
       if (error) throw error;
 
       if (!data.success) {
+        // Remover mensagem temporária em caso de erro
+        setMensagens(prev => prev.filter(m => m.id !== tempId));
+        
         if (data.error === 'FORA_JANELA_24H') {
           toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
           return;
@@ -176,11 +196,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         throw new Error(data.error || "Erro ao enviar mensagem");
       }
 
-      setNovaMsg("");
-      toast.success("Mensagem enviada via WhatsApp");
+      // Mensagem enviada com sucesso - o realtime vai atualizar com a mensagem real do banco
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
+      // Remover mensagem temporária em caso de erro
+      setMensagens(prev => prev.filter(m => m.id !== tempId));
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mensagem");
+      setNovaMsg(mensagemTexto); // Restaurar texto
     }
   };
 
@@ -192,7 +214,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <img 
           src={msg.arquivo_url} 
           alt="Imagem" 
-          className="max-w-[250px] rounded-lg mt-2 cursor-pointer hover:opacity-90 transition-opacity" 
+          className="max-w-[280px] max-h-[280px] rounded-xl mt-2 cursor-pointer hover:opacity-95 transition-all shadow-sm hover:shadow-md object-cover" 
           onClick={() => window.open(msg.arquivo_url || '', '_blank')}
         />
       );
@@ -202,7 +224,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       return (
         <video 
           controls 
-          className="max-w-[250px] rounded-lg mt-2"
+          className="max-w-[280px] max-h-[280px] rounded-xl mt-2 shadow-sm"
         >
           <source src={msg.arquivo_url} />
         </video>
@@ -211,13 +233,15 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     
     if (msg.tipo === 'audio') {
       return (
-        <audio 
-          controls 
-          className="mt-2 w-full max-w-[250px]"
-          style={{ height: '40px' }}
-        >
-          <source src={msg.arquivo_url} />
-        </audio>
+        <div className="mt-2 w-full max-w-[280px] p-3 rounded-xl bg-muted/30 shadow-sm">
+          <audio 
+            controls 
+            className="w-full"
+            style={{ height: '36px' }}
+          >
+            <source src={msg.arquivo_url} />
+          </audio>
+        </div>
       );
     }
 
@@ -227,10 +251,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           href={msg.arquivo_url} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="flex items-center gap-2 mt-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+          className="flex items-center gap-3 mt-2 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all shadow-sm hover:shadow-md max-w-[280px]"
         >
-          <Paperclip className="h-4 w-4" />
-          <span className="text-xs truncate">{msg.texto || 'Arquivo'}</span>
+          <FileIcon className="h-5 w-5 shrink-0" />
+          <span className="text-sm truncate flex-1">{msg.texto || 'Arquivo'}</span>
         </a>
       );
     }
@@ -256,29 +280,29 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-muted/20">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-muted/10">
         {mensagens.map((msg) => (
           <div
             key={msg.id}
             className={cn(
-              "flex",
+              "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
               msg.remetente === "atendente" ? "justify-end" : "justify-start"
             )}
           >
             <div
               className={cn(
-                "max-w-[70%] rounded-2xl p-3 shadow-sm",
+                "max-w-[70%] rounded-2xl p-3.5 shadow-md",
                 msg.remetente === "atendente"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-background border"
+                  ? "bg-primary text-primary-foreground rounded-br-sm"
+                  : "bg-card border rounded-bl-sm"
               )}
             >
-              {msg.texto && <p className="text-sm break-words">{msg.texto}</p>}
+              {msg.texto && <p className="text-sm break-words leading-relaxed">{msg.texto}</p>}
               {renderMedia(msg)}
               <p className={cn(
-                "text-xs mt-1",
+                "text-xs mt-1.5 opacity-70",
                 msg.remetente === "atendente" 
-                  ? "text-primary-foreground/70" 
+                  ? "text-primary-foreground" 
                   : "text-muted-foreground"
               )}>
                 {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
@@ -289,8 +313,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t bg-background shadow-sm">
-        <div className="flex gap-2 items-center">
+      <div className="p-4 border-t bg-background shadow-md">
+        <div className="flex gap-2 items-end">
           <input
             ref={fileInputRef}
             type="file"
@@ -303,22 +327,29 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             size="icon"
             onClick={() => fileInputRef.current?.click()}
             disabled={statusConversa === "fechada" || uploading}
-            className="shrink-0"
+            className="shrink-0 mb-1"
           >
             <Paperclip className="h-4 w-4" />
           </Button>
-          <Input
+          <Textarea
             placeholder={statusConversa === "aberta" ? "Digite sua mensagem..." : "Conversa fechada"}
             value={novaMsg}
             onChange={(e) => setNovaMsg(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && enviarMensagem()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                enviarMensagem();
+              }
+            }}
             disabled={statusConversa === "fechada"}
-            className="flex-1 rounded-full"
+            className="flex-1 min-h-[44px] max-h-[120px] resize-none rounded-2xl"
+            rows={1}
           />
           <Button 
             onClick={enviarMensagem} 
-            disabled={statusConversa === "fechada"}
-            className="shrink-0 shadow-md"
+            disabled={statusConversa === "fechada" || !novaMsg.trim()}
+            className="shrink-0 shadow-md mb-1"
+            size="icon"
           >
             <Send className="h-4 w-4" />
           </Button>
