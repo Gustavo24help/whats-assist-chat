@@ -7,22 +7,50 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { UserManagement } from "@/components/UserManagement";
 import { PasswordChange } from "@/components/PasswordChange";
+import { AccountInfo } from "@/components/AccountInfo";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [twilioAccountSid, setTwilioAccountSid] = useState("");
   const [twilioAuthToken, setTwilioAuthToken] = useState("");
   const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
 
-  // Carregar webhook salvo ao montar componente
   useEffect(() => {
+    checkAdminStatus();
     const saved = localStorage.getItem('webhook_ficha_atualizada');
     if (saved) setWebhookUrl(saved);
   }, []);
+
+  const checkAdminStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      setIsAdmin(roleData?.role === 'admin');
+    } catch (error) {
+      console.error('Erro ao verificar status de admin:', error);
+      setIsAdmin(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSaveSettings = () => {
     // Aqui você implementaria a lógica para salvar as configurações
@@ -62,21 +90,31 @@ const Settings = () => {
       </header>
 
       <main className="container mx-auto p-6">
-        <Tabs defaultValue="users" className="w-full">
-          <TabsList>
-            <TabsTrigger value="users">Usuários</TabsTrigger>
-            <TabsTrigger value="password">Senha</TabsTrigger>
-            <TabsTrigger value="twilio">Twilio API</TabsTrigger>
-            <TabsTrigger value="geral">Geral</TabsTrigger>
-          </TabsList>
+        {loading ? (
+          <Card>
+            <CardContent className="p-6">
+              <p className="text-sm text-muted-foreground">Carregando...</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Tabs defaultValue="account" className="w-full">
+            <TabsList>
+              <TabsTrigger value="account">Minha Conta</TabsTrigger>
+              {isAdmin && <TabsTrigger value="users">Gerenciar Usuários</TabsTrigger>}
+              <TabsTrigger value="twilio">Twilio API</TabsTrigger>
+              <TabsTrigger value="geral">Geral</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="users" className="space-y-4">
-            <UserManagement />
-          </TabsContent>
+            <TabsContent value="account" className="space-y-4">
+              <AccountInfo />
+              <PasswordChange />
+            </TabsContent>
 
-          <TabsContent value="password" className="space-y-4">
-            <PasswordChange />
-          </TabsContent>
+            {isAdmin && (
+              <TabsContent value="users" className="space-y-4">
+                <UserManagement />
+              </TabsContent>
+            )}
 
           <TabsContent value="twilio" className="space-y-4">
             <Card>
@@ -194,7 +232,8 @@ const Settings = () => {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+          </Tabs>
+        )}
       </main>
     </div>
   );
