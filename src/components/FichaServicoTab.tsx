@@ -292,7 +292,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   return (
     <div className="p-8 space-y-8 pb-28">
-      <Accordion type="multiple" defaultValue={["informacoes-gerais", "agendamento", "valores"]} className="w-full space-y-6">
+      <Accordion type="single" collapsible defaultValue="" className="w-full space-y-6">
         <AccordionItem value="informacoes-gerais" className="border rounded-lg shadow-md bg-card">
           <AccordionTrigger className="px-6 py-4 hover:no-underline">
             <div className="flex items-center gap-3">

@@ -1,14 +1,17 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ConversationCard } from "./ConversationCard";
+import { TagManager } from "./TagManager";
 import { Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { TagManager } from "./TagManager";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Cliente {
   telefone: string;
@@ -35,6 +38,8 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
   const [conversaFilter, setConversaFilter] = useState<"todas" | "aberta" | "fechada">("todas");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
+  const [tagManagerOpen, setTagManagerOpen] = useState(false);
+  const [currentTagClient, setCurrentTagClient] = useState<string | null>(null);
 
   useEffect(() => {
     fetchClientes();
@@ -131,6 +136,15 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
     } else {
       setSelectedTags([...selectedTags, tag]);
     }
+  };
+
+  const openTagManager = (telefone: string) => {
+    setCurrentTagClient(telefone);
+    setTagManagerOpen(true);
+  };
+
+  const archiveContact = async (telefone: string) => {
+    toast.info("Funcionalidade de arquivar em desenvolvimento");
   };
 
   const getStatusColor = (status?: string) => {

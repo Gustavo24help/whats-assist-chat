@@ -11,7 +11,6 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // Create audio element for notification sound
     audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjGH0fPTgjMGHm7A7+OZRQ0PVKbn9adgGAg+ltz0yHYpBSh+zPDglEILEliy6OyrWBUIQ5zj8r1rIgYuhM/z1YU1Bhxqvu7mnEcODlOm5/WnXxgIPpTc9Md0KAUpf8vw4JRCCBJV');
     
     const channel = supabase
@@ -27,21 +26,17 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
         (payload: any) => {
           const clienteId = payload.new.cliente_id;
           
-          // Only show notification if not viewing this conversation
           if (clienteId !== currentClienteId) {
-            // Play notification sound
             if (audioRef.current) {
               audioRef.current.play().catch(e => console.log('Could not play sound:', e));
             }
 
-            // Show toast notification
             const mensagem = payload.new.texto || 'Nova mensagem';
-            toast.info(`Nova mensagem de ${clienteId}`, {
-              description: mensagem.substring(0, 50) + (mensagem.length > 50 ? '...' : ''),
+            toast.info(`Nova mensagem recebida`, {
+              description: `Cliente: ${clienteId}\n${mensagem.substring(0, 50)}${mensagem.length > 50 ? '...' : ''}`,
               duration: 5000,
             });
 
-            // Trigger badge update
             onNewMessage(clienteId);
           }
         }

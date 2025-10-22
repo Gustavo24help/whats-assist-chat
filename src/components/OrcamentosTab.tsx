@@ -100,29 +100,6 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
 
       if (fichaError) throw fichaError;
 
-      // Criar mensagem no chat (inserir na tabela mensagens)
-      const valorFormatado = orc.valor_total?.toFixed(2) || '0.00';
-      const mensagemTexto = `💰 Orçamento aprovado: R$ ${valorFormatado}. Prestador: ${orc.prestador_nome || orc.prestador_cpf}.`;
-
-      // Buscar telefone do cliente pela ficha
-      const { data: fichaData } = await supabase
-        .from('fichas_de_servico')
-        .select('telefone_cliente')
-        .eq('id', fichaId)
-        .single();
-
-      if (fichaData) {
-        await supabase
-          .from('mensagens')
-          .insert({
-            cliente_id: fichaData.telefone_cliente,
-            remetente: 'atendente',
-            texto: mensagemTexto,
-            tipo: 'texto',
-            status: 'enviado'
-          });
-      }
-
       toast.success("Orçamento aprovado! Valores atualizados na ficha.");
       fetchOrcamentos();
     } catch (error) {
