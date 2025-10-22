@@ -20,6 +20,19 @@ Deno.serve(async (req) => {
     console.log('Manage users action:', action, { userId, email, role })
 
     switch (action) {
+      case 'check_admin':
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .eq('role', 'admin')
+          .single()
+
+        return new Response(
+          JSON.stringify({ success: true, isAdmin: !!roleData && !roleError }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+
       case 'create':
         const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
           email,
@@ -57,12 +70,12 @@ Deno.serve(async (req) => {
         await supabase.from('user_roles').delete().eq('user_id', userId)
         
         // Add new role
-        const { error: roleError } = await supabase.from('user_roles').insert({
+        const { error: updateRoleError } = await supabase.from('user_roles').insert({
           user_id: userId,
           role
         })
 
-        if (roleError) throw roleError
+        if (updateRoleError) throw updateRoleError
 
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

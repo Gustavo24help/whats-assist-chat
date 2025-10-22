@@ -48,15 +48,19 @@ export const UserManagement = () => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .single();
+      // Usar edge function para verificar role
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: { action: 'check_admin', userId: user.id }
+      });
 
-      setIsAdmin(!!data && !error);
+      if (error) {
+        console.error('Erro ao verificar admin:', error);
+        setIsAdmin(false);
+      } else {
+        setIsAdmin(data?.isAdmin || false);
+      }
     } catch (error) {
+      console.error('Erro ao verificar status de admin:', error);
       setIsAdmin(false);
     } finally {
       setLoading(false);

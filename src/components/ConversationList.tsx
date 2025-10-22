@@ -243,76 +243,39 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <ScrollArea className="flex-1">
         {filteredClientes.map((cliente) => (
-          <div
+          <ConversationCard
             key={cliente.telefone}
+            telefone={cliente.telefone}
+            nome={cliente.nome}
+            tags={cliente.tags || []}
+            fichaId={cliente.nome_ficha}
+            fichaStatus={cliente.status_ficha}
+            statusConversa={cliente.status_conversa}
+            ultimaInteracao={cliente.ultima_interacao}
+            isSelected={selectedClienteTelefone === cliente.telefone}
+            unreadCount={unreadMessages[cliente.telefone] || 0}
             onClick={() => onSelectCliente(cliente)}
-            className={cn(
-              "p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors relative",
-              selectedClienteTelefone === cliente.telefone && "bg-muted"
-            )}
-          >
-            {cliente.unread_count && cliente.unread_count > 0 && (
-              <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-secondary flex items-center justify-center">
-                <span className="text-xs text-secondary-foreground font-semibold">
-                  {cliente.unread_count}
-                </span>
-              </div>
-            )}
-
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-medium truncate">{cliente.nome}</h3>
-                  <TagManager 
-                    clienteTelefone={cliente.telefone} 
-                    currentTags={cliente.tags || []} 
-                    onTagsUpdate={fetchClientes}
-                  />
-                </div>
-                {cliente.nome_ficha && (
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    📋 {cliente.nome_ficha}
-                  </p>
-                )}
-                {cliente.status_ficha && getStatusText(cliente.status_ficha) && (
-                  <p 
-                    className="text-xs mt-0.5 font-medium truncate"
-                    style={{ color: getStatusColor(cliente.status_ficha) }}
-                  >
-                    {getStatusText(cliente.status_ficha)}
-                  </p>
-                )}
-              </div>
-            </div>
-            
-            <p className="text-sm text-muted-foreground mb-2">{cliente.telefone}</p>
-            
-            {cliente.tags && cliente.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {cliente.tags.map((tag, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-            
-            <div className="flex justify-between items-center">
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(cliente.ultima_interacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-              </p>
-              <Badge 
-                variant={cliente.status_conversa === "aberta" ? "default" : "secondary"}
-                className="text-xs"
-              >
-                {cliente.status_conversa === "aberta" ? "Aberta" : "Fechada"}
-              </Badge>
-            </div>
-          </div>
+            onOpenTagManager={() => openTagManager(cliente.telefone)}
+            onArchive={() => archiveContact(cliente.telefone)}
+          />
         ))}
-      </div>
+      </ScrollArea>
+
+      {/* Tag Manager Dialog */}
+      {currentTagClient && (
+        <TagManager
+          clienteTelefone={currentTagClient}
+          currentTags={filteredClientes.find(c => c.telefone === currentTagClient)?.tags || []}
+          onTagsUpdate={() => {
+            fetchClientes();
+            setTagManagerOpen(false);
+          }}
+          open={tagManagerOpen}
+          onOpenChange={setTagManagerOpen}
+        />
+      )}
     </div>
   );
 };
