@@ -42,7 +42,14 @@ export const UserManagement = () => {
   const checkAdminStatus = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      console.log('🔍 UserManagement - Verificando admin:', { 
+        userId: user?.id,
+        userEmail: user?.email 
+      });
+
       if (!user) {
+        console.log('❌ UserManagement - Sem usuário logado');
         setIsAdmin(false);
         setLoading(false);
         return;
@@ -55,16 +62,32 @@ export const UserManagement = () => {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      console.log('Role check:', { userId: user.id, roleData, error });
+      console.log('📊 UserManagement - Dados da role:', { 
+        userId: user.id,
+        roleData,
+        roleValue: roleData?.role,
+        roleType: typeof roleData?.role,
+        error 
+      });
 
       if (error) {
-        console.error('Erro ao verificar role:', error);
+        console.error('❌ UserManagement - Erro ao verificar role:', error);
         setIsAdmin(false);
       } else {
-        setIsAdmin(roleData?.role === 'admin');
+        // Normalizar para lowercase e verificar
+        const role = roleData?.role?.toLowerCase();
+        const isUserAdmin = role === 'admin';
+        
+        console.log('✅ UserManagement - Resultado final:', { 
+          roleOriginal: roleData?.role,
+          roleNormalized: role,
+          isAdmin: isUserAdmin 
+        });
+        
+        setIsAdmin(isUserAdmin);
       }
     } catch (error) {
-      console.error('Erro ao verificar status de admin:', error);
+      console.error('❌ UserManagement - Erro ao verificar status de admin:', error);
       setIsAdmin(false);
     } finally {
       setLoading(false);

@@ -31,21 +31,45 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      // Se não marcar "lembrar", define expiração de sessão
-      if (!rememberMe) {
-        localStorage.setItem('session_temporary', 'true');
-      } else {
-        localStorage.removeItem('session_temporary');
-      }
+      console.log('🔐 Auth - Iniciando login para:', email);
 
-      const { error } = await supabase.auth.signInWithPassword({
+      // Limpar cache antigo de sessão
+      localStorage.removeItem('session_temporary');
+
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
+
       if (error) throw error;
+
+      console.log('✅ Auth - Login bem-sucedido:', {
+        userId: data.user?.id,
+        userEmail: data.user?.email
+      });
+
+      // Se não marcar "lembrar", define expiração de sessão
+      if (!rememberMe) {
+        localStorage.setItem('session_temporary', 'true');
+      }
+
+      // Verificar role imediatamente após login
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.user?.id)
+        .maybeSingle();
+
+      console.log('📊 Auth - Role do usuário logado:', {
+        userId: data.user?.id,
+        role: roleData?.role,
+        error: roleError
+      });
+
       toast.success("Login realizado com sucesso!");
       navigate("/");
     } catch (error: any) {
+      console.error('❌ Auth - Erro no login:', error);
       toast.error(error.message || "Erro ao autenticar");
     } finally {
       setLoading(false);

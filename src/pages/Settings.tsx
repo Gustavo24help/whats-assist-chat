@@ -31,21 +31,51 @@ const Settings = () => {
   const checkAdminStatus = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      console.log('🔍 Settings - Verificando admin:', { 
+        userId: user?.id,
+        userEmail: user?.email 
+      });
+
       if (!user) {
+        console.log('❌ Settings - Sem usuário logado');
         setIsAdmin(false);
         setLoading(false);
         return;
       }
 
-      const { data: roleData } = await supabase
+      const { data: roleData, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      setIsAdmin(roleData?.role === 'admin');
+      console.log('📊 Settings - Dados da role:', { 
+        userId: user.id,
+        roleData,
+        roleValue: roleData?.role,
+        roleType: typeof roleData?.role,
+        error 
+      });
+
+      if (error) {
+        console.error('❌ Settings - Erro ao verificar role:', error);
+        setIsAdmin(false);
+      } else {
+        // Normalizar para lowercase e verificar
+        const role = roleData?.role?.toLowerCase();
+        const isUserAdmin = role === 'admin';
+        
+        console.log('✅ Settings - Resultado final:', { 
+          roleOriginal: roleData?.role,
+          roleNormalized: role,
+          isAdmin: isUserAdmin 
+        });
+        
+        setIsAdmin(isUserAdmin);
+      }
     } catch (error) {
-      console.error('Erro ao verificar status de admin:', error);
+      console.error('❌ Settings - Erro ao verificar status de admin:', error);
       setIsAdmin(false);
     } finally {
       setLoading(false);

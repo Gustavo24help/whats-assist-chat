@@ -19,7 +19,14 @@ export const AccountInfo = () => {
   const loadUserInfo = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      console.log('🔍 AccountInfo - Carregando info do usuário:', { 
+        userId: user?.id,
+        userEmail: user?.email 
+      });
+
       if (!user) {
+        console.log('❌ AccountInfo - Sem usuário logado');
         setLoading(false);
         return;
       }
@@ -32,19 +39,34 @@ export const AccountInfo = () => {
         .maybeSingle();
 
       // Buscar role
-      const { data: roleData } = await supabase
+      const { data: roleData, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
         .maybeSingle();
 
+      console.log('📊 AccountInfo - Dados da role:', { 
+        userId: user.id,
+        roleData,
+        roleValue: roleData?.role,
+        error 
+      });
+
+      // Normalizar role para lowercase
+      const normalizedRole = roleData?.role?.toLowerCase() || 'user';
+
       setUserInfo({
         email: user.email || '',
         fullName: profile?.full_name || 'Sem nome',
-        role: roleData?.role || 'user'
+        role: normalizedRole
+      });
+
+      console.log('✅ AccountInfo - Info carregada:', { 
+        email: user.email,
+        role: normalizedRole 
       });
     } catch (error) {
-      console.error('Erro ao carregar informações do usuário:', error);
+      console.error('❌ AccountInfo - Erro ao carregar informações do usuário:', error);
     } finally {
       setLoading(false);
     }
