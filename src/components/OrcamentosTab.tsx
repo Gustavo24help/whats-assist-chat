@@ -1,7 +1,11 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Check } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface OrcamentosTabProps {
   fichaId: string;
@@ -55,66 +59,87 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
   };
 
   return (
-    <div className="p-4 space-y-4 overflow-y-auto h-full">
-      <h3 className="font-semibold text-lg">Orçamentos</h3>
+    <div className="p-6">
+      <h3 className="text-xl font-bold mb-6 text-foreground">Orçamentos</h3>
       
       {orcamentos.length === 0 ? (
         <p className="text-muted-foreground text-sm">Nenhum orçamento cadastrado</p>
       ) : (
-        orcamentos.map((orc) => (
-          <Card key={orc.id}>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
-                <span>Orçamento #{orc.id.slice(0, 8)}</span>
-                <Badge variant={orc.status === 'aprovado' ? 'default' : 'secondary'}>
-                  {orc.status}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm">
-                <span className="font-medium">CPF Prestador:</span> {orc.prestador_cpf}
-              </p>
-              
-              <div className="grid grid-cols-3 gap-2 text-sm">
+        <div className="space-y-4">
+          {orcamentos.map((orc) => (
+            <Card key={orc.id} className="shadow-md border-border">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold">Orçamento #{orc.id.slice(0, 8)}</CardTitle>
+                  <Badge 
+                    variant={orc.status === 'aprovado' ? 'default' : 'secondary'}
+                    className="shadow-sm"
+                  >
+                    {orc.status}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 pb-4">
+                <div className="text-sm">
+                  <span className="font-medium text-foreground">Prestador CPF:</span> 
+                  <span className="text-muted-foreground ml-1">{orc.prestador_cpf}</span>
+                </div>
+
                 {orc.valor_total !== null && (
-                  <div>
-                    <p className="text-muted-foreground">Total</p>
-                    <p className="font-medium">R$ {orc.valor_total.toFixed(2)}</p>
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">Valor Total:</span> 
+                    <span className="text-muted-foreground ml-1">R$ {orc.valor_total.toFixed(2)}</span>
                   </div>
                 )}
+                
                 {orc.valor_mao_obra !== null && (
-                  <div>
-                    <p className="text-muted-foreground">Mão de Obra</p>
-                    <p className="font-medium">R$ {orc.valor_mao_obra.toFixed(2)}</p>
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">Mão de Obra:</span> 
+                    <span className="text-muted-foreground ml-1">R$ {orc.valor_mao_obra.toFixed(2)}</span>
                   </div>
                 )}
+                
                 {orc.valor_pecas !== null && (
-                  <div>
-                    <p className="text-muted-foreground">Peças</p>
-                    <p className="font-medium">R$ {orc.valor_pecas.toFixed(2)}</p>
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">Peças:</span> 
+                    <span className="text-muted-foreground ml-1">R$ {orc.valor_pecas.toFixed(2)}</span>
                   </div>
                 )}
-              </div>
-
-              {orc.categoria && (
-                <p className="text-sm">
-                  <span className="font-medium">Categoria:</span> {orc.categoria}
-                </p>
-              )}
-
-              {orc.observacoes && (
-                <p className="text-sm">
-                  <span className="font-medium">Observações:</span> {orc.observacoes}
-                </p>
-              )}
-
-              <p className="text-xs text-muted-foreground">
-                Criado em: {new Date(orc.data_criacao).toLocaleString('pt-BR')}
-              </p>
-            </CardContent>
-          </Card>
-        ))
+                
+                {orc.categoria && (
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">Categoria:</span> 
+                    <span className="text-muted-foreground ml-1">{orc.categoria}</span>
+                  </div>
+                )}
+                
+                {orc.observacoes && (
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">Observações:</span>
+                    <p className="text-muted-foreground mt-1">{orc.observacoes}</p>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between pt-3 border-t">
+                  <div className="text-xs text-muted-foreground">
+                    Criado em: {format(new Date(orc.data_criacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  </div>
+                  
+                  {orc.status !== 'aprovado' && (
+                    <Button 
+                      variant="secondary"
+                      size="sm"
+                      className="shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <Check className="mr-1 h-4 w-4" />
+                      Aprovar
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );

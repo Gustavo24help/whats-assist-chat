@@ -5,6 +5,7 @@ import { ConversationList } from "@/components/ConversationList";
 import { ChatWindow } from "@/components/ChatWindow";
 import { FichaPanel } from "@/components/FichaPanel";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 import { LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,22 +40,22 @@ const Index = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <header className="h-14 border-b bg-card flex items-center justify-between px-4">
-        <h1 className="text-lg font-semibold">Central de Atendimento WhatsApp</h1>
+      <header className="h-16 border-b bg-background flex items-center justify-between px-6 shadow-sm">
+        <Logo />
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+          <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
             <Settings className="mr-2 h-4 w-4" />
             Configurações
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
+          <Button variant="outline" size="sm" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             Sair
           </Button>
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className="w-80">
+      <div className="flex-1 flex overflow-hidden bg-muted/30">
+        <div className="w-80 border-r bg-background shadow-sm">
           <ConversationList
             selectedClienteTelefone={selectedCliente?.telefone || null}
             onSelectCliente={setSelectedCliente}
@@ -73,7 +74,7 @@ const Index = () => {
             </div>
 
             {fichaOpen && (
-              <div className="w-96">
+              <div className="w-[40%] border-l bg-background shadow-lg overflow-y-auto">
                 <FichaPanel
                   clienteTelefone={selectedCliente.telefone}
                   clienteNome={selectedCliente.nome}

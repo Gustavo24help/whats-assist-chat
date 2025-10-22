@@ -17,18 +17,18 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 47% 11%;
 
-    /* WhatsApp green */
-    --primary: 142 71% 45%;
+    /* Corporate dark green */
+    --primary: 150 100% 15%;
     --primary-foreground: 0 0% 100%;
     
-    /* Corporate blue */
-    --secondary: 213 94% 68%;
+    /* Corporate orange-red for actions */
+    --secondary: 18 100% 45%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 142 76% 36%;
+    --accent: 150 100% 20%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -36,26 +36,26 @@ All colors MUST be HSL.
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 142 71% 45%;
+    --ring: 150 100% 15%;
 
     --radius: 0.75rem;
 
     /* Status colors */
-    --status-open: 142 71% 45%;
+    --status-open: 150 100% 15%;
     --status-closed: 0 0% 63%;
     --status-pending: 43 96% 56%;
-    --status-approved: 142 71% 45%;
+    --status-approved: 150 100% 15%;
     --status-rejected: 0 84% 60%;
 
     /* Sidebar colors */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 142 71% 45%;
+    --sidebar-primary: 150 100% 15%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 40% 96%;
     --sidebar-accent-foreground: 222 47% 11%;
     --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 142 71% 45%;
+    --sidebar-ring: 150 100% 15%;
   }
 
   .dark {
@@ -68,16 +68,16 @@ All colors MUST be HSL.
     --popover: 217 33% 17%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 142 71% 45%;
+    --primary: 150 100% 15%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 213 94% 68%;
+    --secondary: 18 100% 45%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 142 76% 36%;
+    --accent: 150 100% 20%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 63% 31%;
@@ -85,16 +85,16 @@ All colors MUST be HSL.
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 142 71% 45%;
+    --ring: 150 100% 15%;
 
     --sidebar-background: 217 33% 13%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 142 71% 45%;
+    --sidebar-primary: 150 100% 15%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 33% 17%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 142 71% 45%;
+    --sidebar-ring: 150 100% 15%;
   }
 }
 

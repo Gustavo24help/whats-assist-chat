@@ -188,12 +188,22 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     if (!msg.arquivo_url) return null;
 
     if (msg.tipo === 'imagem') {
-      return <img src={msg.arquivo_url} alt="Imagem" className="max-w-full rounded mt-2" />;
+      return (
+        <img 
+          src={msg.arquivo_url} 
+          alt="Imagem" 
+          className="max-w-[250px] rounded-lg mt-2 cursor-pointer hover:opacity-90 transition-opacity" 
+          onClick={() => window.open(msg.arquivo_url || '', '_blank')}
+        />
+      );
     }
     
     if (msg.tipo === 'video') {
       return (
-        <video controls className="max-w-full rounded mt-2">
+        <video 
+          controls 
+          className="max-w-[250px] rounded-lg mt-2"
+        >
           <source src={msg.arquivo_url} />
         </video>
       );
@@ -201,9 +211,27 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     
     if (msg.tipo === 'audio') {
       return (
-        <audio controls className="mt-2 w-full">
+        <audio 
+          controls 
+          className="mt-2 w-full max-w-[250px]"
+          style={{ height: '40px' }}
+        >
           <source src={msg.arquivo_url} />
         </audio>
+      );
+    }
+
+    if (msg.tipo === 'arquivo') {
+      return (
+        <a 
+          href={msg.arquivo_url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 mt-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+        >
+          <Paperclip className="h-4 w-4" />
+          <span className="text-xs truncate">{msg.texto || 'Arquivo'}</span>
+        </a>
       );
     }
 
@@ -212,9 +240,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
   return (
     <div className="h-full flex flex-col bg-background">
-      <div className="p-4 border-b flex items-center justify-between bg-card">
+      <div className="p-4 border-b flex items-center justify-between bg-background shadow-sm">
         <div>
-          <h2 className="font-semibold text-lg">{clienteNome}</h2>
+          <h2 className="font-semibold text-lg text-foreground">{clienteNome}</h2>
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">
               {statusConversa === "aberta" ? "Conversa aberta" : "Conversa fechada - Use templates"}
@@ -222,13 +250,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
           </div>
         </div>
-        <Button onClick={onOpenFicha} variant="outline" size="sm">
+        <Button onClick={onOpenFicha} variant="default" size="sm" className="shadow-md">
           <FileText className="mr-2 h-4 w-4" />
           Ver Ficha
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-muted/20">
         {mensagens.map((msg) => (
           <div
             key={msg.id}
@@ -239,13 +267,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           >
             <div
               className={cn(
-                "max-w-[70%] rounded-lg p-3",
+                "max-w-[70%] rounded-2xl p-3 shadow-sm",
                 msg.remetente === "atendente"
                   ? "bg-primary text-primary-foreground"
-                  : "bg-muted"
+                  : "bg-background border"
               )}
             >
-              {msg.texto && <p className="text-sm">{msg.texto}</p>}
+              {msg.texto && <p className="text-sm break-words">{msg.texto}</p>}
               {renderMedia(msg)}
               <p className={cn(
                 "text-xs mt-1",
@@ -261,8 +289,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t bg-card">
-        <div className="flex gap-2">
+      <div className="p-4 border-t bg-background shadow-sm">
+        <div className="flex gap-2 items-center">
           <input
             ref={fileInputRef}
             type="file"
@@ -275,6 +303,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             size="icon"
             onClick={() => fileInputRef.current?.click()}
             disabled={statusConversa === "fechada" || uploading}
+            className="shrink-0"
           >
             <Paperclip className="h-4 w-4" />
           </Button>
@@ -284,8 +313,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             onChange={(e) => setNovaMsg(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && enviarMensagem()}
             disabled={statusConversa === "fechada"}
+            className="flex-1 rounded-full"
           />
-          <Button onClick={enviarMensagem} disabled={statusConversa === "fechada"}>
+          <Button 
+            onClick={enviarMensagem} 
+            disabled={statusConversa === "fechada"}
+            className="shrink-0 shadow-md"
+          >
             <Send className="h-4 w-4" />
           </Button>
         </div>
