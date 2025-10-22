@@ -78,7 +78,7 @@ const Index = () => {
       </header>
 
       <div className="flex-1 flex overflow-hidden bg-muted/30">
-        <div className="w-80 border-r bg-background shadow-sm">
+        <div className="w-80 md:w-80 lg:w-96 border-r bg-background shadow-sm max-md:w-full max-md:absolute max-md:z-10 max-md:h-full" style={{ display: selectedCliente && window.innerWidth < 768 ? 'none' : 'block' }}>
           <ConversationList
             selectedClienteTelefone={selectedCliente?.telefone || null}
             onSelectCliente={handleSelectCliente}
@@ -88,7 +88,7 @@ const Index = () => {
 
         {selectedCliente ? (
           <>
-            <div className={fichaOpen ? "flex-1" : "flex-1"}>
+            <div className={`${fichaOpen ? "flex-1 max-lg:hidden" : "flex-1"}`}>
               <ChatWindow
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
@@ -98,7 +98,7 @@ const Index = () => {
             </div>
 
             {fichaOpen && (
-              <div className="w-[65%] border-l bg-background shadow-lg">
+              <div className="w-full lg:w-[65%] xl:w-[60%] border-l bg-background shadow-lg">
                 <FichaPanel
                   clienteTelefone={selectedCliente.telefone}
                   clienteNome={selectedCliente.nome}
@@ -108,12 +108,12 @@ const Index = () => {
             )}
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-muted/20">
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold text-muted-foreground mb-2">
+          <div className="flex-1 flex items-center justify-center bg-muted/20 max-md:hidden">
+            <div className="text-center px-4">
+              <h2 className="text-xl md:text-2xl font-semibold text-muted-foreground mb-2">
                 Selecione uma conversa
               </h2>
-              <p className="text-muted-foreground">
+              <p className="text-sm md:text-base text-muted-foreground">
                 Escolha um cliente na lista para começar o atendimento
               </p>
             </div>

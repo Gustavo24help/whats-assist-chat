@@ -181,21 +181,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       setFicha(data);
       setStatusAnterior(data.status); // Armazenar status atual
       
-      // Extrair data/hora preservando horário local (sem conversão de timezone)
+      // Extrair data/hora SEM conversão de timezone - apenas split da string
       if (data.horario_agendamento) {
         const horarioStr = data.horario_agendamento;
-        // Criar Date object e extrair componentes locais (não UTC)
-        const date = new Date(horarioStr);
-        
-        // Extrair data e hora no timezone local
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        
-        setDataAgendamento(`${year}-${month}-${day}`);
-        setHoraAgendamento(`${hours}:${minutes}`);
+        // Formato esperado: "2025-01-22T14:00:00" ou "2025-01-22T14:00:00+00:00"
+        const partes = horarioStr.split('T');
+        if (partes.length === 2) {
+          const dataStr = partes[0]; // "2025-01-22"
+          const horaStr = partes[1].substring(0, 5); // "14:00"
+          setDataAgendamento(dataStr);
+          setHoraAgendamento(horaStr);
+        }
       }
     }
   };
@@ -459,7 +455,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   type="time"
                   value={horaAgendamento}
                   onChange={(e) => updateHoraAgendamento(e.target.value)}
-                  className="mt-2"
+                  className="mt-2 text-base px-4 py-2.5 rounded-lg border-input focus:ring-2 focus:ring-ring transition-all"
                 />
               </div>
             </div>

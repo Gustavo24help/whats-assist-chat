@@ -64,9 +64,9 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
 
   return (
     <div className="h-full flex flex-col bg-card border-l overflow-hidden">
-      <div className="p-4 border-b flex items-center justify-between shrink-0">
-        <h2 className="font-semibold text-lg">Ficha - {clienteNome}</h2>
-        <Button variant="ghost" size="icon" onClick={onClose}>
+      <div className="p-3 md:p-4 border-b flex items-center justify-between shrink-0">
+        <h2 className="font-semibold text-base md:text-lg truncate">Ficha - {clienteNome}</h2>
+        <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0">
           <X className="h-4 w-4" />
         </Button>
       </div>

@@ -169,8 +169,8 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
 
   return (
     <div className="h-full flex flex-col bg-card border-r">
-      <div className="p-4 border-b space-y-3">
-        <h2 className="font-semibold text-lg">Conversas</h2>
+      <div className="p-3 md:p-4 border-b space-y-2 md:space-y-3">
+        <h2 className="font-semibold text-base md:text-lg">Conversas</h2>
         
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
