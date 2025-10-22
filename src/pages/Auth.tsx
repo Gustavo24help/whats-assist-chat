@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { MessageCircle } from "lucide-react";
+import { CreateAdminUser } from "@/components/CreateAdminUser";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -45,7 +46,11 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-4">
+        {/* Componente temporário para criar admin - remover após criar o usuário */}
+        <CreateAdminUser />
+        
+        <Card className="w-full">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
             <MessageCircle className="h-6 w-6 text-primary" />
@@ -84,7 +89,8 @@ const Auth = () => {
             </Button>
           </form>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };
