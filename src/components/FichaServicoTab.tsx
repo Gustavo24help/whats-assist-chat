@@ -105,6 +105,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     debounce(async (fichaData: Ficha, dataAgend: string, horaAgend: string) => {
       let agendamentoISO: string | undefined;
       if (dataAgend && horaAgend) {
+        // Montar ISO string sem conversão de timezone - apenas concatenar
         agendamentoISO = `${dataAgend}T${horaAgend}:00`;
       } else if (dataAgend) {
         agendamentoISO = `${dataAgend}T00:00:00`;
@@ -133,7 +134,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             id_zoho: fichaData.id_zoho,
           }] as any, { onConflict: 'id' });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Erro ao salvar ficha:', error);
+          throw error;
+        }
+        console.log('Ficha salva automaticamente com sucesso');
       } catch (error) {
         console.error('Erro ao salvar ficha:', error);
         toast.error("Erro ao salvar ficha");
@@ -176,17 +181,21 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       setFicha(data);
       setStatusAnterior(data.status); // Armazenar status atual
       
-      // Extrair data/hora sem conversão de timezone
+      // Extrair data/hora preservando horário local (sem conversão de timezone)
       if (data.horario_agendamento) {
         const horarioStr = data.horario_agendamento;
-        // Formato esperado: "2025-01-22T14:00:00" ou "2025-01-22T14:00:00+00:00"
-        const partes = horarioStr.split('T');
-        if (partes.length === 2) {
-          const dataStr = partes[0]; // "2025-01-22"
-          const horaStr = partes[1].substring(0, 5); // "14:00"
-          setDataAgendamento(dataStr);
-          setHoraAgendamento(horaStr);
-        }
+        // Criar Date object e extrair componentes locais (não UTC)
+        const date = new Date(horarioStr);
+        
+        // Extrair data e hora no timezone local
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        setDataAgendamento(`${year}-${month}-${day}`);
+        setHoraAgendamento(`${hours}:${minutes}`);
       }
     }
   };
@@ -297,7 +306,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           id_zoho: ficha.id_zoho,
         }] as any);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao salvar ficha:', error);
+        throw error;
+      }
+
+      console.log('Ficha salva manualmente com sucesso');
 
       // Enviar webhook ao salvar manualmente
       await enviarWebhook(ficha, agendamentoISO);
@@ -534,10 +548,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="credito">Crédito</SelectItem>
-                    <SelectItem value="debito">Débito</SelectItem>
+                    <SelectItem value="cartao_credito">Crédito</SelectItem>
+                    <SelectItem value="cartao_debito">Débito</SelectItem>
                     <SelectItem value="dinheiro">Dinheiro</SelectItem>
                     <SelectItem value="boleto">Boleto</SelectItem>
+                    <SelectItem value="transferencia">Transferência</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

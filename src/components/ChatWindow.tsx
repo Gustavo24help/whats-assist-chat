@@ -118,11 +118,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       if (isVideo) tipoMensagem = "video";
       if (isAudio) tipoMensagem = "audio";
 
-      // Enviar via Twilio com mídia
+      // Enviar via Twilio com mídia - enviar apenas o link, sem o nome do arquivo
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
           to: clienteTelefone,
-          message: `📎 ${file.name}`,
+          message: mediaUrl,
           mediaUrl: mediaUrl,
         },
       });
