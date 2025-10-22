@@ -51,15 +51,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.error('❌ AuthContext - Erro ao buscar perfil:', profileError);
       }
 
-      // Buscar role - FONTE DE VERDADE
+      // Buscar role - FONTE DE VERDADE usando SDK do Supabase
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
         .maybeSingle();
 
+      // Tratamento elegante de erro - não quebrar o sistema
       if (roleError) {
-        console.error('❌ AuthContext - Erro ao buscar role:', roleError);
+        console.error('❌ AuthContext - Erro ao buscar role:', {
+          error: roleError,
+          code: roleError.code,
+          message: roleError.message
+        });
+        // Usar fallback seguro
+        const userProfileData: UserProfile = {
+          id: userId,
+          email: user?.email || '',
+          fullName: profile?.full_name || 'Sem nome',
+          role: 'user' // Fallback seguro
+        };
+        setUserProfile(userProfileData);
+        console.log('⚠️ AuthContext - Usando fallback devido a erro');
+        return userProfileData;
       }
 
       console.log('📊 AuthContext - Dados carregados:', {
@@ -91,7 +106,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return userProfileData;
     } catch (error) {
       console.error('❌ AuthContext - Erro ao carregar perfil:', error);
-      return null;
+      // Fallback seguro em caso de erro
+      const fallbackProfile: UserProfile = {
+        id: userId,
+        email: user?.email || '',
+        fullName: 'Sem nome',
+        role: 'user'
+      };
+      setUserProfile(fallbackProfile);
+      return fallbackProfile;
     }
   };
 
@@ -133,13 +156,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('🔄 AuthContext - Mudança de auth:', event);
 
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ AuthContext - Usuário logou:', session.user.id);
           setUser(session.user);
-          await loadUserProfile(session.user.id);
+          // Agendar carregamento do perfil sem await no listener
+          setTimeout(() => loadUserProfile(session.user.id), 0);
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 AuthContext - Usuário deslogou');
           setUser(null);
@@ -148,7 +172,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           console.log('🔄 AuthContext - Token atualizado');
           setUser(session.user);
           // Recarregar perfil para garantir role atualizado
-          await loadUserProfile(session.user.id);
+          setTimeout(() => loadUserProfile(session.user.id), 0);
         }
       }
     );

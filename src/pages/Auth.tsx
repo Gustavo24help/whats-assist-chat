@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,19 +11,22 @@ import { MessageCircle } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user, userProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
 
-  // Redirecionar se já estiver logado
+  // Verificar se já está logado
   useEffect(() => {
-    if (user) {
-      console.log('✅ Auth - Usuário já logado, redirecionando');
-      navigate("/");
-    }
-  }, [user, navigate]);
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.log('✅ Auth - Usuário já logado, redirecionando');
+        navigate("/");
+      }
+    };
+    checkSession();
+  }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,25 +48,27 @@ const Auth = () => {
         userEmail: data.user?.email
       });
 
-      // Buscar role DIRETAMENTE DO BANCO - FONTE DE VERDADE
+      // Buscar role DIRETAMENTE DO BANCO usando SDK do Supabase
+      console.log('🔍 Auth - Buscando role do usuário...');
+      
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', data.user?.id)
         .maybeSingle();
 
-      console.log('📊 Auth - Role carregado do banco:', {
+      console.log('📊 Auth - Role carregado:', {
         userId: data.user?.id,
         roleRaw: roleData?.role,
         roleType: typeof roleData?.role,
-        roleNormalized: roleData?.role?.toLowerCase(),
         error: roleError
       });
 
+      // Normalizar role
       const normalizedRole = roleData?.role?.toLowerCase();
       const isUserAdmin = normalizedRole === 'admin';
 
-      console.log('✅ Auth - Análise final do role:', {
+      console.log('✅ Auth - Verificação final:', {
         roleOriginal: roleData?.role,
         roleNormalized: normalizedRole,
         isAdmin: isUserAdmin
@@ -77,7 +81,7 @@ const Auth = () => {
         toast.success("Login realizado com sucesso!");
       }
 
-      // AuthContext vai recarregar automaticamente o perfil
+      // AuthContext vai detectar automaticamente e carregar o perfil
       navigate("/");
     } catch (error: any) {
       console.error('❌ Auth - Erro no login:', error);
