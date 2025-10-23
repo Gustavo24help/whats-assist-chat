@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,11 +32,40 @@ export const CriarFichaDialog = ({
   webhookUrl,
 }: CriarFichaDialogProps) => {
   const [loading, setLoading] = useState(false);
+  
+  // Gerar nome padrão da ficha
+  const generateDefaultFichaName = async () => {
+    const today = new Date();
+    const dateStr = format(today, "yyMMdd");
+    
+    // Buscar quantas fichas foram criadas hoje
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+    
+    const { data, error } = await supabase
+      .from('fichas_de_servico')
+      .select('id', { count: 'exact' })
+      .gte('created_at', startOfDay)
+      .lte('created_at', endOfDay);
+    
+    const count = (data?.length || 0) + 1;
+    return `FGM${count}-${dateStr}`;
+  };
+
   const [formData, setFormData] = useState({
+    nome_ficha: "",
     descricao: "",
     categoria: "",
-    endereco: "",
   });
+
+  // Gerar nome padrão ao abrir o diálogo
+  useEffect(() => {
+    if (open) {
+      generateDefaultFichaName().then(name => {
+        setFormData(prev => ({ ...prev, nome_ficha: name }));
+      });
+    }
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,9 +81,9 @@ export const CriarFichaDialog = ({
       const payload = {
         telefone_cliente: clienteTelefone,
         nome_cliente: clienteNome,
+        nome_ficha: formData.nome_ficha,
         descricao: formData.descricao,
         categoria: formData.categoria,
-        endereco: formData.endereco,
       };
 
       const response = await fetch(webhookUrl, {
@@ -95,6 +126,19 @@ export const CriarFichaDialog = ({
 
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="nome_ficha">Nome da Ficha *</Label>
+              <Input
+                id="nome_ficha"
+                placeholder="FGM1-251023"
+                value={formData.nome_ficha}
+                onChange={(e) =>
+                  setFormData({ ...formData, nome_ficha: e.target.value })
+                }
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="descricao">Descrição do Serviço *</Label>
               <Textarea
                 id="descricao"
@@ -116,18 +160,6 @@ export const CriarFichaDialog = ({
                 value={formData.categoria}
                 onChange={(e) =>
                   setFormData({ ...formData, categoria: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="endereco">Endereço</Label>
-              <Input
-                id="endereco"
-                placeholder="Endereço do serviço"
-                value={formData.endereco}
-                onChange={(e) =>
-                  setFormData({ ...formData, endereco: e.target.value })
                 }
               />
             </div>

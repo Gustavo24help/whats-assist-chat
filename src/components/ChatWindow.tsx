@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, FileText, Paperclip, FileIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
@@ -231,6 +231,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
+  const getDateLabel = (date: Date) => {
+    if (isToday(date)) return "Hoje";
+    if (isYesterday(date)) return "Ontem";
+    return format(date, "dd/MM/yyyy", { locale: ptBR });
+  };
+
+  const shouldShowDateSeparator = (currentMsg: Mensagem, previousMsg?: Mensagem) => {
+    if (!previousMsg) return true;
+    const currentDate = new Date(currentMsg.data_hora);
+    const previousDate = new Date(previousMsg.data_hora);
+    return !isSameDay(currentDate, previousDate);
+  };
+
   const renderMedia = (msg: Mensagem) => {
     if (!msg.arquivo_url) return null;
 
@@ -306,35 +319,48 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-muted/10">
-        {mensagens.map((msg) => (
-          <div
-            key={msg.id}
-            className={cn(
-              "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
-              msg.remetente === "atendente" ? "justify-end" : "justify-start"
-            )}
-          >
-            <div
-              className={cn(
-                "max-w-[70%] rounded-2xl p-3.5 shadow-md",
-                msg.remetente === "atendente"
-                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                  : "bg-card border rounded-bl-sm"
+        {mensagens.map((msg, index) => {
+          const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
+          const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
+          
+          return (
+            <div key={msg.id}>
+              {showDateSeparator && (
+                <div className="flex justify-center my-4">
+                  <div className="bg-muted/60 backdrop-blur-sm text-muted-foreground text-xs px-3 py-1.5 rounded-full shadow-sm">
+                    {getDateLabel(new Date(msg.data_hora))}
+                  </div>
+                </div>
               )}
-            >
-              {msg.texto && <p className="text-sm break-words leading-relaxed">{msg.texto}</p>}
-              {renderMedia(msg)}
-              <p className={cn(
-                "text-xs mt-1.5 opacity-70",
-                msg.remetente === "atendente" 
-                  ? "text-primary-foreground" 
-                  : "text-muted-foreground"
-              )}>
-                {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
-              </p>
+              <div
+                className={cn(
+                  "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
+                  msg.remetente === "atendente" ? "justify-end" : "justify-start"
+                )}
+              >
+                <div
+                  className={cn(
+                    "max-w-[70%] rounded-2xl p-3.5 shadow-md",
+                    msg.remetente === "atendente"
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : "bg-card border rounded-bl-sm"
+                  )}
+                >
+                  {msg.texto && <p className="text-sm break-words leading-relaxed">{msg.texto}</p>}
+                  {renderMedia(msg)}
+                  <p className={cn(
+                    "text-xs mt-1.5 opacity-70",
+                    msg.remetente === "atendente" 
+                      ? "text-primary-foreground" 
+                      : "text-muted-foreground"
+                  )}>
+                    {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
