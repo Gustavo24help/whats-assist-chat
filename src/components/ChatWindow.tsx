@@ -11,6 +11,7 @@ import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
 import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";
 import { useConversationTimer } from "@/hooks/useConversationTimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AbrirConversaDialog } from "./AbrirConversaDialog";
 
 interface Mensagem {
   id: string;
@@ -312,10 +313,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
           </div>
         </div>
-        <Button onClick={onOpenFicha} variant="default" size="sm" className="shadow-md">
-          <FileText className="mr-2 h-4 w-4" />
-          Ver Ficha
-        </Button>
+        <div className="flex gap-2">
+          <AbrirConversaDialog 
+            clienteTelefone={clienteTelefone}
+            clienteNome={clienteNome}
+          />
+          <Button onClick={onOpenFicha} variant="default" size="sm" className="shadow-md">
+            <FileText className="mr-2 h-4 w-4" />
+            Ver Ficha
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-muted/10">
