@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
 import { PasswordChange } from "@/components/PasswordChange";
 import { AccountInfo } from "@/components/AccountInfo";
+import { PrestadorManagement } from "@/components/PrestadorManagement";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -75,6 +76,7 @@ const Settings = () => {
             <TabsList>
               <TabsTrigger value="account">Minha Conta</TabsTrigger>
               {isAdmin && <TabsTrigger value="users">Gerenciar Usuários</TabsTrigger>}
+              <TabsTrigger value="prestadores">Prestadores</TabsTrigger>
               <TabsTrigger value="twilio">Twilio API</TabsTrigger>
               <TabsTrigger value="geral">Geral</TabsTrigger>
             </TabsList>
@@ -89,6 +91,10 @@ const Settings = () => {
                 <UserManagement />
               </TabsContent>
             )}
+
+            <TabsContent value="prestadores" className="space-y-4">
+              <PrestadorManagement />
+            </TabsContent>
 
           <TabsContent value="twilio" className="space-y-4">
             <Card>
