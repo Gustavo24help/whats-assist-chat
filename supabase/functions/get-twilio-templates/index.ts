@@ -14,19 +14,14 @@ serve(async (req) => {
   }
 
   try {
-    const { serviceSid } = await req.json();
-    
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
       throw new Error("Credenciais Twilio não configuradas");
     }
 
-    if (!serviceSid) {
-      throw new Error("ServiceSid é obrigatório");
-    }
+    console.log("Buscando templates aprovados da Twilio...");
 
-    console.log("Buscando templates da Twilio...", { serviceSid });
-
-    const url = `https://content.twilio.com/v1/Services/${serviceSid}/MessageTemplates`;
+    // Buscar content templates aprovados (WhatsApp Business)
+    const url = `https://content.twilio.com/v1/Content`;
     
     const authHeader = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
     
@@ -41,14 +36,24 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Erro ao buscar templates:", errorText);
-      throw new Error(`Erro ao buscar templates: ${response.status}`);
+      throw new Error(`Erro ao buscar templates: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     console.log("Templates recuperados:", data);
 
+    // Filtrar apenas templates aprovados para WhatsApp
+    const whatsappTemplates = (data.contents || []).filter((template: any) => 
+      template.types && 
+      template.types['twilio/text'] && 
+      template.approval_requests &&
+      template.approval_requests.whatsapp === 'approved'
+    );
+
+    console.log(`${whatsappTemplates.length} templates aprovados encontrados`);
+
     return new Response(
-      JSON.stringify({ success: true, templates: data.message_templates || [] }),
+      JSON.stringify({ success: true, templates: whatsappTemplates }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

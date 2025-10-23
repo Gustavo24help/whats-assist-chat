@@ -34,25 +34,19 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [serviceSid, setServiceSid] = useState("");
   const [templates, setTemplates] = useState<Template[]>([]);
 
   useEffect(() => {
-    if (open && serviceSid) {
+    if (open) {
       fetchTemplates();
     }
-  }, [open, serviceSid]);
+  }, [open]);
 
   const fetchTemplates = async () => {
-    if (!serviceSid.trim()) {
-      toast.error("Por favor, insira o Service SID");
-      return;
-    }
-
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("get-twilio-templates", {
-        body: { serviceSid: serviceSid.trim() },
+        body: {},
       });
 
       if (error) throw error;
@@ -64,7 +58,7 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
       setTemplates(data.templates || []);
       
       if (data.templates.length === 0) {
-        toast.info("Nenhum template encontrado");
+        toast.info("Nenhum template aprovado encontrado. Configure templates no Twilio.");
       }
     } catch (error) {
       console.error("Erro ao buscar templates:", error);
@@ -115,27 +109,19 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         <DialogHeader>
           <DialogTitle>Abrir Conversa com Template</DialogTitle>
           <DialogDescription>
-            Selecione um template aprovado da Twilio para iniciar a conversa com {clienteNome}
+            Selecione um template aprovado do WhatsApp para iniciar a conversa com {clienteNome}
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="serviceSid">Service SID da Twilio</Label>
-            <div className="flex gap-2">
-              <Input
-                id="serviceSid"
-                placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                value={serviceSid}
-                onChange={(e) => setServiceSid(e.target.value)}
-              />
-              <Button onClick={fetchTemplates} disabled={loading || !serviceSid.trim()}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Buscar"}
-              </Button>
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Carregando templates...</span>
             </div>
-          </div>
+          )}
 
-          {templates.length > 0 && (
+          {!loading && templates.length > 0 && (
             <div className="space-y-2">
               <Label>Templates Disponíveis</Label>
               <ScrollArea className="h-[300px] rounded-md border p-4">
@@ -164,6 +150,12 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
                   ))}
                 </div>
               </ScrollArea>
+            </div>
+          )}
+
+          {!loading && templates.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              Nenhum template aprovado encontrado. Configure templates no console da Twilio.
             </div>
           )}
         </div>
