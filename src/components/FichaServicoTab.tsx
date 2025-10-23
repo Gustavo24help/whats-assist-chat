@@ -24,6 +24,7 @@ interface Ficha {
   valor_total: number;
   valor_mao_obra: number;
   valor_pecas: number;
+  tempo_servico: string | null;
   horario_agendamento: string | null;
   cpf: string | null;
   endereco: string | null;
@@ -179,10 +180,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             descricao: fichaData.descricao,
             status: fichaData.status as any,
             prestador_id: fichaData.prestador_id,
-            valor_total: fichaData.valor_total,
-            valor_mao_obra: fichaData.valor_mao_obra,
-            valor_pecas: fichaData.valor_pecas,
-            horario_agendamento: agendamentoISO,
+          valor_total: fichaData.valor_total,
+          valor_mao_obra: fichaData.valor_mao_obra,
+          valor_pecas: fichaData.valor_pecas,
+          tempo_servico: fichaData.tempo_servico,
+          horario_agendamento: agendamentoISO,
             cpf: fichaData.cpf,
             endereco: fichaData.endereco,
             pagamento_tipo: fichaData.pagamento_tipo as any,
@@ -322,6 +324,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           valor_total: updatedFicha.valor_total,
           valor_mao_obra: updatedFicha.valor_mao_obra,
           valor_pecas: updatedFicha.valor_pecas,
+          tempo_servico: updatedFicha.tempo_servico,
           horario_agendamento: agendamentoISO,
           cpf: updatedFicha.cpf,
           endereco: updatedFicha.endereco,
@@ -405,6 +408,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           valor_total: ficha.valor_total,
           valor_mao_obra: ficha.valor_mao_obra,
           valor_pecas: ficha.valor_pecas,
+          tempo_servico: ficha.tempo_servico,
           horario_agendamento: agendamentoISO,
           cpf: ficha.cpf,
           endereco: ficha.endereco,
@@ -605,13 +609,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               <div>
                 <Label htmlFor="prestador_id" className="text-sm font-medium">Prestador de Serviço</Label>
                 <Select
-                  value={ficha?.prestador_id || ""}
-                  onValueChange={(value) => updateFicha({ prestador_id: value })}
+                  value={ficha?.prestador_id || "nulo"}
+                  onValueChange={(value) => updateFicha({ prestador_id: value === "nulo" ? null : value })}
                 >
                   <SelectTrigger id="prestador_id" className="mt-2">
                     <SelectValue placeholder="Selecione o prestador" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="nulo">Nenhum (Nulo)</SelectItem>
                     {prestadores.map((prestador) => (
                       <SelectItem key={prestador.cpf} value={prestador.cpf}>
                         {prestador.nome}
@@ -753,6 +758,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.valor_pecas || ""}
                   onChange={(e) => updateFicha({ valor_pecas: parseFloat(e.target.value) || 0 })}
                   placeholder="0.00"
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="tempo_servico" className="text-sm font-medium">Tempo de Serviço</Label>
+                <Input
+                  id="tempo_servico"
+                  value={ficha?.tempo_servico || ""}
+                  onChange={(e) => updateFicha({ tempo_servico: e.target.value })}
+                  placeholder="Ex: 2 horas"
                   className="mt-2"
                 />
               </div>

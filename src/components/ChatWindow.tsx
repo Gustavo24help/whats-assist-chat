@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
+import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";
 
 interface Mensagem {
   id: string;
@@ -30,11 +31,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [fichaId, setFichaId] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchMensagens();
+    fetchFichaId();
 
     const channel = supabase
       .channel(`mensagens-${clienteTelefone}`)
@@ -68,6 +71,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
     if (!error && data) {
       setMensagens(data as Mensagem[]);
+    }
+  };
+
+  const fetchFichaId = async () => {
+    const { data } = await supabase
+      .from('fichas_de_servico')
+      .select('id')
+      .eq('telefone_cliente', clienteTelefone)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (data) {
+      setFichaId(data.id);
     }
   };
 
@@ -326,6 +343,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             accept="image/*,video/*,audio/*"
             onChange={handleFileUpload}
             className="hidden"
+          />
+          <MensagensPadronizadasDropdown
+            onSelectMensagem={(msg) => setNovaMsg(msg)}
+            clienteNome={clienteNome}
+            clienteTelefone={clienteTelefone}
+            fichaId={fichaId}
           />
           <Button 
             variant="outline" 

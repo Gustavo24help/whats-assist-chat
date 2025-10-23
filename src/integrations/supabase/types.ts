@@ -88,6 +88,7 @@ export type Database = {
           prestador_id: string | null
           status: Database["public"]["Enums"]["status_ficha_enum"] | null
           telefone_cliente: string
+          tempo_servico: string | null
           updated_at: string | null
           valor_mao_obra: number | null
           valor_pecas: number | null
@@ -115,6 +116,7 @@ export type Database = {
           prestador_id?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           telefone_cliente: string
+          tempo_servico?: string | null
           updated_at?: string | null
           valor_mao_obra?: number | null
           valor_pecas?: number | null
@@ -142,6 +144,7 @@ export type Database = {
           prestador_id?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           telefone_cliente?: string
+          tempo_servico?: string | null
           updated_at?: string | null
           valor_mao_obra?: number | null
           valor_pecas?: number | null
@@ -221,6 +224,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mensagens_padronizadas: {
+        Row: {
+          created_at: string | null
+          id: string
+          mensagem: string
+          ordem: number
+          tag: string | null
+          titulo: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          mensagem: string
+          ordem?: number
+          tag?: string | null
+          titulo: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          mensagem?: string
+          ordem?: number
+          tag?: string | null
+          titulo?: string
+        }
+        Relationships: []
       }
       orcamentos: {
         Row: {

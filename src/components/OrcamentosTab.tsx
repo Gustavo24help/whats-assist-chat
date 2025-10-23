@@ -197,6 +197,7 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
           valor_total: orc.valor_total || 0,
           valor_mao_obra: orc.valor_mao_obra || 0,
           valor_pecas: orc.valor_pecas || 0,
+          tempo_servico: orc.tempo_servico,
           prestador_id: orc.prestador_cpf
         })
         .eq('id', fichaId);

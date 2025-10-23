@@ -12,6 +12,7 @@ import { UserManagement } from "@/components/UserManagement";
 import { PasswordChange } from "@/components/PasswordChange";
 import { AccountInfo } from "@/components/AccountInfo";
 import { PrestadorManagement } from "@/components/PrestadorManagement";
+import { MensagensPadronizadas } from "@/components/MensagensPadronizadas";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -77,6 +78,7 @@ const Settings = () => {
               <TabsTrigger value="account">Minha Conta</TabsTrigger>
               {isAdmin && <TabsTrigger value="users">Gerenciar Usuários</TabsTrigger>}
               <TabsTrigger value="prestadores">Prestadores</TabsTrigger>
+              <TabsTrigger value="mensagens">Mensagens Padronizadas</TabsTrigger>
               <TabsTrigger value="twilio">Twilio API</TabsTrigger>
               <TabsTrigger value="geral">Geral</TabsTrigger>
             </TabsList>
@@ -94,6 +96,10 @@ const Settings = () => {
 
             <TabsContent value="prestadores" className="space-y-4">
               <PrestadorManagement />
+            </TabsContent>
+
+            <TabsContent value="mensagens" className="space-y-4">
+              <MensagensPadronizadas />
             </TabsContent>
 
           <TabsContent value="twilio" className="space-y-4">
