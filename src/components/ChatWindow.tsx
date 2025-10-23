@@ -9,6 +9,8 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
 import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";
+import { useConversationTimer } from "@/hooks/useConversationTimer";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Mensagem {
   id: string;
@@ -34,6 +36,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [fichaId, setFichaId] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { dentroJanela } = useConversationTimer(clienteTelefone);
 
   useEffect(() => {
     fetchMensagens();

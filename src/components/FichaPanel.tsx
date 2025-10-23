@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign } from "lucide-react";
+import { X, FileText, DollarSign, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
 import { OrcamentosTab } from "./OrcamentosTab";
+import { CriarFichaDialog } from "./CriarFichaDialog";
 
 interface Ficha {
   id: string;
@@ -21,10 +22,25 @@ interface FichaPanelProps {
 export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanelProps) => {
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [fichaAtual, setFichaAtual] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
 
   useEffect(() => {
     fetchFichas();
+    fetchWebhookUrl();
   }, [clienteTelefone]);
+
+  const fetchWebhookUrl = async () => {
+    const { data } = await supabase
+      .from("configuracoes")
+      .select("valor")
+      .eq("chave", "webhook_criar_ficha")
+      .single();
+
+    if (data?.valor) {
+      setWebhookUrl(data.valor);
+    }
+  };
 
   const fetchFichas = async () => {
     const { data } = await supabase
@@ -66,9 +82,32 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
     <div className="h-full flex flex-col bg-card border-l overflow-hidden">
       <div className="p-3 md:p-4 border-b flex items-center justify-between shrink-0">
         <h2 className="font-semibold text-base md:text-lg truncate">Ficha - {clienteNome}</h2>
-        <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0">
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {fichas.length > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setDialogOpen(true)}
+              className="hidden md:flex"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Nova Ficha
+            </Button>
+          )}
+          {fichas.length > 0 && (
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => setDialogOpen(true)}
+              className="md:hidden"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {fichas.length === 0 ? (
@@ -77,7 +116,8 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
           <p className="text-muted-foreground text-center mb-4">
             Nenhuma ficha de serviço encontrada para este cliente
           </p>
-          <Button onClick={criarFicha}>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
             Criar Nova Ficha
           </Button>
         </div>
@@ -124,6 +164,14 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
           )}
         </>
       )}
+
+      <CriarFichaDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        clienteTelefone={clienteTelefone}
+        clienteNome={clienteNome}
+        webhookUrl={webhookUrl}
+      />
     </div>
   );
 };

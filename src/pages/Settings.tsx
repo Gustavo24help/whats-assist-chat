@@ -22,11 +22,27 @@ const Settings = () => {
   const [twilioAuthToken, setTwilioAuthToken] = useState("");
   const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [webhookCriarFicha, setWebhookCriarFicha] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem('webhook_ficha_atualizada');
     if (saved) setWebhookUrl(saved);
+    
+    fetchWebhookCriarFicha();
   }, []);
+
+  const fetchWebhookCriarFicha = async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data } = await supabase
+      .from("configuracoes")
+      .select("valor")
+      .eq("chave", "webhook_criar_ficha")
+      .single();
+
+    if (data?.valor) {
+      setWebhookCriarFicha(data.valor);
+    }
+  };
 
   const handleSaveSettings = () => {
     // Aqui você implementaria a lógica para salvar as configurações
@@ -43,6 +59,27 @@ const Settings = () => {
       title: "Webhook salvo",
       description: "O webhook foi configurado com sucesso.",
     });
+  };
+
+  const handleSaveWebhookCriarFicha = async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { error } = await supabase
+      .from("configuracoes")
+      .update({ valor: webhookCriarFicha })
+      .eq("chave", "webhook_criar_ficha");
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar webhook de criação de fichas",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Webhook salvo",
+        description: "O webhook de criação de fichas foi configurado com sucesso.",
+      });
+    }
   };
 
   return (
@@ -183,6 +220,25 @@ const Settings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="webhook_criar_ficha">Webhook de Criação de Ficha</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="webhook_criar_ficha"
+                      placeholder="https://seu-endpoint.com/webhook/criar-ficha"
+                      value={webhookCriarFicha}
+                      onChange={(e) => setWebhookCriarFicha(e.target.value)}
+                    />
+                    <Button onClick={handleSaveWebhookCriarFicha}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enviaremos um POST para este endpoint ao criar uma nova ficha via interface
+                  </p>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="webhook_ficha">Webhook de Atualização da Ficha</Label>
                   <div className="flex gap-2">

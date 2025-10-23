@@ -1,0 +1,160 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+
+interface CriarFichaDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clienteTelefone: string;
+  clienteNome: string;
+  webhookUrl: string;
+}
+
+export const CriarFichaDialog = ({
+  open,
+  onOpenChange,
+  clienteTelefone,
+  clienteNome,
+  webhookUrl,
+}: CriarFichaDialogProps) => {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    descricao: "",
+    categoria: "",
+    endereco: "",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!webhookUrl) {
+      toast.error("Configure o webhook de criação de fichas nas configurações");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = {
+        telefone_cliente: clienteTelefone,
+        nome_cliente: clienteNome,
+        descricao: formData.descricao,
+        categoria: formData.categoria,
+        endereco: formData.endereco,
+      };
+
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao criar ficha via webhook");
+      }
+
+      toast.success("Ficha criada com sucesso!");
+      
+      // Aguardar 5 segundos antes de recarregar
+      setTimeout(() => {
+        window.location.reload();
+      }, 5000);
+
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Erro ao criar ficha:", error);
+      toast.error(error.message || "Erro ao criar ficha");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Criar Nova Ficha</DialogTitle>
+            <DialogDescription>
+              Preencha os dados para criar uma nova ficha de serviço para {clienteNome}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="descricao">Descrição do Serviço *</Label>
+              <Textarea
+                id="descricao"
+                placeholder="Descreva o serviço solicitado..."
+                value={formData.descricao}
+                onChange={(e) =>
+                  setFormData({ ...formData, descricao: e.target.value })
+                }
+                required
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="categoria">Categoria</Label>
+              <Input
+                id="categoria"
+                placeholder="Ex: Elétrica, Hidráulica, etc."
+                value={formData.categoria}
+                onChange={(e) =>
+                  setFormData({ ...formData, categoria: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="endereco">Endereço</Label>
+              <Input
+                id="endereco"
+                placeholder="Endereço do serviço"
+                value={formData.endereco}
+                onChange={(e) =>
+                  setFormData({ ...formData, endereco: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                "Criar Ficha"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};

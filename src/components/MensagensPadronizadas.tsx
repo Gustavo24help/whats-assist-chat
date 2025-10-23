@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
 import { toast } from "sonner";
+import { VariaveisMensagemDropdown } from "./VariaveisMensagemDropdown";
 
 interface MensagemPadronizada {
   id: string;
@@ -43,6 +44,7 @@ export const MensagensPadronizadas = () => {
     tag: "",
     ordem: 0,
   });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     fetchMensagens();
@@ -153,6 +155,25 @@ export const MensagensPadronizadas = () => {
     } catch (error: any) {
       console.error("Erro ao excluir mensagem:", error);
       toast.error(error.message || "Erro ao excluir mensagem");
+    }
+  };
+
+  const handleInsertVariavel = (variavel: string) => {
+    if (textareaRef.current) {
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      const text = formData.mensagem;
+      const newText = text.substring(0, start) + variavel + text.substring(end);
+      
+      setFormData({ ...formData, mensagem: newText });
+      
+      // Focar novamente no textarea após inserir
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + variavel.length;
+        }
+      }, 0);
     }
   };
 
@@ -290,8 +311,12 @@ export const MensagensPadronizadas = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="mensagem">Mensagem *</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="mensagem">Mensagem *</Label>
+                  <VariaveisMensagemDropdown onSelectVariavel={handleInsertVariavel} />
+                </div>
                 <Textarea
+                  ref={textareaRef}
                   id="mensagem"
                   rows={8}
                   placeholder="Digite a mensagem com variáveis como [nome_cliente]"
@@ -302,7 +327,7 @@ export const MensagensPadronizadas = () => {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Variáveis disponíveis: [nome_cliente], [telefone_cliente], [nome_ficha], [status_ficha], [valor_total], [prestador_nome]
+                  Clique em "Inserir Variável" para adicionar campos dinâmicos à mensagem
                 </p>
               </div>
             </div>
