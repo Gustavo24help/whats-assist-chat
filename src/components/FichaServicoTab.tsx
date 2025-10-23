@@ -436,6 +436,62 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
   };
 
+  const sincronizarOrcamentos = async (prestadorCpf: string) => {
+    if (!ficha || !ficha.valor_total || ficha.valor_total <= 0) return;
+
+    try {
+      // Verificar se existe orçamento do prestador
+      const { data: orcamentos } = await supabase
+        .from('orcamentos')
+        .select('*')
+        .eq('ficha_nome', fichaId)
+        .eq('prestador_cpf', prestadorCpf);
+
+      if (orcamentos && orcamentos.length > 0) {
+        // Aprovar orçamento do prestador
+        const { error: aprovarError } = await supabase
+          .from('orcamentos')
+          .update({ status: 'aprovado' })
+          .eq('ficha_nome', fichaId)
+          .eq('prestador_cpf', prestadorCpf);
+
+        if (aprovarError) throw aprovarError;
+
+        // Reprovar outros orçamentos
+        const { error: reprovarError } = await supabase
+          .from('orcamentos')
+          .update({ status: 'rejeitado' })
+          .eq('ficha_nome', fichaId)
+          .neq('prestador_cpf', prestadorCpf);
+
+        if (reprovarError) throw reprovarError;
+
+        toast.success("Orçamento aprovado automaticamente!");
+      } else {
+        // Criar e aprovar orçamento automaticamente
+        const { error: criarError } = await supabase
+          .from('orcamentos')
+          .insert({
+            ficha_nome: fichaId,
+            prestador_cpf: prestadorCpf,
+            valor_total: ficha.valor_total,
+            valor_mao_obra: ficha.valor_mao_obra || 0,
+            valor_pecas: ficha.valor_pecas || 0,
+            status: 'aprovado',
+            categoria: null,
+            observacoes: 'Criado automaticamente pela ficha',
+          });
+
+        if (criarError) throw criarError;
+
+        toast.success("Orçamento criado e aprovado automaticamente!");
+      }
+    } catch (error) {
+      console.error('Erro ao sincronizar orçamentos:', error);
+      toast.error("Erro ao sincronizar orçamentos");
+    }
+  };
+
   if (!ficha) return <div className="p-6">Carregando...</div>;
 
   return (
@@ -627,13 +683,49 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           <AccordionContent className="px-6 pb-6">
             <div className="space-y-5 pt-4">
               <div>
+                <Label htmlFor="prestador_valores" className="text-sm font-medium">Prestador de Serviço</Label>
+                <Select
+                  value={ficha?.prestador_id || "nulo"}
+                  onValueChange={(value) => {
+                    const prestadorValue = value === "nulo" ? null : value;
+                    updateFicha({ prestador_id: prestadorValue });
+                    
+                    // Sincronização automática de orçamentos
+                    if (prestadorValue && ficha?.valor_total && ficha.valor_total > 0) {
+                      sincronizarOrcamentos(prestadorValue);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="prestador_valores" className="mt-2">
+                    <SelectValue placeholder="Selecione o prestador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nulo">Nenhum (Nulo)</SelectItem>
+                    {prestadores.map((prestador) => (
+                      <SelectItem key={prestador.cpf} value={prestador.cpf}>
+                        {prestador.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label htmlFor="valor_total" className="text-sm font-medium">Valor Total</Label>
                 <Input
                   id="valor_total"
                   type="number"
                   step="0.01"
                   value={ficha?.valor_total || ""}
-                  onChange={(e) => updateFicha({ valor_total: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const novoValor = parseFloat(e.target.value) || 0;
+                    updateFicha({ valor_total: novoValor });
+                    
+                    // Sincronização automática de orçamentos
+                    if (ficha?.prestador_id && novoValor > 0) {
+                      sincronizarOrcamentos(ficha.prestador_id);
+                    }
+                  }}
                   placeholder="0.00"
                   className="mt-2"
                 />

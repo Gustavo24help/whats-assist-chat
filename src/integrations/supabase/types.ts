@@ -231,6 +231,7 @@ export type Database = {
           observacoes: string | null
           prestador_cpf: string
           status: Database["public"]["Enums"]["status_orcamento_enum"] | null
+          tempo_servico: string | null
           valor_mao_obra: number | null
           valor_pecas: number | null
           valor_total: number | null
@@ -243,6 +244,7 @@ export type Database = {
           observacoes?: string | null
           prestador_cpf: string
           status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
+          tempo_servico?: string | null
           valor_mao_obra?: number | null
           valor_pecas?: number | null
           valor_total?: number | null
@@ -255,6 +257,7 @@ export type Database = {
           observacoes?: string | null
           prestador_cpf?: string
           status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
+          tempo_servico?: string | null
           valor_mao_obra?: number | null
           valor_pecas?: number | null
           valor_total?: number | null

@@ -3,10 +3,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Check, Copy, Pencil, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { AprovacaoOrcamentoDialog } from "./AprovacaoOrcamentoDialog";
 
 interface OrcamentosTabProps {
   fichaId: string;
@@ -15,9 +27,11 @@ interface OrcamentosTabProps {
 interface Orcamento {
   id: string;
   prestador_cpf: string;
+  ficha_nome: string;
   valor_total: number | null;
   valor_mao_obra: number | null;
   valor_pecas: number | null;
+  tempo_servico: string | null;
   observacoes: string | null;
   categoria: string | null;
   status: string;
@@ -27,9 +41,22 @@ interface Orcamento {
 
 export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
+  const [clienteTelefone, setClienteTelefone] = useState("");
+  const [editingOrcamento, setEditingOrcamento] = useState<Orcamento | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAprovacaoDialogOpen, setIsAprovacaoDialogOpen] = useState(false);
+  const [orcamentoParaAprovar, setOrcamentoParaAprovar] = useState<Orcamento | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    valor_total: 0,
+    valor_mao_obra: 0,
+    valor_pecas: 0,
+    tempo_servico: "",
+    observacoes: "",
+  });
 
   useEffect(() => {
     fetchOrcamentos();
+    fetchClienteTelefone();
 
     const channel = supabase
       .channel(`orcamentos-${fichaId}`)
@@ -49,6 +76,18 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
       supabase.removeChannel(channel);
     };
   }, [fichaId]);
+
+  const fetchClienteTelefone = async () => {
+    const { data } = await supabase
+      .from('fichas_de_servico')
+      .select('telefone_cliente')
+      .eq('id', fichaId)
+      .maybeSingle();
+
+    if (data) {
+      setClienteTelefone(data.telefone_cliente);
+    }
+  };
 
   const fetchOrcamentos = async () => {
     const { data } = await supabase
@@ -77,8 +116,72 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
     }
   };
 
-  const aprovarOrcamento = async (orc: Orcamento) => {
+  const copiarLinkOrcamento = (fichaNome: string) => {
+    const link = `https://app.24help.com.br/public/formulario.php?ficha=${fichaNome}`;
+    navigator.clipboard.writeText(link);
+    toast.success("Link copiado para a área de transferência!");
+  };
+
+  const handleEditarOrcamento = (orc: Orcamento) => {
+    setEditingOrcamento(orc);
+    setEditFormData({
+      valor_total: orc.valor_total || 0,
+      valor_mao_obra: orc.valor_mao_obra || 0,
+      valor_pecas: orc.valor_pecas || 0,
+      tempo_servico: orc.tempo_servico || "",
+      observacoes: orc.observacoes || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSalvarEdicao = async () => {
+    if (!editingOrcamento) return;
+
     try {
+      const { error } = await supabase
+        .from('orcamentos')
+        .update({
+          valor_total: editFormData.valor_total,
+          valor_mao_obra: editFormData.valor_mao_obra,
+          valor_pecas: editFormData.valor_pecas,
+          tempo_servico: editFormData.tempo_servico || null,
+          observacoes: editFormData.observacoes || null,
+        })
+        .eq('id', editingOrcamento.id);
+
+      if (error) throw error;
+
+      toast.success("Orçamento atualizado com sucesso!");
+      setIsEditDialogOpen(false);
+      fetchOrcamentos();
+    } catch (error) {
+      console.error('Erro ao atualizar orçamento:', error);
+      toast.error("Erro ao atualizar orçamento");
+    }
+  };
+
+  const iniciarAprovacao = (orc: Orcamento) => {
+    setOrcamentoParaAprovar(orc);
+    setIsAprovacaoDialogOpen(true);
+  };
+
+  const aprovarOrcamento = async () => {
+    if (!orcamentoParaAprovar) return;
+
+    const orc = orcamentoParaAprovar;
+
+    try {
+      // Reprovar outros orçamentos da mesma ficha
+      const { error: reprovarError } = await supabase
+        .from('orcamentos')
+        .update({ status: 'rejeitado' })
+        .eq('ficha_nome', fichaId)
+        .neq('id', orc.id);
+
+      if (reprovarError) {
+        console.error("Erro ao reprovar outros orçamentos:", reprovarError);
+      }
+
       // Atualizar status do orçamento
       const { error: orcError } = await supabase
         .from('orcamentos')
@@ -162,9 +265,49 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
     }
   };
 
+  const desaprovarOrcamento = async (orcId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orcamentos')
+        .update({ status: 'pendente' })
+        .eq('id', orcId);
+
+      if (error) throw error;
+
+      // Limpar valores da ficha
+      const { error: fichaError } = await supabase
+        .from('fichas_de_servico')
+        .update({
+          valor_total: 0,
+          valor_mao_obra: 0,
+          valor_pecas: 0,
+          prestador_id: null,
+        })
+        .eq('id', fichaId);
+
+      if (fichaError) throw fichaError;
+
+      toast.success("Orçamento desaprovado com sucesso!");
+      fetchOrcamentos();
+    } catch (error) {
+      console.error('Erro ao desaprovar orçamento:', error);
+      toast.error("Erro ao desaprovar orçamento");
+    }
+  };
+
   return (
     <div className="p-6">
-      <h3 className="text-xl font-bold mb-6 text-foreground">Orçamentos</h3>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-bold text-foreground">Orçamentos</h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => copiarLinkOrcamento(fichaId)}
+        >
+          <Copy className="mr-2 h-4 w-4" />
+          Copiar Link Orçamento
+        </Button>
+      </div>
       
       {orcamentos.length === 0 ? (
         <p className="text-muted-foreground text-sm">Nenhum orçamento cadastrado</p>
@@ -176,7 +319,13 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-semibold">Orçamento #{orc.id.slice(0, 8)}</CardTitle>
                   <Badge 
-                    variant={orc.status === 'aprovado' ? 'default' : 'secondary'}
+                    variant={
+                      orc.status === 'aprovado' 
+                        ? 'default' 
+                        : orc.status === 'rejeitado' 
+                          ? 'destructive' 
+                          : 'secondary'
+                    }
                     className="shadow-sm"
                   >
                     {orc.status}
@@ -209,6 +358,13 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
                     <span className="text-muted-foreground ml-1">R$ {orc.valor_pecas.toFixed(2)}</span>
                   </div>
                 )}
+
+                {orc.tempo_servico && (
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">Tempo de Serviço:</span> 
+                    <span className="text-muted-foreground ml-1">{orc.tempo_servico}</span>
+                  </div>
+                )}
                 
                 {orc.categoria && (
                   <div className="text-sm">
@@ -229,22 +385,138 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
                     Criado em: {format(new Date(orc.data_criacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                   </div>
                   
-                  {orc.status !== 'aprovado' && (
+                  <div className="flex gap-2">
                     <Button 
-                      variant="secondary"
+                      variant="ghost"
                       size="sm"
-                      className="shadow-sm hover:shadow-md transition-shadow"
-                      onClick={() => aprovarOrcamento(orc)}
+                      onClick={() => handleEditarOrcamento(orc)}
                     >
-                      <Check className="mr-1 h-4 w-4" />
-                      Aprovar
+                      <Pencil className="mr-1 h-4 w-4" />
+                      Editar
                     </Button>
-                  )}
+
+                    {orc.status === 'aprovado' ? (
+                      <Button 
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => desaprovarOrcamento(orc.id)}
+                      >
+                        <X className="mr-1 h-4 w-4" />
+                        Desaprovar
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="secondary"
+                        size="sm"
+                        className="shadow-sm hover:shadow-md transition-shadow"
+                        onClick={() => iniciarAprovacao(orc)}
+                      >
+                        <Check className="mr-1 h-4 w-4" />
+                        Aprovar
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Dialog de Edição */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Orçamento</DialogTitle>
+            <DialogDescription>
+              Atualize os valores e informações do orçamento
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit_valor_total">Valor Total</Label>
+              <Input
+                id="edit_valor_total"
+                type="number"
+                step="0.01"
+                value={editFormData.valor_total}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, valor_total: parseFloat(e.target.value) || 0 })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_valor_mao_obra">Valor Mão de Obra</Label>
+              <Input
+                id="edit_valor_mao_obra"
+                type="number"
+                step="0.01"
+                value={editFormData.valor_mao_obra}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, valor_mao_obra: parseFloat(e.target.value) || 0 })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_valor_pecas">Valor Peças</Label>
+              <Input
+                id="edit_valor_pecas"
+                type="number"
+                step="0.01"
+                value={editFormData.valor_pecas}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, valor_pecas: parseFloat(e.target.value) || 0 })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_tempo_servico">Tempo de Serviço</Label>
+              <Input
+                id="edit_tempo_servico"
+                placeholder="Ex: 2 horas"
+                value={editFormData.tempo_servico}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, tempo_servico: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_observacoes">Observações</Label>
+              <Textarea
+                id="edit_observacoes"
+                rows={4}
+                value={editFormData.observacoes}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, observacoes: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSalvarEdicao}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Aprovação */}
+      {orcamentoParaAprovar && (
+        <AprovacaoOrcamentoDialog
+          open={isAprovacaoDialogOpen}
+          onOpenChange={setIsAprovacaoDialogOpen}
+          onConfirm={aprovarOrcamento}
+          orcamento={orcamentoParaAprovar}
+          fichaNome={fichaId}
+          clienteTelefone={clienteTelefone}
+        />
       )}
     </div>
   );
