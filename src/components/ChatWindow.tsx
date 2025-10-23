@@ -18,7 +18,7 @@ interface Mensagem {
   tipo: "texto" | "arquivo" | "imagem" | "video" | "audio";
   arquivo_url: string | null;
   data_hora: string;
-  remetente: "cliente" | "atendente";
+  remetente: "cliente" | "atendente" | "bot";
   status: "enviado" | "recebido" | "lido";
 }
 
@@ -343,6 +343,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     "max-w-[70%] rounded-2xl p-3.5 shadow-md",
                     msg.remetente === "atendente"
                       ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : msg.remetente === "bot"
+                      ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
                       : "bg-card border rounded-bl-sm"
                   )}
                 >

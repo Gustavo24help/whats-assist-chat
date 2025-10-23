@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.send-whatsapp]
 verify_jwt = false
+
+[functions.twilio-status-callback]
+verify_jwt = false
