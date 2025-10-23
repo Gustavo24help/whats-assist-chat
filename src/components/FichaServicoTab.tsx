@@ -33,11 +33,17 @@ interface Ficha {
   notas: string | null;
   categoria_id: number | null;
   id_zoho: string | null;
+  data_visita_tecnica: string | null;
+  horario_visita_tecnica: string | null;
+  motivo_perda: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Prestador {
   cpf: string;
   nome: string;
+  id_crm: string | null;
 }
 
 const STATUS_OPTIONS = [
@@ -62,13 +68,22 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
   const [dataAgendamento, setDataAgendamento] = useState<string>('');
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
+  const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
+  const [horaVisitaTecnica, setHoraVisitaTecnica] = useState<string>('');
   const [statusAnterior, setStatusAnterior] = useState<string>('');
 
   // Função centralizada para enviar webhook
-  const enviarWebhook = async (fichaData: Ficha, agendamentoISO: string | undefined) => {
+  const enviarWebhook = async (fichaData: Ficha, agendamentoISO: string | undefined, visitaTecnicaISO: string | undefined) => {
     const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
     if (webhookUrl) {
       try {
+        // Buscar id_crm do prestador
+        let prestadorIdCrm = null;
+        if (fichaData.prestador_id) {
+          const prestador = prestadores.find(p => p.cpf === fichaData.prestador_id);
+          prestadorIdCrm = prestador?.id_crm || null;
+        }
+
         await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -79,18 +94,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             status: fichaData.status,
             categoria_id: fichaData.categoria_id,
             descricao: fichaData.descricao,
-            prestador_id: fichaData.prestador_id,
+            prestador_id: prestadorIdCrm,
             valor_total: fichaData.valor_total,
             valor_mao_obra: fichaData.valor_mao_obra,
             valor_pecas: fichaData.valor_pecas,
             horario_agendamento: agendamentoISO,
             cpf: fichaData.cpf,
             endereco: fichaData.endereco,
-            pagamento_gerar_link: fichaData.pagamento_gerar_link,
+            pagamento_gerar_link: fichaData.pagamento_gerar_link ? "Sim" : "Não",
             pagamento_tipo: fichaData.pagamento_tipo,
             pagamento_parcelas: fichaData.pagamento_parcelas,
             id_zoho: fichaData.id_zoho,
             notas: fichaData.notas,
+            data_visita_tecnica: fichaData.data_visita_tecnica,
+            horario_visita_tecnica: visitaTecnicaISO,
+            motivo_perda: fichaData.motivo_perda,
+            created_at: fichaData.created_at,
+            updated_at: fichaData.updated_at,
           }),
         });
         console.log("Webhook enviado", fichaData);
@@ -102,14 +122,21 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   // AutoSave SEM webhook - apenas salva no banco
   const autoSave = useCallback(
-    debounce(async (fichaData: Ficha, dataAgend: string, horaAgend: string) => {
+    debounce(async (fichaData: Ficha, dataAgend: string, horaAgend: string, dataVisita: string, horaVisita: string) => {
       let agendamentoISO: string | undefined;
       if (dataAgend && horaAgend) {
-        // Montar ISO string sem conversão de timezone - apenas concatenar
         agendamentoISO = `${dataAgend}T${horaAgend}:00`;
       } else if (dataAgend) {
         agendamentoISO = `${dataAgend}T00:00:00`;
       }
+
+      let visitaTecnicaISO: string | undefined;
+      if (dataVisita && horaVisita) {
+        visitaTecnicaISO = `${dataVisita}T${horaVisita}:00`;
+      } else if (dataVisita) {
+        visitaTecnicaISO = `${dataVisita}T00:00:00`;
+      }
+
       try {
         const { error } = await supabase
           .from('fichas_de_servico')
@@ -132,6 +159,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             notas: fichaData.notas,
             categoria_id: fichaData.categoria_id,
             id_zoho: fichaData.id_zoho,
+            data_visita_tecnica: fichaData.data_visita_tecnica,
+            horario_visita_tecnica: visitaTecnicaISO,
+            motivo_perda: fichaData.motivo_perda,
           }] as any, { onConflict: 'id' });
 
         if (error) {
@@ -178,19 +208,38 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       .maybeSingle();
 
     if (!error && data) {
-      setFicha(data);
-      setStatusAnterior(data.status); // Armazenar status atual
+      // Cast para any primeiro e depois para Ficha para incluir novos campos
+      const fichaCompleta: Ficha = {
+        ...(data as any),
+        data_visita_tecnica: (data as any).data_visita_tecnica || null,
+        horario_visita_tecnica: (data as any).horario_visita_tecnica || null,
+        motivo_perda: (data as any).motivo_perda || null,
+      };
       
-      // Extrair data/hora SEM conversão de timezone - apenas split da string
-      if (data.horario_agendamento) {
-        const horarioStr = data.horario_agendamento;
-        // Formato esperado: "2025-01-22T14:00:00" ou "2025-01-22T14:00:00+00:00"
+      setFicha(fichaCompleta);
+      setStatusAnterior(fichaCompleta.status);
+      
+      // Extrair data/hora do agendamento
+      if (fichaCompleta.horario_agendamento) {
+        const horarioStr = fichaCompleta.horario_agendamento;
         const partes = horarioStr.split('T');
         if (partes.length === 2) {
-          const dataStr = partes[0]; // "2025-01-22"
-          const horaStr = partes[1].substring(0, 5); // "14:00"
+          const dataStr = partes[0];
+          const horaStr = partes[1].substring(0, 5);
           setDataAgendamento(dataStr);
           setHoraAgendamento(horaStr);
+        }
+      }
+
+      // Extrair data/hora da visita técnica
+      if (fichaCompleta.horario_visita_tecnica) {
+        const horarioStr = fichaCompleta.horario_visita_tecnica;
+        const partes = horarioStr.split('T');
+        if (partes.length === 2) {
+          const dataStr = partes[0];
+          const horaStr = partes[1].substring(0, 5);
+          setDataVisitaTecnica(dataStr);
+          setHoraVisitaTecnica(horaStr);
         }
       }
     }
@@ -199,7 +248,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const fetchPrestadores = async () => {
     const { data } = await supabase
       .from('prestadores')
-      .select('cpf, nome')
+      .select('cpf, nome, id_crm')
       .order('nome');
 
     if (data) setPrestadores(data as Prestador[]);
@@ -219,6 +268,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         agendamentoISO = `${dataAgendamento}T${horaAgendamento}:00`;
       } else if (dataAgendamento) {
         agendamentoISO = `${dataAgendamento}T00:00:00`;
+      }
+
+      let visitaTecnicaISO: string | undefined;
+      if (dataVisitaTecnica && horaVisitaTecnica) {
+        visitaTecnicaISO = `${dataVisitaTecnica}T${horaVisitaTecnica}:00`;
+      } else if (dataVisitaTecnica) {
+        visitaTecnicaISO = `${dataVisitaTecnica}T00:00:00`;
       }
       
       // Salvar no banco
@@ -243,28 +299,47 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           notas: updatedFicha.notas,
           categoria_id: updatedFicha.categoria_id,
           id_zoho: updatedFicha.id_zoho,
+          data_visita_tecnica: updatedFicha.data_visita_tecnica,
+          horario_visita_tecnica: visitaTecnicaISO,
+          motivo_perda: updatedFicha.motivo_perda,
         }] as any, { onConflict: 'id' });
       
       // Enviar webhook
-      await enviarWebhook(updatedFicha, agendamentoISO);
+      await enviarWebhook(updatedFicha, agendamentoISO, visitaTecnicaISO);
       toast.success("Status alterado - Webhook enviado");
     } else {
       // Para outros campos, apenas autosave sem webhook
-      autoSave(updatedFicha, dataAgendamento, horaAgendamento);
+      autoSave(updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
     }
   };
 
   const updateDataAgendamento = (data: string) => {
     setDataAgendamento(data);
     if (ficha) {
-      autoSave(ficha, data, horaAgendamento);
+      autoSave(ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
     }
   };
 
   const updateHoraAgendamento = (hora: string) => {
     setHoraAgendamento(hora);
     if (ficha) {
-      autoSave(ficha, dataAgendamento, hora);
+      autoSave(ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica);
+    }
+  };
+
+  const updateDataVisitaTecnica = (data: string) => {
+    setDataVisitaTecnica(data);
+    if (ficha) {
+      const updatedFicha = { ...ficha, data_visita_tecnica: data };
+      setFicha(updatedFicha);
+      autoSave(updatedFicha, dataAgendamento, horaAgendamento, data, horaVisitaTecnica);
+    }
+  };
+
+  const updateHoraVisitaTecnica = (hora: string) => {
+    setHoraVisitaTecnica(hora);
+    if (ficha) {
+      autoSave(ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, hora);
     }
   };
 
@@ -276,6 +351,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       agendamentoISO = `${dataAgendamento}T${horaAgendamento}:00`;
     } else if (dataAgendamento) {
       agendamentoISO = `${dataAgendamento}T00:00:00`;
+    }
+
+    let visitaTecnicaISO: string | undefined;
+    if (dataVisitaTecnica && horaVisitaTecnica) {
+      visitaTecnicaISO = `${dataVisitaTecnica}T${horaVisitaTecnica}:00`;
+    } else if (dataVisitaTecnica) {
+      visitaTecnicaISO = `${dataVisitaTecnica}T00:00:00`;
     }
     
     try {
@@ -300,6 +382,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           notas: ficha.notas,
           categoria_id: ficha.categoria_id,
           id_zoho: ficha.id_zoho,
+          data_visita_tecnica: ficha.data_visita_tecnica,
+          horario_visita_tecnica: visitaTecnicaISO,
+          motivo_perda: ficha.motivo_perda,
         }] as any);
 
       if (error) {
@@ -310,7 +395,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       console.log('Ficha salva manualmente com sucesso');
 
       // Enviar webhook ao salvar manualmente
-      await enviarWebhook(ficha, agendamentoISO);
+      await enviarWebhook(ficha, agendamentoISO, visitaTecnicaISO);
 
       toast.success("Ficha salva com sucesso!");
     } catch (error) {
@@ -405,6 +490,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   className="mt-2"
                 />
               </div>
+
+              <div>
+                <Label htmlFor="motivo_perda" className="text-sm font-medium">Motivo de Perda</Label>
+                <Input
+                  id="motivo_perda"
+                  value={ficha?.motivo_perda || ""}
+                  onChange={(e) => updateFicha({ motivo_perda: e.target.value })}
+                  placeholder="Motivo caso a venda seja perdida"
+                  className="mt-2"
+                />
+              </div>
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -457,6 +553,33 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   onChange={(e) => updateHoraAgendamento(e.target.value)}
                   className="mt-2 text-base px-4 py-2.5 rounded-lg border-input focus:ring-2 focus:ring-ring transition-all"
                 />
+              </div>
+
+              <div className="pt-4 border-t">
+                <h4 className="text-sm font-semibold mb-4 text-foreground">Visita Técnica</h4>
+                <div className="space-y-5">
+                  <div>
+                    <Label htmlFor="data_visita_tecnica" className="text-sm font-medium">Data da Visita Técnica</Label>
+                    <Input
+                      id="data_visita_tecnica"
+                      type="date"
+                      value={dataVisitaTecnica}
+                      onChange={(e) => updateDataVisitaTecnica(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="hora_visita_tecnica" className="text-sm font-medium">Horário da Visita Técnica</Label>
+                    <Input
+                      id="hora_visita_tecnica"
+                      type="time"
+                      value={horaVisitaTecnica}
+                      onChange={(e) => updateHoraVisitaTecnica(e.target.value)}
+                      className="mt-2 text-base px-4 py-2.5 rounded-lg border-input focus:ring-2 focus:ring-ring transition-all"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </AccordionContent>

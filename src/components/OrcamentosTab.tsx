@@ -100,6 +100,40 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
 
       if (fichaError) throw fichaError;
 
+      // Buscar a ficha completa atualizada para enviar ao webhook
+      const { data: fichaAtualizada } = await supabase
+        .from('fichas_de_servico')
+        .select('*')
+        .eq('id', fichaId)
+        .single();
+
+      if (fichaAtualizada) {
+        // Buscar id_crm do prestador
+        const { data: prestadorData } = await supabase
+          .from('prestadores')
+          .select('id_crm')
+          .eq('cpf', orc.prestador_cpf)
+          .maybeSingle();
+
+        const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
+        if (webhookUrl) {
+          try {
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...(fichaAtualizada as any),
+                prestador_id: prestadorData?.id_crm || null,
+                pagamento_gerar_link: fichaAtualizada.pagamento_gerar_link ? "Sim" : "Não",
+              }),
+            });
+            console.log("Webhook enviado após aprovar orçamento");
+          } catch (webhookError) {
+            console.error('Erro ao enviar webhook:', webhookError);
+          }
+        }
+      }
+
       toast.success("Orçamento aprovado! Valores atualizados na ficha.");
       fetchOrcamentos();
     } catch (error) {
