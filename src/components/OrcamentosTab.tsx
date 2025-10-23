@@ -111,25 +111,45 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
         // Buscar id_crm do prestador
         const { data: prestadorData } = await supabase
           .from('prestadores')
-          .select('id_crm')
+          .select('id_crm, cpf')
           .eq('cpf', orc.prestador_cpf)
           .maybeSingle();
 
         const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
         if (webhookUrl) {
           try {
-            await fetch(webhookUrl, {
+            const webhookPayload = {
+              ...(fichaAtualizada as any),
+              // Enviar id_crm do prestador (ID do CRM externo)
+              prestador_id_crm: prestadorData?.id_crm || null,
+              // Enviar CPF do prestador para facilitar updates na API externa
+              prestador_cpf: prestadorData?.cpf || orc.prestador_cpf,
+              // Converter boolean para string legível
+              pagamento_gerar_link: fichaAtualizada.pagamento_gerar_link ? "Sim" : "Não",
+              // Metadados úteis
+              timestamp_webhook: new Date().toISOString(),
+              evento: 'orcamento_aprovado',
+            };
+
+            console.log("Enviando webhook após aprovação de orçamento:", webhookUrl);
+            console.log("Payload:", JSON.stringify(webhookPayload, null, 2));
+
+            const response = await fetch(webhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ...(fichaAtualizada as any),
-                prestador_id: prestadorData?.id_crm || null,
-                pagamento_gerar_link: fichaAtualizada.pagamento_gerar_link ? "Sim" : "Não",
-              }),
+              body: JSON.stringify(webhookPayload),
             });
-            console.log("Webhook enviado após aprovar orçamento");
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error("Erro no webhook (HTTP " + response.status + "):", errorText);
+            } else {
+              console.log("Webhook enviado com sucesso após aprovar orçamento");
+            }
           } catch (webhookError) {
             console.error('Erro ao enviar webhook:', webhookError);
+            const errorMessage = webhookError instanceof Error ? webhookError.message : 'Erro desconhecido';
+            console.error('Detalhes do erro:', errorMessage);
           }
         }
       }

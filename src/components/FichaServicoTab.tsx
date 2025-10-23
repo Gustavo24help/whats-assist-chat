@@ -75,48 +75,80 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   // Função centralizada para enviar webhook
   const enviarWebhook = async (fichaData: Ficha, agendamentoISO: string | undefined, visitaTecnicaISO: string | undefined) => {
     const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
-    if (webhookUrl) {
-      try {
-        // Buscar id_crm do prestador
-        let prestadorIdCrm = null;
-        if (fichaData.prestador_id) {
-          const prestador = prestadores.find(p => p.cpf === fichaData.prestador_id);
-          prestadorIdCrm = prestador?.id_crm || null;
-        }
+    if (!webhookUrl) {
+      console.log("Webhook não configurado, pulando envio");
+      return;
+    }
 
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: fichaData.id,
-            telefone_cliente: fichaData.telefone_cliente,
-            nome_ficha: fichaData.nome_ficha,
-            status: fichaData.status,
-            categoria_id: fichaData.categoria_id,
-            descricao: fichaData.descricao,
-            prestador_id: prestadorIdCrm,
-            valor_total: fichaData.valor_total,
-            valor_mao_obra: fichaData.valor_mao_obra,
-            valor_pecas: fichaData.valor_pecas,
-            horario_agendamento: agendamentoISO,
-            cpf: fichaData.cpf,
-            endereco: fichaData.endereco,
-            pagamento_gerar_link: fichaData.pagamento_gerar_link ? "Sim" : "Não",
-            pagamento_tipo: fichaData.pagamento_tipo,
-            pagamento_parcelas: fichaData.pagamento_parcelas,
-            id_zoho: fichaData.id_zoho,
-            notas: fichaData.notas,
-            data_visita_tecnica: fichaData.data_visita_tecnica,
-            horario_visita_tecnica: visitaTecnicaISO,
-            motivo_perda: fichaData.motivo_perda,
-            created_at: fichaData.created_at,
-            updated_at: fichaData.updated_at,
-          }),
-        });
-        console.log("Webhook enviado", fichaData);
-      } catch (webhookError) {
-        console.error('Erro ao enviar webhook:', webhookError);
+    try {
+      // Buscar id_crm do prestador
+      let prestadorIdCrm = null;
+      let prestadorCpf = null;
+      
+      if (fichaData.prestador_id) {
+        const prestador = prestadores.find(p => p.cpf === fichaData.prestador_id);
+        prestadorIdCrm = prestador?.id_crm || null;
+        prestadorCpf = fichaData.prestador_id; // CPF é a chave primária
       }
+
+      const webhookPayload = {
+        // Todos os campos da ficha
+        id: fichaData.id,
+        telefone_cliente: fichaData.telefone_cliente,
+        nome_ficha: fichaData.nome_ficha,
+        status: fichaData.status,
+        categoria_id: fichaData.categoria_id,
+        descricao: fichaData.descricao,
+        // Prestador: enviar tanto id_crm quanto cpf
+        prestador_id_crm: prestadorIdCrm, // ID do CRM externo
+        prestador_cpf: prestadorCpf, // CPF (chave primária no banco)
+        // Valores
+        valor_total: fichaData.valor_total,
+        valor_mao_obra: fichaData.valor_mao_obra,
+        valor_pecas: fichaData.valor_pecas,
+        // Agendamentos
+        horario_agendamento: agendamentoISO,
+        data_visita_tecnica: fichaData.data_visita_tecnica,
+        horario_visita_tecnica: visitaTecnicaISO,
+        // Cliente
+        cpf: fichaData.cpf,
+        endereco: fichaData.endereco,
+        // Pagamento
+        pagamento_gerar_link: fichaData.pagamento_gerar_link ? "Sim" : "Não",
+        pagamento_tipo: fichaData.pagamento_tipo,
+        pagamento_parcelas: fichaData.pagamento_parcelas,
+        // Outros
+        id_zoho: fichaData.id_zoho,
+        notas: fichaData.notas,
+        motivo_perda: fichaData.motivo_perda,
+        // Timestamps
+        created_at: fichaData.created_at,
+        updated_at: fichaData.updated_at,
+        // Metadados do webhook
+        timestamp_webhook: new Date().toISOString(),
+        evento: 'ficha_atualizada',
+      };
+
+      console.log("Enviando webhook:", webhookUrl);
+      console.log("Payload:", JSON.stringify(webhookPayload, null, 2));
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(webhookPayload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Erro no webhook (HTTP " + response.status + "):", errorText);
+        toast.error("Webhook retornou erro: " + response.status);
+      } else {
+        console.log("Webhook enviado com sucesso");
+      }
+    } catch (webhookError) {
+      console.error('Erro ao enviar webhook:', webhookError);
+      const errorMessage = webhookError instanceof Error ? webhookError.message : 'Erro desconhecido';
+      toast.error("Falha ao enviar webhook: " + errorMessage);
     }
   };
 
