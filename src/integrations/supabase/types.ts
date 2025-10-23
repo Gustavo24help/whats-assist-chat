@@ -70,11 +70,14 @@ export type Database = {
           categoria_id: number | null
           cpf: string | null
           created_at: string | null
+          data_visita_tecnica: string | null
           descricao: string | null
           endereco: string | null
           horario_agendamento: string | null
+          horario_visita_tecnica: string | null
           id: string
           id_zoho: string | null
+          motivo_perda: string | null
           nome_ficha: string | null
           notas: string | null
           pagamento_gerar_link: boolean | null
@@ -94,11 +97,14 @@ export type Database = {
           categoria_id?: number | null
           cpf?: string | null
           created_at?: string | null
+          data_visita_tecnica?: string | null
           descricao?: string | null
           endereco?: string | null
           horario_agendamento?: string | null
+          horario_visita_tecnica?: string | null
           id: string
           id_zoho?: string | null
+          motivo_perda?: string | null
           nome_ficha?: string | null
           notas?: string | null
           pagamento_gerar_link?: boolean | null
@@ -118,11 +124,14 @@ export type Database = {
           categoria_id?: number | null
           cpf?: string | null
           created_at?: string | null
+          data_visita_tecnica?: string | null
           descricao?: string | null
           endereco?: string | null
           horario_agendamento?: string | null
+          horario_visita_tecnica?: string | null
           id?: string
           id_zoho?: string | null
+          motivo_perda?: string | null
           nome_ficha?: string | null
           notas?: string | null
           pagamento_gerar_link?: boolean | null

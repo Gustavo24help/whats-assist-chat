@@ -24,43 +24,11 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Detectar automaticamente a coluna de chave primária da tabela prestadores
-    console.log("Detectando chave primária da tabela prestadores...");
-    
-    const { data: pkData, error: pkError } = await supabase
-      .from('information_schema.table_constraints')
-      .select('constraint_name')
-      .eq('table_name', 'prestadores')
-      .eq('constraint_type', 'PRIMARY KEY')
-      .maybeSingle();
-
-    if (pkError) {
-      console.error("Erro ao buscar chave primária:", pkError);
-    }
-
-    // Buscar colunas da chave primária
-    let primaryKeyColumn = 'cpf'; // Default baseado no schema conhecido
-    
-    if (pkData) {
-      const { data: columnData, error: columnError } = await supabase
-        .from('information_schema.key_column_usage')
-        .select('column_name')
-        .eq('constraint_name', pkData.constraint_name)
-        .maybeSingle();
-
-      if (columnData && !columnError) {
-        primaryKeyColumn = columnData.column_name;
-        console.log("Chave primária detectada:", primaryKeyColumn);
-      }
-    }
-
-    console.log(`Usando coluna ${primaryKeyColumn} como identificador`);
-
     // Verificar se o prestador existe
     const { data: prestadorExistente, error: checkError } = await supabase
       .from('prestadores')
       .select('*')
-      .eq(primaryKeyColumn, cpf)
+      .eq('cpf', cpf)
       .maybeSingle();
 
     if (checkError) {
@@ -74,7 +42,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: 'Prestador não encontrado',
-          details: `Nenhum prestador encontrado com ${primaryKeyColumn} = ${cpf}`
+          cpf
         }),
         {
           status: 404,
@@ -85,11 +53,11 @@ serve(async (req) => {
 
     console.log("Prestador encontrado:", prestadorExistente);
 
-    // Atualizar o id_crm usando a coluna correta como filtro
+    // Atualizar o id_crm usando cpf como filtro
     const { data: updatedData, error: updateError } = await supabase
       .from('prestadores')
       .update({ id_crm })
-      .eq(primaryKeyColumn, cpf)
+      .eq('cpf', cpf)
       .select()
       .single();
 
