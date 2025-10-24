@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, FileText, Paperclip, FileIcon } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -12,6 +12,16 @@ import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";
 import { useConversationTimer } from "@/hooks/useConversationTimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Mensagem {
   id: string;
@@ -35,6 +45,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [fichaId, setFichaId] = useState<string | undefined>();
+  const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { dentroJanela } = useConversationTimer(clienteTelefone);
@@ -232,6 +243,36 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
+  const assumirConversa = async () => {
+    const mensagemTexto = "A partir de agora estou assumindo a conversa";
+    
+    try {
+      // Enviar via Twilio
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: {
+          to: clienteTelefone,
+          message: mensagemTexto,
+        },
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        if (data.error === 'FORA_JANELA_24H') {
+          toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
+          return;
+        }
+        throw new Error(data.error || "Erro ao enviar mensagem");
+      }
+
+      toast.success("Conversa assumida com sucesso!");
+      setAssumirDialogOpen(false);
+    } catch (error) {
+      console.error("Erro ao assumir conversa:", error);
+      toast.error(error instanceof Error ? error.message : "Não foi possível assumir a conversa");
+    }
+  };
+
   const getDateLabel = (date: Date) => {
     if (isToday(date)) return "Hoje";
     if (isYesterday(date)) return "Ontem";
@@ -313,17 +354,48 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
           </div>
         </div>
-        <div className="flex gap-2">
-          <AbrirConversaDialog 
-            clienteTelefone={clienteTelefone}
-            clienteNome={clienteNome}
-          />
-          <Button onClick={onOpenFicha} variant="default" size="sm" className="shadow-md">
+        <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1.5">
+            <AbrirConversaDialog 
+              clienteTelefone={clienteTelefone}
+              clienteNome={clienteNome}
+            />
+            <Button 
+              onClick={() => setAssumirDialogOpen(true)} 
+              variant="outline" 
+              size="sm" 
+              className="shadow-sm w-full"
+            >
+              <UserCheck className="mr-2 h-3.5 w-3.5" />
+              Assumir Conversa
+            </Button>
+          </div>
+          <Button onClick={onOpenFicha} variant="default" size="sm" className="shadow-md h-fit">
             <FileText className="mr-2 h-4 w-4" />
             Ver Ficha
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={assumirDialogOpen} onOpenChange={setAssumirDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assumir Conversa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja assumir esta conversa? Será enviada a mensagem:
+              <span className="block mt-2 font-medium text-foreground">
+                "A partir de agora estou assumindo a conversa"
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={assumirConversa}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-muted/10">
         {mensagens.map((msg, index) => {
@@ -374,7 +446,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       </div>
 
       <div className="p-4 border-t bg-background shadow-md">
-        <div className="flex gap-2 items-end">
+        <div className="flex gap-2 items-center">
           <input
             ref={fileInputRef}
             type="file"
@@ -393,7 +465,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             size="icon"
             onClick={() => fileInputRef.current?.click()}
             disabled={statusConversa === "fechada" || uploading}
-            className="shrink-0 mb-1"
+            className="shrink-0 h-10 w-10"
           >
             <Paperclip className="h-4 w-4" />
           </Button>
@@ -408,13 +480,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
               }
             }}
             disabled={statusConversa === "fechada"}
-            className="flex-1 min-h-[44px] max-h-[120px] resize-none rounded-2xl"
+            className="flex-1 min-h-[40px] max-h-[120px] resize-none rounded-2xl"
             rows={1}
           />
           <Button 
             onClick={enviarMensagem} 
             disabled={statusConversa === "fechada" || !novaMsg.trim()}
-            className="shrink-0 shadow-md mb-1"
+            className="shrink-0 shadow-md h-10 w-10"
             size="icon"
           >
             <Send className="h-4 w-4" />
