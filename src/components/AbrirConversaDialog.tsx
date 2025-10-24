@@ -112,6 +112,17 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         throw new Error(data?.error || "Erro ao enviar template");
       }
 
+      // Salvar mensagem no banco para aparecer no chat
+      const mensagemTexto = getTemplatePreview(template);
+      await supabase.from('mensagens').insert({
+        cliente_id: clienteTelefone,
+        texto: mensagemTexto,
+        tipo: 'texto',
+        remetente: 'atendente',
+        status: 'enviado',
+        data_hora: new Date().toISOString()
+      });
+
       toast.success("✅ Template enviado com sucesso!", {
         description: `Enviado para ${clienteNome}`
       });
@@ -124,6 +135,15 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
     } finally {
       setSending(false);
     }
+  };
+
+  const getTemplatePreview = (template: Template) => {
+    let preview = template.body;
+    // Substituir variáveis do tipo {{1}}, {{2}}, etc
+    template.variables.forEach((_, index) => {
+      preview = preview.replace(`{{${index + 1}}}`, clienteNome);
+    });
+    return preview;
   };
 
   return (
@@ -152,31 +172,36 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
 
           {!loading && templates.length > 0 && (
             <ScrollArea className="h-[400px] rounded-md border p-4">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {templates.map((template) => (
                   <div
                     key={template.id}
                     className="p-4 rounded-lg border bg-card hover:bg-accent/10 transition-colors"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <h4 className="font-medium mb-2">{template.friendly_name}</h4>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                          {template.body}
-                        </p>
-                        {template.variables.length > 0 && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Variáveis: {template.variables.join(", ")}
-                          </p>
-                        )}
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-medium">{template.friendly_name}</h4>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSendTemplate(template)}
+                          disabled={sending}
+                        >
+                          {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enviar"}
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => handleSendTemplate(template)}
-                        disabled={sending}
-                      >
-                        {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enviar"}
-                      </Button>
+                      
+                      <div className="bg-muted/50 rounded-md p-3 border">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Prévia da mensagem:</p>
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {getTemplatePreview(template)}
+                        </p>
+                      </div>
+
+                      {template.variables.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Variáveis usadas: <span className="font-medium">{clienteNome}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
