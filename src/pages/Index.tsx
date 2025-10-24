@@ -96,21 +96,6 @@ const Index = () => {
               "flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300 ease-in-out",
               fichaOpen && "lg:mr-[600px]"
             )}>
-              <div className="absolute top-0 left-0 z-10 p-3">
-                <Button
-                  onClick={() => setFichaOpen(!fichaOpen)}
-                  variant={fichaOpen ? "default" : "outline"}
-                  size="sm"
-                  className={cn(
-                    "shadow-lg h-9 transition-all duration-300",
-                    fichaOpen && "bg-primary text-primary-foreground"
-                  )}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  <span className="text-sm">Ficha</span>
-                </Button>
-              </div>
-
               <ChatWindow
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
@@ -119,6 +104,21 @@ const Index = () => {
                 onBack={() => setSelectedCliente(null)}
                 fichaOpen={fichaOpen}
               />
+            </div>
+
+            <div className="absolute top-3 right-3 z-10">
+              <Button
+                onClick={() => setFichaOpen(!fichaOpen)}
+                variant={fichaOpen ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  "shadow-lg h-9 transition-all duration-300",
+                  fichaOpen ? "bg-green-700 hover:bg-green-800 text-white" : "hover:bg-green-700 hover:text-white"
+                )}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                <span className="text-sm">Ficha</span>
+              </Button>
             </div>
 
             <div className={cn(

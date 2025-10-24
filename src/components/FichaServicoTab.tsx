@@ -67,6 +67,7 @@ const STATUS_OPTIONS = [
 export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
+  const [searchPrestador, setSearchPrestador] = useState<string>('');
   const [dataAgendamento, setDataAgendamento] = useState<string>('');
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
   const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
@@ -498,9 +499,33 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   if (!ficha) return <div className="p-6">Carregando...</div>;
 
+  const filteredPrestadores = prestadores.filter(p => 
+    p.nome.toLowerCase().includes(searchPrestador.toLowerCase())
+  );
+
   return (
-    <div className="p-8 space-y-8 pb-28">
-      <Accordion type="single" collapsible defaultValue="" className="w-full space-y-6">
+    <div className="p-6 space-y-6 pb-28">
+      {/* Status fora das sanfonas */}
+      <div className="bg-card border rounded-lg shadow-md p-4">
+        <Label htmlFor="status" className="text-sm font-medium">Status do Serviço</Label>
+        <Select
+          value={ficha?.status || "pendente"}
+          onValueChange={(value) => updateFicha({ status: value })}
+        >
+          <SelectTrigger id="status" className="mt-2">
+            <SelectValue placeholder="Selecione o status" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((status) => (
+              <SelectItem key={status} value={status}>
+                {status}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Accordion type="single" collapsible defaultValue="" className="w-full space-y-4">
         <AccordionItem value="informacoes-gerais" className="border rounded-lg shadow-md bg-card">
           <AccordionTrigger className="px-6 py-4 hover:no-underline">
             <div className="flex items-center gap-3">
@@ -532,53 +557,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               <div>
-                <Label htmlFor="status" className="text-sm font-medium">Status</Label>
-                <Select
-                  value={ficha?.status || "pendente"}
-                  onValueChange={(value) => updateFicha({ status: value })}
-                >
-                  <SelectTrigger id="status" className="mt-2">
-                    <SelectValue placeholder="Selecione o status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
                 <Label htmlFor="descricao" className="text-sm font-medium">Descrição</Label>
                 <Input
                   id="descricao"
                   value={ficha?.descricao || ""}
                   onChange={(e) => updateFicha({ descricao: e.target.value })}
                   placeholder="Descrição do serviço"
-                  className="mt-2"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="cpf" className="text-sm font-medium">CPF do Cliente</Label>
-                <Input
-                  id="cpf"
-                  value={ficha?.cpf || ""}
-                  onChange={(e) => updateFicha({ cpf: e.target.value })}
-                  placeholder="000.000.000-00"
-                  className="mt-2"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="endereco" className="text-sm font-medium">Endereço</Label>
-                <Input
-                  id="endereco"
-                  value={ficha?.endereco || ""}
-                  onChange={(e) => updateFicha({ endereco: e.target.value })}
-                  placeholder="Endereço completo"
                   className="mt-2"
                 />
               </div>
@@ -608,22 +592,30 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             <div className="space-y-5 pt-4">
               <div>
                 <Label htmlFor="prestador_id" className="text-sm font-medium">Prestador de Serviço</Label>
-                <Select
-                  value={ficha?.prestador_id || "nulo"}
-                  onValueChange={(value) => updateFicha({ prestador_id: value === "nulo" ? null : value })}
-                >
-                  <SelectTrigger id="prestador_id" className="mt-2">
-                    <SelectValue placeholder="Selecione o prestador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nulo">Nenhum (Nulo)</SelectItem>
-                    {prestadores.map((prestador) => (
-                      <SelectItem key={prestador.cpf} value={prestador.cpf}>
-                        {prestador.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="mt-2 space-y-2">
+                  <Input
+                    placeholder="Pesquisar prestador..."
+                    value={searchPrestador}
+                    onChange={(e) => setSearchPrestador(e.target.value)}
+                    className="mb-2"
+                  />
+                  <Select
+                    value={ficha?.prestador_id || "nulo"}
+                    onValueChange={(value) => updateFicha({ prestador_id: value === "nulo" ? null : value })}
+                  >
+                    <SelectTrigger id="prestador_id">
+                      <SelectValue placeholder="Selecione o prestador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nulo">Nenhum (Nulo)</SelectItem>
+                      {filteredPrestadores.map((prestador) => (
+                        <SelectItem key={prestador.cpf} value={prestador.cpf}>
+                          {prestador.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
@@ -689,30 +681,38 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             <div className="space-y-5 pt-4">
               <div>
                 <Label htmlFor="prestador_valores" className="text-sm font-medium">Prestador de Serviço</Label>
-                <Select
-                  value={ficha?.prestador_id || "nulo"}
-                  onValueChange={(value) => {
-                    const prestadorValue = value === "nulo" ? null : value;
-                    updateFicha({ prestador_id: prestadorValue });
-                    
-                    // Sincronização automática de orçamentos
-                    if (prestadorValue && ficha?.valor_total && ficha.valor_total > 0) {
-                      sincronizarOrcamentos(prestadorValue);
-                    }
-                  }}
-                >
-                  <SelectTrigger id="prestador_valores" className="mt-2">
-                    <SelectValue placeholder="Selecione o prestador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nulo">Nenhum (Nulo)</SelectItem>
-                    {prestadores.map((prestador) => (
-                      <SelectItem key={prestador.cpf} value={prestador.cpf}>
-                        {prestador.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="mt-2 space-y-2">
+                  <Input
+                    placeholder="Pesquisar prestador..."
+                    value={searchPrestador}
+                    onChange={(e) => setSearchPrestador(e.target.value)}
+                    className="mb-2"
+                  />
+                  <Select
+                    value={ficha?.prestador_id || "nulo"}
+                    onValueChange={(value) => {
+                      const prestadorValue = value === "nulo" ? null : value;
+                      updateFicha({ prestador_id: prestadorValue });
+                      
+                      // Sincronização automática de orçamentos
+                      if (prestadorValue && ficha?.valor_total && ficha.valor_total > 0) {
+                        sincronizarOrcamentos(prestadorValue);
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="prestador_valores">
+                      <SelectValue placeholder="Selecione o prestador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nulo">Nenhum (Nulo)</SelectItem>
+                      {filteredPrestadores.map((prestador) => (
+                        <SelectItem key={prestador.cpf} value={prestador.cpf}>
+                          {prestador.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
@@ -847,6 +847,28 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.telefone_cliente || ""}
                   disabled
                   className="bg-muted mt-2 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="cpf" className="text-sm font-medium">CPF do Cliente</Label>
+                <Input
+                  id="cpf"
+                  value={ficha?.cpf || ""}
+                  onChange={(e) => updateFicha({ cpf: e.target.value })}
+                  placeholder="000.000.000-00"
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="endereco" className="text-sm font-medium">Endereço</Label>
+                <Input
+                  id="endereco"
+                  value={ficha?.endereco || ""}
+                  onChange={(e) => updateFicha({ endereco: e.target.value })}
+                  placeholder="Endereço completo"
+                  className="mt-2"
                 />
               </div>
               
