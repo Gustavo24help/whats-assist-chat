@@ -313,11 +313,15 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     
     if (msg.tipo === 'audio') {
       return (
-        <div className="mt-2 w-full max-w-[280px] p-3 rounded-xl bg-muted/30 shadow-sm">
+        <div className="mt-2 w-full max-w-[340px] px-3 py-2 rounded-2xl bg-muted/30 shadow-sm">
           <audio 
             controls 
+            controlsList="nodownload"
             className="w-full"
-            style={{ height: '36px' }}
+            style={{ 
+              height: '40px',
+              filter: 'grayscale(0)',
+            }}
           >
             <source src={msg.arquivo_url} />
           </audio>
@@ -343,19 +347,34 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   };
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      <div className="p-4 border-b flex items-center justify-between bg-background shadow-sm">
+    <div className="h-screen flex flex-col bg-background">
+      <header className="p-3 md:p-4 border-b flex items-center justify-between bg-background shadow-sm shrink-0">
         <div>
-          <h2 className="font-semibold text-lg text-foreground">{clienteNome}</h2>
+          <h2 className="font-semibold text-base md:text-lg text-foreground">{clienteNome}</h2>
           <div className="flex items-center gap-2">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               {statusConversa === "aberta" ? "Conversa aberta" : "Conversa fechada - Use templates"}
             </p>
             <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex flex-col gap-1.5">
+          <div className="hidden lg:flex items-center gap-2">
+            <AbrirConversaDialog 
+              clienteTelefone={clienteTelefone}
+              clienteNome={clienteNome}
+            />
+            <Button 
+              onClick={() => setAssumirDialogOpen(true)} 
+              variant="outline" 
+              size="sm" 
+              className="shadow-sm"
+            >
+              <UserCheck className="mr-2 h-3.5 w-3.5" />
+              Assumir Conversa
+            </Button>
+          </div>
+          <div className="lg:hidden flex flex-col gap-1.5 min-w-[140px]">
             <AbrirConversaDialog 
               clienteTelefone={clienteTelefone}
               clienteNome={clienteNome}
@@ -370,12 +389,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
               Assumir Conversa
             </Button>
           </div>
-          <Button onClick={onOpenFicha} variant="default" size="sm" className="shadow-md h-fit">
-            <FileText className="mr-2 h-4 w-4" />
-            Ver Ficha
+          <Button onClick={onOpenFicha} variant="default" size="sm" className="shadow-md">
+            <FileText className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Ver Ficha</span>
           </Button>
         </div>
-      </div>
+      </header>
 
       <AlertDialog open={assumirDialogOpen} onOpenChange={setAssumirDialogOpen}>
         <AlertDialogContent>
@@ -397,7 +416,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-muted/10">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-muted/10">
         {mensagens.map((msg, index) => {
           const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
           const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
@@ -411,42 +430,42 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   </div>
                 </div>
               )}
-              <div
-                className={cn(
-                  "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
-                  msg.remetente === "atendente" ? "justify-end" : "justify-start"
-                )}
-              >
                 <div
                   className={cn(
-                    "max-w-[70%] rounded-2xl p-3.5 shadow-md",
-                    msg.remetente === "atendente"
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : msg.remetente === "bot"
-                      ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
-                      : "bg-card border rounded-bl-sm"
+                    "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+                    msg.remetente === "atendente" ? "justify-end" : "justify-start"
                   )}
                 >
-                  {msg.texto && <p className="text-sm break-words leading-relaxed">{msg.texto}</p>}
-                  {renderMedia(msg)}
-                  <p className={cn(
-                    "text-xs mt-1.5 opacity-70",
-                    msg.remetente === "atendente" 
-                      ? "text-primary-foreground" 
-                      : "text-muted-foreground"
-                  )}>
-                    {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
-                  </p>
+                  <div
+                    className={cn(
+                      "max-w-[70%] md:max-w-[60%] rounded-2xl p-3 md:p-3.5 shadow-md transition-all hover:shadow-lg",
+                      msg.remetente === "atendente"
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : msg.remetente === "bot"
+                        ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
+                        : "bg-card border rounded-bl-sm"
+                    )}
+                  >
+                    {msg.texto && <p className="text-sm break-words leading-relaxed whitespace-pre-wrap">{msg.texto}</p>}
+                    {renderMedia(msg)}
+                    <p className={cn(
+                      "text-xs mt-1.5 opacity-70",
+                      msg.remetente === "atendente" 
+                        ? "text-primary-foreground" 
+                        : "text-muted-foreground"
+                    )}>
+                      {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
                 </div>
-              </div>
             </div>
           );
         })}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t bg-background shadow-md">
-        <div className="flex gap-2 items-center">
+      <div className="p-3 md:p-4 border-t bg-background shadow-md shrink-0">
+        <div className="flex gap-2 items-center max-w-4xl mx-auto">
           <input
             ref={fileInputRef}
             type="file"
