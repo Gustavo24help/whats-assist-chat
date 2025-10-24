@@ -45,24 +45,37 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   const fetchTemplates = async () => {
     setLoading(true);
     try {
+      console.log("Buscando templates...");
+      
       const { data, error } = await supabase.functions.invoke("get-twilio-templates", {
         body: {},
       });
 
-      if (error) throw error;
+      console.log("Resposta da função:", data, error);
 
-      if (!data.success) {
-        throw new Error(data.error || "Erro ao buscar templates");
+      if (error) {
+        console.error("Erro ao invocar função:", error);
+        throw new Error("Erro ao conectar com o servidor");
       }
 
-      setTemplates(data.templates || []);
+      if (!data || !data.success) {
+        throw new Error(data?.error || "Erro ao buscar templates");
+      }
+
+      const templateList = data.templates || [];
+      setTemplates(templateList);
       
-      if (data.templates.length === 0) {
-        toast.info("Nenhum template aprovado encontrado. Configure templates no Twilio.");
+      console.log(`${templateList.length} templates carregados`);
+      
+      if (templateList.length === 0) {
+        toast.info("Nenhum template aprovado encontrado. Configure templates no Twilio Console.");
+      } else {
+        toast.success(`${templateList.length} template(s) encontrado(s)`);
       }
     } catch (error) {
       console.error("Erro ao buscar templates:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao buscar templates");
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
@@ -71,6 +84,8 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   const handleSendTemplate = async (template: Template) => {
     setSending(true);
     try {
+      console.log("Enviando template:", template.sid, "para:", clienteTelefone);
+      
       const { data, error } = await supabase.functions.invoke("send-template", {
         body: {
           to: clienteTelefone,
@@ -81,13 +96,18 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         },
       });
 
-      if (error) throw error;
+      console.log("Resposta do envio:", data, error);
 
-      if (!data.success) {
-        throw new Error(data.error || "Erro ao enviar template");
+      if (error) {
+        console.error("Erro ao invocar função:", error);
+        throw new Error("Erro ao conectar com o servidor");
       }
 
-      toast.success("Template enviado com sucesso!");
+      if (!data || !data.success) {
+        throw new Error(data?.error || "Erro ao enviar template");
+      }
+
+      toast.success(`Template enviado! ID: ${data.messageSid}`);
       setOpen(false);
     } catch (error) {
       console.error("Erro ao enviar template:", error);

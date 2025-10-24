@@ -15,60 +15,78 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Iniciando envio de template...");
+    
     const { to, contentSid, contentVariables } = await req.json();
     
+    console.log("Dados recebidos:", { to, contentSid, contentVariables });
+    
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
+      console.error("Credenciais não configuradas");
       throw new Error("Credenciais Twilio não configuradas");
     }
 
     if (!to || !contentSid) {
-      throw new Error("Telefone e ContentSid são obrigatórios");
+      throw new Error("Parâmetros obrigatórios faltando: to, contentSid");
     }
 
-    console.log("Enviando template...", { to, contentSid, contentVariables });
+    // Garantir que o número tem o formato correto para WhatsApp
+    const phoneNumber = to.startsWith('+') ? to : `+${to}`;
+    const whatsappNumber = `whatsapp:${phoneNumber}`;
+    const whatsappFrom = `whatsapp:${TWILIO_PHONE_NUMBER}`;
 
+    console.log("Enviando de:", whatsappFrom, "para:", whatsappNumber);
+
+    // Enviar mensagem usando Content Template
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
-    
-    const params = new URLSearchParams({
-      From: TWILIO_PHONE_NUMBER,
-      To: to,
-      ContentSid: contentSid,
-    });
+    const authHeader = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
 
-    if (contentVariables) {
-      params.append('ContentVariables', JSON.stringify(contentVariables));
+    const formData = new URLSearchParams();
+    formData.append('To', whatsappNumber);
+    formData.append('From', whatsappFrom);
+    formData.append('ContentSid', contentSid);
+    
+    if (contentVariables && Object.keys(contentVariables).length > 0) {
+      formData.append('ContentVariables', JSON.stringify(contentVariables));
+      console.log("Variáveis do template:", JSON.stringify(contentVariables));
     }
 
-    const authHeader = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
-    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${authHeader}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: params.toString(),
+      body: formData.toString(),
     });
 
+    const responseText = await response.text();
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Erro ao enviar template:", errorText);
+      console.error("Erro na resposta da Twilio:", response.status, responseText);
       throw new Error(`Erro ao enviar template: ${response.status}`);
     }
 
-    const data = await response.json();
-    console.log("Template enviado com sucesso:", data);
+    const data = JSON.parse(responseText);
+    console.log("Template enviado com sucesso, SID:", data.sid);
 
     return new Response(
-      JSON.stringify({ success: true, messageSid: data.sid }),
+      JSON.stringify({ 
+        success: true, 
+        messageSid: data.sid,
+        status: data.status
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error("Erro:", error);
+    console.error("Erro na função:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erro desconhecido" }),
+      JSON.stringify({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Erro desconhecido" 
+      }),
       { 
-        status: 400,
+        status: 200, // Retornar 200 mas com success: false para melhor tratamento
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
