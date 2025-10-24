@@ -13,6 +13,7 @@ import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";
 import { useConversationTimer } from "@/hooks/useConversationTimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
+import { MessageContextMenu } from "./MessageContextMenu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,16 +95,28 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   };
 
   const fetchFichaId = async () => {
-    const { data } = await supabase
-      .from('fichas_de_servico')
-      .select('id')
-      .eq('telefone_cliente', clienteTelefone)
-      .order('created_at', { ascending: false })
-      .limit(1)
+    // Primeiro buscar ficha ativa do cliente
+    const { data: clienteData } = await supabase
+      .from('clientes')
+      .select('ficha_ativa_id')
+      .eq('telefone', clienteTelefone)
       .maybeSingle();
 
-    if (data) {
-      setFichaId(data.id);
+    if (clienteData?.ficha_ativa_id) {
+      setFichaId(clienteData.ficha_ativa_id);
+    } else {
+      // Fallback: pegar última ficha criada
+      const { data } = await supabase
+        .from('fichas_de_servico')
+        .select('id')
+        .eq('telefone_cliente', clienteTelefone)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        setFichaId(data.id);
+      }
     }
   };
 
@@ -353,13 +366,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             <ArrowLeft className="h-4 w-4" />
           </Button>
           
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-sm md:text-base truncate">{clienteNome}</h2>
-              <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
-            </div>
-            <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-semibold text-sm md:text-base truncate">{clienteNome}</h2>
+            {fichaId && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
+                <FileText className="h-3 w-3" />
+                Ficha Ativa
+              </span>
+            )}
+            <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
           </div>
+          <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
+        </div>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
@@ -439,38 +458,44 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     </div>
                   </div>
                 )}
-                <div
-                  className={cn(
-                    "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-200",
-                    msg.remetente === "atendente" ? "justify-end" : "justify-start"
-                  )}
+                
+                <MessageContextMenu 
+                  messageText={msg.texto || ""} 
+                  fichaId={fichaId || null}
                 >
                   <div
                     className={cn(
-                      "max-w-[85%] sm:max-w-[75%] md:max-w-[65%] rounded-2xl px-3 py-2 md:px-3.5 md:py-2.5 shadow-sm transition-all hover:shadow-md",
-                      msg.remetente === "atendente"
-                        ? "bg-primary text-primary-foreground rounded-br-sm"
-                        : msg.remetente === "bot"
-                        ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
-                        : "bg-card border rounded-bl-sm"
+                      "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-200",
+                      msg.remetente === "atendente" ? "justify-end" : "justify-start"
                     )}
                   >
-                    {msg.texto && (
-                      <p className="text-sm break-words leading-relaxed whitespace-pre-wrap">
-                        {msg.texto}
+                    <div
+                      className={cn(
+                        "max-w-[85%] sm:max-w-[75%] md:max-w-[65%] rounded-2xl px-3 py-2 md:px-3.5 md:py-2.5 shadow-sm transition-all hover:shadow-md cursor-context-menu",
+                        msg.remetente === "atendente"
+                          ? "bg-primary text-primary-foreground rounded-br-sm"
+                          : msg.remetente === "bot"
+                          ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
+                          : "bg-card border rounded-bl-sm"
+                      )}
+                    >
+                      {msg.texto && (
+                        <p className="text-sm break-words leading-relaxed whitespace-pre-wrap select-text">
+                          {msg.texto}
+                        </p>
+                      )}
+                      {renderMedia(msg)}
+                      <p className={cn(
+                        "text-xs mt-1 opacity-70 select-none",
+                        msg.remetente === "atendente" 
+                          ? "text-primary-foreground" 
+                          : "text-muted-foreground"
+                      )}>
+                        {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
                       </p>
-                    )}
-                    {renderMedia(msg)}
-                    <p className={cn(
-                      "text-xs mt-1 opacity-70 select-none",
-                      msg.remetente === "atendente" 
-                        ? "text-primary-foreground" 
-                        : "text-muted-foreground"
-                    )}>
-                      {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
-                    </p>
+                    </div>
                   </div>
-                </div>
+                </MessageContextMenu>
               </div>
             );
           })

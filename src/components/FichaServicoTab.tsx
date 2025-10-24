@@ -504,9 +504,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   );
 
   return (
-    <div className="space-y-3 pb-20">
+    <div className="space-y-3 pb-20 flex flex-col items-center">
       {/* Status fora das sanfonas */}
-      <div className="bg-card border rounded-lg shadow-sm p-2.5 hover:bg-muted/20 transition-colors">
+      <div className="bg-card border rounded-lg shadow-sm p-2.5 hover:bg-muted/20 transition-colors w-full max-w-[380px]">
         <Label htmlFor="status" className="text-xs font-medium text-gray-600">Status do Serviço</Label>
         <Select
           value={ficha?.status || "pendente"}
@@ -525,7 +525,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         </Select>
       </div>
 
-      <Accordion type="single" collapsible defaultValue="" className="w-full space-y-2.5">
+      <Accordion type="single" collapsible defaultValue="" className="w-full max-w-[380px] space-y-2">
         <AccordionItem value="informacoes-gerais" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
           <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
             <div className="flex items-center gap-2">

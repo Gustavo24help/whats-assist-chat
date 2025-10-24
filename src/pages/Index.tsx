@@ -104,18 +104,17 @@ const Index = () => {
               />
             </div>
 
-            {fichaOpen && (
-              <div 
-                className="fixed inset-0 top-14 bg-black/20 backdrop-blur-sm z-30 transition-opacity duration-300"
-                onClick={() => setFichaOpen(false)}
-              />
-            )}
+      {fichaOpen && (
+        <div 
+          className="fixed inset-0 top-14 bg-black/5 z-30 transition-opacity duration-300 pointer-events-none"
+        />
+      )}
 
-            <div className={cn(
-              "fixed right-0 top-14 bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-l shadow-2xl transition-all duration-300 ease-in-out z-40 rounded-l-2xl",
-              "w-full lg:w-[550px] xl:w-[650px]",
-              fichaOpen ? "translate-x-0" : "translate-x-full"
-            )}>
+      <div className={cn(
+        "fixed right-0 top-14 bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-l shadow-2xl transition-all duration-300 ease-in-out z-40 rounded-l-2xl",
+        "w-full lg:w-[420px] xl:w-[480px]",
+        fichaOpen ? "translate-x-0" : "translate-x-full"
+      )}>
               <FichaPanel
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
