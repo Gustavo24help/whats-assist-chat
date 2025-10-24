@@ -93,7 +93,7 @@ const Index = () => {
         {selectedCliente ? (
           <div className="flex-1 flex overflow-hidden">
             <div className={cn(
-              "flex-1 flex flex-col",
+              "flex-1 flex flex-col min-w-0",
               fichaOpen && "lg:flex-[2]"
             )}>
               <ChatWindow
@@ -101,6 +101,7 @@ const Index = () => {
                 clienteNome={selectedCliente.nome}
                 statusConversa={selectedCliente.status_conversa}
                 onOpenFicha={() => setFichaOpen(true)}
+                onBack={() => setSelectedCliente(null)}
               />
             </div>
 

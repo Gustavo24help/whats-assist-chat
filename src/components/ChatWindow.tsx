@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, FileText, Paperclip, FileIcon, UserCheck } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AudioPlayer } from "./AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -34,13 +35,14 @@ interface Mensagem {
 }
 
 interface ChatWindowProps {
-  clienteTelefone: string; // Usar telefone como ID
+  clienteTelefone: string;
   clienteNome: string;
   statusConversa: "aberta" | "fechada";
   onOpenFicha: () => void;
+  onBack?: () => void;
 }
 
-export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha }: ChatWindowProps) => {
+export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack }: ChatWindowProps) => {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -313,18 +315,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     
     if (msg.tipo === 'audio') {
       return (
-        <div className="mt-2 w-full max-w-[340px] px-3 py-2 rounded-2xl bg-muted/30 shadow-sm">
-          <audio 
-            controls 
-            controlsList="nodownload"
-            className="w-full"
-            style={{ 
-              height: '40px',
-              filter: 'grayscale(0)',
-            }}
-          >
-            <source src={msg.arquivo_url} />
-          </audio>
+        <div className="mt-2">
+          <AudioPlayer src={msg.arquivo_url} />
         </div>
       );
     }
@@ -416,29 +408,35 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-muted/10">
-        {mensagens.map((msg, index) => {
+      {/* Messages area - Scrollable */}
+      <div className="flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10">
+        {mensagens.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground text-sm">Nenhuma mensagem ainda</p>
+          </div>
+        ) : (
+          mensagens.map((msg, index) => {
           const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
           const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
           
           return (
             <div key={msg.id}>
-              {showDateSeparator && (
-                <div className="flex justify-center my-4">
-                  <div className="bg-muted/60 backdrop-blur-sm text-muted-foreground text-xs px-3 py-1.5 rounded-full shadow-sm">
-                    {getDateLabel(new Date(msg.data_hora))}
+                {showDateSeparator && (
+                  <div className="flex justify-center my-3">
+                    <div className="bg-muted/60 backdrop-blur-sm text-muted-foreground text-xs px-3 py-1 rounded-full shadow-sm">
+                      {getDateLabel(new Date(msg.data_hora))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
                 <div
                   className={cn(
-                    "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+                    "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-200",
                     msg.remetente === "atendente" ? "justify-end" : "justify-start"
                   )}
                 >
                   <div
                     className={cn(
-                      "max-w-[70%] md:max-w-[60%] rounded-2xl p-3 md:p-3.5 shadow-md transition-all hover:shadow-lg",
+                      "max-w-[85%] sm:max-w-[75%] md:max-w-[65%] rounded-2xl px-3 py-2 md:px-3.5 md:py-2.5 shadow-sm transition-all hover:shadow-md",
                       msg.remetente === "atendente"
                         ? "bg-primary text-primary-foreground rounded-br-sm"
                         : msg.remetente === "bot"
@@ -446,10 +444,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                         : "bg-card border rounded-bl-sm"
                     )}
                   >
-                    {msg.texto && <p className="text-sm break-words leading-relaxed whitespace-pre-wrap">{msg.texto}</p>}
+                    {msg.texto && (
+                      <p className="text-sm break-words leading-relaxed whitespace-pre-wrap">
+                        {msg.texto}
+                      </p>
+                    )}
                     {renderMedia(msg)}
                     <p className={cn(
-                      "text-xs mt-1.5 opacity-70",
+                      "text-xs mt-1 opacity-70 select-none",
                       msg.remetente === "atendente" 
                         ? "text-primary-foreground" 
                         : "text-muted-foreground"
@@ -458,14 +460,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     </p>
                   </div>
                 </div>
-            </div>
-          );
-        })}
+              </div>
+            );
+          })
+        )}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-3 md:p-4 border-t bg-background shadow-md shrink-0">
-        <div className="flex gap-2 items-center max-w-4xl mx-auto">
+      {/* Input area - Fixed at bottom */}
+      <div className="px-3 py-2.5 md:px-4 md:py-3 border-t bg-background shadow-sm shrink-0 flex-none">
+        <div className="flex gap-1.5 md:gap-2 items-center max-w-5xl mx-auto">
           <input
             ref={fileInputRef}
             type="file"
@@ -473,21 +477,25 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             onChange={handleFileUpload}
             className="hidden"
           />
+          
           <MensagensPadronizadasDropdown
             onSelectMensagem={(msg) => setNovaMsg(msg)}
             clienteNome={clienteNome}
             clienteTelefone={clienteTelefone}
             fichaId={fichaId}
           />
+          
           <Button 
             variant="outline" 
             size="icon"
             onClick={() => fileInputRef.current?.click()}
             disabled={statusConversa === "fechada" || uploading}
-            className="shrink-0 h-10 w-10"
+            className="shrink-0 h-9 w-9 md:h-10 md:w-10"
+            title="Enviar arquivo"
           >
             <Paperclip className="h-4 w-4" />
           </Button>
+          
           <Textarea
             placeholder={statusConversa === "aberta" ? "Digite sua mensagem..." : "Conversa fechada"}
             value={novaMsg}
@@ -499,14 +507,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
               }
             }}
             disabled={statusConversa === "fechada"}
-            className="flex-1 min-h-[40px] max-h-[120px] resize-none rounded-2xl"
+            className="flex-1 min-h-[36px] md:min-h-[40px] max-h-[100px] md:max-h-[120px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
             rows={1}
           />
+          
           <Button 
             onClick={enviarMensagem} 
             disabled={statusConversa === "fechada" || !novaMsg.trim()}
-            className="shrink-0 shadow-md h-10 w-10"
+            className="shrink-0 shadow-md h-9 w-9 md:h-10 md:w-10"
             size="icon"
+            title="Enviar mensagem"
           >
             <Send className="h-4 w-4" />
           </Button>

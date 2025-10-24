@@ -238,9 +238,9 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="shadow-sm w-full">
-          <MessageSquare className="mr-2 h-3.5 w-3.5" />
-          Abrir Conversa
+        <Button variant="outline" size="sm" className="shadow-sm whitespace-nowrap">
+          <MessageSquare className="h-3.5 w-3.5 md:mr-1.5" />
+          <span className="hidden md:inline">Abrir</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">

@@ -186,21 +186,21 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
 
   return (
     <div className="h-full flex flex-col bg-card border-r">
-      <div className="p-3 md:p-4 border-b space-y-2 md:space-y-3">
+      <div className="p-2.5 md:p-3 lg:p-4 border-b space-y-2 shrink-0">
         <h2 className="font-semibold text-base md:text-lg">Conversas</h2>
         
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, telefone, ficha ou tags..."
+            placeholder="Buscar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
+            className="pl-8 h-9 text-sm"
           />
         </div>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full h-9 text-sm">
             <SelectValue placeholder="Todos os status" />
           </SelectTrigger>
           <SelectContent>
@@ -214,12 +214,12 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
           </SelectContent>
         </Select>
 
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <Button
             size="sm"
             variant={conversaFilter === "todas" ? "default" : "outline"}
             onClick={() => setConversaFilter("todas")}
-            className="flex-1"
+            className="flex-1 h-8 text-xs"
           >
             Todas
           </Button>
@@ -227,7 +227,7 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
             size="sm"
             variant={conversaFilter === "aberta" ? "default" : "outline"}
             onClick={() => setConversaFilter("aberta")}
-            className="flex-1"
+            className="flex-1 h-8 text-xs"
           >
             Abertas
           </Button>
@@ -235,21 +235,21 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
             size="sm"
             variant={conversaFilter === "fechada" ? "default" : "outline"}
             onClick={() => setConversaFilter("fechada")}
-            className="flex-1"
+            className="flex-1 h-8 text-xs"
           >
             Fechadas
           </Button>
         </div>
 
         {allTags.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground">Filtrar por tags:</p>
             <div className="flex flex-wrap gap-1">
               {allTags.map((tag) => (
                 <Badge
                   key={tag}
                   variant={selectedTags.includes(tag) ? "default" : "outline"}
-                  className="cursor-pointer text-xs"
+                  className="cursor-pointer text-xs h-6"
                   onClick={() => toggleTag(tag)}
                 >
                   {tag}
@@ -261,7 +261,12 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
       </div>
 
       <ScrollArea className="flex-1">
-        {filteredClientes.map((cliente) => (
+        {filteredClientes.length === 0 ? (
+          <div className="flex items-center justify-center p-8 text-center">
+            <p className="text-muted-foreground text-sm">Nenhuma conversa encontrada</p>
+          </div>
+        ) : (
+          filteredClientes.map((cliente) => (
           <ConversationCard
             key={cliente.telefone}
             telefone={cliente.telefone}
@@ -277,7 +282,8 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
             onOpenTagManager={() => openTagManager(cliente.telefone)}
             onArchive={() => archiveContact(cliente.telefone)}
           />
-        ))}
+          ))
+        )}
       </ScrollArea>
 
       {/* Tag Manager Dialog */}

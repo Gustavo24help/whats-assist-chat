@@ -105,37 +105,67 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  @supports (-webkit-touch-callout: none) {
+    input, textarea, select {
+      font-size: 16px;
+    }
   }
 }
 
-/* Audio player custom styling - WhatsApp inspired */
+/* Scrollbar styling */
 @layer components {
-  audio::-webkit-media-controls-panel {
-    background-color: transparent;
+  .overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
   }
 
-  audio::-webkit-media-controls-play-button,
-  audio::-webkit-media-controls-mute-button {
-    background-color: hsl(var(--primary));
-    border-radius: 50%;
-    filter: invert(1);
+  .overflow-y-auto::-webkit-scrollbar-track {
+    background: transparent;
   }
 
-  audio::-webkit-media-controls-timeline {
-    background-color: hsl(var(--muted));
-    border-radius: 25px;
-    margin-left: 10px;
-    margin-right: 10px;
+  .overflow-y-auto::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.2);
+    border-radius: 3px;
   }
 
-  audio::-webkit-media-controls-current-time-display,
-  audio::-webkit-media-controls-time-remaining-display {
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
+  .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.3);
   }
 
-  /* Firefox styling */
-  audio {
-    border-radius: 12px;
+  /* Smooth scroll behavior */
+  .overflow-y-auto {
+    scroll-behavior: smooth;
+  }
+
+  /* Better touch scrolling on mobile */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Custom animations */
+  @keyframes slide-in-bottom {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-in {
+    animation: slide-in-bottom 0.2s ease-out;
+  }
+
+  /* Image optimization */
+  img {
+    image-rendering: -webkit-optimize-contrast;
   }
 }
