@@ -41,9 +41,10 @@ interface ChatWindowProps {
   onOpenFicha: () => void;
   onBack?: () => void;
   fichaOpen?: boolean;
+  onToggleFicha?: () => void;
 }
 
-export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen }: ChatWindowProps) => {
+export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha }: ChatWindowProps) => {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -361,25 +362,25 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           </div>
         </div>
 
-        {!fichaOpen && (
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden lg:flex items-center gap-2">
-              <AbrirConversaDialog
-                clienteTelefone={clienteTelefone}
-                clienteNome={clienteNome}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAssumirDialogOpen(true)}
-                className="h-9"
-              >
-                <UserCheck className="h-4 w-4 mr-2" />
-                <span className="text-sm">Assumir</span>
-              </Button>
-            </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {onToggleFicha && (
+            <Button
+              onClick={onToggleFicha}
+              size="sm"
+              className={cn(
+                "h-9 transition-all duration-200 hover:scale-[0.98] active:scale-95",
+                fichaOpen 
+                  ? "bg-green-700 hover:bg-green-800 text-white shadow-md" 
+                  : "bg-green-600 hover:bg-green-700 text-white shadow-sm"
+              )}
+            >
+              <FileText className="h-4 w-4" />
+              <span className="ml-2 hidden md:inline">Ficha</span>
+            </Button>
+          )}
 
-            <div className="flex lg:hidden flex-col gap-1">
+          {!fichaOpen && (
+            <>
               <AbrirConversaDialog
                 clienteTelefone={clienteTelefone}
                 clienteNome={clienteNome}
@@ -388,14 +389,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 variant="outline"
                 size="sm"
                 onClick={() => setAssumirDialogOpen(true)}
-                className="h-8"
+                className="h-9 hover:scale-[0.98] active:scale-95 transition-transform"
               >
-                <UserCheck className="h-3 w-3 mr-1" />
-                <span className="text-xs">Assumir</span>
+                <UserCheck className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Assumir</span>
               </Button>
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </header>
 
       <AlertDialog open={assumirDialogOpen} onOpenChange={setAssumirDialogOpen}>

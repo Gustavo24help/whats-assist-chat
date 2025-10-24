@@ -504,15 +504,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   );
 
   return (
-    <div className="p-6 space-y-6 pb-28">
+    <div className="space-y-3 pb-20">
       {/* Status fora das sanfonas */}
-      <div className="bg-card border rounded-lg shadow-md p-4">
-        <Label htmlFor="status" className="text-sm font-medium">Status do Serviço</Label>
+      <div className="bg-card border rounded-lg shadow-sm p-2.5 hover:bg-muted/20 transition-colors">
+        <Label htmlFor="status" className="text-xs font-medium text-gray-600">Status do Serviço</Label>
         <Select
           value={ficha?.status || "pendente"}
           onValueChange={(value) => updateFicha({ status: value })}
         >
-          <SelectTrigger id="status" className="mt-2">
+          <SelectTrigger id="status" className="mt-1.5 h-9 text-sm focus:ring-2 focus:ring-primary/20">
             <SelectValue placeholder="Selecione o status" />
           </SelectTrigger>
           <SelectContent>
@@ -525,85 +525,85 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         </Select>
       </div>
 
-      <Accordion type="single" collapsible defaultValue="" className="w-full space-y-4">
-        <AccordionItem value="informacoes-gerais" className="border rounded-lg shadow-md bg-card">
-          <AccordionTrigger className="px-6 py-4 hover:no-underline">
-            <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-lg">Informações Gerais</span>
+      <Accordion type="single" collapsible defaultValue="" className="w-full space-y-2.5">
+        <AccordionItem value="informacoes-gerais" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
+          <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm text-gray-700">Informações Gerais</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-6 pb-6">
-            <div className="space-y-5 pt-4">
+          <AccordionContent className="px-2.5 pb-2.5">
+            <div className="space-y-2.5 pt-2">
               <div>
-                <Label htmlFor="nome_ficha" className="text-sm font-medium">Nome da Ficha</Label>
+                <Label htmlFor="nome_ficha" className="text-xs font-medium text-gray-600">Nome da Ficha</Label>
                 <Input
                   id="nome_ficha"
                   value={ficha?.nome_ficha || ""}
                   disabled
-                  className="mt-2 bg-muted cursor-not-allowed"
+                  className="mt-1 h-9 text-sm bg-muted cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <Label htmlFor="id_zoho" className="text-sm font-medium">ID Zoho</Label>
+                <Label htmlFor="id_zoho" className="text-xs font-medium text-gray-600">ID Zoho</Label>
                 <Input
                   id="id_zoho"
                   value={ficha?.id_zoho || ""}
                   disabled
                   placeholder="Não atribuído"
-                  className="mt-2 bg-muted cursor-not-allowed"
+                  className="mt-1 h-9 text-sm bg-muted cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <Label htmlFor="descricao" className="text-sm font-medium">Descrição</Label>
+                <Label htmlFor="descricao" className="text-xs font-medium text-gray-600">Descrição</Label>
                 <Input
                   id="descricao"
                   value={ficha?.descricao || ""}
                   onChange={(e) => updateFicha({ descricao: e.target.value })}
                   placeholder="Descrição do serviço"
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <Label htmlFor="motivo_perda" className="text-sm font-medium">Motivo de Perda</Label>
+                <Label htmlFor="motivo_perda" className="text-xs font-medium text-gray-600">Motivo de Perda</Label>
                 <Input
                   id="motivo_perda"
                   value={ficha?.motivo_perda || ""}
                   onChange={(e) => updateFicha({ motivo_perda: e.target.value })}
                   placeholder="Motivo caso a venda seja perdida"
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="agendamento" className="border rounded-lg shadow-md bg-card">
-          <AccordionTrigger className="px-6 py-4 hover:no-underline">
-            <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-lg">Agendamento</span>
+        <AccordionItem value="agendamento" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
+          <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm text-gray-700">Agendamento</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-6 pb-6">
-            <div className="space-y-5 pt-4">
+          <AccordionContent className="px-2.5 pb-2.5">
+            <div className="space-y-2.5 pt-2">
               <div>
-                <Label htmlFor="prestador_id" className="text-sm font-medium">Prestador de Serviço</Label>
-                <div className="mt-2 space-y-2">
+                <Label htmlFor="prestador_id" className="text-xs font-medium text-gray-600">Prestador de Serviço</Label>
+                <div className="mt-1 space-y-1.5">
                   <Input
                     placeholder="Pesquisar prestador..."
                     value={searchPrestador}
                     onChange={(e) => setSearchPrestador(e.target.value)}
-                    className="mb-2"
+                    className="h-9 text-sm"
                   />
                   <Select
                     value={ficha?.prestador_id || "nulo"}
                     onValueChange={(value) => updateFicha({ prestador_id: value === "nulo" ? null : value })}
                   >
-                    <SelectTrigger id="prestador_id">
+                    <SelectTrigger id="prestador_id" className="h-9 text-sm focus:ring-2 focus:ring-primary/20">
                       <SelectValue placeholder="Selecione o prestador" />
                     </SelectTrigger>
                     <SelectContent>
@@ -619,49 +619,49 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               <div>
-                <Label htmlFor="data_agendamento" className="text-sm font-medium">Data do Agendamento</Label>
+                <Label htmlFor="data_agendamento" className="text-xs font-medium text-gray-600">Data do Agendamento</Label>
                 <Input
                   id="data_agendamento"
                   type="date"
                   value={dataAgendamento}
                   onChange={(e) => updateDataAgendamento(e.target.value)}
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <Label htmlFor="hora_agendamento" className="text-sm font-medium">Horário do Agendamento</Label>
+                <Label htmlFor="hora_agendamento" className="text-xs font-medium text-gray-600">Horário do Agendamento</Label>
                 <Input
                   id="hora_agendamento"
                   type="time"
                   value={horaAgendamento}
                   onChange={(e) => updateHoraAgendamento(e.target.value)}
-                  className="mt-2 text-base px-4 py-2.5 rounded-lg border-input focus:ring-2 focus:ring-ring transition-all"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
-              <div className="pt-4 border-t">
-                <h4 className="text-sm font-semibold mb-4 text-foreground">Visita Técnica</h4>
-                <div className="space-y-5">
+              <div className="pt-2 border-t">
+                <h4 className="text-xs font-semibold mb-2 text-gray-700">Visita Técnica</h4>
+                <div className="space-y-2.5">
                   <div>
-                    <Label htmlFor="data_visita_tecnica" className="text-sm font-medium">Data da Visita Técnica</Label>
+                    <Label htmlFor="data_visita_tecnica" className="text-xs font-medium text-gray-600">Data da Visita Técnica</Label>
                     <Input
                       id="data_visita_tecnica"
                       type="date"
                       value={dataVisitaTecnica}
                       onChange={(e) => updateDataVisitaTecnica(e.target.value)}
-                      className="mt-2"
+                      className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="hora_visita_tecnica" className="text-sm font-medium">Horário da Visita Técnica</Label>
+                    <Label htmlFor="hora_visita_tecnica" className="text-xs font-medium text-gray-600">Horário da Visita Técnica</Label>
                     <Input
                       id="hora_visita_tecnica"
                       type="time"
                       value={horaVisitaTecnica}
                       onChange={(e) => updateHoraVisitaTecnica(e.target.value)}
-                      className="mt-2 text-base px-4 py-2.5 rounded-lg border-input focus:ring-2 focus:ring-ring transition-all"
+                      className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>
@@ -670,23 +670,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="valores" className="border rounded-lg shadow-md bg-card">
-          <AccordionTrigger className="px-6 py-4 hover:no-underline">
-            <div className="flex items-center gap-3">
-              <DollarSign className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-lg">Valores</span>
+        <AccordionItem value="valores" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
+          <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm text-gray-700">Valores</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-6 pb-6">
-            <div className="space-y-5 pt-4">
+          <AccordionContent className="px-2.5 pb-2.5">
+            <div className="space-y-2.5 pt-2">
               <div>
-                <Label htmlFor="prestador_valores" className="text-sm font-medium">Prestador de Serviço</Label>
-                <div className="mt-2 space-y-2">
+                <Label htmlFor="prestador_valores" className="text-xs font-medium text-gray-600">Prestador de Serviço</Label>
+                <div className="mt-1 space-y-1.5">
                   <Input
                     placeholder="Pesquisar prestador..."
                     value={searchPrestador}
                     onChange={(e) => setSearchPrestador(e.target.value)}
-                    className="mb-2"
+                    className="h-9 text-sm"
                   />
                   <Select
                     value={ficha?.prestador_id || "nulo"}
@@ -694,13 +694,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       const prestadorValue = value === "nulo" ? null : value;
                       updateFicha({ prestador_id: prestadorValue });
                       
-                      // Sincronização automática de orçamentos
                       if (prestadorValue && ficha?.valor_total && ficha.valor_total > 0) {
                         sincronizarOrcamentos(prestadorValue);
                       }
                     }}
                   >
-                    <SelectTrigger id="prestador_valores">
+                    <SelectTrigger id="prestador_valores" className="h-9 text-sm focus:ring-2 focus:ring-primary/20">
                       <SelectValue placeholder="Selecione o prestador" />
                     </SelectTrigger>
                     <SelectContent>
@@ -716,7 +715,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               <div>
-                <Label htmlFor="valor_total" className="text-sm font-medium">Valor Total</Label>
+                <Label htmlFor="valor_total" className="text-xs font-medium text-gray-600">Valor Total</Label>
                 <Input
                   id="valor_total"
                   type="number"
@@ -726,18 +725,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     const novoValor = parseFloat(e.target.value) || 0;
                     updateFicha({ valor_total: novoValor });
                     
-                    // Sincronização automática de orçamentos
                     if (ficha?.prestador_id && novoValor > 0) {
                       sincronizarOrcamentos(ficha.prestador_id);
                     }
                   }}
                   placeholder="0.00"
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <Label htmlFor="valor_mao_obra" className="text-sm font-medium">Valor Mão de Obra</Label>
+                <Label htmlFor="valor_mao_obra" className="text-xs font-medium text-gray-600">Valor Mão de Obra</Label>
                 <Input
                   id="valor_mao_obra"
                   type="number"
@@ -745,12 +743,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.valor_mao_obra || ""}
                   onChange={(e) => updateFicha({ valor_mao_obra: parseFloat(e.target.value) || 0 })}
                   placeholder="0.00"
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <Label htmlFor="valor_pecas" className="text-sm font-medium">Valor Peças</Label>
+                <Label htmlFor="valor_pecas" className="text-xs font-medium text-gray-600">Valor Peças</Label>
                 <Input
                   id="valor_pecas"
                   type="number"
@@ -758,51 +756,51 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   value={ficha?.valor_pecas || ""}
                   onChange={(e) => updateFicha({ valor_pecas: parseFloat(e.target.value) || 0 })}
                   placeholder="0.00"
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <Label htmlFor="tempo_servico" className="text-sm font-medium">Tempo de Serviço</Label>
+                <Label htmlFor="tempo_servico" className="text-xs font-medium text-gray-600">Tempo de Serviço</Label>
                 <Input
                   id="tempo_servico"
                   value={ficha?.tempo_servico || ""}
                   onChange={(e) => updateFicha({ tempo_servico: e.target.value })}
                   placeholder="Ex: 2 horas"
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="pagamento" className="border rounded-lg shadow-md bg-card">
-          <AccordionTrigger className="px-6 py-4 hover:no-underline">
-            <div className="flex items-center gap-3">
-              <CreditCard className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-lg">Pagamento</span>
+        <AccordionItem value="pagamento" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
+          <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm text-gray-700">Pagamento</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-6 pb-6">
-            <div className="space-y-5 pt-4">
+          <AccordionContent className="px-2.5 pb-2.5">
+            <div className="space-y-2.5 pt-2">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="pagamento_gerar_link"
                   checked={ficha?.pagamento_gerar_link ?? true}
                   onCheckedChange={(checked) => updateFicha({ pagamento_gerar_link: checked as boolean })}
                 />
-                <Label htmlFor="pagamento_gerar_link" className="cursor-pointer text-sm font-medium">
+                <Label htmlFor="pagamento_gerar_link" className="cursor-pointer text-xs font-medium text-gray-600">
                   Gerar link de pagamento
                 </Label>
               </div>
 
               <div>
-                <Label htmlFor="pagamento_tipo" className="text-sm font-medium">Forma de Pagamento</Label>
+                <Label htmlFor="pagamento_tipo" className="text-xs font-medium text-gray-600">Forma de Pagamento</Label>
                 <Select
                   value={ficha?.pagamento_tipo || ""}
                   onValueChange={(value) => updateFicha({ pagamento_tipo: value })}
                 >
-                  <SelectTrigger id="pagamento_tipo" className="mt-2">
+                  <SelectTrigger id="pagamento_tipo" className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20">
                     <SelectValue placeholder="Selecione a forma de pagamento" />
                   </SelectTrigger>
                   <SelectContent>
@@ -817,69 +815,69 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               <div>
-                <Label htmlFor="pagamento_parcelas" className="text-sm font-medium">Número de Parcelas</Label>
+                <Label htmlFor="pagamento_parcelas" className="text-xs font-medium text-gray-600">Número de Parcelas</Label>
                 <Input
                   id="pagamento_parcelas"
                   type="number"
                   min="1"
                   value={ficha?.pagamento_parcelas || 1}
                   onChange={(e) => updateFicha({ pagamento_parcelas: parseInt(e.target.value) || 1 })}
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="informacoes-cliente" className="border rounded-lg shadow-md bg-card">
-          <AccordionTrigger className="px-6 py-4 hover:no-underline">
-            <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-lg">Informações do Cliente</span>
+        <AccordionItem value="informacoes-cliente" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
+          <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm text-gray-700">Informações do Cliente</span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-6 pb-6">
-            <div className="space-y-5 pt-4">
+          <AccordionContent className="px-2.5 pb-2.5">
+            <div className="space-y-2.5 pt-2">
               <div>
-                <Label htmlFor="telefone_cliente" className="text-sm font-medium">Telefone do Cliente</Label>
+                <Label htmlFor="telefone_cliente" className="text-xs font-medium text-gray-600">Telefone do Cliente</Label>
                 <Input
                   id="telefone_cliente"
                   value={ficha?.telefone_cliente || ""}
                   disabled
-                  className="bg-muted mt-2 cursor-not-allowed"
+                  className="bg-muted mt-1 h-9 text-sm cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <Label htmlFor="cpf" className="text-sm font-medium">CPF do Cliente</Label>
+                <Label htmlFor="cpf" className="text-xs font-medium text-gray-600">CPF do Cliente</Label>
                 <Input
                   id="cpf"
                   value={ficha?.cpf || ""}
                   onChange={(e) => updateFicha({ cpf: e.target.value })}
                   placeholder="000.000.000-00"
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
               <div>
-                <Label htmlFor="endereco" className="text-sm font-medium">Endereço</Label>
+                <Label htmlFor="endereco" className="text-xs font-medium text-gray-600">Endereço</Label>
                 <Input
                   id="endereco"
                   value={ficha?.endereco || ""}
                   onChange={(e) => updateFicha({ endereco: e.target.value })}
                   placeholder="Endereço completo"
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
               
               <div>
-                <Label htmlFor="notas" className="text-sm font-medium">Notas Adicionais</Label>
+                <Label htmlFor="notas" className="text-xs font-medium text-gray-600">Notas Adicionais</Label>
                 <Input
                   id="notas"
                   value={ficha?.notas || ""}
                   onChange={(e) => updateFicha({ notas: e.target.value })}
                   placeholder="Observações e anotações"
-                  className="mt-2"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
@@ -889,10 +887,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
       <Button 
         onClick={salvarManualmente} 
-        className="fixed bottom-8 right-8 shadow-2xl z-50 hover:shadow-3xl transition-shadow"
-        size="lg"
+        className="fixed bottom-6 right-6 shadow-2xl z-50 hover:scale-[0.98] active:scale-95 active:animate-pulse transition-all h-10 text-sm"
       >
-        <Save className="mr-2 h-5 w-5" />
+        <Save className="mr-2 h-4 w-4" />
         Salvar Ficha
       </Button>
     </div>

@@ -101,13 +101,13 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
-      <div className="h-12 flex items-center justify-between px-4 border-b bg-card shrink-0">
+      <div className="h-10 flex items-center justify-between px-3 border-b bg-card/50 backdrop-blur-sm shrink-0">
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold truncate">{clienteNome}</h2>
+          <h2 className="text-sm font-semibold truncate">{clienteNome}</h2>
           <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0 h-8 w-8">
-          <X className="h-4 w-4" />
+        <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0 h-7 w-7 hover:scale-[0.98] active:scale-95 transition-transform">
+          <X className="h-3.5 w-3.5" />
         </Button>
       </div>
 
@@ -123,8 +123,8 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
         </div>
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="p-3 space-y-2 border-b shrink-0">
-            <div className="flex items-center justify-between gap-2">
+          <div className="p-2.5 space-y-1.5 border-b shrink-0">
+            <div className="flex items-center gap-1.5">
               <Select
                 value={fichaAtual || ''}
                 onValueChange={(value) => {
@@ -132,7 +132,7 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
                   marcarFichaComoAtiva(value);
                 }}
               >
-                <SelectTrigger className="flex-1">
+                <SelectTrigger className="flex-1 h-9 text-sm bg-muted/30">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -147,28 +147,28 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
                 variant="outline" 
                 size="icon"
                 onClick={() => setDialogOpen(true)}
-                className="shrink-0"
+                className="shrink-0 h-8 w-8 hover:scale-[0.98] active:scale-95 transition-transform"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
 
           <Tabs defaultValue="ficha" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="mx-3 mt-2 shrink-0">
-              <TabsTrigger value="ficha" className="flex-1 text-xs">
+            <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5">
+              <TabsTrigger value="ficha" className="flex-1 text-xs h-7">
                 <FileText className="mr-1 h-3 w-3" />
                 Ficha
               </TabsTrigger>
-              <TabsTrigger value="orcamentos" className="flex-1 text-xs">
+              <TabsTrigger value="orcamentos" className="flex-1 text-xs h-7">
                 <DollarSign className="mr-1 h-3 w-3" />
                 Orçamentos
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="ficha" className="flex-1 overflow-y-auto p-3 m-0">
+            <TabsContent value="ficha" className="flex-1 overflow-y-auto p-2.5 m-0 animate-in fade-in-50 duration-200">
               <FichaServicoTab fichaId={fichaAtual} />
             </TabsContent>
-            <TabsContent value="orcamentos" className="flex-1 overflow-y-auto p-3 m-0">
+            <TabsContent value="orcamentos" className="flex-1 overflow-y-auto p-2.5 m-0 animate-in fade-in-50 duration-200">
               <OrcamentosTab fichaId={fichaAtual} />
             </TabsContent>
           </Tabs>

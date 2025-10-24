@@ -92,10 +92,7 @@ const Index = () => {
 
         {selectedCliente ? (
           <div className="flex-1 flex overflow-hidden min-w-0 relative">
-            <div className={cn(
-              "flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300 ease-in-out",
-              fichaOpen && "lg:mr-[600px]"
-            )}>
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
               <ChatWindow
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
@@ -103,27 +100,20 @@ const Index = () => {
                 onOpenFicha={() => setFichaOpen(true)}
                 onBack={() => setSelectedCliente(null)}
                 fichaOpen={fichaOpen}
+                onToggleFicha={() => setFichaOpen(!fichaOpen)}
               />
             </div>
 
-            <div className="absolute top-3 right-3 z-10">
-              <Button
-                onClick={() => setFichaOpen(!fichaOpen)}
-                variant={fichaOpen ? "default" : "outline"}
-                size="sm"
-                className={cn(
-                  "shadow-lg h-9 transition-all duration-300",
-                  fichaOpen ? "bg-green-700 hover:bg-green-800 text-white" : "hover:bg-green-700 hover:text-white"
-                )}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                <span className="text-sm">Ficha</span>
-              </Button>
-            </div>
+            {fichaOpen && (
+              <div 
+                className="fixed inset-0 top-14 bg-black/20 backdrop-blur-sm z-30 transition-opacity duration-300"
+                onClick={() => setFichaOpen(false)}
+              />
+            )}
 
             <div className={cn(
-              "fixed right-0 top-14 bottom-0 bg-background border-l shadow-2xl transition-all duration-300 ease-in-out z-40",
-              "max-lg:w-full lg:w-[600px]",
+              "fixed right-0 top-14 bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-l shadow-2xl transition-all duration-300 ease-in-out z-40 rounded-l-2xl",
+              "w-full lg:w-[550px] xl:w-[650px]",
               fichaOpen ? "translate-x-0" : "translate-x-full"
             )}>
               <FichaPanel
