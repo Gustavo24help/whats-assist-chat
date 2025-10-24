@@ -407,6 +407,36 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_templates: {
+        Row: {
+          body: string
+          content_sid: string
+          created_at: string
+          friendly_name: string
+          id: string
+          updated_at: string
+          variables: Json | null
+        }
+        Insert: {
+          body: string
+          content_sid: string
+          created_at?: string
+          friendly_name: string
+          id?: string
+          updated_at?: string
+          variables?: Json | null
+        }
+        Update: {
+          body?: string
+          content_sid?: string
+          created_at?: string
+          friendly_name?: string
+          id?: string
+          updated_at?: string
+          variables?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

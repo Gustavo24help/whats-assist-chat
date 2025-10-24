@@ -14,50 +14,51 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Iniciando busca de templates da Twilio...");
-
+    console.log("Buscando informações do template...");
+    
+    const { contentSid } = await req.json();
+    
+    if (!contentSid) {
+      throw new Error("contentSid é obrigatório");
+    }
+    
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
       console.error("Credenciais não configuradas");
       throw new Error("Credenciais Twilio não configuradas");
     }
 
-    // Buscar content templates aprovados (WhatsApp Business)
-    const url = `https://content.twilio.com/v1/Content`;
+    console.log("Fazendo requisição para:", `https://content.twilio.com/v1/Content/${contentSid}`);
+
     const authHeader = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
-    
-    console.log("Fazendo requisição para:", url);
-    
-    const response = await fetch(url, {
+    const response = await fetch(`https://content.twilio.com/v1/Content/${contentSid}`, {
       method: 'GET',
       headers: {
         'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Erro na resposta da Twilio:", response.status, errorText);
-      throw new Error(`Erro ao buscar templates: ${response.status}`);
+      throw new Error(`Erro ao buscar template: ${response.status}`);
     }
 
-    const data = await response.json();
-    console.log("Resposta recebida, total de conteúdos:", data.contents?.length || 0);
+    const template = await response.json();
+    console.log("Template encontrado:", template.friendly_name);
 
-    // Filtrar templates aprovados para WhatsApp
-    const whatsappTemplates = (data.contents || []).filter((template: any) => {
-      const hasWhatsAppApproval = template.approval_requests?.whatsapp === 'approved';
-      const hasTextType = template.types && template.types['twilio/text'];
-      return hasWhatsAppApproval && hasTextType;
-    });
-
-    console.log(`${whatsappTemplates.length} templates aprovados encontrados`);
+    // Extrair variáveis do body
+    const body = template.types?.['twilio/text']?.body || '';
+    const variables = [...body.matchAll(/\{\{(\d+)\}\}/g)].map(match => `var_${match[1]}`);
 
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        templates: whatsappTemplates,
-        total: whatsappTemplates.length 
+        success: true,
+        template: {
+          sid: template.sid,
+          friendly_name: template.friendly_name,
+          body: body,
+          variables: variables,
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -66,11 +67,10 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : "Erro desconhecido",
-        templates: []
+        error: error instanceof Error ? error.message : "Erro desconhecido" 
       }),
       { 
-        status: 200, // Retornar 200 mas com success: false
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );

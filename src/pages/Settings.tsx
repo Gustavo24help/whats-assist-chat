@@ -13,6 +13,7 @@ import { PasswordChange } from "@/components/PasswordChange";
 import { AccountInfo } from "@/components/AccountInfo";
 import { PrestadorManagement } from "@/components/PrestadorManagement";
 import { MensagensPadronizadas } from "@/components/MensagensPadronizadas";
+import { TemplateManagement } from "@/components/TemplateManagement";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -116,6 +117,7 @@ const Settings = () => {
               {isAdmin && <TabsTrigger value="users">Gerenciar Usuários</TabsTrigger>}
               <TabsTrigger value="prestadores">Prestadores</TabsTrigger>
               <TabsTrigger value="mensagens">Mensagens Padronizadas</TabsTrigger>
+              <TabsTrigger value="templates">Templates WhatsApp</TabsTrigger>
               <TabsTrigger value="twilio">Twilio API</TabsTrigger>
               <TabsTrigger value="geral">Geral</TabsTrigger>
             </TabsList>
@@ -137,6 +139,10 @@ const Settings = () => {
 
             <TabsContent value="mensagens" className="space-y-4">
               <MensagensPadronizadas />
+            </TabsContent>
+
+            <TabsContent value="templates" className="space-y-4">
+              <TemplateManagement />
             </TabsContent>
 
           <TabsContent value="twilio" className="space-y-4">

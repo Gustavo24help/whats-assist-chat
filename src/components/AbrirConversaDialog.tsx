@@ -8,21 +8,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface Template {
-  sid: string;
+  id: string;
+  content_sid: string;
   friendly_name: string;
-  types: {
-    [key: string]: {
-      body: string;
-    };
-  };
+  body: string;
+  variables: string[];
 }
 
 interface AbrirConversaDialogProps {
@@ -45,36 +41,24 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      console.log("Buscando templates...");
+      const { data, error } = await supabase
+        .from("whatsapp_templates")
+        .select("*")
+        .order("friendly_name", { ascending: true });
+
+      if (error) throw error;
+
+      setTemplates((data || []).map(t => ({
+        ...t,
+        variables: Array.isArray(t.variables) ? (t.variables as string[]) : []
+      })));
       
-      const { data, error } = await supabase.functions.invoke("get-twilio-templates", {
-        body: {},
-      });
-
-      console.log("Resposta da função:", data, error);
-
-      if (error) {
-        console.error("Erro ao invocar função:", error);
-        throw new Error("Erro ao conectar com o servidor");
-      }
-
-      if (!data || !data.success) {
-        throw new Error(data?.error || "Erro ao buscar templates");
-      }
-
-      const templateList = data.templates || [];
-      setTemplates(templateList);
-      
-      console.log(`${templateList.length} templates carregados`);
-      
-      if (templateList.length === 0) {
-        toast.info("Nenhum template aprovado encontrado. Configure templates no Twilio Console.");
-      } else {
-        toast.success(`${templateList.length} template(s) encontrado(s)`);
+      if (data.length === 0) {
+        toast.info("Nenhum template cadastrado. Configure templates nas Configurações.");
       }
     } catch (error) {
       console.error("Erro ao buscar templates:", error);
-      toast.error(error instanceof Error ? error.message : "Erro ao buscar templates");
+      toast.error("Erro ao buscar templates");
       setTemplates([]);
     } finally {
       setLoading(false);
@@ -84,22 +68,17 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   const handleSendTemplate = async (template: Template) => {
     setSending(true);
     try {
-      console.log("Enviando template:", template.sid, "para:", clienteTelefone);
-      
       const { data, error } = await supabase.functions.invoke("send-template", {
         body: {
           to: clienteTelefone,
-          contentSid: template.sid,
+          contentSid: template.content_sid,
           contentVariables: {
             nome: clienteNome,
           },
         },
       });
 
-      console.log("Resposta do envio:", data, error);
-
       if (error) {
-        console.error("Erro ao invocar função:", error);
         throw new Error("Erro ao conectar com o servidor");
       }
 
@@ -107,7 +86,7 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         throw new Error(data?.error || "Erro ao enviar template");
       }
 
-      toast.success(`Template enviado! ID: ${data.messageSid}`);
+      toast.success("Template enviado com sucesso!");
       setOpen(false);
     } catch (error) {
       console.error("Erro ao enviar template:", error);
@@ -142,40 +121,42 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
           )}
 
           {!loading && templates.length > 0 && (
-            <div className="space-y-2">
-              <Label>Templates Disponíveis</Label>
-              <ScrollArea className="h-[300px] rounded-md border p-4">
-                <div className="space-y-2">
-                  {templates.map((template) => (
-                    <div
-                      key={template.sid}
-                      className="p-3 rounded-lg border bg-card hover:bg-accent/10 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm mb-1">{template.friendly_name}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {template.types?.['twilio/text']?.body || 'Sem preview disponível'}
+            <ScrollArea className="h-[400px] rounded-md border p-4">
+              <div className="space-y-2">
+                {templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="p-4 rounded-lg border bg-card hover:bg-accent/10 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <h4 className="font-medium mb-2">{template.friendly_name}</h4>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          {template.body}
+                        </p>
+                        {template.variables.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Variáveis: {template.variables.join(", ")}
                           </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => handleSendTemplate(template)}
-                          disabled={sending}
-                        >
-                          {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enviar"}
-                        </Button>
+                        )}
                       </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSendTemplate(template)}
+                        disabled={sending}
+                      >
+                        {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enviar"}
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
           )}
 
           {!loading && templates.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              Nenhum template aprovado encontrado. Configure templates no console da Twilio.
+              Nenhum template cadastrado. Adicione templates na aba Configurações.
             </div>
           )}
         </div>
