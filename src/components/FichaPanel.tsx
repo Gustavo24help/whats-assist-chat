@@ -100,96 +100,73 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
   };
 
   return (
-    <div className="h-full flex flex-col bg-card border-l overflow-hidden">
-      <div className="p-3 md:p-4 border-b flex items-center justify-between shrink-0">
-        <h2 className="font-semibold text-base md:text-lg truncate">Ficha - {clienteNome}</h2>
-        <div className="flex items-center gap-2 shrink-0">
-          {fichas.length > 0 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setDialogOpen(true)}
-              className="hidden md:flex"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Nova Ficha
-            </Button>
-          )}
-          {fichas.length > 0 && (
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={() => setDialogOpen(true)}
-              className="md:hidden"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+    <div className="h-full flex flex-col bg-background overflow-hidden transition-all duration-300">
+      <div className="sticky top-0 z-10 flex items-center justify-between p-4 border-b bg-card shrink-0">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold truncate">{clienteNome}</h2>
+          <p className="text-sm text-muted-foreground truncate">{clienteTelefone}</p>
         </div>
+        <Button variant="ghost" size="sm" onClick={onClose} className="shrink-0">
+          <X className="h-4 w-4" />
+        </Button>
       </div>
 
       {fichas.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-8">
-          <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground text-center mb-4">
-            Nenhuma ficha de serviço encontrada para este cliente
-          </p>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Criar Nova Ficha
-          </Button>
+        <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
+          <div className="text-center space-y-4">
+            <p className="text-muted-foreground">Nenhuma ficha de serviço encontrada</p>
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Criar Nova Ficha
+            </Button>
+          </div>
         </div>
       ) : (
-        <>
-          {fichas.length > 1 && (
-            <div className="p-4 border-b">
-              <Select 
-                value={fichaAtual || ''} 
-                onValueChange={(value) => {
-                  setFichaAtual(value);
-                  marcarFichaComoAtiva(value);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma ficha" />
-                </SelectTrigger>
-                <SelectContent>
-                  {fichas.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.nome_ficha || `Ficha ${f.id.slice(0, 8)}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="p-4 space-y-2 border-b shrink-0">
+            <label className="text-sm font-medium">Ficha de Serviço</label>
+            <Select
+              value={fichaAtual || ''}
+              onValueChange={(value) => {
+                setFichaAtual(value);
+                marcarFichaComoAtiva(value);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {fichas.map((ficha) => (
+                  <SelectItem key={ficha.id} value={ficha.id}>
+                    {ficha.nome_ficha}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setDialogOpen(true)}
+              className="w-full"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Ficha
+            </Button>
+          </div>
 
-          {fichaAtual && (
-            <Tabs defaultValue="ficha" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="mx-4 mt-4 shrink-0">
-                <TabsTrigger value="ficha" className="flex-1">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Ficha de Serviço
-                </TabsTrigger>
-                <TabsTrigger value="orcamentos" className="flex-1">
-                  <DollarSign className="mr-2 h-4 w-4" />
-                  Orçamentos
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="ficha" className="flex-1 overflow-y-auto">
-                <FichaServicoTab fichaId={fichaAtual} />
-              </TabsContent>
-
-              <TabsContent value="orcamentos" className="flex-1 overflow-y-auto">
-                <OrcamentosTab fichaId={fichaAtual} />
-              </TabsContent>
-            </Tabs>
-          )}
-        </>
+          <Tabs defaultValue="ficha" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="w-full mx-4 mt-4 shrink-0">
+              <TabsTrigger value="ficha" className="flex-1">Ficha de Serviço</TabsTrigger>
+              <TabsTrigger value="orcamentos" className="flex-1">Orçamentos</TabsTrigger>
+            </TabsList>
+            <TabsContent value="ficha" className="flex-1 overflow-y-auto p-4">
+              <FichaServicoTab fichaId={fichaAtual} />
+            </TabsContent>
+            <TabsContent value="orcamentos" className="flex-1 overflow-y-auto p-4">
+              <OrcamentosTab fichaId={fichaAtual} />
+            </TabsContent>
+          </Tabs>
+        </div>
       )}
 
       <CriarFichaDialog

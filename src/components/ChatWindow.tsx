@@ -339,52 +339,69 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <header className="p-3 md:p-4 border-b flex items-center justify-between bg-background shadow-sm shrink-0">
-        <div>
-          <h2 className="font-semibold text-base md:text-lg text-foreground">{clienteNome}</h2>
-          <div className="flex items-center gap-2">
-            <p className="text-xs md:text-sm text-muted-foreground">
-              {statusConversa === "aberta" ? "Conversa aberta" : "Conversa fechada - Use templates"}
-            </p>
-            <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
+    <div className="h-full flex flex-col bg-background overflow-hidden">
+      <header className="sticky top-0 z-50 h-16 bg-card border-b flex items-center justify-between gap-3 px-4 py-2 shrink-0">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="lg:hidden shrink-0 h-9 w-9 p-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-sm md:text-base truncate">{clienteNome}</h2>
+              <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
+            </div>
+            <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden lg:flex items-center gap-2">
-            <AbrirConversaDialog 
-              clienteTelefone={clienteTelefone}
-              clienteNome={clienteNome}
-            />
-            <Button 
-              onClick={() => setAssumirDialogOpen(true)} 
-              variant="outline" 
-              size="sm" 
-              className="shadow-sm"
-            >
-              <UserCheck className="mr-2 h-3.5 w-3.5" />
-              Assumir Conversa
-            </Button>
-          </div>
-          <div className="lg:hidden flex flex-col gap-1.5 min-w-[140px]">
-            <AbrirConversaDialog 
-              clienteTelefone={clienteTelefone}
-              clienteNome={clienteNome}
-            />
-            <Button 
-              onClick={() => setAssumirDialogOpen(true)} 
-              variant="outline" 
-              size="sm" 
-              className="shadow-sm w-full"
-            >
-              <UserCheck className="mr-2 h-3.5 w-3.5" />
-              Assumir Conversa
-            </Button>
-          </div>
-          <Button onClick={onOpenFicha} variant="default" size="sm" className="shadow-md">
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onOpenFicha}
+            className="shrink-0 h-9"
+          >
             <FileText className="h-4 w-4 md:mr-2" />
-            <span className="hidden md:inline">Ver Ficha</span>
+            <span className="hidden md:inline text-sm">Ficha</span>
           </Button>
+
+          <div className="hidden lg:flex items-center gap-2">
+            <AbrirConversaDialog
+              clienteTelefone={clienteTelefone}
+              clienteNome={clienteNome}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAssumirDialogOpen(true)}
+              className="shrink-0 h-9"
+            >
+              <UserCheck className="h-4 w-4 mr-2" />
+              <span className="text-sm">Assumir</span>
+            </Button>
+          </div>
+
+          <div className="flex lg:hidden flex-col gap-1">
+            <AbrirConversaDialog
+              clienteTelefone={clienteTelefone}
+              clienteNome={clienteNome}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAssumirDialogOpen(true)}
+              className="shrink-0 h-8"
+            >
+              <UserCheck className="h-3 w-3 mr-1" />
+              <span className="text-xs">Assumir</span>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -409,7 +426,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       </AlertDialog>
 
       {/* Messages area - Scrollable */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10 pt-20">
         {mensagens.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground text-sm">Nenhuma mensagem ainda</p>

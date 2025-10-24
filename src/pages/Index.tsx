@@ -91,10 +91,10 @@ const Index = () => {
         </div>
 
         {selectedCliente ? (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-hidden min-w-0">
             <div className={cn(
-              "flex-1 flex flex-col min-w-0",
-              fichaOpen && "lg:flex-[2]"
+              "flex-1 flex flex-col min-w-0 overflow-hidden",
+              fichaOpen && "lg:flex-[1.5]"
             )}>
               <ChatWindow
                 clienteTelefone={selectedCliente.telefone}
@@ -107,8 +107,9 @@ const Index = () => {
 
             {fichaOpen && (
               <div className={cn(
-                "w-full lg:w-[500px] lg:flex-1 border-l",
-                "max-lg:absolute max-lg:inset-0 max-lg:z-20 max-lg:bg-background"
+                "border-l bg-background transition-all duration-300 overflow-hidden",
+                "max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:w-full",
+                "lg:w-[500px] xl:w-[600px] lg:flex-shrink-0"
               )}>
                 <FichaPanel
                   clienteTelefone={selectedCliente.telefone}
