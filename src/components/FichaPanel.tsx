@@ -100,22 +100,22 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
   };
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden transition-all duration-300">
-      <div className="sticky top-0 z-10 flex items-center justify-between p-4 border-b bg-card shrink-0">
+    <div className="h-full flex flex-col bg-background overflow-hidden">
+      <div className="h-12 flex items-center justify-between px-4 border-b bg-card shrink-0">
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-semibold truncate">{clienteNome}</h2>
-          <p className="text-sm text-muted-foreground truncate">{clienteTelefone}</p>
+          <h2 className="text-base font-semibold truncate">{clienteNome}</h2>
+          <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose} className="shrink-0">
+        <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0 h-8 w-8">
           <X className="h-4 w-4" />
         </Button>
       </div>
 
       {fichas.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
-          <div className="text-center space-y-4">
-            <p className="text-muted-foreground">Nenhuma ficha de serviço encontrada</p>
-            <Button onClick={() => setDialogOpen(true)}>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center space-y-3">
+            <p className="text-muted-foreground text-sm">Nenhuma ficha de serviço encontrada</p>
+            <Button onClick={() => setDialogOpen(true)} size="sm">
               <Plus className="mr-2 h-4 w-4" />
               Criar Nova Ficha
             </Button>
@@ -123,46 +123,52 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
         </div>
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="p-4 space-y-2 border-b shrink-0">
-            <label className="text-sm font-medium">Ficha de Serviço</label>
-            <Select
-              value={fichaAtual || ''}
-              onValueChange={(value) => {
-                setFichaAtual(value);
-                marcarFichaComoAtiva(value);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {fichas.map((ficha) => (
-                  <SelectItem key={ficha.id} value={ficha.id}>
-                    {ficha.nome_ficha}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setDialogOpen(true)}
-              className="w-full"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Ficha
-            </Button>
+          <div className="p-3 space-y-2 border-b shrink-0">
+            <div className="flex items-center justify-between gap-2">
+              <Select
+                value={fichaAtual || ''}
+                onValueChange={(value) => {
+                  setFichaAtual(value);
+                  marcarFichaComoAtiva(value);
+                }}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {fichas.map((ficha) => (
+                    <SelectItem key={ficha.id} value={ficha.id}>
+                      {ficha.nome_ficha}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => setDialogOpen(true)}
+                className="shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           <Tabs defaultValue="ficha" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="w-full mx-4 mt-4 shrink-0">
-              <TabsTrigger value="ficha" className="flex-1">Ficha de Serviço</TabsTrigger>
-              <TabsTrigger value="orcamentos" className="flex-1">Orçamentos</TabsTrigger>
+            <TabsList className="mx-3 mt-2 shrink-0">
+              <TabsTrigger value="ficha" className="flex-1 text-xs">
+                <FileText className="mr-1 h-3 w-3" />
+                Ficha
+              </TabsTrigger>
+              <TabsTrigger value="orcamentos" className="flex-1 text-xs">
+                <DollarSign className="mr-1 h-3 w-3" />
+                Orçamentos
+              </TabsTrigger>
             </TabsList>
-            <TabsContent value="ficha" className="flex-1 overflow-y-auto p-4">
+            <TabsContent value="ficha" className="flex-1 overflow-y-auto p-3 m-0">
               <FichaServicoTab fichaId={fichaAtual} />
             </TabsContent>
-            <TabsContent value="orcamentos" className="flex-1 overflow-y-auto p-4">
+            <TabsContent value="orcamentos" className="flex-1 overflow-y-auto p-3 m-0">
               <OrcamentosTab fichaId={fichaAtual} />
             </TabsContent>
           </Tabs>

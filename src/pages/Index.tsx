@@ -6,7 +6,7 @@ import { ChatWindow } from "@/components/ChatWindow";
 import { FichaPanel } from "@/components/FichaPanel";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { cn } from "@/lib/utils";
@@ -91,33 +91,47 @@ const Index = () => {
         </div>
 
         {selectedCliente ? (
-          <div className="flex-1 flex overflow-hidden min-w-0">
+          <div className="flex-1 flex overflow-hidden min-w-0 relative">
             <div className={cn(
-              "flex-1 flex flex-col min-w-0 overflow-hidden",
-              fichaOpen && "lg:flex-[1.5]"
+              "flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300 ease-in-out",
+              fichaOpen && "lg:mr-[600px]"
             )}>
+              <div className="absolute top-0 left-0 z-10 p-3">
+                <Button
+                  onClick={() => setFichaOpen(!fichaOpen)}
+                  variant={fichaOpen ? "default" : "outline"}
+                  size="sm"
+                  className={cn(
+                    "shadow-lg h-9 transition-all duration-300",
+                    fichaOpen && "bg-primary text-primary-foreground"
+                  )}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Ficha</span>
+                </Button>
+              </div>
+
               <ChatWindow
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
                 statusConversa={selectedCliente.status_conversa}
                 onOpenFicha={() => setFichaOpen(true)}
                 onBack={() => setSelectedCliente(null)}
+                fichaOpen={fichaOpen}
               />
             </div>
 
-            {fichaOpen && (
-              <div className={cn(
-                "border-l bg-background transition-all duration-300 overflow-hidden",
-                "max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:w-full",
-                "lg:w-[500px] xl:w-[600px] lg:flex-shrink-0"
-              )}>
-                <FichaPanel
-                  clienteTelefone={selectedCliente.telefone}
-                  clienteNome={selectedCliente.nome}
-                  onClose={() => setFichaOpen(false)}
-                />
-              </div>
-            )}
+            <div className={cn(
+              "fixed right-0 top-14 bottom-0 bg-background border-l shadow-2xl transition-all duration-300 ease-in-out z-40",
+              "max-lg:w-full lg:w-[600px]",
+              fichaOpen ? "translate-x-0" : "translate-x-full"
+            )}>
+              <FichaPanel
+                clienteTelefone={selectedCliente.telefone}
+                clienteNome={selectedCliente.nome}
+                onClose={() => setFichaOpen(false)}
+              />
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-muted/20">
