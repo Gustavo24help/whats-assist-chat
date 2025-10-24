@@ -86,7 +86,7 @@ export const MessageContextMenu = ({ children, messageText, fichaId }: MessageCo
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger onMouseUp={handleSelection} className="focus:outline-none">
+      <ContextMenuTrigger onContextMenu={handleSelection} className="focus:outline-none select-text">
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">

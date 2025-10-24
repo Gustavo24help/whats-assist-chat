@@ -382,22 +382,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {onToggleFicha && (
-            <Button
-              onClick={onToggleFicha}
-              size="sm"
-              className={cn(
-                "h-9 transition-all duration-200 hover:scale-[0.98] active:scale-95",
-                fichaOpen 
-                  ? "bg-green-700 hover:bg-green-800 text-white shadow-md" 
-                  : "bg-green-600 hover:bg-green-700 text-white shadow-sm"
-              )}
-            >
-              <FileText className="h-4 w-4" />
-              <span className="ml-2 hidden md:inline">Ficha</span>
-            </Button>
-          )}
-
           {!fichaOpen && (
             <>
               <AbrirConversaDialog
@@ -414,6 +398,22 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 <span className="hidden md:inline">Assumir</span>
               </Button>
             </>
+          )}
+
+          {onToggleFicha && (
+            <Button
+              onClick={onToggleFicha}
+              size="sm"
+              className={cn(
+                "h-9 transition-all duration-200 hover:scale-[0.98] active:scale-95",
+                fichaOpen 
+                  ? "bg-green-700 hover:bg-green-800 text-white shadow-md" 
+                  : "bg-green-600 hover:bg-green-700 text-white shadow-sm"
+              )}
+            >
+              <FileText className="h-4 w-4" />
+              <span className="ml-2 hidden md:inline">Ficha</span>
+            </Button>
           )}
         </div>
       </header>
