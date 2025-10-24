@@ -98,10 +98,10 @@ export const ConversationCard = ({
         <span className="text-xs text-muted-foreground ml-2 shrink-0">{telefone}</span>
       </div>
 
-      {/* Linha 3: Ficha e Status */}
+      {/* Linha 3: Ficha Ativa e Status */}
       {fichaId && (
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs text-muted-foreground">Ficha: {fichaId}</span>
+          <span className="text-xs font-medium text-primary">📋 Ficha Ativa: {fichaId}</span>
           {fichaStatus && (
             <div className="flex items-center gap-1">
               <div className={cn("w-2 h-2 rounded-full", getStatusColor(fichaStatus))} />

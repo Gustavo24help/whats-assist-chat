@@ -51,7 +51,28 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
 
     if (data && data.length > 0) {
       setFichas(data);
-      setFichaAtual(data[0].id);
+      
+      // Buscar qual é a ficha ativa do cliente
+      const { data: clienteData } = await supabase
+        .from('clientes')
+        .select('ficha_ativa_id')
+        .eq('telefone', clienteTelefone)
+        .single();
+
+      // Se há ficha ativa, usar ela, senão usar a primeira
+      const fichaInicial = clienteData?.ficha_ativa_id || data[0].id;
+      setFichaAtual(fichaInicial);
+    }
+  };
+
+  const marcarFichaComoAtiva = async (fichaId: string) => {
+    try {
+      await supabase
+        .from('clientes')
+        .update({ ficha_ativa_id: fichaId })
+        .eq('telefone', clienteTelefone);
+    } catch (error) {
+      console.error('Erro ao marcar ficha como ativa:', error);
     }
   };
 
@@ -125,7 +146,13 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
         <>
           {fichas.length > 1 && (
             <div className="p-4 border-b">
-              <Select value={fichaAtual || ''} onValueChange={setFichaAtual}>
+              <Select 
+                value={fichaAtual || ''} 
+                onValueChange={(value) => {
+                  setFichaAtual(value);
+                  marcarFichaComoAtiva(value);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma ficha" />
                 </SelectTrigger>

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Loader2, Trash2, Plus } from "lucide-react";
+import { Loader2, Trash2, Plus, MapPin } from "lucide-react";
+import { VariableMappingDialog } from "./VariableMappingDialog";
 import {
   Table,
   TableBody,
@@ -21,6 +22,7 @@ interface Template {
   friendly_name: string;
   body: string;
   variables: string[];
+  variable_mapping: { index: number; field: string }[];
   created_at: string;
 }
 
@@ -29,6 +31,8 @@ export const TemplateManagement = () => {
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newSid, setNewSid] = useState("");
+  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
   useEffect(() => {
     fetchTemplates();
@@ -45,7 +49,10 @@ export const TemplateManagement = () => {
       if (error) throw error;
       setTemplates((data || []).map(t => ({
         ...t,
-        variables: Array.isArray(t.variables) ? (t.variables as string[]) : []
+        variables: Array.isArray(t.variables) ? (t.variables as string[]) : [],
+        variable_mapping: Array.isArray(t.variable_mapping) 
+          ? (t.variable_mapping as Array<{ index: number; field: string }>)
+          : []
       })));
     } catch (error) {
       console.error("Erro ao buscar templates:", error);
@@ -119,6 +126,30 @@ export const TemplateManagement = () => {
     }
   };
 
+  const handleOpenMapping = (template: Template) => {
+    setSelectedTemplate(template);
+    setMappingDialogOpen(true);
+  };
+
+  const handleSaveMapping = async (mapping: { index: number; field: string }[]) => {
+    if (!selectedTemplate) return;
+
+    try {
+      const { error } = await supabase
+        .from("whatsapp_templates")
+        .update({ variable_mapping: mapping })
+        .eq("id", selectedTemplate.id);
+
+      if (error) throw error;
+
+      toast.success("Mapeamento salvo com sucesso!");
+      fetchTemplates();
+    } catch (error) {
+      console.error("Erro ao salvar mapeamento:", error);
+      toast.error("Erro ao salvar mapeamento");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -175,7 +206,8 @@ export const TemplateManagement = () => {
                 <TableHead>Nome</TableHead>
                 <TableHead>Content SID</TableHead>
                 <TableHead>Mensagem</TableHead>
-                <TableHead className="w-[100px]">Ações</TableHead>
+                <TableHead>Variáveis</TableHead>
+                <TableHead className="w-[150px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -186,14 +218,36 @@ export const TemplateManagement = () => {
                   <TableCell className="text-sm text-muted-foreground max-w-md truncate">
                     {template.body}
                   </TableCell>
+                  <TableCell className="text-sm">
+                    {template.variables.length > 0 ? (
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                        {template.variables.length} {template.variables.length === 1 ? 'variável' : 'variáveis'}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">Nenhuma</span>
+                    )}
+                  </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteTemplate(template.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1">
+                      {template.variables.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenMapping(template)}
+                          title="Mapear variáveis"
+                        >
+                          <MapPin className="h-4 w-4 text-primary" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteTemplate(template.id)}
+                        title="Remover template"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -201,6 +255,16 @@ export const TemplateManagement = () => {
           </Table>
         )}
       </Card>
+
+      {selectedTemplate && (
+        <VariableMappingDialog
+          open={mappingDialogOpen}
+          onOpenChange={setMappingDialogOpen}
+          variables={selectedTemplate.variables}
+          currentMapping={selectedTemplate.variable_mapping}
+          onSave={handleSaveMapping}
+        />
+      )}
     </div>
   );
 };

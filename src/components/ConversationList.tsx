@@ -107,9 +107,26 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
       .order('ultima_interacao', { ascending: false });
 
     if (!error && clientesData) {
-      // Buscar nome e status da última ficha de cada cliente
+      // Buscar nome e status da ficha ativa de cada cliente
       const clientesComFicha = await Promise.all(
         clientesData.map(async (cliente) => {
+          // Se há ficha ativa definida, buscar essa ficha
+          if (cliente.ficha_ativa_id) {
+            const { data: fichaData } = await supabase
+              .from('fichas_de_servico')
+              .select('nome_ficha, status')
+              .eq('id', cliente.ficha_ativa_id)
+              .maybeSingle();
+
+            return {
+              ...cliente,
+              nome_ficha: fichaData?.nome_ficha || undefined,
+              status_ficha: fichaData?.status || undefined,
+              unread_count: unreadMessages[cliente.telefone] || 0
+            };
+          }
+
+          // Se não há ficha ativa, buscar a última ficha criada
           const { data: fichaData } = await supabase
             .from('fichas_de_servico')
             .select('nome_ficha, status')

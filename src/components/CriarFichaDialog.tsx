@@ -98,6 +98,15 @@ export const CriarFichaDialog = ({
         throw new Error("Erro ao criar ficha via webhook");
       }
 
+      const result = await response.json();
+      const fichaId = result.fichaId || formData.nome_ficha;
+
+      // Marcar a nova ficha como ativa
+      await supabase
+        .from('clientes')
+        .update({ ficha_ativa_id: fichaId })
+        .eq('telefone', clienteTelefone);
+
       toast.success("Ficha criada com sucesso!");
       
       // Aguardar 5 segundos antes de recarregar

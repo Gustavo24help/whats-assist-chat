@@ -21,6 +21,7 @@ interface Template {
   friendly_name: string;
   body: string;
   variables: string[];
+  variable_mapping: { index: number; field: string }[];
 }
 
 interface AbrirConversaDialogProps {
@@ -35,12 +36,38 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [variableValues, setVariableValues] = useState<Record<number, string>>({});
+  const [fichaAtiva, setFichaAtiva] = useState<any>(null);
 
   useEffect(() => {
     if (open) {
       fetchTemplates();
+      fetchFichaAtiva();
     }
   }, [open]);
+
+  const fetchFichaAtiva = async () => {
+    try {
+      // Buscar cliente com ficha ativa
+      const { data: clienteData } = await supabase
+        .from("clientes")
+        .select("ficha_ativa_id")
+        .eq("telefone", clienteTelefone)
+        .single();
+
+      if (clienteData?.ficha_ativa_id) {
+        // Buscar dados da ficha ativa
+        const { data: fichaData } = await supabase
+          .from("fichas_de_servico")
+          .select("*")
+          .eq("id", clienteData.ficha_ativa_id)
+          .single();
+
+        setFichaAtiva(fichaData);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar ficha ativa:", error);
+    }
+  };
 
   const fetchTemplates = async () => {
     setLoading(true);
@@ -54,7 +81,10 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
 
       const mappedTemplates = (data || []).map(t => ({
         ...t,
-        variables: Array.isArray(t.variables) ? (t.variables as string[]) : []
+        variables: Array.isArray(t.variables) ? (t.variables as string[]) : [],
+        variable_mapping: Array.isArray(t.variable_mapping)
+          ? (t.variable_mapping as Array<{ index: number; field: string }>)
+          : []
       }));
       
       setTemplates(mappedTemplates);
@@ -76,12 +106,45 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
     }
   };
 
+  const getFieldValue = (field: string): string => {
+    const [entity, property] = field.split('.');
+    
+    if (entity === 'cliente') {
+      if (property === 'nome') return clienteNome;
+      if (property === 'telefone') return clienteTelefone;
+    }
+    
+    if (entity === 'ficha' && fichaAtiva) {
+      if (property === 'id') return fichaAtiva.id || '';
+      if (property === 'nome_ficha') return fichaAtiva.nome_ficha || '';
+      if (property === 'descricao') return fichaAtiva.descricao || '';
+      if (property === 'categoria') return fichaAtiva.categoria_id?.toString() || '';
+      if (property === 'status') return fichaAtiva.status || '';
+      if (property === 'endereco') return fichaAtiva.endereco || '';
+      if (property === 'cpf') return fichaAtiva.cpf || '';
+      if (property === 'horario_agendamento') {
+        return fichaAtiva.horario_agendamento 
+          ? new Date(fichaAtiva.horario_agendamento).toLocaleString('pt-BR')
+          : '';
+      }
+      if (property === 'prestador_id') return fichaAtiva.prestador_id || '';
+    }
+    
+    return '';
+  };
+
   const handleSelectTemplate = (template: Template) => {
     setSelectedTemplate(template);
-    // Inicializar valores das variáveis com clienteNome para a primeira variável
+    // Preencher automaticamente com base no mapeamento
     const initialValues: Record<number, string> = {};
     template.variables.forEach((_, index) => {
-      initialValues[index] = index === 0 ? clienteNome : '';
+      const mapping = template.variable_mapping.find(m => m.index === index);
+      if (mapping) {
+        initialValues[index] = getFieldValue(mapping.field);
+      } else {
+        // Fallback: primeira variável = nome do cliente
+        initialValues[index] = index === 0 ? clienteNome : '';
+      }
     });
     setVariableValues(initialValues);
   };

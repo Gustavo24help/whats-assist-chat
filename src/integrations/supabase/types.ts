@@ -35,6 +35,7 @@ export type Database = {
       clientes: {
         Row: {
           created_at: string | null
+          ficha_ativa_id: string | null
           nome: string
           status_conversa:
             | Database["public"]["Enums"]["status_conversa_enum"]
@@ -45,6 +46,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          ficha_ativa_id?: string | null
           nome?: string
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
@@ -55,6 +57,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          ficha_ativa_id?: string | null
           nome?: string
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
@@ -415,6 +418,7 @@ export type Database = {
           friendly_name: string
           id: string
           updated_at: string
+          variable_mapping: Json | null
           variables: Json | null
         }
         Insert: {
@@ -424,6 +428,7 @@ export type Database = {
           friendly_name: string
           id?: string
           updated_at?: string
+          variable_mapping?: Json | null
           variables?: Json | null
         }
         Update: {
@@ -433,6 +438,7 @@ export type Database = {
           friendly_name?: string
           id?: string
           updated_at?: string
+          variable_mapping?: Json | null
           variables?: Json | null
         }
         Relationships: []
