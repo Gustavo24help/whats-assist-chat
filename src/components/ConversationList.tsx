@@ -5,13 +5,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
-import { Search } from "lucide-react";
+import { Search, Archive } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 interface Cliente {
   telefone: string;
@@ -40,6 +38,8 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
   const [allTags, setAllTags] = useState<string[]>([]);
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [currentTagClient, setCurrentTagClient] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedCount, setArchivedCount] = useState(0);
 
   useEffect(() => {
     fetchClientes();
@@ -101,9 +101,19 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
   }, [clientes, searchTerm, statusFilter, conversaFilter, selectedTags]);
 
   const fetchClientes = async () => {
+    // Buscar clientes arquivados para o contador
+    const { count } = await supabase
+      .from('clientes')
+      .select('*', { count: 'exact', head: true })
+      .eq('arquivado', true);
+    
+    setArchivedCount(count || 0);
+
+    // Buscar clientes baseado no estado atual (normal ou arquivado)
     const { data: clientesData, error } = await supabase
       .from('clientes')
       .select('*')
+      .eq('arquivado', showArchived)
       .order('ultima_interacao', { ascending: false });
 
     if (!error && clientesData) {
@@ -161,7 +171,68 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
   };
 
   const archiveContact = async (telefone: string) => {
-    toast.info("Funcionalidade de arquivar em desenvolvimento");
+    const { error } = await supabase
+      .from('clientes')
+      .update({ arquivado: true })
+      .eq('telefone', telefone);
+
+    if (error) {
+      toast.error("Erro ao arquivar contato");
+    } else {
+      toast.success("Contato arquivado com sucesso");
+      fetchClientes();
+    }
+  };
+
+  const unarchiveContact = async (telefone: string) => {
+    const { error } = await supabase
+      .from('clientes')
+      .update({ arquivado: false })
+      .eq('telefone', telefone);
+
+    if (error) {
+      toast.error("Erro ao desarquivar contato");
+    } else {
+      toast.success("Contato restaurado com sucesso");
+      fetchClientes();
+    }
+  };
+
+  const deleteContact = async (telefone: string) => {
+    // Deletar mensagens associadas
+    const { error: msgError } = await supabase
+      .from('mensagens')
+      .delete()
+      .eq('cliente_id', telefone);
+
+    if (msgError) {
+      toast.error("Erro ao deletar mensagens do contato");
+      return;
+    }
+
+    // Deletar fichas de serviço associadas
+    const { error: fichaError } = await supabase
+      .from('fichas_de_servico')
+      .delete()
+      .eq('telefone_cliente', telefone);
+
+    if (fichaError) {
+      toast.error("Erro ao deletar fichas do contato");
+      return;
+    }
+
+    // Deletar o cliente
+    const { error: clienteError } = await supabase
+      .from('clientes')
+      .delete()
+      .eq('telefone', telefone);
+
+    if (clienteError) {
+      toast.error("Erro ao deletar contato");
+    } else {
+      toast.success("Contato deletado permanentemente");
+      fetchClientes();
+    }
   };
 
   const getStatusColor = (status?: string) => {
@@ -184,10 +255,16 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
     return status || "";
   };
 
+  useEffect(() => {
+    fetchClientes();
+  }, [showArchived]);
+
   return (
-    <div className="h-full flex flex-col bg-card border-r">
+    <div className="h-full flex flex-col bg-card border-r relative">
       <div className="p-2.5 md:p-3 lg:p-4 border-b space-y-2 shrink-0">
-        <h2 className="font-semibold text-base md:text-lg">Conversas</h2>
+        <h2 className="font-semibold text-base md:text-lg">
+          {showArchived ? "Conversas Arquivadas" : "Conversas"}
+        </h2>
         
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -281,10 +358,37 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
             onClick={() => onSelectCliente(cliente)}
             onOpenTagManager={() => openTagManager(cliente.telefone)}
             onArchive={() => archiveContact(cliente.telefone)}
+            onUnarchive={() => unarchiveContact(cliente.telefone)}
+            onDelete={() => deleteContact(cliente.telefone)}
+            isArchived={showArchived}
           />
           ))
         )}
       </ScrollArea>
+
+      {/* Botão flutuante de arquivados */}
+      <div className="absolute bottom-4 right-4 z-10">
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-10 w-10 rounded-full shadow-md hover:shadow-lg transition-all",
+            showArchived ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted hover:bg-muted/80"
+          )}
+          onClick={() => setShowArchived(!showArchived)}
+          title={showArchived ? "Ver conversas ativas" : "Ver conversas arquivadas"}
+        >
+          <Archive className="h-4 w-4" />
+        </Button>
+        {!showArchived && archivedCount > 0 && (
+          <Badge 
+            variant="destructive" 
+            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+          >
+            {archivedCount > 99 ? '99+' : archivedCount}
+          </Badge>
+        )}
+      </div>
 
       {/* Tag Manager Dialog */}
       {currentTagClient && (

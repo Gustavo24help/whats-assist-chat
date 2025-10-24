@@ -1,10 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Tag, Archive } from "lucide-react";
+import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { DeleteContactDialog } from "./DeleteContactDialog";
+import { useState } from "react";
 
 interface ConversationCardProps {
   telefone: string;
@@ -19,6 +21,9 @@ interface ConversationCardProps {
   onClick: () => void;
   onOpenTagManager: () => void;
   onArchive: () => void;
+  onUnarchive: () => void;
+  onDelete: () => void;
+  isArchived: boolean;
 }
 
 const getStatusColor = (status: string) => {
@@ -53,9 +58,20 @@ export const ConversationCard = ({
   unreadCount = 0,
   onClick,
   onOpenTagManager,
-  onArchive
+  onArchive,
+  onUnarchive,
+  onDelete,
+  isArchived
 }: ConversationCardProps) => {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const handleDelete = () => {
+    setDeleteDialogOpen(false);
+    onDelete();
+  };
+
   return (
+    <>
     <div
       className={cn(
         "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40",
@@ -80,14 +96,33 @@ export const ConversationCard = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenTagManager(); }}>
-              <Tag className="mr-2 h-4 w-4" />
-              Gerenciar Tags
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
-              <Archive className="mr-2 h-4 w-4" />
-              Arquivar Contato
-            </DropdownMenuItem>
+            {!isArchived && (
+              <>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenTagManager(); }}>
+                  <Tag className="mr-2 h-4 w-4" />
+                  Gerenciar Tags
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
+                  <Archive className="mr-2 h-4 w-4" />
+                  Arquivar Contato
+                </DropdownMenuItem>
+              </>
+            )}
+            {isArchived && (
+              <>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUnarchive(); }}>
+                  <ArchiveRestore className="mr-2 h-4 w-4" />
+                  Restaurar Contato
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => { e.stopPropagation(); setDeleteDialogOpen(true); }}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Deletar Permanentemente
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -123,6 +158,14 @@ export const ConversationCard = ({
           </Badge>
         )}
       </div>
+
+      <DeleteContactDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDelete}
+        contactName={nome}
+      />
     </div>
+    </>
   );
 };

@@ -34,6 +34,7 @@ export type Database = {
       }
       clientes: {
         Row: {
+          arquivado: boolean
           created_at: string | null
           ficha_ativa_id: string | null
           nome: string
@@ -45,6 +46,7 @@ export type Database = {
           ultima_interacao: string | null
         }
         Insert: {
+          arquivado?: boolean
           created_at?: string | null
           ficha_ativa_id?: string | null
           nome?: string
@@ -56,6 +58,7 @@ export type Database = {
           ultima_interacao?: string | null
         }
         Update: {
+          arquivado?: boolean
           created_at?: string | null
           ficha_ativa_id?: string | null
           nome?: string
