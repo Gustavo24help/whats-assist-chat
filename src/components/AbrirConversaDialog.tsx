@@ -9,7 +9,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MessageSquare, Loader2, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -31,6 +33,8 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [variableValues, setVariableValues] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (open) {
@@ -72,16 +76,37 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
     }
   };
 
-  const handleSendTemplate = async (template: Template) => {
+  const handleSelectTemplate = (template: Template) => {
+    setSelectedTemplate(template);
+    // Inicializar valores das variáveis com clienteNome para a primeira variável
+    const initialValues: Record<number, string> = {};
+    template.variables.forEach((_, index) => {
+      initialValues[index] = index === 0 ? clienteNome : '';
+    });
+    setVariableValues(initialValues);
+  };
+
+  const handleVariableChange = (index: number, value: string) => {
+    setVariableValues(prev => ({
+      ...prev,
+      [index]: value
+    }));
+  };
+
+  const handleSendTemplate = async () => {
+    if (!selectedTemplate) return;
+
+    // Validar se todas as variáveis estão preenchidas
+    if (selectedTemplate.variables.length > 0) {
+      const allFilled = selectedTemplate.variables.every((_, index) => variableValues[index]?.trim());
+      if (!allFilled) {
+        toast.error("Preencha todas as variáveis antes de enviar");
+        return;
+      }
+    }
+
     setSending(true);
     try {
-      console.log("📤 Enviando template:", {
-        to: clienteTelefone,
-        contentSid: template.content_sid,
-        templateName: template.friendly_name,
-        variables: { nome: clienteNome }
-      });
-
       // Garantir formato correto do número
       let phoneNumber = clienteTelefone;
       if (!phoneNumber.startsWith('whatsapp:')) {
@@ -90,30 +115,30 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
           : `whatsapp:+${phoneNumber}`;
       }
 
+      // Preparar variáveis para envio (formato que a Twilio espera)
+      const contentVariables: Record<string, string> = {};
+      selectedTemplate.variables.forEach((_, index) => {
+        contentVariables[(index + 1).toString()] = variableValues[index];
+      });
+
       const { data, error } = await supabase.functions.invoke("send-template", {
         body: {
           to: phoneNumber,
-          contentSid: template.content_sid,
-          contentVariables: {
-            nome: clienteNome,
-          },
+          contentSid: selectedTemplate.content_sid,
+          contentVariables,
         },
       });
 
-      console.log("📥 Resposta da edge function:", { data, error });
-
       if (error) {
-        console.error("❌ Erro na invocação:", error);
         throw new Error(`Erro ao conectar com o servidor: ${error.message}`);
       }
 
       if (!data || !data.success) {
-        console.error("❌ Resposta com erro:", data);
         throw new Error(data?.error || "Erro ao enviar template");
       }
 
       // Salvar mensagem no banco para aparecer no chat
-      const mensagemTexto = getTemplatePreview(template);
+      const mensagemTexto = getTemplatePreview(selectedTemplate);
       await supabase.from('mensagens').insert({
         cliente_id: clienteTelefone,
         texto: mensagemTexto,
@@ -127,11 +152,11 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         description: `Enviado para ${clienteNome}`
       });
       setOpen(false);
+      setSelectedTemplate(null);
+      setVariableValues({});
     } catch (error) {
       console.error("❌ Erro ao enviar template:", error);
-      toast.error(error instanceof Error ? error.message : "Erro ao enviar template", {
-        description: "Verifique os logs do console para mais detalhes"
-      });
+      toast.error(error instanceof Error ? error.message : "Erro ao enviar template");
     } finally {
       setSending(false);
     }
@@ -141,7 +166,8 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
     let preview = template.body;
     // Substituir variáveis do tipo {{1}}, {{2}}, etc
     template.variables.forEach((_, index) => {
-      preview = preview.replace(`{{${index + 1}}}`, clienteNome);
+      const value = variableValues[index] || `{{${index + 1}}}`;
+      preview = preview.replace(`{{${index + 1}}}`, value);
     });
     return preview;
   };
@@ -170,43 +196,94 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
             </div>
           )}
 
-          {!loading && templates.length > 0 && (
+          {!loading && templates.length > 0 && !selectedTemplate && (
             <ScrollArea className="h-[400px] rounded-md border p-4">
               <div className="space-y-3">
                 {templates.map((template) => (
                   <div
                     key={template.id}
-                    className="p-4 rounded-lg border bg-card hover:bg-accent/10 transition-colors"
+                    className="p-4 rounded-lg border bg-card hover:bg-accent/10 transition-colors cursor-pointer"
+                    onClick={() => handleSelectTemplate(template)}
                   >
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <h4 className="font-medium">{template.friendly_name}</h4>
-                        <Button
-                          size="sm"
-                          onClick={() => handleSendTemplate(template)}
-                          disabled={sending}
-                        >
-                          {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enviar"}
-                        </Button>
+                        {template.variables.length > 0 && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                            {template.variables.length} {template.variables.length === 1 ? 'variável' : 'variáveis'}
+                          </span>
+                        )}
                       </div>
-                      
-                      <div className="bg-muted/50 rounded-md p-3 border">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Prévia da mensagem:</p>
-                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {getTemplatePreview(template)}
-                        </p>
-                      </div>
-
-                      {template.variables.length > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Variáveis usadas: <span className="font-medium">{clienteNome}</span>
-                        </p>
-                      )}
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {template.body}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
             </ScrollArea>
+          )}
+
+          {!loading && selectedTemplate && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">{selectedTemplate.friendly_name}</h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedTemplate(null);
+                    setVariableValues({});
+                  }}
+                >
+                  Voltar
+                </Button>
+              </div>
+
+              {selectedTemplate.variables.length > 0 && (
+                <div className="space-y-3 p-4 rounded-lg border bg-card">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Edit className="h-4 w-4" />
+                    <span>Preencher Variáveis</span>
+                  </div>
+                  {selectedTemplate.variables.map((_, index) => (
+                    <div key={index} className="space-y-2">
+                      <Label htmlFor={`var-${index}`}>
+                        Variável {index + 1}
+                      </Label>
+                      <Input
+                        id={`var-${index}`}
+                        value={variableValues[index] || ''}
+                        onChange={(e) => handleVariableChange(index, e.target.value)}
+                        placeholder={`Digite o valor para {{${index + 1}}}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="bg-muted/50 rounded-md p-4 border">
+                <p className="text-xs font-medium text-muted-foreground mb-3">Prévia da mensagem:</p>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                  {getTemplatePreview(selectedTemplate)}
+                </p>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={handleSendTemplate}
+                disabled={sending}
+              >
+                {sending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  "Enviar Template"
+                )}
+              </Button>
+            </div>
           )}
 
           {!loading && templates.length === 0 && (
