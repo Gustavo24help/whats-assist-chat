@@ -15,27 +15,33 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Iniciando envio de template...");
+    console.log("📤 Iniciando envio de template...");
     
     const { to, contentSid, contentVariables } = await req.json();
     
-    console.log("Dados recebidos:", { to, contentSid, contentVariables });
+    console.log("📋 Dados recebidos:", { to, contentSid, contentVariables });
     
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
-      console.error("Credenciais não configuradas");
+      console.error("❌ Credenciais não configuradas");
       throw new Error("Credenciais Twilio não configuradas");
     }
 
     if (!to || !contentSid) {
+      console.error("❌ Parâmetros faltando:", { to, contentSid });
       throw new Error("Parâmetros obrigatórios faltando: to, contentSid");
     }
 
     // Garantir que o número tem o formato correto para WhatsApp
-    const phoneNumber = to.startsWith('+') ? to : `+${to}`;
-    const whatsappNumber = `whatsapp:${phoneNumber}`;
+    let whatsappNumber = to;
+    if (!to.startsWith('whatsapp:')) {
+      const phoneNumber = to.startsWith('+') ? to : `+${to}`;
+      whatsappNumber = `whatsapp:${phoneNumber}`;
+    }
+    
     const whatsappFrom = `whatsapp:${TWILIO_PHONE_NUMBER}`;
 
-    console.log("Enviando de:", whatsappFrom, "para:", whatsappNumber);
+    console.log("📞 Enviando de:", whatsappFrom, "para:", whatsappNumber);
+    console.log("📄 Content SID:", contentSid);
 
     // Enviar mensagem usando Content Template
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
@@ -63,12 +69,32 @@ serve(async (req) => {
     const responseText = await response.text();
     
     if (!response.ok) {
-      console.error("Erro na resposta da Twilio:", response.status, responseText);
-      throw new Error(`Erro ao enviar template: ${response.status}`);
+      console.error("❌ Erro na resposta da Twilio:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText
+      });
+      
+      let errorMessage = `Erro ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = JSON.parse(responseText);
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch (e) {
+        // Se não conseguir parsear, usa o texto bruto
+        errorMessage += ` - ${responseText}`;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = JSON.parse(responseText);
-    console.log("Template enviado com sucesso, SID:", data.sid);
+    console.log("✅ Template enviado com sucesso!", {
+      sid: data.sid,
+      status: data.status,
+      to: data.to
+    });
 
     return new Response(
       JSON.stringify({ 
@@ -79,11 +105,14 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error("Erro na função:", error);
+    console.error("❌ Erro na função send-template:", error);
+    console.error("Stack trace:", error instanceof Error ? error.stack : "N/A");
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : "Erro desconhecido" 
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+        details: error instanceof Error ? error.stack : undefined
       }),
       { 
         status: 200, // Retornar 200 mas com success: false para melhor tratamento

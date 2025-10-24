@@ -48,18 +48,25 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
 
       if (error) throw error;
 
-      setTemplates((data || []).map(t => ({
+      const mappedTemplates = (data || []).map(t => ({
         ...t,
         variables: Array.isArray(t.variables) ? (t.variables as string[]) : []
-      })));
+      }));
       
-      if (data.length === 0) {
-        toast.info("Nenhum template cadastrado. Configure templates nas Configurações.");
+      setTemplates(mappedTemplates);
+      
+      // Mover toast para fora do setState para evitar warning
+      if (mappedTemplates.length === 0) {
+        setTimeout(() => {
+          toast.info("Nenhum template cadastrado. Configure templates nas Configurações.");
+        }, 0);
       }
     } catch (error) {
       console.error("Erro ao buscar templates:", error);
-      toast.error("Erro ao buscar templates");
       setTemplates([]);
+      setTimeout(() => {
+        toast.error("Erro ao buscar templates");
+      }, 0);
     } finally {
       setLoading(false);
     }
@@ -68,9 +75,24 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   const handleSendTemplate = async (template: Template) => {
     setSending(true);
     try {
+      console.log("📤 Enviando template:", {
+        to: clienteTelefone,
+        contentSid: template.content_sid,
+        templateName: template.friendly_name,
+        variables: { nome: clienteNome }
+      });
+
+      // Garantir formato correto do número
+      let phoneNumber = clienteTelefone;
+      if (!phoneNumber.startsWith('whatsapp:')) {
+        phoneNumber = phoneNumber.startsWith('+') 
+          ? `whatsapp:${phoneNumber}` 
+          : `whatsapp:+${phoneNumber}`;
+      }
+
       const { data, error } = await supabase.functions.invoke("send-template", {
         body: {
-          to: clienteTelefone,
+          to: phoneNumber,
           contentSid: template.content_sid,
           contentVariables: {
             nome: clienteNome,
@@ -78,19 +100,27 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         },
       });
 
+      console.log("📥 Resposta da edge function:", { data, error });
+
       if (error) {
-        throw new Error("Erro ao conectar com o servidor");
+        console.error("❌ Erro na invocação:", error);
+        throw new Error(`Erro ao conectar com o servidor: ${error.message}`);
       }
 
       if (!data || !data.success) {
+        console.error("❌ Resposta com erro:", data);
         throw new Error(data?.error || "Erro ao enviar template");
       }
 
-      toast.success("Template enviado com sucesso!");
+      toast.success("✅ Template enviado com sucesso!", {
+        description: `Enviado para ${clienteNome}`
+      });
       setOpen(false);
     } catch (error) {
-      console.error("Erro ao enviar template:", error);
-      toast.error(error instanceof Error ? error.message : "Erro ao enviar template");
+      console.error("❌ Erro ao enviar template:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao enviar template", {
+        description: "Verifique os logs do console para mais detalhes"
+      });
     } finally {
       setSending(false);
     }
