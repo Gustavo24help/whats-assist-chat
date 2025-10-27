@@ -301,7 +301,7 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
 
   return (
     <div className="h-full flex flex-col bg-card border-r relative">
-      <div className="p-2.5 md:p-3 lg:p-4 border-b space-y-2 shrink-0">
+      <div className="p-2.5 md:p-3 lg:p-4 border-b space-y-1.5 shrink-0">
         <h2 className="font-semibold text-base md:text-lg">
           {showArchived ? "Conversas Arquivadas" : "Conversas"}
         </h2>
@@ -317,7 +317,7 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
         </div>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full h-9 text-sm">
+          <SelectTrigger className="w-full h-8 text-xs">
             <SelectValue placeholder="Todos os status" />
           </SelectTrigger>
           <SelectContent>
@@ -331,65 +331,33 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
           </SelectContent>
         </Select>
 
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Status da conversa:</p>
-          <div className="flex gap-1.5">
-            <Button
-              size="sm"
-              variant={conversaFilter === "todas" ? "default" : "outline"}
-              onClick={() => setConversaFilter("todas")}
-              className="flex-1 h-8 text-xs"
-            >
-              Todas
-            </Button>
-            <Button
-              size="sm"
-              variant={conversaFilter === "aberta" ? "default" : "outline"}
-              onClick={() => setConversaFilter("aberta")}
-              className="flex-1 h-8 text-xs"
-            >
-              Abertas (24h)
-            </Button>
-            <Button
-              size="sm"
-              variant={conversaFilter === "fechada" ? "default" : "outline"}
-              onClick={() => setConversaFilter("fechada")}
-              className="flex-1 h-8 text-xs"
-            >
-              Fechadas
-            </Button>
-          </div>
-        </div>
+        <Select 
+          value={conversaFilter} 
+          onValueChange={(value: "todas" | "aberta" | "fechada") => setConversaFilter(value)}
+        >
+          <SelectTrigger className="w-full h-8 text-xs">
+            <SelectValue placeholder="Status da conversa" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as conversas</SelectItem>
+            <SelectItem value="aberta">Abertas (24h)</SelectItem>
+            <SelectItem value="fechada">Fechadas</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Mensagens não lidas:</p>
-          <div className="flex gap-1.5">
-            <Button
-              size="sm"
-              variant={unreadFilter === "todas" ? "default" : "outline"}
-              onClick={() => setUnreadFilter("todas")}
-              className="flex-1 h-8 text-xs"
-            >
-              Todas
-            </Button>
-            <Button
-              size="sm"
-              variant={unreadFilter === "nao_lidas" ? "default" : "outline"}
-              onClick={() => setUnreadFilter("nao_lidas")}
-              className="flex-1 h-8 text-xs"
-            >
-              Não Lidas
-            </Button>
-            <Button
-              size="sm"
-              variant={unreadFilter === "lidas" ? "default" : "outline"}
-              onClick={() => setUnreadFilter("lidas")}
-              className="flex-1 h-8 text-xs"
-            >
-              Lidas
-            </Button>
-          </div>
-        </div>
+        <Select 
+          value={unreadFilter} 
+          onValueChange={(value: "todas" | "lidas" | "nao_lidas") => setUnreadFilter(value)}
+        >
+          <SelectTrigger className="w-full h-8 text-xs">
+            <SelectValue placeholder="Mensagens" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as mensagens</SelectItem>
+            <SelectItem value="nao_lidas">Não lidas</SelectItem>
+            <SelectItem value="lidas">Lidas</SelectItem>
+          </SelectContent>
+        </Select>
 
         {allTags.length > 0 && (
           <div className="space-y-1.5">
