@@ -20,6 +20,7 @@ interface Cliente {
   nome_ficha?: string;
   status_ficha?: string;
   unread_count?: number;
+  dentroJanela?: boolean;
 }
 
 interface ConversationListProps {
@@ -34,6 +35,7 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [conversaFilter, setConversaFilter] = useState<"todas" | "aberta" | "fechada">("todas");
+  const [unreadFilter, setUnreadFilter] = useState<"todas" | "lidas" | "nao_lidas">("todas");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
@@ -76,9 +78,27 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
       filtered = filtered.filter(c => c.status_ficha === statusFilter);
     }
 
-    // Filtro por status da conversa
+    // Filtro por status da conversa (baseado na janela de 24h)
     if (conversaFilter !== "todas") {
-      filtered = filtered.filter(c => c.status_conversa === conversaFilter);
+      filtered = filtered.filter(c => {
+        if (conversaFilter === "aberta") {
+          return c.dentroJanela === true;
+        } else {
+          return c.dentroJanela === false;
+        }
+      });
+    }
+
+    // Filtro por mensagens não lidas
+    if (unreadFilter !== "todas") {
+      filtered = filtered.filter(c => {
+        const hasUnread = (c.unread_count || 0) > 0;
+        if (unreadFilter === "nao_lidas") {
+          return hasUnread;
+        } else {
+          return !hasUnread;
+        }
+      });
     }
 
     // Filtro por tags selecionadas
@@ -98,7 +118,7 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
       }
     });
     setAllTags(Array.from(tags));
-  }, [clientes, searchTerm, statusFilter, conversaFilter, selectedTags]);
+  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, selectedTags]);
 
   const fetchClientes = async () => {
     // Buscar clientes arquivados para o contador
@@ -120,6 +140,24 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
       // Buscar nome e status da ficha ativa de cada cliente
       const clientesComFicha = await Promise.all(
         clientesData.map(async (cliente) => {
+          // Buscar última mensagem recebida do cliente para calcular janela
+          const { data: ultimaMensagem } = await supabase
+            .from('mensagens')
+            .select('data_hora')
+            .eq('cliente_id', cliente.telefone)
+            .eq('remetente', 'cliente')
+            .order('data_hora', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          let dentroJanela = false;
+          if (ultimaMensagem?.data_hora) {
+            const ultimaMsgTime = new Date(ultimaMensagem.data_hora).getTime();
+            const agora = Date.now();
+            const diferencaHoras = (agora - ultimaMsgTime) / (1000 * 60 * 60);
+            dentroJanela = diferencaHoras < 24;
+          }
+
           // Se há ficha ativa definida, buscar essa ficha
           if (cliente.ficha_ativa_id) {
             const { data: fichaData } = await supabase
@@ -132,7 +170,8 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
               ...cliente,
               nome_ficha: fichaData?.nome_ficha || undefined,
               status_ficha: fichaData?.status || undefined,
-              unread_count: unreadMessages[cliente.telefone] || 0
+              unread_count: unreadMessages[cliente.telefone] || 0,
+              dentroJanela
             };
           }
 
@@ -149,7 +188,8 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
             ...cliente,
             nome_ficha: fichaData?.nome_ficha || undefined,
             status_ficha: fichaData?.status || undefined,
-            unread_count: unreadMessages[cliente.telefone] || 0
+            unread_count: unreadMessages[cliente.telefone] || 0,
+            dentroJanela
           };
         })
       );
@@ -291,31 +331,64 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
           </SelectContent>
         </Select>
 
-        <div className="flex gap-1.5">
-          <Button
-            size="sm"
-            variant={conversaFilter === "todas" ? "default" : "outline"}
-            onClick={() => setConversaFilter("todas")}
-            className="flex-1 h-8 text-xs"
-          >
-            Todas
-          </Button>
-          <Button
-            size="sm"
-            variant={conversaFilter === "aberta" ? "default" : "outline"}
-            onClick={() => setConversaFilter("aberta")}
-            className="flex-1 h-8 text-xs"
-          >
-            Abertas
-          </Button>
-          <Button
-            size="sm"
-            variant={conversaFilter === "fechada" ? "default" : "outline"}
-            onClick={() => setConversaFilter("fechada")}
-            className="flex-1 h-8 text-xs"
-          >
-            Fechadas
-          </Button>
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Status da conversa:</p>
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              variant={conversaFilter === "todas" ? "default" : "outline"}
+              onClick={() => setConversaFilter("todas")}
+              className="flex-1 h-8 text-xs"
+            >
+              Todas
+            </Button>
+            <Button
+              size="sm"
+              variant={conversaFilter === "aberta" ? "default" : "outline"}
+              onClick={() => setConversaFilter("aberta")}
+              className="flex-1 h-8 text-xs"
+            >
+              Abertas (24h)
+            </Button>
+            <Button
+              size="sm"
+              variant={conversaFilter === "fechada" ? "default" : "outline"}
+              onClick={() => setConversaFilter("fechada")}
+              className="flex-1 h-8 text-xs"
+            >
+              Fechadas
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Mensagens não lidas:</p>
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              variant={unreadFilter === "todas" ? "default" : "outline"}
+              onClick={() => setUnreadFilter("todas")}
+              className="flex-1 h-8 text-xs"
+            >
+              Todas
+            </Button>
+            <Button
+              size="sm"
+              variant={unreadFilter === "nao_lidas" ? "default" : "outline"}
+              onClick={() => setUnreadFilter("nao_lidas")}
+              className="flex-1 h-8 text-xs"
+            >
+              Não Lidas
+            </Button>
+            <Button
+              size="sm"
+              variant={unreadFilter === "lidas" ? "default" : "outline"}
+              onClick={() => setUnreadFilter("lidas")}
+              className="flex-1 h-8 text-xs"
+            >
+              Lidas
+            </Button>
+          </div>
         </div>
 
         {allTags.length > 0 && (
@@ -380,14 +453,6 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
         >
           <Archive className="h-4 w-4" />
         </Button>
-        {!showArchived && archivedCount > 0 && (
-          <Badge 
-            variant="destructive" 
-            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-          >
-            {archivedCount > 99 ? '99+' : archivedCount}
-          </Badge>
-        )}
       </div>
 
       {/* Tag Manager Dialog */}
