@@ -62,6 +62,10 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
       // Se há ficha ativa, usar ela, senão usar a primeira
       const fichaInicial = clienteData?.ficha_ativa_id || data[0].id;
       setFichaAtual(fichaInicial);
+    } else {
+      // Limpar estados quando não há fichas
+      setFichas([]);
+      setFichaAtual(null);
     }
   };
 
