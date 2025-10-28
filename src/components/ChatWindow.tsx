@@ -56,6 +56,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const { dentroJanela } = useConversationTimer(clienteTelefone);
 
   useEffect(() => {
+    console.log('[ChatWindow] Inicializando canais Realtime para:', clienteTelefone);
     fetchMensagens();
     fetchFichaId();
 
@@ -69,9 +70,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           table: 'mensagens',
           filter: `cliente_id=eq.${clienteTelefone}`
         },
-        () => fetchMensagens()
+        () => {
+          console.log('[ChatWindow] Mudança detectada no banco, recarregando mensagens');
+          fetchMensagens();
+        }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[ChatWindow] Status do canal mensagens:', status);
+      });
 
     // Canal adicional para receber broadcasts de mensagens do bot
     const broadcastChannel = supabase
@@ -80,13 +86,30 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         'broadcast',
         { event: 'new-bot-message' },
         (payload: any) => {
-          console.log('Broadcast recebido:', payload);
-          setMensagens(prev => [...prev, payload.payload]);
+          console.log('[ChatWindow] ✅ Broadcast recebido do bot:', payload);
+          if (payload.payload) {
+            setMensagens(prev => {
+              // Evitar duplicatas
+              const exists = prev.some(m => m.id === payload.payload.id);
+              if (exists) {
+                console.log('[ChatWindow] Mensagem já existe, ignorando duplicata');
+                return prev;
+              }
+              console.log('[ChatWindow] Adicionando nova mensagem do bot ao estado');
+              return [...prev, payload.payload];
+            });
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[ChatWindow] Status do canal broadcast:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('[ChatWindow] ✅ Canal de broadcast subscrito e pronto para receber mensagens do bot');
+        }
+      });
 
     return () => {
+      console.log('[ChatWindow] Limpando canais Realtime');
       supabase.removeChannel(channel);
       supabase.removeChannel(broadcastChannel);
     };

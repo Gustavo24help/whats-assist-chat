@@ -115,17 +115,39 @@ Deno.serve(async (req) => {
         throw insertError;
       }
 
-      console.log('Mensagem do bot salva com sucesso');
+      console.log('Mensagem do bot salva com sucesso:', insertedMessage);
 
-      // Fazer broadcast manual para notificar o frontend em tempo real
+      // Fazer broadcast manual usando httpSend para garantir entrega
       try {
-        const channel = supabase.channel(`bot-messages-${to}`);
-        await channel.send({
-          type: 'broadcast',
-          event: 'new-bot-message',
-          payload: insertedMessage,
-        });
-        console.log('Broadcast enviado para o frontend');
+        console.log(`Enviando broadcast para canal: bot-messages-${to}`);
+        const response = await fetch(
+          `${supabaseUrl}/realtime/v1/api/broadcast`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
+              'apikey': supabaseKey,
+            },
+            body: JSON.stringify({
+              messages: [
+                {
+                  topic: `realtime:bot-messages-${to}`,
+                  event: 'new-bot-message',
+                  payload: insertedMessage,
+                  private: false,
+                },
+              ],
+            }),
+          }
+        );
+
+        if (response.ok) {
+          console.log('Broadcast HTTP enviado com sucesso');
+        } else {
+          const errorText = await response.text();
+          console.error('Erro no broadcast HTTP:', response.status, errorText);
+        }
       } catch (broadcastError) {
         console.error('Erro ao enviar broadcast:', broadcastError);
         // Não falhar a requisição se o broadcast falhar
