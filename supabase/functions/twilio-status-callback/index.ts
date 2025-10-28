@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
       }
 
       // Salvar mensagem do bot no banco
-      const { error: insertError } = await supabase
+      const { data: insertedMessage, error: insertError } = await supabase
         .from('mensagens')
         .insert({
           cliente_id: to,
@@ -106,7 +106,9 @@ Deno.serve(async (req) => {
           tipo: tipoMensagem,
           arquivo_url: arquivoUrl,
           status: messageStatus === 'delivered' ? 'entregue' : 'enviado',
-        });
+        })
+        .select()
+        .single();
 
       if (insertError) {
         console.error('Erro ao salvar mensagem do bot:', insertError);
@@ -114,6 +116,20 @@ Deno.serve(async (req) => {
       }
 
       console.log('Mensagem do bot salva com sucesso');
+
+      // Fazer broadcast manual para notificar o frontend em tempo real
+      try {
+        const channel = supabase.channel(`bot-messages-${to}`);
+        await channel.send({
+          type: 'broadcast',
+          event: 'new-bot-message',
+          payload: insertedMessage,
+        });
+        console.log('Broadcast enviado para o frontend');
+      } catch (broadcastError) {
+        console.error('Erro ao enviar broadcast:', broadcastError);
+        // Não falhar a requisição se o broadcast falhar
+      }
     }
 
     return new Response('OK', { status: 200, headers: corsHeaders });

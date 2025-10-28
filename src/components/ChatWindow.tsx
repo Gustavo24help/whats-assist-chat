@@ -73,8 +73,22 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       )
       .subscribe();
 
+    // Canal adicional para receber broadcasts de mensagens do bot
+    const broadcastChannel = supabase
+      .channel(`bot-messages-${clienteTelefone}`)
+      .on(
+        'broadcast',
+        { event: 'new-bot-message' },
+        (payload: any) => {
+          console.log('Broadcast recebido:', payload);
+          setMensagens(prev => [...prev, payload.payload]);
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(broadcastChannel);
     };
   }, [clienteTelefone]);
 
