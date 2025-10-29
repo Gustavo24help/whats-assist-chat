@@ -98,8 +98,18 @@ export const CriarFichaDialog = ({
         throw new Error("Erro ao criar ficha via webhook");
       }
 
-      const result = await response.json();
-      const fichaId = result.fichaId || formData.nome_ficha;
+      let fichaId = formData.nome_ficha;
+      
+      // Tentar fazer parse JSON apenas se a resposta for JSON
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          const result = await response.json();
+          fichaId = result.fichaId || formData.nome_ficha;
+        } catch (e) {
+          console.log("Resposta não é JSON válido, usando nome_ficha do formulário");
+        }
+      }
 
       // Marcar a nova ficha como ativa
       await supabase
