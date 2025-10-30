@@ -311,24 +311,25 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
-  const assumirConversa = async () => {
+  const toggleBot = async () => {
     try {
-      // Não enviar mensagem - apenas desabilitar o bot silenciosamente
+      const novoStatus = botDesabilitado ? 'enabled' : 'disabled';
+      
       const { error } = await supabase.functions.invoke('toggle-bot-status', {
         body: {
           telefone: clienteTelefone,
-          bot_status: 'disabled'
+          bot_status: novoStatus
         }
       });
 
       if (error) throw error;
 
-      setBotDesabilitado(true);
-      toast.success("Conversa assumida! Bot desabilitado.");
+      setBotDesabilitado(!botDesabilitado);
+      toast.success(botDesabilitado ? "Bot reativado com sucesso!" : "Bot desabilitado.");
       setAssumirDialogOpen(false);
     } catch (error) {
-      console.error("Erro ao assumir conversa:", error);
-      toast.error("Não foi possível assumir a conversa");
+      console.error("Erro ao alterar status do bot:", error);
+      toast.error("Não foi possível alterar o status do bot");
     }
   };
 
@@ -419,7 +420,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             )}
             <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
           </div>
-          <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
+            <span className="text-xs font-medium">
+              Bot: <span className={botDesabilitado ? "text-red-500" : "text-green-600"}>
+                {botDesabilitado ? "Desativado" : "Ativado"}
+              </span>
+            </span>
+          </div>
         </div>
         </div>
 
@@ -434,19 +442,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 variant="outline"
                 size="sm"
                 onClick={() => setAssumirDialogOpen(true)}
-                disabled={botDesabilitado}
-                className={cn(
-                  "h-9 hover:scale-[0.98] active:scale-95 transition-transform",
-                  botDesabilitado && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                )}
+                className="h-9 hover:scale-[0.98] active:scale-95 transition-transform"
               >
                 <UserCheck className="h-4 w-4 md:mr-2" />
                 <span className="hidden md:inline">
-                  {botDesabilitado ? "Assumido" : "Assumir"}
+                  {botDesabilitado ? "Habilitar Bot" : "Desabilitar Bot"}
                 </span>
-                {botDesabilitado && (
-                  <Check className="h-4 w-4 ml-1 text-green-600 dark:text-green-400" />
-                )}
               </Button>
             </>
           )}
@@ -472,14 +473,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       <AlertDialog open={assumirDialogOpen} onOpenChange={setAssumirDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Assumir Conversa</AlertDialogTitle>
+            <AlertDialogTitle>
+              {botDesabilitado ? "Habilitar Bot" : "Desabilitar Bot"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja assumir esta conversa? O bot será desabilitado automaticamente e não responderá mais às mensagens deste cliente.
+              {botDesabilitado 
+                ? "Tem certeza que deseja reativar o bot? Ele voltará a responder automaticamente às mensagens deste cliente."
+                : "Tem certeza que deseja desabilitar o bot? Ele não responderá mais às mensagens deste cliente até que você o reative."
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={assumirConversa}>
+            <AlertDialogAction onClick={toggleBot}>
               Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
