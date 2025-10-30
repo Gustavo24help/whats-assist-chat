@@ -442,12 +442,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 variant="outline"
                 size="sm"
                 onClick={() => setAssumirDialogOpen(true)}
-                className="h-9 hover:scale-[0.98] active:scale-95 transition-transform"
+                className={cn(
+                  "h-9 hover:scale-[0.98] active:scale-95 transition-transform",
+                  botDesabilitado && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                )}
               >
                 <UserCheck className="h-4 w-4 md:mr-2" />
                 <span className="hidden md:inline">
-                  {botDesabilitado ? "Habilitar Bot" : "Desabilitar Bot"}
+                  {botDesabilitado ? "Assumido" : "Assumir"}
                 </span>
+                {botDesabilitado && (
+                  <Check className="h-4 w-4 ml-1 text-green-600 dark:text-green-400" />
+                )}
               </Button>
             </>
           )}
