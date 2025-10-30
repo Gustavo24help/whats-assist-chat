@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_reactivation_schedule: {
+        Row: {
+          created_at: string | null
+          executed: boolean | null
+          ficha_id: string
+          id: string
+          scheduled_at: string
+          telefone_cliente: string
+        }
+        Insert: {
+          created_at?: string | null
+          executed?: boolean | null
+          ficha_id: string
+          id?: string
+          scheduled_at: string
+          telefone_cliente: string
+        }
+        Update: {
+          created_at?: string | null
+          executed?: boolean | null
+          ficha_id?: string
+          id?: string
+          scheduled_at?: string
+          telefone_cliente?: string
+        }
+        Relationships: []
+      }
       categorias: {
         Row: {
           created_at: string | null
@@ -35,7 +62,9 @@ export type Database = {
       clientes: {
         Row: {
           arquivado: boolean
+          bot_habilitado: boolean | null
           created_at: string | null
+          data_bot_desabilitado: string | null
           ficha_ativa_id: string | null
           nome: string
           status_conversa:
@@ -47,7 +76,9 @@ export type Database = {
         }
         Insert: {
           arquivado?: boolean
+          bot_habilitado?: boolean | null
           created_at?: string | null
+          data_bot_desabilitado?: string | null
           ficha_ativa_id?: string | null
           nome?: string
           status_conversa?:
@@ -59,7 +90,9 @@ export type Database = {
         }
         Update: {
           arquivado?: boolean
+          bot_habilitado?: boolean | null
           created_at?: string | null
+          data_bot_desabilitado?: string | null
           ficha_ativa_id?: string | null
           nome?: string
           status_conversa?:

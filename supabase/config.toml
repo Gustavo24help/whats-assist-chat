@@ -14,3 +14,12 @@ verify_jwt = false
 
 [functions.send-template]
 verify_jwt = false
+
+[functions.check-bot-status]
+verify_jwt = false
+
+[functions.toggle-bot-status]
+verify_jwt = false
+
+[functions.process-bot-reactivation]
+verify_jwt = false

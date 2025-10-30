@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
@@ -51,6 +51,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [uploading, setUploading] = useState(false);
   const [fichaId, setFichaId] = useState<string | undefined>();
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
+  const [botDesabilitado, setBotDesabilitado] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { dentroJanela } = useConversationTimer(clienteTelefone);
@@ -59,6 +60,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     console.log('[ChatWindow] Inicializando canais Realtime para:', clienteTelefone);
     fetchMensagens();
     fetchFichaId();
+    fetchBotStatus();
 
     const channel = supabase
       .channel(`mensagens-${clienteTelefone}`)
@@ -154,6 +156,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       if (data) {
         setFichaId(data.id);
       }
+    }
+  };
+
+  const fetchBotStatus = async () => {
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('bot_habilitado')
+      .eq('telefone', clienteTelefone)
+      .maybeSingle();
+    
+    if (!error && data) {
+      setBotDesabilitado(data.bot_habilitado === false);
     }
   };
 
@@ -298,32 +312,23 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   };
 
   const assumirConversa = async () => {
-    const mensagemTexto = "A partir de agora estou assumindo a conversa";
-    
     try {
-      // Enviar via Twilio
-      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+      // Não enviar mensagem - apenas desabilitar o bot silenciosamente
+      const { error } = await supabase.functions.invoke('toggle-bot-status', {
         body: {
-          to: clienteTelefone,
-          message: mensagemTexto,
-        },
+          telefone: clienteTelefone,
+          bot_status: 'disabled'
+        }
       });
 
       if (error) throw error;
 
-      if (!data.success) {
-        if (data.error === 'FORA_JANELA_24H') {
-          toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
-          return;
-        }
-        throw new Error(data.error || "Erro ao enviar mensagem");
-      }
-
-      toast.success("Conversa assumida com sucesso!");
+      setBotDesabilitado(true);
+      toast.success("Conversa assumida! Bot desabilitado.");
       setAssumirDialogOpen(false);
     } catch (error) {
       console.error("Erro ao assumir conversa:", error);
-      toast.error(error instanceof Error ? error.message : "Não foi possível assumir a conversa");
+      toast.error("Não foi possível assumir a conversa");
     }
   };
 
@@ -429,10 +434,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 variant="outline"
                 size="sm"
                 onClick={() => setAssumirDialogOpen(true)}
-                className="h-9 hover:scale-[0.98] active:scale-95 transition-transform"
+                disabled={botDesabilitado}
+                className={cn(
+                  "h-9 hover:scale-[0.98] active:scale-95 transition-transform",
+                  botDesabilitado && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                )}
               >
                 <UserCheck className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Assumir</span>
+                <span className="hidden md:inline">
+                  {botDesabilitado ? "Assumido" : "Assumir"}
+                </span>
+                {botDesabilitado && (
+                  <Check className="h-4 w-4 ml-1 text-green-600 dark:text-green-400" />
+                )}
               </Button>
             </>
           )}
@@ -460,10 +474,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           <AlertDialogHeader>
             <AlertDialogTitle>Assumir Conversa</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja assumir esta conversa? Será enviada a mensagem:
-              <span className="block mt-2 font-medium text-foreground">
-                "A partir de agora estou assumindo a conversa"
-              </span>
+              Tem certeza que deseja assumir esta conversa? O bot será desabilitado automaticamente e não responderá mais às mensagens deste cliente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
