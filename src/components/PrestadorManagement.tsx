@@ -49,6 +49,7 @@ export const PrestadorManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPrestador, setEditingPrestador] = useState<Prestador | null>(null);
   const [showCsvHelp, setShowCsvHelp] = useState(false);
+  const [selectedPrestadores, setSelectedPrestadores] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState<Prestador>({
@@ -189,7 +190,10 @@ export const PrestadorManagement = () => {
         .delete()
         .eq("cpf", cpf);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro RLS ao deletar:", error);
+        throw error;
+      }
 
       toast({
         title: "Prestador excluído",
@@ -205,6 +209,52 @@ export const PrestadorManagement = () => {
         description: error.message || "Não foi possível excluir o prestador.",
       });
     }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedPrestadores.length === 0) return;
+    
+    if (!confirm(`Tem certeza que deseja excluir ${selectedPrestadores.length} prestador(es)?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("prestadores")
+        .delete()
+        .in("cpf", selectedPrestadores);
+
+      if (error) throw error;
+
+      toast({
+        title: "Prestadores excluídos",
+        description: `${selectedPrestadores.length} prestador(es) foram removidos com sucesso.`,
+      });
+
+      setSelectedPrestadores([]);
+      fetchPrestadores();
+    } catch (error: any) {
+      console.error("Erro ao excluir prestadores:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao excluir",
+        description: error.message || "Não foi possível excluir os prestadores.",
+      });
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedPrestadores.length === prestadores.length) {
+      setSelectedPrestadores([]);
+    } else {
+      setSelectedPrestadores(prestadores.map(p => p.cpf));
+    }
+  };
+
+  const toggleSelect = (cpf: string) => {
+    setSelectedPrestadores(prev =>
+      prev.includes(cpf) ? prev.filter(c => c !== cpf) : [...prev, cpf]
+    );
   };
 
   const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -454,6 +504,22 @@ export const PrestadorManagement = () => {
             </Button>
           </div>
         </div>
+        
+        {selectedPrestadores.length > 0 && (
+          <div className="mt-4 flex items-center gap-2 p-3 bg-muted rounded-lg">
+            <span className="text-sm text-muted-foreground">
+              {selectedPrestadores.length} selecionado(s)
+            </span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteSelected}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir Selecionados
+            </Button>
+          </div>
+        )}
 
         <AlertDialog open={showCsvHelp} onOpenChange={setShowCsvHelp}>
           <AlertDialogContent className="max-w-2xl">
@@ -517,6 +583,14 @@ export const PrestadorManagement = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedPrestadores.length === prestadores.length && prestadores.length > 0}
+                      onChange={toggleSelectAll}
+                      className="cursor-pointer"
+                    />
+                  </TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>CPF</TableHead>
                   <TableHead>Telefone</TableHead>
@@ -528,6 +602,14 @@ export const PrestadorManagement = () => {
               <TableBody>
                 {prestadores.map((prestador) => (
                   <TableRow key={prestador.cpf}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedPrestadores.includes(prestador.cpf)}
+                        onChange={() => toggleSelect(prestador.cpf)}
+                        className="cursor-pointer"
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{prestador.nome}</TableCell>
                     <TableCell>{prestador.cpf}</TableCell>
                     <TableCell>{prestador.telefone}</TableCell>
