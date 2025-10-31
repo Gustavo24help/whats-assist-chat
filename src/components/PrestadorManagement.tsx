@@ -117,11 +117,36 @@ export const PrestadorManagement = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.cpf || !formData.nome || !formData.telefone) {
+    // Sanitizar campos numéricos
+    const cpfLimpo = sanitizeNumericField(formData.cpf);
+    const telefoneLimpo = sanitizeNumericField(formData.telefone);
+    const cnpjLimpo = sanitizeNumericField(formData.cnpj);
+
+    if (!cpfLimpo || !formData.nome || !telefoneLimpo) {
       toast({
         variant: "destructive",
         title: "Campos obrigatórios",
         description: "CPF, Nome e Telefone são obrigatórios.",
+      });
+      return;
+    }
+
+    // Validar comprimento do CPF
+    if (cpfLimpo.length !== 11) {
+      toast({
+        variant: "destructive",
+        title: "CPF inválido",
+        description: "O CPF deve conter 11 dígitos.",
+      });
+      return;
+    }
+
+    // Validar CNPJ se informado
+    if (cnpjLimpo && cnpjLimpo.length !== 14) {
+      toast({
+        variant: "destructive",
+        title: "CNPJ inválido",
+        description: "O CNPJ deve conter 14 dígitos.",
       });
       return;
     }
@@ -132,12 +157,12 @@ export const PrestadorManagement = () => {
           .from("prestadores")
           .update({
             nome: formData.nome,
-            telefone: formData.telefone,
+            telefone: telefoneLimpo,
             categoria: formData.categoria || null,
             especialidade: formData.especialidade || null,
             id_crm: formData.id_crm || null,
             id_azure: formData.id_azure || null,
-            cnpj: formData.cnpj || null,
+            cnpj: cnpjLimpo,
           })
           .eq("cpf", editingPrestador.cpf);
 
@@ -149,14 +174,14 @@ export const PrestadorManagement = () => {
         });
       } else {
         const { error } = await supabase.from("prestadores").insert({
-          cpf: formData.cpf,
+          cpf: cpfLimpo,
           nome: formData.nome,
-          telefone: formData.telefone,
+          telefone: telefoneLimpo,
           categoria: formData.categoria || null,
           especialidade: formData.especialidade || null,
           id_crm: formData.id_crm || null,
           id_azure: formData.id_azure || null,
-          cnpj: formData.cnpj || null,
+          cnpj: cnpjLimpo,
         });
 
         if (error) throw error;
@@ -318,6 +343,13 @@ export const PrestadorManagement = () => {
     );
   };
 
+  // Função para sanitizar campos numéricos (remove tudo exceto números)
+  const sanitizeNumericField = (value: string | null): string | null => {
+    if (!value) return null;
+    const cleaned = value.replace(/\D/g, '');
+    return cleaned || null;
+  };
+
   const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -335,26 +367,45 @@ export const PrestadorManagement = () => {
         return;
       }
 
-      const headers = lines[0].split(',').map(h => h.trim());
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
       const prestadores = [];
       const cpfsVistos = new Set<string>();
       let linhasDuplicadas = 0;
+      let linhasInvalidas = 0;
 
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',').map(v => v.trim());
         const prestador: any = {};
 
         headers.forEach((header, index) => {
-          prestador[header] = values[index] || null;
+          const value = values[index] || null;
+          prestador[header] = value;
         });
 
+        // Sanitizar campos numéricos
+        prestador.cpf = sanitizeNumericField(prestador.cpf);
+        prestador.telefone = sanitizeNumericField(prestador.telefone);
+        prestador.cnpj = sanitizeNumericField(prestador.cnpj);
+
+        // Validar campos obrigatórios
         if (!prestador.cpf || !prestador.nome || !prestador.telefone) {
-          toast({
-            variant: "destructive",
-            title: "Erro na linha " + (i + 1),
-            description: "CPF, Nome e Telefone são obrigatórios.",
-          });
-          return;
+          console.log(`Linha ${i + 1} inválida: CPF, Nome ou Telefone ausente`);
+          linhasInvalidas++;
+          continue;
+        }
+
+        // Validar comprimento do CPF (deve ter 11 dígitos)
+        if (prestador.cpf.length !== 11) {
+          console.log(`Linha ${i + 1} inválida: CPF deve ter 11 dígitos`);
+          linhasInvalidas++;
+          continue;
+        }
+
+        // Validar CNPJ se informado (deve ter 14 dígitos)
+        if (prestador.cnpj && prestador.cnpj.length !== 14) {
+          console.log(`Linha ${i + 1} inválida: CNPJ deve ter 14 dígitos`);
+          linhasInvalidas++;
+          continue;
         }
 
         // Verificar duplicatas no próprio CSV
@@ -371,7 +422,9 @@ export const PrestadorManagement = () => {
         toast({
           variant: "destructive",
           title: "Nenhum prestador válido",
-          description: "O arquivo não contém prestadores válidos para importar.",
+          description: `O arquivo não contém prestadores válidos. ${
+            linhasInvalidas > 0 ? `${linhasInvalidas} linha(s) com dados inválidos.` : ''
+          }`,
         });
         return;
       }
@@ -386,7 +439,11 @@ export const PrestadorManagement = () => {
         title: "Importação concluída",
         description: `${prestadores.length} prestador(es) importado(s).${
           linhasDuplicadas > 0 
-            ? ` ${linhasDuplicadas} linha(s) ignorada(s) por CPF duplicado no arquivo.` 
+            ? ` ${linhasDuplicadas} duplicado(s) ignorado(s).` 
+            : ''
+        }${
+          linhasInvalidas > 0 
+            ? ` ${linhasInvalidas} linha(s) inválida(s) ignorada(s).` 
             : ''
         }`,
       });
