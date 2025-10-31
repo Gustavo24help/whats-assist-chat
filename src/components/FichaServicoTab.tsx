@@ -67,7 +67,8 @@ const STATUS_OPTIONS = [
 export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
-  const [searchPrestador, setSearchPrestador] = useState<string>('');
+  const [searchPrestadorAgendamento, setSearchPrestadorAgendamento] = useState<string>('');
+  const [searchPrestadorValores, setSearchPrestadorValores] = useState<string>('');
   const [dataAgendamento, setDataAgendamento] = useState<string>('');
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
   const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
@@ -499,8 +500,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   if (!ficha) return <div className="p-6">Carregando...</div>;
 
-  const filteredPrestadores = prestadores.filter(p => 
-    p.nome.toLowerCase().includes(searchPrestador.toLowerCase())
+  const filteredPrestadoresAgendamento = prestadores.filter(p => 
+    p.nome.toLowerCase().includes(searchPrestadorAgendamento.toLowerCase())
+  );
+
+  const filteredPrestadoresValores = prestadores.filter(p => 
+    p.nome.toLowerCase().includes(searchPrestadorValores.toLowerCase())
   );
 
   return (
@@ -599,23 +604,31 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   <SelectTrigger id="prestador_id" className="h-9 text-sm focus:ring-2 focus:ring-primary/20">
                     <SelectValue placeholder="Selecione o prestador" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[100] bg-popover max-h-[300px]">
                     <div className="sticky top-0 bg-popover z-10 p-2 border-b">
                       <Input
                         type="text"
                         placeholder="Pesquisar prestador..."
-                        value={searchPrestador}
-                        onChange={(e) => setSearchPrestador(e.target.value)}
+                        value={searchPrestadorAgendamento}
+                        onChange={(e) => setSearchPrestadorAgendamento(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
-                        className="h-8 text-sm"
+                        onKeyDown={(e) => e.stopPropagation()}
+                        autoFocus={false}
+                        className="h-8 text-sm bg-popover border focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <SelectItem value="nulo">Nenhum (Nulo)</SelectItem>
-                    {filteredPrestadores.map((prestador) => (
-                      <SelectItem key={prestador.cpf} value={prestador.cpf}>
-                        {prestador.nome}
-                      </SelectItem>
-                    ))}
+                    {filteredPrestadoresAgendamento.length > 0 ? (
+                      filteredPrestadoresAgendamento.map((prestador) => (
+                        <SelectItem key={prestador.cpf} value={prestador.cpf}>
+                          {prestador.nome}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                        Nenhum prestador encontrado
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -697,23 +710,31 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   <SelectTrigger id="prestador_valores" className="h-9 text-sm focus:ring-2 focus:ring-primary/20">
                     <SelectValue placeholder="Selecione o prestador" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[100] bg-popover max-h-[300px]">
                     <div className="sticky top-0 bg-popover z-10 p-2 border-b">
                       <Input
                         type="text"
                         placeholder="Pesquisar prestador..."
-                        value={searchPrestador}
-                        onChange={(e) => setSearchPrestador(e.target.value)}
+                        value={searchPrestadorValores}
+                        onChange={(e) => setSearchPrestadorValores(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
-                        className="h-8 text-sm"
+                        onKeyDown={(e) => e.stopPropagation()}
+                        autoFocus={false}
+                        className="h-8 text-sm bg-popover border focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <SelectItem value="nulo">Nenhum (Nulo)</SelectItem>
-                    {filteredPrestadores.map((prestador) => (
-                      <SelectItem key={prestador.cpf} value={prestador.cpf}>
-                        {prestador.nome}
-                      </SelectItem>
-                    ))}
+                    {filteredPrestadoresValores.length > 0 ? (
+                      filteredPrestadoresValores.map((prestador) => (
+                        <SelectItem key={prestador.cpf} value={prestador.cpf}>
+                          {prestador.nome}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                        Nenhum prestador encontrado
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
