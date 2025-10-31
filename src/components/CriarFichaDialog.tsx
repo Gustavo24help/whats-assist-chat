@@ -33,23 +33,40 @@ export const CriarFichaDialog = ({
 }: CriarFichaDialogProps) => {
   const [loading, setLoading] = useState(false);
   
-  // Gerar nome padrão da ficha
+  // Gerar nome padrão da ficha baseado no banco de dados
   const generateDefaultFichaName = async () => {
     const today = new Date();
     const dateStr = format(today, "yyMMdd");
+    const pattern = `FGM%@${dateStr}`;
     
-    // Buscar quantas fichas foram criadas hoje
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
-    
+    // Buscar todas as fichas que seguem o padrão FGMx@YYMMDD para hoje
     const { data, error } = await supabase
       .from('fichas_de_servico')
-      .select('id', { count: 'exact' })
-      .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay);
+      .select('nome_ficha')
+      .ilike('nome_ficha', pattern);
     
-    const count = (data?.length || 0) + 1;
-    return `FGM${count}-${dateStr}`;
+    if (error) {
+      console.error('Erro ao buscar fichas:', error);
+      return `FGM1@${dateStr}`;
+    }
+    
+    // Se não houver fichas para hoje, começar com FGM1@YYMMDD
+    if (!data || data.length === 0) {
+      return `FGM1@${dateStr}`;
+    }
+    
+    // Extrair os números das fichas encontradas e pegar o maior
+    const numeros = data
+      .map(ficha => {
+        const match = ficha.nome_ficha?.match(/^FGM(\d+)@/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(num => !isNaN(num));
+    
+    const maxNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
+    const proximoNumero = maxNumero + 1;
+    
+    return `FGM${proximoNumero}@${dateStr}`;
   };
 
   const [formData, setFormData] = useState({
@@ -148,7 +165,7 @@ export const CriarFichaDialog = ({
               <Label htmlFor="nome_ficha">Nome da Ficha *</Label>
               <Input
                 id="nome_ficha"
-                placeholder="FGM1-251023"
+                placeholder="FGM1@251023"
                 value={formData.nome_ficha}
                 onChange={(e) =>
                   setFormData({ ...formData, nome_ficha: e.target.value })
