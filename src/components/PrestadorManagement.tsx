@@ -185,13 +185,31 @@ export const PrestadorManagement = () => {
     }
 
     try {
+      // Verificar se há fichas vinculadas
+      const { data: fichas, error: fichasError } = await supabase
+        .from("fichas_de_servico")
+        .select("id")
+        .eq("prestador_id", cpf)
+        .limit(1);
+
+      if (fichasError) throw fichasError;
+
+      if (fichas && fichas.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Não é possível excluir",
+          description: `O prestador ${nome} possui fichas de serviço vinculadas. Remova ou transfira as fichas antes de excluir o prestador.`,
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from("prestadores")
         .delete()
         .eq("cpf", cpf);
 
       if (error) {
-        console.error("Erro RLS ao deletar:", error);
+        console.error("Erro ao deletar:", error);
         throw error;
       }
 
@@ -203,11 +221,21 @@ export const PrestadorManagement = () => {
       fetchPrestadores();
     } catch (error: any) {
       console.error("Erro ao excluir prestador:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao excluir",
-        description: error.message || "Não foi possível excluir o prestador.",
-      });
+      
+      // Mensagem específica para erro de foreign key
+      if (error.code === "23503") {
+        toast({
+          variant: "destructive",
+          title: "Não é possível excluir",
+          description: "Este prestador possui fichas de serviço vinculadas. Remova as fichas primeiro.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erro ao excluir",
+          description: error.message || "Não foi possível excluir o prestador.",
+        });
+      }
     }
   };
 
@@ -219,16 +247,49 @@ export const PrestadorManagement = () => {
     }
 
     try {
+      // Verificar quais prestadores têm fichas vinculadas
+      const { data: fichas, error: fichasError } = await supabase
+        .from("fichas_de_servico")
+        .select("prestador_id")
+        .in("prestador_id", selectedPrestadores);
+
+      if (fichasError) throw fichasError;
+
+      const prestadoresComFichas = fichas?.map(f => f.prestador_id) || [];
+      const prestadoresSemFichas = selectedPrestadores.filter(
+        cpf => !prestadoresComFichas.includes(cpf)
+      );
+
+      if (prestadoresSemFichas.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Não é possível excluir",
+          description: "Todos os prestadores selecionados possuem fichas de serviço vinculadas.",
+        });
+        return;
+      }
+
+      if (prestadoresComFichas.length > 0) {
+        const continuar = confirm(
+          `${prestadoresComFichas.length} prestador(es) possui(em) fichas vinculadas e não pode(m) ser excluído(s). Deseja excluir os ${prestadoresSemFichas.length} restantes?`
+        );
+        if (!continuar) return;
+      }
+
       const { error } = await supabase
         .from("prestadores")
         .delete()
-        .in("cpf", selectedPrestadores);
+        .in("cpf", prestadoresSemFichas);
 
       if (error) throw error;
 
       toast({
         title: "Prestadores excluídos",
-        description: `${selectedPrestadores.length} prestador(es) foram removidos com sucesso.`,
+        description: `${prestadoresSemFichas.length} prestador(es) foram removidos com sucesso.${
+          prestadoresComFichas.length > 0 
+            ? ` ${prestadoresComFichas.length} não puderam ser excluídos por terem fichas vinculadas.` 
+            : ''
+        }`,
       });
 
       setSelectedPrestadores([]);
