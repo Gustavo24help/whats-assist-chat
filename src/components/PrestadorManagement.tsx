@@ -337,6 +337,8 @@ export const PrestadorManagement = () => {
 
       const headers = lines[0].split(',').map(h => h.trim());
       const prestadores = [];
+      const cpfsVistos = new Set<string>();
+      let linhasDuplicadas = 0;
 
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',').map(v => v.trim());
@@ -355,7 +357,23 @@ export const PrestadorManagement = () => {
           return;
         }
 
+        // Verificar duplicatas no próprio CSV
+        if (cpfsVistos.has(prestador.cpf)) {
+          linhasDuplicadas++;
+          continue;
+        }
+
+        cpfsVistos.add(prestador.cpf);
         prestadores.push(prestador);
+      }
+
+      if (prestadores.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Nenhum prestador válido",
+          description: "O arquivo não contém prestadores válidos para importar.",
+        });
+        return;
       }
 
       const { error } = await supabase
@@ -366,7 +384,11 @@ export const PrestadorManagement = () => {
 
       toast({
         title: "Importação concluída",
-        description: `${prestadores.length} prestadores foram importados com sucesso.`,
+        description: `${prestadores.length} prestador(es) importado(s).${
+          linhasDuplicadas > 0 
+            ? ` ${linhasDuplicadas} linha(s) ignorada(s) por CPF duplicado no arquivo.` 
+            : ''
+        }`,
       });
       
       fetchPrestadores();
