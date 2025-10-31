@@ -6,7 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Save, FileText, DollarSign, Calendar, CreditCard, User } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock } from "lucide-react";
 import { toast } from "sonner";
 import debounce from "lodash-es/debounce";
 
@@ -94,10 +96,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         prestadorCpf = fichaData.prestador_id; // CPF é a chave primária
       }
 
+      // Buscar nome do cliente
+      let nomeCliente = 'Desconhecido';
+      const { data: clienteData } = await supabase
+        .from('clientes')
+        .select('nome')
+        .eq('telefone', fichaData.telefone_cliente)
+        .single();
+      
+      if (clienteData) {
+        nomeCliente = clienteData.nome;
+      }
+
       const webhookPayload = {
         // Todos os campos da ficha
         id: fichaData.id,
         telefone_cliente: fichaData.telefone_cliente,
+        nome_cliente: nomeCliente,
         nome_ficha: fichaData.nome_ficha,
         status: fichaData.status,
         categoria_id: fichaData.categoria_id,
@@ -514,7 +529,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       <div className="bg-card border rounded-lg shadow-sm p-2.5 hover:bg-muted/20 transition-colors w-full max-w-[380px]">
         <Label htmlFor="status" className="text-xs font-medium text-gray-600">Status do Serviço</Label>
         <Select
-          value={ficha?.status || "pendente"}
+          value={ficha?.status || "Ficha Criada"}
           onValueChange={(value) => updateFicha({ status: value })}
         >
           <SelectTrigger id="status" className="mt-1.5 h-9 text-sm focus:ring-2 focus:ring-primary/20">
@@ -574,13 +589,59 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
               <div>
                 <Label htmlFor="motivo_perda" className="text-xs font-medium text-gray-600">Motivo de Perda</Label>
-                <Input
-                  id="motivo_perda"
-                  value={ficha?.motivo_perda || ""}
-                  onChange={(e) => updateFicha({ motivo_perda: e.target.value })}
-                  placeholder="Motivo caso a venda seja perdida"
-                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Input
+                      id="motivo_perda"
+                      value={ficha?.motivo_perda || ""}
+                      onChange={(e) => updateFicha({ motivo_perda: e.target.value })}
+                      placeholder="Digite ou selecione um motivo"
+                      className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20 cursor-text"
+                    />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[340px] p-0" align="start">
+                    <Command>
+                      <CommandGroup>
+                        <CommandItem 
+                          onSelect={() => updateFicha({ motivo_perda: "Valor (Muito caro)" })}
+                          className="cursor-pointer"
+                        >
+                          Valor (Muito caro)
+                        </CommandItem>
+                        <CommandItem 
+                          onSelect={() => updateFicha({ motivo_perda: "Não temos a especialidade" })}
+                          className="cursor-pointer"
+                        >
+                          Não temos a especialidade
+                        </CommandItem>
+                        <CommandItem 
+                          onSelect={() => updateFicha({ motivo_perda: "Demora de resposta" })}
+                          className="cursor-pointer"
+                        >
+                          Demora de resposta
+                        </CommandItem>
+                        <CommandItem 
+                          onSelect={() => updateFicha({ motivo_perda: "Fechou com outra pessoa" })}
+                          className="cursor-pointer"
+                        >
+                          Fechou com outra pessoa
+                        </CommandItem>
+                        <CommandItem 
+                          onSelect={() => updateFicha({ motivo_perda: "Sumiu após orçamento" })}
+                          className="cursor-pointer"
+                        >
+                          Sumiu após orçamento
+                        </CommandItem>
+                        <CommandItem 
+                          onSelect={() => updateFicha({ motivo_perda: "Outro motivo" })}
+                          className="cursor-pointer"
+                        >
+                          Outro motivo
+                        </CommandItem>
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </AccordionContent>
@@ -633,33 +694,43 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="data_agendamento" className="text-xs font-medium text-gray-600">Data do Agendamento</Label>
-                <Input
-                  id="data_agendamento"
-                  type="date"
-                  value={dataAgendamento}
-                  onChange={(e) => updateDataAgendamento(e.target.value)}
-                  className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="hora_agendamento" className="text-xs font-medium text-gray-600">Horário do Agendamento</Label>
-                <Input
-                  id="hora_agendamento"
-                  type="time"
-                  value={horaAgendamento}
-                  onChange={(e) => updateHoraAgendamento(e.target.value)}
-                  className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
-                />
+              <div>
+                <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Agendamento do Serviço
+                </Label>
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  <div>
+                    <Label htmlFor="data_agendamento" className="text-[10px] text-muted-foreground">Data</Label>
+                    <Input
+                      id="data_agendamento"
+                      type="date"
+                      value={dataAgendamento}
+                      onChange={(e) => updateDataAgendamento(e.target.value)}
+                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="hora_agendamento" className="text-[10px] text-muted-foreground">Horário</Label>
+                    <Input
+                      id="hora_agendamento"
+                      type="time"
+                      value={horaAgendamento}
+                      onChange={(e) => updateHoraAgendamento(e.target.value)}
+                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="pt-2 border-t">
-                <h4 className="text-xs font-semibold mb-2 text-gray-700">Visita Técnica</h4>
-                <div className="space-y-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="data_visita_tecnica" className="text-xs font-medium text-gray-600">Data da Visita Técnica</Label>
+                <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Visita Técnica
+                </Label>
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  <div>
+                    <Label htmlFor="data_visita_tecnica" className="text-[10px] text-muted-foreground">Data</Label>
                     <Input
                       id="data_visita_tecnica"
                       type="date"
@@ -668,9 +739,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="hora_visita_tecnica" className="text-xs font-medium text-gray-600">Horário da Visita Técnica</Label>
+                  <div>
+                    <Label htmlFor="hora_visita_tecnica" className="text-[10px] text-muted-foreground">Horário</Label>
                     <Input
                       id="hora_visita_tecnica"
                       type="time"
