@@ -360,7 +360,7 @@ export const PrestadorManagement = () => {
 
       const { error } = await supabase
         .from("prestadores")
-        .insert(prestadores);
+        .upsert(prestadores, { onConflict: 'cpf' });
 
       if (error) throw error;
 
