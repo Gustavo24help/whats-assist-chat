@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Pencil, Trash2, Upload, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -41,6 +48,8 @@ export const PrestadorManagement = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPrestador, setEditingPrestador] = useState<Prestador | null>(null);
+  const [showCsvHelp, setShowCsvHelp] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState<Prestador>({
     cpf: "",
@@ -118,7 +127,6 @@ export const PrestadorManagement = () => {
 
     try {
       if (editingPrestador) {
-        // Atualizar prestador existente usando CPF como identificador
         const { error } = await supabase
           .from("prestadores")
           .update({
@@ -139,7 +147,6 @@ export const PrestadorManagement = () => {
           description: "Os dados foram atualizados com sucesso.",
         });
       } else {
-        // Inserir novo prestador
         const { error } = await supabase.from("prestadores").insert({
           cpf: formData.cpf,
           nome: formData.nome,
@@ -200,6 +207,72 @@ export const PrestadorManagement = () => {
     }
   };
 
+  const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        toast({
+          variant: "destructive",
+          title: "Arquivo inválido",
+          description: "O arquivo CSV está vazio ou não contém dados.",
+        });
+        return;
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim());
+      const prestadores = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        const prestador: any = {};
+
+        headers.forEach((header, index) => {
+          prestador[header] = values[index] || null;
+        });
+
+        if (!prestador.cpf || !prestador.nome || !prestador.telefone) {
+          toast({
+            variant: "destructive",
+            title: "Erro na linha " + (i + 1),
+            description: "CPF, Nome e Telefone são obrigatórios.",
+          });
+          return;
+        }
+
+        prestadores.push(prestador);
+      }
+
+      const { error } = await supabase
+        .from("prestadores")
+        .insert(prestadores);
+
+      if (error) throw error;
+
+      toast({
+        title: "Importação concluída",
+        description: `${prestadores.length} prestadores foram importados com sucesso.`,
+      });
+      
+      fetchPrestadores();
+      
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error: any) {
+      console.error("Erro ao importar CSV:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao importar",
+        description: error.message || "Não foi possível importar o arquivo CSV.",
+      });
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -210,151 +283,226 @@ export const PrestadorManagement = () => {
               Adicione, edite ou remova prestadores do sistema
             </CardDescription>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Prestador
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <form onSubmit={handleSubmit}>
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingPrestador ? "Editar Prestador" : "Novo Prestador"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingPrestador
-                      ? "Atualize os dados do prestador"
-                      : "Preencha os dados do novo prestador"}
-                  </DialogDescription>
-                </DialogHeader>
+          <div className="flex gap-2">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => handleOpenDialog()}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Prestador
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <form onSubmit={handleSubmit}>
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingPrestador ? "Editar Prestador" : "Novo Prestador"}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {editingPrestador
+                        ? "Atualize os dados do prestador"
+                        : "Preencha os dados do novo prestador"}
+                    </DialogDescription>
+                  </DialogHeader>
 
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="cpf">CPF *</Label>
-                      <Input
-                        id="cpf"
-                        placeholder="000.000.000-00"
-                        value={formData.cpf}
-                        onChange={(e) =>
-                          setFormData({ ...formData, cpf: e.target.value })
-                        }
-                        disabled={!!editingPrestador}
-                        required
-                      />
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="cpf">CPF *</Label>
+                        <Input
+                          id="cpf"
+                          placeholder="000.000.000-00"
+                          value={formData.cpf}
+                          onChange={(e) =>
+                            setFormData({ ...formData, cpf: e.target.value })
+                          }
+                          disabled={!!editingPrestador}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="nome">Nome *</Label>
+                        <Input
+                          id="nome"
+                          placeholder="Nome completo"
+                          value={formData.nome}
+                          onChange={(e) =>
+                            setFormData({ ...formData, nome: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="nome">Nome *</Label>
-                      <Input
-                        id="nome"
-                        placeholder="Nome completo"
-                        value={formData.nome}
-                        onChange={(e) =>
-                          setFormData({ ...formData, nome: e.target.value })
-                        }
-                        required
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="telefone">Telefone *</Label>
+                        <Input
+                          id="telefone"
+                          placeholder="+55 11 99999-9999"
+                          value={formData.telefone}
+                          onChange={(e) =>
+                            setFormData({ ...formData, telefone: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cnpj">CNPJ</Label>
+                        <Input
+                          id="cnpj"
+                          placeholder="00.000.000/0000-00"
+                          value={formData.cnpj || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, cnpj: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="categoria">Categoria</Label>
+                        <Input
+                          id="categoria"
+                          placeholder="Ex: Encanador, Eletricista"
+                          value={formData.categoria || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, categoria: e.target.value })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="especialidade">Especialidade</Label>
+                        <Input
+                          id="especialidade"
+                          placeholder="Especialidade do prestador"
+                          value={formData.especialidade || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              especialidade: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="id_crm">ID CRM</Label>
+                        <Input
+                          id="id_crm"
+                          placeholder="ID do CRM"
+                          value={formData.id_crm || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, id_crm: e.target.value })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="id_azure">ID Azure</Label>
+                        <Input
+                          id="id_azure"
+                          placeholder="ID do Azure"
+                          value={formData.id_azure || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, id_azure: e.target.value })
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="telefone">Telefone *</Label>
-                      <Input
-                        id="telefone"
-                        placeholder="+55 11 99999-9999"
-                        value={formData.telefone}
-                        onChange={(e) =>
-                          setFormData({ ...formData, telefone: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="cnpj">CNPJ</Label>
-                      <Input
-                        id="cnpj"
-                        placeholder="00.000.000/0000-00"
-                        value={formData.cnpj || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, cnpj: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="categoria">Categoria</Label>
-                      <Input
-                        id="categoria"
-                        placeholder="Ex: Encanador, Eletricista"
-                        value={formData.categoria || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, categoria: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="especialidade">Especialidade</Label>
-                      <Input
-                        id="especialidade"
-                        placeholder="Especialidade do prestador"
-                        value={formData.especialidade || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            especialidade: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="id_crm">ID CRM</Label>
-                      <Input
-                        id="id_crm"
-                        placeholder="ID do CRM"
-                        value={formData.id_crm || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, id_crm: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="id_azure">ID Azure</Label>
-                      <Input
-                        id="id_azure"
-                        placeholder="ID do Azure"
-                        value={formData.id_azure || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, id_azure: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingPrestador ? "Atualizar" : "Adicionar"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit">
+                      {editingPrestador ? "Atualizar" : "Adicionar"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleCsvUpload}
+              className="hidden"
+            />
+            
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Importar CSV
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowCsvHelp(true)}
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
+
+        <AlertDialog open={showCsvHelp} onOpenChange={setShowCsvHelp}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Formato do Arquivo CSV</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  <p>O arquivo CSV deve seguir este formato exato:</p>
+                  
+                  <div className="bg-muted p-4 rounded-lg font-mono text-sm overflow-x-auto">
+                    <div className="text-primary font-semibold">cpf,nome,telefone,categoria,especialidade,id_crm,id_azure,cnpj</div>
+                    <div className="text-muted-foreground">12345678900,João Silva,41999999999,Elétrica,Instalações,CRM001,AZ123,12345678000100</div>
+                    <div className="text-muted-foreground">98765432100,Maria Santos,41988888888,Hidráulica,Reparos,CRM002,AZ124,98765432000100</div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-semibold">Campos obrigatórios:</p>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      <li><span className="font-mono">cpf</span> - CPF do prestador (somente números)</li>
+                      <li><span className="font-mono">nome</span> - Nome completo do prestador</li>
+                      <li><span className="font-mono">telefone</span> - Telefone do prestador (somente números)</li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-semibold">Campos opcionais:</p>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      <li><span className="font-mono">categoria</span> - Categoria do serviço</li>
+                      <li><span className="font-mono">especialidade</span> - Especialidade do prestador</li>
+                      <li><span className="font-mono">id_crm</span> - ID no sistema CRM</li>
+                      <li><span className="font-mono">id_azure</span> - ID no Azure</li>
+                      <li><span className="font-mono">cnpj</span> - CNPJ (se aplicável)</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-lg">
+                    <p className="text-sm">
+                      <strong>⚠️ Importante:</strong> A primeira linha deve conter exatamente os nomes dos campos separados por vírgula, e as linhas seguintes devem conter os dados dos prestadores.
+                    </p>
+                  </div>
+
+                  <Button onClick={() => setShowCsvHelp(false)} className="w-full">
+                    Entendi
+                  </Button>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardHeader>
 
       <CardContent>
