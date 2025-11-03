@@ -6,7 +6,7 @@ import { ChatWindow } from "@/components/ChatWindow";
 import { FichaPanel } from "@/components/FichaPanel";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, Settings, FileText } from "lucide-react";
+import { LogOut, Settings, PanelLeftOpen } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { cn } from "@/lib/utils";
@@ -79,20 +79,33 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden bg-muted/30">
-        <div className={cn(
-          "border-r bg-background shadow-sm shrink-0 transition-all duration-300",
-          sidebarCollapsed ? "w-14 md:w-16" : "w-full md:w-80 lg:w-96",
-          selectedCliente && "max-md:hidden"
-        )}>
-          <ConversationList
-            selectedClienteTelefone={selectedCliente?.telefone || null}
-            onSelectCliente={handleSelectCliente}
-            unreadMessages={unreadMessages}
-            isCollapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          />
-        </div>
+      <div className="flex-1 flex overflow-hidden bg-muted/30 relative">
+        {!sidebarCollapsed && (
+          <div className={cn(
+            "border-r bg-background shadow-sm shrink-0 transition-all duration-300 w-full md:w-80 lg:w-96",
+            selectedCliente && "max-md:hidden"
+          )}>
+            <ConversationList
+              selectedClienteTelefone={selectedCliente?.telefone || null}
+              onSelectCliente={handleSelectCliente}
+              unreadMessages={unreadMessages}
+              isCollapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+            />
+          </div>
+        )}
+
+        {sidebarCollapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarCollapsed(false)}
+            className="absolute top-4 left-4 z-50 bg-background border shadow-md hover:bg-accent"
+            title="Expandir menu"
+          >
+            <PanelLeftOpen className="h-5 w-5" />
+          </Button>
+        )}
 
         {selectedCliente ? (
           <div className="flex-1 flex overflow-hidden min-w-0 relative">

@@ -403,30 +403,7 @@ export const ConversationList = ({
       </div>
 
       <ScrollArea className="flex-1">
-        {isCollapsed ? (
-          // Vista colapsada - mostra apenas indicadores mínimos
-          <div className="p-1 space-y-1">
-            {filteredClientes.slice(0, 10).map((cliente) => (
-              <button
-                key={cliente.telefone}
-                onClick={() => onSelectCliente(cliente)}
-                className={cn(
-                  "w-full h-10 rounded-md flex items-center justify-center relative",
-                  "hover:bg-accent transition-colors",
-                  selectedClienteTelefone === cliente.telefone && "bg-accent"
-                )}
-                title={cliente.nome}
-              >
-                {(unreadMessages[cliente.telefone] || 0) > 0 && (
-                  <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full" />
-                )}
-                <span className="text-xs font-medium">
-                  {cliente.nome.charAt(0).toUpperCase()}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : (
+        {!isCollapsed && (
           // Vista expandida - mostra cards completos
           <>
             {filteredClientes.length === 0 ? (
