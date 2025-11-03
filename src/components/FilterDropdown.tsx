@@ -73,22 +73,22 @@ export const FilterDropdown = ({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full max-w-[95vw] sm:max-w-[600px] p-0 bg-popover backdrop-blur-sm z-50 flex flex-col max-h-[85vh]" align="start">
+      <PopoverContent className="w-full max-w-[95vw] sm:max-w-[600px] p-0 bg-popover backdrop-blur-sm z-50 flex flex-col max-h-[70vh]" align="start">
         <div className="p-3 sm:p-4 border-b shrink-0">
           <h3 className="font-semibold text-sm">Filtros</h3>
         </div>
         
         <ScrollArea className="flex-1 overflow-y-auto">
-          <div className="max-h-[calc(85vh-120px)]">
-            <div className="p-3 sm:p-4">
+          <div className="max-h-[calc(70vh-140px)]">
+            <div className="p-3">
               {/* Grid responsivo - 1 coluna em mobile, 2 em desktop */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 lg:gap-x-8 gap-y-4 sm:gap-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 lg:gap-x-8 gap-y-3">
               
               {/* Coluna 1 */}
-              <div className="space-y-4 sm:space-y-6">
+              <div className="space-y-3">
                 {/* Status da Conversa */}
-                <div className="space-y-2 sm:space-y-3">
-                  <h4 className="font-semibold text-xs sm:text-sm">Status da Conversa</h4>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-xs">Status da Conversa</h4>
                   <RadioGroup value={conversaFilter} onValueChange={onConversaFilterChange}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="todas" id="conversa-todas" />
@@ -105,11 +105,9 @@ export const FilterDropdown = ({
                   </RadioGroup>
                 </div>
 
-                <Separator className="my-2" />
-
                 {/* Mensagens */}
-                <div className="space-y-2 sm:space-y-3">
-                  <h4 className="font-semibold text-xs sm:text-sm">Mensagens</h4>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-xs">Mensagens</h4>
                   <RadioGroup value={unreadFilter} onValueChange={onUnreadFilterChange}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="todas" id="msg-todas" />
@@ -126,11 +124,9 @@ export const FilterDropdown = ({
                   </RadioGroup>
                 </div>
 
-                <Separator className="my-2" />
-
                 {/* Status do Bot */}
-                <div className="space-y-2 sm:space-y-3">
-                  <h4 className="font-semibold text-xs sm:text-sm">Status do Bot</h4>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-xs">Status do Bot</h4>
                   <RadioGroup value={botFilter} onValueChange={onBotFilterChange}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="todos" id="bot-todos" />
@@ -150,10 +146,10 @@ export const FilterDropdown = ({
               </div>
 
               {/* Coluna 2 */}
-              <div className="space-y-4 sm:space-y-6">
+              <div className="space-y-3">
                 {/* Ficha Vinculada */}
-                <div className="space-y-2 sm:space-y-3">
-                  <h4 className="font-semibold text-xs sm:text-sm">Ficha Vinculada</h4>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-xs">Ficha Vinculada</h4>
                   <RadioGroup value={fichaFilter} onValueChange={onFichaFilterChange}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="todas" id="ficha-todas" />
@@ -170,11 +166,9 @@ export const FilterDropdown = ({
                   </RadioGroup>
                 </div>
 
-                <Separator className="my-2" />
-
                 {/* Status da Ficha */}
-                <div className="space-y-2 sm:space-y-3">
-                  <h4 className="font-semibold text-xs sm:text-sm">Status da Ficha</h4>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-xs">Status da Ficha</h4>
                   <RadioGroup value={statusFilter} onValueChange={onStatusFilterChange}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="all" id="status-all" />
