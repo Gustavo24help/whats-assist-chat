@@ -103,7 +103,7 @@ export const ConversationList = ({
     // Filtro por mensagens não lidas
     if (unreadFilter !== "todas") {
       filtered = filtered.filter(c => {
-        const hasUnread = (c.unread_count || 0) > 0;
+        const hasUnread = (unreadMessages[c.telefone] || 0) > 0;
         if (unreadFilter === "nao_lidas") {
           return hasUnread;
         } else {

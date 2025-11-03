@@ -52,6 +52,14 @@ export const FilterDropdown = ({
 
   const activeCount = getActiveFiltersCount();
 
+  const handleReset = () => {
+    onStatusFilterChange("all");
+    onConversaFilterChange("todas");
+    onUnreadFilterChange("todas");
+    onBotFilterChange("todos");
+    onFichaFilterChange("todas");
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -65,17 +73,21 @@ export const FilterDropdown = ({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[600px] p-0" align="start">
-        <ScrollArea className="h-[450px]">
+      <PopoverContent className="w-[600px] p-0 bg-popover backdrop-blur-sm z-50" align="start">
+        <div className="p-4 border-b">
+          <h3 className="font-semibold text-sm">Filtros</h3>
+        </div>
+        
+        <ScrollArea className="h-[400px]">
           <div className="p-4">
             {/* Grid 2 colunas para melhor organização */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
               
               {/* Coluna 1 */}
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Status da Conversa */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Status da Conversa</h4>
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Status da Conversa</h4>
                   <RadioGroup value={conversaFilter} onValueChange={onConversaFilterChange}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="todas" id="conversa-todas" />
@@ -92,11 +104,11 @@ export const FilterDropdown = ({
                   </RadioGroup>
                 </div>
 
-                <Separator />
+                <Separator className="my-2" />
 
                 {/* Mensagens */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Mensagens</h4>
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Mensagens</h4>
                   <RadioGroup value={unreadFilter} onValueChange={onUnreadFilterChange}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="todas" id="msg-todas" />
@@ -113,11 +125,11 @@ export const FilterDropdown = ({
                   </RadioGroup>
                 </div>
 
-                <Separator />
+                <Separator className="my-2" />
 
                 {/* Status do Bot */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Status do Bot</h4>
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Status do Bot</h4>
                   <RadioGroup value={botFilter} onValueChange={onBotFilterChange}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="todos" id="bot-todos" />
@@ -134,11 +146,13 @@ export const FilterDropdown = ({
                   </RadioGroup>
                 </div>
 
-                <Separator />
+              </div>
 
+              {/* Coluna 2 */}
+              <div className="space-y-6">
                 {/* Ficha Vinculada */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Ficha Vinculada</h4>
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Ficha Vinculada</h4>
                   <RadioGroup value={fichaFilter} onValueChange={onFichaFilterChange}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="todas" id="ficha-todas" />
@@ -154,46 +168,63 @@ export const FilterDropdown = ({
                     </div>
                   </RadioGroup>
                 </div>
-              </div>
 
-              {/* Coluna 2 - Status da Ficha */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm">Status da Ficha</h4>
-                <RadioGroup value={statusFilter} onValueChange={onStatusFilterChange}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="all" id="status-all" />
-                    <Label htmlFor="status-all" className="text-sm cursor-pointer">Todos</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Ficha Criada" id="status-criada" />
-                    <Label htmlFor="status-criada" className="text-sm cursor-pointer">Ficha Criada</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Contato Inicial" id="status-contato" />
-                    <Label htmlFor="status-contato" className="text-sm cursor-pointer">Contato Inicial</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Orçamento Enviado" id="status-orcamento" />
-                    <Label htmlFor="status-orcamento" className="text-sm cursor-pointer">Orçamento Enviado</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Agendado" id="status-agendado" />
-                    <Label htmlFor="status-agendado" className="text-sm cursor-pointer">Agendado</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Em andamento" id="status-andamento" />
-                    <Label htmlFor="status-andamento" className="text-sm cursor-pointer">Em Andamento</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Finalizado" id="status-finalizado" />
-                    <Label htmlFor="status-finalizado" className="text-sm cursor-pointer">Finalizado</Label>
-                  </div>
-                </RadioGroup>
+                <Separator className="my-2" />
+
+                {/* Status da Ficha */}
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Status da Ficha</h4>
+                  <RadioGroup value={statusFilter} onValueChange={onStatusFilterChange}>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="all" id="status-all" />
+                      <Label htmlFor="status-all" className="text-sm cursor-pointer">Todos</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="Ficha Criada" id="status-criada" />
+                      <Label htmlFor="status-criada" className="text-sm cursor-pointer">Ficha Criada</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="Contato Inicial" id="status-contato" />
+                      <Label htmlFor="status-contato" className="text-sm cursor-pointer">Contato Inicial</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="Orçamento Enviado" id="status-orcamento" />
+                      <Label htmlFor="status-orcamento" className="text-sm cursor-pointer">Orçamento Enviado</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="Agendado" id="status-agendado" />
+                      <Label htmlFor="status-agendado" className="text-sm cursor-pointer">Agendado</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="Em andamento" id="status-andamento" />
+                      <Label htmlFor="status-andamento" className="text-sm cursor-pointer">Em Andamento</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="Finalizado" id="status-finalizado" />
+                      <Label htmlFor="status-finalizado" className="text-sm cursor-pointer">Finalizado</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
               </div>
 
             </div>
           </div>
         </ScrollArea>
+
+        <div className="p-3 border-t bg-muted/50 flex justify-between items-center">
+          <span className="text-xs text-muted-foreground">
+            {activeCount} filtro(s) ativo(s)
+          </span>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleReset}
+            disabled={activeCount === 0}
+          >
+            Redefinir
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );
