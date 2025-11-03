@@ -73,12 +73,12 @@ export const FilterDropdown = ({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[600px] p-0 bg-popover backdrop-blur-sm z-50" align="start">
-        <div className="p-4 border-b">
+      <PopoverContent className="w-[600px] p-0 bg-popover backdrop-blur-sm z-50 flex flex-col max-h-[600px]" align="start">
+        <div className="p-4 border-b shrink-0">
           <h3 className="font-semibold text-sm">Filtros</h3>
         </div>
         
-        <ScrollArea className="h-[400px]">
+        <ScrollArea className="flex-1 max-h-[400px]">
           <div className="p-4">
             {/* Grid 2 colunas para melhor organização */}
             <div className="grid grid-cols-2 gap-x-8 gap-y-6">
@@ -212,7 +212,7 @@ export const FilterDropdown = ({
           </div>
         </ScrollArea>
 
-        <div className="p-3 border-t bg-muted/50 flex justify-between items-center">
+        <div className="p-3 border-t bg-muted/50 flex justify-between items-center shrink-0">
           <span className="text-xs text-muted-foreground">
             {activeCount} filtro(s) ativo(s)
           </span>
@@ -221,6 +221,7 @@ export const FilterDropdown = ({
             size="sm"
             onClick={handleReset}
             disabled={activeCount === 0}
+            className="hover:bg-accent"
           >
             Redefinir
           </Button>
