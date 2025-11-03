@@ -220,7 +220,10 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
           .maybeSingle();
 
         const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
-        if (webhookUrl) {
+        if (!webhookUrl) {
+          console.warn("⚠️ WEBHOOK NÃO CONFIGURADO - Orçamento aprovado mas webhook não enviado");
+          toast.warning("Webhook não configurado. Configure em Configurações.");
+        } else {
           try {
             const webhookPayload = {
               ...(fichaAtualizada as any),
@@ -246,14 +249,24 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
 
             if (!response.ok) {
               const errorText = await response.text();
-              console.error("Erro no webhook (HTTP " + response.status + "):", errorText);
+              console.error("❌ ERRO NO WEBHOOK:", {
+                status: response.status,
+                statusText: response.statusText,
+                url: webhookUrl,
+                error: errorText
+              });
+              toast.error(`Webhook falhou (${response.status}): ${errorText.substring(0, 100)}`);
             } else {
-              console.log("Webhook enviado com sucesso após aprovar orçamento");
+              console.log("✅ WEBHOOK ENVIADO COM SUCESSO após aprovação de orçamento:", {
+                url: webhookUrl,
+                timestamp: new Date().toISOString()
+              });
             }
           } catch (webhookError) {
             console.error('Erro ao enviar webhook:', webhookError);
             const errorMessage = webhookError instanceof Error ? webhookError.message : 'Erro desconhecido';
             console.error('Detalhes do erro:', errorMessage);
+            toast.error(`Falha ao enviar webhook: ${errorMessage}`);
           }
         }
       }

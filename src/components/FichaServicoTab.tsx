@@ -81,7 +81,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const enviarWebhook = async (fichaData: Ficha, agendamentoISO: string | undefined, visitaTecnicaISO: string | undefined) => {
     const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
     if (!webhookUrl) {
-      console.log("Webhook não configurado, pulando envio");
+      console.warn("⚠️ WEBHOOK NÃO CONFIGURADO - Ficha salva mas webhook não enviado");
+      toast.warning("Webhook não configurado. Configure em Configurações.");
       return;
     }
 
@@ -158,10 +159,20 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Erro no webhook (HTTP " + response.status + "):", errorText);
-        toast.error("Webhook retornou erro: " + response.status);
+        console.error("❌ ERRO NO WEBHOOK:", {
+          status: response.status,
+          statusText: response.statusText,
+          url: webhookUrl,
+          error: errorText
+        });
+        toast.error(`Webhook falhou (${response.status}): ${errorText.substring(0, 100)}`);
+        throw new Error(`Webhook error: ${response.status}`);
       } else {
-        console.log("Webhook enviado com sucesso");
+        console.log("✅ WEBHOOK ENVIADO COM SUCESSO:", {
+          url: webhookUrl,
+          timestamp: new Date().toISOString()
+        });
+        toast.success("Webhook enviado com sucesso!");
       }
     } catch (webhookError) {
       console.error('Erro ao enviar webhook:', webhookError);

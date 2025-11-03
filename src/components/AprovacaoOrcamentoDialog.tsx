@@ -53,15 +53,23 @@ Aguardamos sua confirmação para darmos sequência 😊.`
   const handleConfirm = async () => {
     if (enviarMensagem && mensagem.trim()) {
       try {
-        const { error } = await supabase.functions.invoke("send-whatsapp", {
-          body: {
-            to: clienteTelefone,
-            message: mensagem,
-          },
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              to: clienteTelefone,
+              message: mensagem,
+            }),
+          }
+        );
 
-        if (error) {
-          console.error("Erro ao enviar WhatsApp:", error);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+          console.error("Erro ao enviar WhatsApp:", errorData);
           toast.error("Erro ao enviar mensagem pelo WhatsApp");
         } else {
           toast.success("Mensagem enviada ao cliente!");
