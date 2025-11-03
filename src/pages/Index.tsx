@@ -16,6 +16,7 @@ const Index = () => {
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [fichaOpen, setFichaOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -80,13 +81,16 @@ const Index = () => {
 
       <div className="flex-1 flex overflow-hidden bg-muted/30">
         <div className={cn(
-          "w-full md:w-80 lg:w-96 border-r bg-background shadow-sm shrink-0",
+          "border-r bg-background shadow-sm shrink-0 transition-all duration-300",
+          sidebarCollapsed ? "w-14 md:w-16" : "w-full md:w-80 lg:w-96",
           selectedCliente && "max-md:hidden"
         )}>
           <ConversationList
             selectedClienteTelefone={selectedCliente?.telefone || null}
             onSelectCliente={handleSelectCliente}
             unreadMessages={unreadMessages}
+            isCollapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           />
         </div>
 

@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
-import { Search, Archive } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterDropdown } from "./FilterDropdown";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -21,21 +21,32 @@ interface Cliente {
   status_ficha?: string;
   unread_count?: number;
   dentroJanela?: boolean;
+  bot_habilitado?: boolean;
 }
 
 interface ConversationListProps {
   selectedClienteTelefone: string | null;
   onSelectCliente: (cliente: Cliente) => void;
   unreadMessages: Record<string, number>;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unreadMessages }: ConversationListProps) => {
+export const ConversationList = ({ 
+  selectedClienteTelefone, 
+  onSelectCliente, 
+  unreadMessages,
+  isCollapsed = false,
+  onToggleCollapse
+}: ConversationListProps) => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [conversaFilter, setConversaFilter] = useState<"todas" | "aberta" | "fechada">("todas");
   const [unreadFilter, setUnreadFilter] = useState<"todas" | "lidas" | "nao_lidas">("todas");
+  const [botFilter, setBotFilter] = useState<"todos" | "ativo" | "desativado">("todos");
+  const [fichaFilter, setFichaFilter] = useState<"todas" | "com_ficha" | "sem_ficha">("todas");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
@@ -108,6 +119,28 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
       );
     }
 
+    // Filtro por status do bot
+    if (botFilter !== "todos") {
+      filtered = filtered.filter(c => {
+        if (botFilter === "ativo") {
+          return c.bot_habilitado !== false;
+        } else {
+          return c.bot_habilitado === false;
+        }
+      });
+    }
+
+    // Filtro por ficha vinculada
+    if (fichaFilter !== "todas") {
+      filtered = filtered.filter(c => {
+        if (fichaFilter === "com_ficha") {
+          return !!c.nome_ficha;
+        } else {
+          return !c.nome_ficha;
+        }
+      });
+    }
+
     setFilteredClientes(filtered);
 
     // Extrair todas as tags únicas
@@ -118,7 +151,7 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
       }
     });
     setAllTags(Array.from(tags));
-  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, selectedTags]);
+  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags]);
 
   const fetchClientes = async () => {
     // Buscar clientes arquivados para o contador
@@ -166,13 +199,14 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
               .eq('id', cliente.ficha_ativa_id)
               .maybeSingle();
 
-            return {
-              ...cliente,
-              nome_ficha: fichaData?.nome_ficha || undefined,
-              status_ficha: fichaData?.status || undefined,
-              unread_count: unreadMessages[cliente.telefone] || 0,
-              dentroJanela
-            };
+          return {
+            ...cliente,
+            nome_ficha: fichaData?.nome_ficha || undefined,
+            status_ficha: fichaData?.status || undefined,
+            unread_count: unreadMessages[cliente.telefone] || 0,
+            dentroJanela,
+            bot_habilitado: cliente.bot_habilitado
+          };
           }
 
           // Se não há ficha ativa, buscar a última ficha criada
@@ -189,7 +223,8 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
             nome_ficha: fichaData?.nome_ficha || undefined,
             status_ficha: fichaData?.status || undefined,
             unread_count: unreadMessages[cliente.telefone] || 0,
-            dentroJanela
+            dentroJanela,
+            bot_habilitado: cliente.bot_habilitado
           };
         })
       );
@@ -302,126 +337,145 @@ export const ConversationList = ({ selectedClienteTelefone, onSelectCliente, unr
   return (
     <div className="h-full flex flex-col bg-card border-r relative">
       <div className="p-2.5 md:p-3 lg:p-4 border-b space-y-1.5 shrink-0">
-        <h2 className="font-semibold text-base md:text-lg">
-          {showArchived ? "Conversas Arquivadas" : "Conversas"}
-        </h2>
-        
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8 h-9 text-sm"
-          />
+        <div className="flex items-center justify-between mb-1">
+          {!isCollapsed && (
+            <h2 className="font-semibold text-base md:text-lg">
+              {showArchived ? "Conversas Arquivadas" : "Conversas"}
+            </h2>
+          )}
+          {onToggleCollapse && (
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 shrink-0"
+              title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+            >
+              {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </Button>
+          )}
         </div>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full h-8 text-xs">
-            <SelectValue placeholder="Todos os status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            <SelectItem value="Ficha Criada">Ficha Criada</SelectItem>
-            <SelectItem value="Contato Inicial">Contato Inicial</SelectItem>
-            <SelectItem value="Orçamento Enviado">Orçamento Enviado</SelectItem>
-            <SelectItem value="Agendado">Agendado</SelectItem>
-            <SelectItem value="Em andamento">Em Andamento</SelectItem>
-            <SelectItem value="Finalizado">Finalizado</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select 
-          value={conversaFilter} 
-          onValueChange={(value: "todas" | "aberta" | "fechada") => setConversaFilter(value)}
-        >
-          <SelectTrigger className="w-full h-8 text-xs">
-            <SelectValue placeholder="Status da conversa" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas as conversas</SelectItem>
-            <SelectItem value="aberta">Abertas (24h)</SelectItem>
-            <SelectItem value="fechada">Fechadas</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select 
-          value={unreadFilter} 
-          onValueChange={(value: "todas" | "lidas" | "nao_lidas") => setUnreadFilter(value)}
-        >
-          <SelectTrigger className="w-full h-8 text-xs">
-            <SelectValue placeholder="Mensagens" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas as mensagens</SelectItem>
-            <SelectItem value="nao_lidas">Não lidas</SelectItem>
-            <SelectItem value="lidas">Lidas</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {allTags.length > 0 && (
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Filtrar por tags:</p>
-            <div className="flex flex-wrap gap-1">
-              {allTags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant={selectedTags.includes(tag) ? "default" : "outline"}
-                  className="cursor-pointer text-xs h-6"
-                  onClick={() => toggleTag(tag)}
-                >
-                  {tag}
-                </Badge>
-              ))}
+        {!isCollapsed && (
+          <>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8 h-9 text-sm"
+              />
             </div>
-          </div>
+
+            <FilterDropdown
+              statusFilter={statusFilter}
+              conversaFilter={conversaFilter}
+              unreadFilter={unreadFilter}
+              botFilter={botFilter}
+              fichaFilter={fichaFilter}
+              onStatusFilterChange={setStatusFilter}
+              onConversaFilterChange={setConversaFilter}
+              onUnreadFilterChange={setUnreadFilter}
+              onBotFilterChange={setBotFilter}
+              onFichaFilterChange={setFichaFilter}
+            />
+
+            {allTags.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Filtrar por tags:</p>
+                <div className="flex flex-wrap gap-1">
+                  {allTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant={selectedTags.includes(tag) ? "default" : "outline"}
+                      className="cursor-pointer text-xs h-6"
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       <ScrollArea className="flex-1">
-        {filteredClientes.length === 0 ? (
-          <div className="flex items-center justify-center p-8 text-center">
-            <p className="text-muted-foreground text-sm">Nenhuma conversa encontrada</p>
+        {isCollapsed ? (
+          // Vista colapsada - mostra apenas indicadores mínimos
+          <div className="p-1 space-y-1">
+            {filteredClientes.slice(0, 10).map((cliente) => (
+              <button
+                key={cliente.telefone}
+                onClick={() => onSelectCliente(cliente)}
+                className={cn(
+                  "w-full h-10 rounded-md flex items-center justify-center relative",
+                  "hover:bg-accent transition-colors",
+                  selectedClienteTelefone === cliente.telefone && "bg-accent"
+                )}
+                title={cliente.nome}
+              >
+                {(unreadMessages[cliente.telefone] || 0) > 0 && (
+                  <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full" />
+                )}
+                <span className="text-xs font-medium">
+                  {cliente.nome.charAt(0).toUpperCase()}
+                </span>
+              </button>
+            ))}
           </div>
         ) : (
-          filteredClientes.map((cliente) => (
-          <ConversationCard
-            key={cliente.telefone}
-            telefone={cliente.telefone}
-            nome={cliente.nome}
-            tags={cliente.tags || []}
-            fichaId={cliente.nome_ficha}
-            fichaStatus={cliente.status_ficha}
-            statusConversa={cliente.status_conversa}
-            ultimaInteracao={cliente.ultima_interacao}
-            isSelected={selectedClienteTelefone === cliente.telefone}
-            unreadCount={unreadMessages[cliente.telefone] || 0}
-            onClick={() => onSelectCliente(cliente)}
-            onOpenTagManager={() => openTagManager(cliente.telefone)}
-            onArchive={() => archiveContact(cliente.telefone)}
-            onUnarchive={() => unarchiveContact(cliente.telefone)}
-            onDelete={() => deleteContact(cliente.telefone)}
-            isArchived={showArchived}
-          />
-          ))
+          // Vista expandida - mostra cards completos
+          <>
+            {filteredClientes.length === 0 ? (
+              <div className="flex items-center justify-center p-8 text-center">
+                <p className="text-muted-foreground text-sm">Nenhuma conversa encontrada</p>
+              </div>
+            ) : (
+              filteredClientes.map((cliente) => (
+                <ConversationCard
+                  key={cliente.telefone}
+                  telefone={cliente.telefone}
+                  nome={cliente.nome}
+                  tags={cliente.tags || []}
+                  fichaId={cliente.nome_ficha}
+                  fichaStatus={cliente.status_ficha}
+                  statusConversa={cliente.status_conversa}
+                  ultimaInteracao={cliente.ultima_interacao}
+                  isSelected={selectedClienteTelefone === cliente.telefone}
+                  unreadCount={unreadMessages[cliente.telefone] || 0}
+                  onClick={() => onSelectCliente(cliente)}
+                  onOpenTagManager={() => openTagManager(cliente.telefone)}
+                  onArchive={() => archiveContact(cliente.telefone)}
+                  onUnarchive={() => unarchiveContact(cliente.telefone)}
+                  onDelete={() => deleteContact(cliente.telefone)}
+                  isArchived={showArchived}
+                />
+              ))
+            )}
+          </>
         )}
       </ScrollArea>
 
       {/* Botão flutuante de arquivados */}
-      <div className="absolute bottom-4 right-4 z-10">
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "h-10 w-10 rounded-full shadow-md hover:shadow-lg transition-all",
-            showArchived ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted hover:bg-muted/80"
-          )}
-          onClick={() => setShowArchived(!showArchived)}
-          title={showArchived ? "Ver conversas ativas" : "Ver conversas arquivadas"}
-        >
-          <Archive className="h-4 w-4" />
-        </Button>
-      </div>
+      {!isCollapsed && (
+        <div className="absolute bottom-4 right-4 z-10">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-10 w-10 rounded-full shadow-md hover:shadow-lg transition-all",
+              showArchived ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted hover:bg-muted/80"
+            )}
+            onClick={() => setShowArchived(!showArchived)}
+            title={showArchived ? "Ver conversas ativas" : "Ver conversas arquivadas"}
+          >
+            <Archive className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Tag Manager Dialog */}
       {currentTagClient && (
