@@ -84,8 +84,6 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
   const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
   const [horaVisitaTecnica, setHoraVisitaTecnica] = useState<string>('');
-  const [statusAnterior, setStatusAnterior] = useState<string>('');
-  const [isSaving, setIsSaving] = useState(false);
 
   // Função de validação de dados
   const validarDadosFicha = (fichaData: Ficha): { valid: boolean; errors: string[] } => {
@@ -214,131 +212,111 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
   };
 
-  // AutoSave SEM webhook - apenas salva no banco
+  // Função única para salvar e enviar webhook
+  const salvarFichaEEnviarWebhook = async (
+    targetFichaId: string,
+    fichaData: Ficha,
+    dataAgend: string,
+    horaAgend: string,
+    dataVisita: string,
+    horaVisita: string
+  ) => {
+    if (!targetFichaId) {
+      console.error('❌ Salvamento: fichaId inválido');
+      toast.error('Erro: ID da ficha não encontrado');
+      return;
+    }
+
+    try {
+      // Validar dados
+      const validation = validarDadosFicha(fichaData);
+      if (!validation.valid) {
+        console.error('❌ Dados inválidos:', validation.errors);
+        toast.error(`Dados inválidos: ${validation.errors.join(', ')}`);
+        return;
+      }
+
+      // Preparar horários ISO
+      let agendamentoISO: string | null = null;
+      if (dataAgend && dataAgend.trim() && horaAgend && horaAgend.trim()) {
+        agendamentoISO = `${dataAgend}T${horaAgend}:00`;
+      } else if (dataAgend && dataAgend.trim()) {
+        agendamentoISO = `${dataAgend}T00:00:00`;
+      }
+
+      let visitaTecnicaISO: string | null = null;
+      if (dataVisita && dataVisita.trim() && horaVisita && horaVisita.trim()) {
+        visitaTecnicaISO = `${dataVisita}T${horaVisita}:00`;
+      } else if (dataVisita && dataVisita.trim()) {
+        visitaTecnicaISO = `${dataVisita}T00:00:00`;
+      }
+
+      console.log(`💾 Salvando ficha ${targetFichaId}`);
+
+      const updateData = {
+        nome_ficha: fichaData.nome_ficha?.trim() || null,
+        descricao: fichaData.descricao?.trim() || null,
+        status: fichaData.status as any,
+        prestador_id: fichaData.prestador_id,
+        valor_total: fichaData.valor_total,
+        valor_mao_obra: fichaData.valor_mao_obra,
+        valor_pecas: fichaData.valor_pecas,
+        tempo_servico: fichaData.tempo_servico?.trim() || null,
+        horario_agendamento: agendamentoISO,
+        cpf: fichaData.cpf?.trim() || null,
+        endereco: fichaData.endereco?.trim() || null,
+        pagamento_tipo: fichaData.pagamento_tipo as any,
+        pagamento_parcelas: fichaData.pagamento_parcelas,
+        pagamento_gerar_link: fichaData.pagamento_gerar_link,
+        notas: fichaData.notas?.trim() || null,
+        categoria_id: fichaData.categoria_id,
+        id_zoho: fichaData.id_zoho?.trim() || null,
+        data_visita_tecnica: fichaData.data_visita_tecnica,
+        horario_visita_tecnica: visitaTecnicaISO,
+        motivo_perda: fichaData.motivo_perda?.trim()?.substring(0, 500) || null,
+      };
+
+      const { error } = await supabase
+        .from('fichas_de_servico')
+        .update(updateData)
+        .eq('id', targetFichaId);
+
+      if (error) {
+        console.error('❌ Erro ao salvar ficha:', error);
+        let errorMsg = 'Erro ao salvar ficha';
+        if (error.message.includes('violates check constraint')) {
+          errorMsg = 'Valor inválido em um dos campos';
+        } else if (error.message.includes('violates foreign key')) {
+          errorMsg = 'Referência inválida (prestador ou categoria)';
+        }
+        toast.error(errorMsg);
+        throw error;
+      }
+
+      console.log('✅ Ficha salva, enviando webhook...');
+      await enviarWebhook(fichaData, agendamentoISO, visitaTecnicaISO);
+    } catch (error) {
+      console.error('❌ Erro no salvamento:', error);
+    }
+  };
+
+  // AutoSave com debounce
   const autoSave = useMemo(
     () =>
-      debounce(async (
-        targetFichaId: string,
-        fichaData: Ficha,
-        dataAgend: string,
-        horaAgend: string,
-        dataVisita: string,
-        horaVisita: string
-      ) => {
-        // Validar fichaId
-        if (!targetFichaId) {
-          console.error('❌ AutoSave: fichaId inválido');
-          toast.error('Erro: ID da ficha não encontrado');
-          return;
-        }
-
-        // Prevenir salvamentos concorrentes
-        if (isSaving) {
-          console.log('⏳ AutoSave cancelado: já existe um salvamento em andamento');
-          return;
-        }
-
-        setIsSaving(true);
-
-        try {
-          // Validar dados
-          const validation = validarDadosFicha(fichaData);
-          if (!validation.valid) {
-            console.error('❌ Dados inválidos:', validation.errors);
-            toast.error(`Dados inválidos: ${validation.errors.join(', ')}`);
-            setIsSaving(false);
-            return;
-          }
-
-          // Preparar horários ISO - APENAS se houver valores válidos
-          let agendamentoISO: string | null = null;
-          if (dataAgend && dataAgend.trim() && horaAgend && horaAgend.trim()) {
-            agendamentoISO = `${dataAgend}T${horaAgend}:00`;
-          } else if (dataAgend && dataAgend.trim()) {
-            agendamentoISO = `${dataAgend}T00:00:00`;
-          }
-
-          let visitaTecnicaISO: string | null = null;
-          if (dataVisita && dataVisita.trim() && horaVisita && horaVisita.trim()) {
-            visitaTecnicaISO = `${dataVisita}T${horaVisita}:00`;
-          } else if (dataVisita && dataVisita.trim()) {
-            visitaTecnicaISO = `${dataVisita}T00:00:00`;
-          }
-
-          console.log(`🔄 AutoSave iniciado para ficha ${targetFichaId}`);
-
-          // Preparar dados limpos (trim em strings)
-          const updateData = {
-            nome_ficha: fichaData.nome_ficha?.trim() || null,
-            descricao: fichaData.descricao?.trim() || null,
-            status: fichaData.status as any,
-            prestador_id: fichaData.prestador_id,
-            valor_total: fichaData.valor_total,
-            valor_mao_obra: fichaData.valor_mao_obra,
-            valor_pecas: fichaData.valor_pecas,
-            tempo_servico: fichaData.tempo_servico?.trim() || null,
-            horario_agendamento: agendamentoISO,
-            cpf: fichaData.cpf?.trim() || null,
-            endereco: fichaData.endereco?.trim() || null,
-            pagamento_tipo: fichaData.pagamento_tipo as any,
-            pagamento_parcelas: fichaData.pagamento_parcelas,
-            pagamento_gerar_link: fichaData.pagamento_gerar_link,
-            notas: fichaData.notas?.trim() || null,
-            categoria_id: fichaData.categoria_id,
-            id_zoho: fichaData.id_zoho?.trim() || null,
-            data_visita_tecnica: fichaData.data_visita_tecnica,
-            horario_visita_tecnica: visitaTecnicaISO,
-            motivo_perda: fichaData.motivo_perda?.trim()?.substring(0, 500) || null,
-          };
-
-          // Salvar no banco COM VALIDAÇÃO DE ID
-          const { data: updatedData, error } = await supabase
-            .from('fichas_de_servico')
-            .update(updateData)
-            .eq('id', targetFichaId)
-            .select()
-            .single();
-
-          if (error) {
-            console.error('❌ Erro detalhado ao salvar ficha:', {
-              code: error.code,
-              message: error.message,
-              details: error.details,
-              hint: error.hint,
-              fichaId: targetFichaId,
-            });
-            
-            // Mensagem específica baseada no erro
-            let errorMsg = 'Erro ao salvar ficha';
-            if (error.message.includes('violates check constraint')) {
-              errorMsg = 'Valor inválido em um dos campos';
-            } else if (error.message.includes('violates foreign key')) {
-              errorMsg = 'Referência inválida (prestador ou categoria)';
-            } else if (error.code === '23505') {
-              errorMsg = 'Valor duplicado';
-            }
-            
-            toast.error(errorMsg);
-            throw error;
-          }
-
-          // Verificar se atualizou a ficha correta
-          if (updatedData && updatedData.id !== targetFichaId) {
-            console.error('⚠️ AVISO: Ficha atualizada diferente da esperada!', {
-              esperado: targetFichaId,
-              atualizado: updatedData.id
-            });
-            toast.error('Erro de sincronização - recarregue a página');
-          }
-
-          console.log('✅ AutoSave concluído com sucesso para ficha:', targetFichaId);
-        } catch (error) {
-          console.error('❌ Erro no AutoSave:', error);
-        } finally {
-          setIsSaving(false);
-        }
-      }, 2000),
-    [isSaving]
+      debounce(
+        (
+          targetFichaId: string,
+          fichaData: Ficha,
+          dataAgend: string,
+          horaAgend: string,
+          dataVisita: string,
+          horaVisita: string
+        ) => {
+          salvarFichaEEnviarWebhook(targetFichaId, fichaData, dataAgend, horaAgend, dataVisita, horaVisita);
+        },
+        2000
+      ),
+    []
   );
 
   useEffect(() => {
@@ -389,7 +367,6 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       };
       
       setFicha(fichaCompleta);
-      setStatusAnterior(fichaCompleta.status);
       
       // ✅ SEMPRE LIMPAR TODOS OS ESTADOS DE HORÁRIO PRIMEIRO
       console.log(`🧹 Limpando estados de horário para ficha ${fichaId}`);
@@ -440,18 +417,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (data) setPrestadores(data as Prestador[]);
   };
 
-  const updateFicha = async (updates: Partial<Ficha>) => {
+  const updateFicha = (updates: Partial<Ficha>) => {
     if (!ficha || !fichaId) {
       console.error('❌ UpdateFicha: ficha ou fichaId inválido');
       return;
     }
     
-    // Validar se é a ficha correta
     if (ficha.id !== fichaId) {
-      console.error('⚠️ AVISO: ID da ficha não corresponde!', {
-        fichaId,
-        ficha_id: ficha.id
-      });
+      console.error('⚠️ AVISO: ID da ficha não corresponde!');
       toast.error('Erro de sincronização - recarregue a página');
       return;
     }
@@ -459,56 +432,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     const updatedFicha = { ...ficha, ...updates };
     setFicha(updatedFicha);
     
-      // Se o status mudou, enviar webhook imediatamente
-      if (updates.status && updates.status !== statusAnterior) {
-        setStatusAnterior(updates.status);
-        
-        let agendamentoISO: string | null = null;
-        if (dataAgendamento && dataAgendamento.trim() && horaAgendamento && horaAgendamento.trim()) {
-          agendamentoISO = `${dataAgendamento}T${horaAgendamento}:00`;
-        } else if (dataAgendamento && dataAgendamento.trim()) {
-          agendamentoISO = `${dataAgendamento}T00:00:00`;
-        }
-
-        let visitaTecnicaISO: string | null = null;
-        if (dataVisitaTecnica && dataVisitaTecnica.trim() && horaVisitaTecnica && horaVisitaTecnica.trim()) {
-          visitaTecnicaISO = `${dataVisitaTecnica}T${horaVisitaTecnica}:00`;
-        } else if (dataVisitaTecnica && dataVisitaTecnica.trim()) {
-          visitaTecnicaISO = `${dataVisitaTecnica}T00:00:00`;
-        }
-      
-      // Salvar no banco usando UPDATE com WHERE específico
-      await supabase
-        .from('fichas_de_servico')
-        .update({
-          status: updatedFicha.status as any,
-          prestador_id: updatedFicha.prestador_id,
-          valor_total: updatedFicha.valor_total,
-          valor_mao_obra: updatedFicha.valor_mao_obra,
-          valor_pecas: updatedFicha.valor_pecas,
-          tempo_servico: updatedFicha.tempo_servico,
-          horario_agendamento: agendamentoISO,
-          cpf: updatedFicha.cpf,
-          endereco: updatedFicha.endereco,
-          pagamento_tipo: updatedFicha.pagamento_tipo as any,
-          pagamento_parcelas: updatedFicha.pagamento_parcelas,
-          pagamento_gerar_link: updatedFicha.pagamento_gerar_link,
-          notas: updatedFicha.notas,
-          categoria_id: updatedFicha.categoria_id,
-          id_zoho: updatedFicha.id_zoho,
-          data_visita_tecnica: updatedFicha.data_visita_tecnica,
-          horario_visita_tecnica: visitaTecnicaISO,
-          motivo_perda: updatedFicha.motivo_perda,
-        })
-        .eq('id', fichaId);
-      
-      // Enviar webhook
-      await enviarWebhook(updatedFicha, agendamentoISO, visitaTecnicaISO);
-      toast.success("Status alterado - Webhook enviado");
-    } else {
-      // Para outros campos, apenas autosave sem webhook
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
-    }
+    // Sempre usar autoSave - ele salva e envia webhook automaticamente
+    autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
   };
 
   const updateDataAgendamento = (data: string) => {
@@ -580,125 +505,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       return;
     }
 
-    // Validar se é a ficha correta
     if (ficha.id !== fichaId) {
-      console.error('⚠️ AVISO: ID da ficha não corresponde!', {
-        fichaId,
-        ficha_id: ficha.id
-      });
+      console.error('⚠️ AVISO: ID da ficha não corresponde!');
       toast.error('Erro de sincronização - recarregue a página');
       return;
     }
 
-    // Prevenir salvamentos concorrentes
-    if (isSaving) {
-      console.log('⏳ SalvarManualmente cancelado: já existe um salvamento em andamento');
-      toast.warning('Aguarde o salvamento anterior finalizar');
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      // Validar dados
-      const validation = validarDadosFicha(ficha);
-      if (!validation.valid) {
-        console.error('❌ Dados inválidos:', validation.errors);
-        toast.error(`Dados inválidos: ${validation.errors.join(', ')}`);
-        setIsSaving(false);
-        return;
-      }
-
-      let agendamentoISO: string | null = null;
-      if (dataAgendamento && dataAgendamento.trim() && horaAgendamento && horaAgendamento.trim()) {
-        agendamentoISO = `${dataAgendamento}T${horaAgendamento}:00`;
-      } else if (dataAgendamento && dataAgendamento.trim()) {
-        agendamentoISO = `${dataAgendamento}T00:00:00`;
-      }
-
-      let visitaTecnicaISO: string | null = null;
-      if (dataVisitaTecnica && dataVisitaTecnica.trim() && horaVisitaTecnica && horaVisitaTecnica.trim()) {
-        visitaTecnicaISO = `${dataVisitaTecnica}T${horaVisitaTecnica}:00`;
-      } else if (dataVisitaTecnica && dataVisitaTecnica.trim()) {
-        visitaTecnicaISO = `${dataVisitaTecnica}T00:00:00`;
-      }
-      
-      console.log(`💾 Salvamento manual para ficha ${fichaId}:`, { agendamentoISO, visitaTecnicaISO });
-      
-      // Preparar dados limpos (trim em strings)
-      const updateData = {
-        nome_ficha: ficha.nome_ficha?.trim() || null,
-        descricao: ficha.descricao?.trim() || null,
-        status: ficha.status as any,
-        prestador_id: ficha.prestador_id,
-        valor_total: ficha.valor_total,
-        valor_mao_obra: ficha.valor_mao_obra,
-        valor_pecas: ficha.valor_pecas,
-        tempo_servico: ficha.tempo_servico?.trim() || null,
-        horario_agendamento: agendamentoISO,
-        cpf: ficha.cpf?.trim() || null,
-        endereco: ficha.endereco?.trim() || null,
-        pagamento_tipo: ficha.pagamento_tipo as any,
-        pagamento_parcelas: ficha.pagamento_parcelas,
-        pagamento_gerar_link: ficha.pagamento_gerar_link,
-        notas: ficha.notas?.trim() || null,
-        categoria_id: ficha.categoria_id,
-        id_zoho: ficha.id_zoho?.trim() || null,
-        data_visita_tecnica: ficha.data_visita_tecnica,
-        horario_visita_tecnica: visitaTecnicaISO,
-        motivo_perda: ficha.motivo_perda?.trim()?.substring(0, 500) || null,
-      };
-
-      const { data: updatedData, error } = await supabase
-        .from('fichas_de_servico')
-        .update(updateData)
-        .eq('id', fichaId)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Erro detalhado ao salvar ficha:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          fichaId: fichaId,
-        });
-        
-        // Mensagem específica baseada no erro
-        let errorMsg = 'Erro ao salvar ficha';
-        if (error.message.includes('violates check constraint')) {
-          errorMsg = 'Valor inválido em um dos campos';
-        } else if (error.message.includes('violates foreign key')) {
-          errorMsg = 'Referência inválida (prestador ou categoria)';
-        } else if (error.code === '23505') {
-          errorMsg = 'Valor duplicado';
-        }
-        
-        toast.error(errorMsg);
-        throw error;
-      }
-
-      // Verificar se atualizou a ficha correta
-      if (updatedData && updatedData.id !== fichaId) {
-        console.error('⚠️ AVISO: Ficha atualizada diferente da esperada!', {
-          esperado: fichaId,
-          atualizado: updatedData.id
-        });
-        toast.error('Erro de sincronização - recarregue a página');
-      }
-
-      console.log('✅ Ficha salva manualmente com sucesso');
-
-      // Enviar webhook ao salvar manualmente
-      await enviarWebhook(ficha, agendamentoISO, visitaTecnicaISO);
-
-      toast.success("Ficha salva com sucesso!");
-    } catch (error) {
-      console.error('❌ Erro ao salvar ficha:', error);
-    } finally {
-      setIsSaving(false);
-    }
+    console.log('💾 Salvamento manual disparado');
+    await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+    toast.success("Ficha salva com sucesso!");
   };
 
   const sincronizarOrcamentos = async (prestadorCpf: string) => {

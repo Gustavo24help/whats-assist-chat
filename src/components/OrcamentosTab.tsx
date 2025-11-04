@@ -171,26 +171,20 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
     const orc = orcamentoParaAprovar;
 
     try {
-      // Reprovar outros orçamentos da mesma ficha
-      const { error: reprovarError } = await supabase
+      // Reprovar outros orçamentos
+      await supabase
         .from('orcamentos')
         .update({ status: 'rejeitado' })
         .eq('ficha_nome', fichaId)
         .neq('id', orc.id);
 
-      if (reprovarError) {
-        console.error("Erro ao reprovar outros orçamentos:", reprovarError);
-      }
-
-      // Atualizar status do orçamento
-      const { error: orcError } = await supabase
+      // Aprovar este orçamento
+      await supabase
         .from('orcamentos')
         .update({ status: 'aprovado' })
         .eq('id', orc.id);
 
-      if (orcError) throw orcError;
-
-      // Atualizar ficha com valores do orçamento
+      // Atualizar ficha - isso vai disparar o webhook automaticamente
       const { error: fichaError } = await supabase
         .from('fichas_de_servico')
         .update({
@@ -204,7 +198,7 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
 
       if (fichaError) throw fichaError;
 
-      // Buscar a ficha completa atualizada para enviar ao webhook
+      // Buscar ficha atualizada e enviar webhook
       const { data: fichaAtualizada } = await supabase
         .from('fichas_de_servico')
         .select('*')
@@ -212,62 +206,37 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
         .single();
 
       if (fichaAtualizada) {
-        // Buscar id_crm do prestador
         const { data: prestadorData } = await supabase
           .from('prestadores')
           .select('id_crm, cpf')
           .eq('cpf', orc.prestador_cpf)
           .maybeSingle();
 
+        const { data: clienteData } = await supabase
+          .from('clientes')
+          .select('nome')
+          .eq('telefone', fichaAtualizada.telefone_cliente)
+          .maybeSingle();
+
         const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
-        if (!webhookUrl) {
-          console.warn("⚠️ WEBHOOK NÃO CONFIGURADO - Orçamento aprovado mas webhook não enviado");
-          toast.warning("Webhook não configurado. Configure em Configurações.");
-        } else {
-          try {
-            const webhookPayload = {
-              ...(fichaAtualizada as any),
-              // Enviar id_crm do prestador (ID do CRM externo)
-              prestador_id_crm: prestadorData?.id_crm || null,
-              // Enviar CPF do prestador para facilitar updates na API externa
-              prestador_cpf: prestadorData?.cpf || orc.prestador_cpf,
-              // Converter boolean para string legível
-              pagamento_gerar_link: fichaAtualizada.pagamento_gerar_link ? "Sim" : "Não",
-              // Metadados úteis
-              timestamp_webhook: new Date().toISOString(),
-              evento: 'orcamento_aprovado',
-            };
+        if (webhookUrl) {
+          const webhookPayload = {
+            ...fichaAtualizada,
+            nome_cliente: clienteData?.nome || 'Desconhecido',
+            prestador_id_crm: prestadorData?.id_crm || null,
+            prestador_cpf: prestadorData?.cpf || orc.prestador_cpf,
+            pagamento_gerar_link: fichaAtualizada.pagamento_gerar_link ? "Sim" : "Não",
+            timestamp_webhook: new Date().toISOString(),
+            evento: 'orcamento_aprovado',
+          };
 
-            console.log("Enviando webhook após aprovação de orçamento:", webhookUrl);
-            console.log("Payload:", JSON.stringify(webhookPayload, null, 2));
-
-            const response = await fetch(webhookUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(webhookPayload),
-            });
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error("❌ ERRO NO WEBHOOK:", {
-                status: response.status,
-                statusText: response.statusText,
-                url: webhookUrl,
-                error: errorText
-              });
-              toast.error(`Webhook falhou (${response.status}): ${errorText.substring(0, 100)}`);
-            } else {
-              console.log("✅ WEBHOOK ENVIADO COM SUCESSO após aprovação de orçamento:", {
-                url: webhookUrl,
-                timestamp: new Date().toISOString()
-              });
-            }
-          } catch (webhookError) {
-            console.error('Erro ao enviar webhook:', webhookError);
-            const errorMessage = webhookError instanceof Error ? webhookError.message : 'Erro desconhecido';
-            console.error('Detalhes do erro:', errorMessage);
-            toast.error(`Falha ao enviar webhook: ${errorMessage}`);
-          }
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload),
+          });
+          
+          console.log("✅ Webhook enviado após aprovar orçamento");
         }
       }
 
