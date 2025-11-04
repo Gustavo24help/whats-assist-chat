@@ -63,9 +63,17 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     if (textarea) {
       // Reset height para calcular corretamente
       textarea.style.height = 'auto';
-      // Setar altura baseado no scrollHeight
-      const newHeight = Math.min(textarea.scrollHeight, 120); // max 120px
+      // Setar altura baseado no scrollHeight com max de 80px (2x o tamanho padrão)
+      const maxHeight = 80;
+      const newHeight = Math.min(textarea.scrollHeight, maxHeight);
       textarea.style.height = `${newHeight}px`;
+      
+      // Adicionar scroll quando atingir o máximo
+      if (textarea.scrollHeight > maxHeight) {
+        textarea.style.overflowY = 'auto';
+      } else {
+        textarea.style.overflowY = 'hidden';
+      }
     }
   }, [novaMsg]);
 
@@ -617,9 +625,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
               }
             }}
             disabled={statusConversa === "fechada"}
-            className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5 overflow-hidden"
+            className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
             rows={1}
-            style={{ height: 'auto' }}
+            style={{ height: 'auto', overflowY: 'hidden' }}
           />
           
           <Button 
