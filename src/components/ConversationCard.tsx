@@ -169,16 +169,9 @@ export const ConversationCard = ({
           {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
         </span>
         
-        <div className="flex items-center gap-1.5">
-          {marcadoNaoLido && (
-            <div className="w-2 h-2 rounded-full bg-destructive shrink-0" />
-          )}
-          {unreadCount > 0 && (
-            <Badge variant="destructive" className="h-4 px-1.5 text-xs shrink-0">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </Badge>
-          )}
-        </div>
+        {(marcadoNaoLido || unreadCount > 0) && (
+          <div className="w-2 h-2 rounded-full bg-destructive shrink-0" />
+        )}
       </div>
 
       <DeleteContactDialog

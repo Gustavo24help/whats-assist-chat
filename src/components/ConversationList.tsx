@@ -323,7 +323,12 @@ export const ConversationList = ({
       toast.error("Erro ao marcar conversa");
     } else {
       toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
-      fetchClientes();
+      // Atualizar localmente sem refetch completo
+      setClientes(prev => prev.map(c => 
+        c.telefone === telefone 
+          ? { ...c, marcado_nao_lido: !currentState }
+          : c
+      ));
     }
   };
 

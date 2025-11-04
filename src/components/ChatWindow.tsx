@@ -82,6 +82,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     fetchMensagens();
     fetchFichaId();
     fetchBotStatus();
+    clearUnreadMark();
 
     const channel = supabase
       .channel(`mensagens-${clienteTelefone}`)
@@ -213,6 +214,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     if (!error && data) {
       setBotDesabilitado(data.bot_habilitado === false);
     }
+  };
+
+  const clearUnreadMark = async () => {
+    await supabase
+      .from('clientes')
+      .update({ marcado_nao_lido: false })
+      .eq('telefone', clienteTelefone);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
