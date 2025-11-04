@@ -183,7 +183,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   // AutoSave SEM webhook - apenas salva no banco
   const autoSave = useCallback(
-    debounce(async (fichaData: Ficha, dataAgend: string, horaAgend: string, dataVisita: string, horaVisita: string) => {
+    debounce(async (fichaId: string, fichaData: Ficha, dataAgend: string, horaAgend: string, dataVisita: string, horaVisita: string) => {
       let agendamentoISO: string | undefined;
       if (dataAgend && horaAgend) {
         agendamentoISO = `${dataAgend}T${horaAgend}:00`;
@@ -199,20 +199,20 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       }
 
       try {
+        console.log(`🔄 AutoSave para ficha ${fichaId}:`, { agendamentoISO, visitaTecnicaISO });
+        
         const { error } = await supabase
           .from('fichas_de_servico')
-          .upsert([{
-            id: fichaData.id,
-            telefone_cliente: fichaData.telefone_cliente,
+          .update({
             nome_ficha: fichaData.nome_ficha,
             descricao: fichaData.descricao,
             status: fichaData.status as any,
             prestador_id: fichaData.prestador_id,
-          valor_total: fichaData.valor_total,
-          valor_mao_obra: fichaData.valor_mao_obra,
-          valor_pecas: fichaData.valor_pecas,
-          tempo_servico: fichaData.tempo_servico,
-          horario_agendamento: agendamentoISO,
+            valor_total: fichaData.valor_total,
+            valor_mao_obra: fichaData.valor_mao_obra,
+            valor_pecas: fichaData.valor_pecas,
+            tempo_servico: fichaData.tempo_servico,
+            horario_agendamento: agendamentoISO,
             cpf: fichaData.cpf,
             endereco: fichaData.endereco,
             pagamento_tipo: fichaData.pagamento_tipo as any,
@@ -224,13 +224,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             data_visita_tecnica: fichaData.data_visita_tecnica,
             horario_visita_tecnica: visitaTecnicaISO,
             motivo_perda: fichaData.motivo_perda,
-          }] as any, { onConflict: 'id' });
+          })
+          .eq('id', fichaId);
 
         if (error) {
           console.error('Erro ao salvar ficha:', error);
           throw error;
         }
-        console.log('Ficha salva automaticamente com sucesso');
+        console.log('✅ Ficha salva automaticamente com sucesso');
       } catch (error) {
         console.error('Erro ao salvar ficha:', error);
         toast.error("Erro ao salvar ficha");
@@ -339,14 +340,10 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         visitaTecnicaISO = `${dataVisitaTecnica}T00:00:00`;
       }
       
-      // Salvar no banco
+      // Salvar no banco usando UPDATE com WHERE específico
       await supabase
         .from('fichas_de_servico')
-        .upsert([{
-          id: updatedFicha.id,
-          telefone_cliente: updatedFicha.telefone_cliente,
-          nome_ficha: updatedFicha.nome_ficha,
-          descricao: updatedFicha.descricao,
+        .update({
           status: updatedFicha.status as any,
           prestador_id: updatedFicha.prestador_id,
           valor_total: updatedFicha.valor_total,
@@ -365,28 +362,29 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           data_visita_tecnica: updatedFicha.data_visita_tecnica,
           horario_visita_tecnica: visitaTecnicaISO,
           motivo_perda: updatedFicha.motivo_perda,
-        }] as any, { onConflict: 'id' });
+        })
+        .eq('id', fichaId);
       
       // Enviar webhook
       await enviarWebhook(updatedFicha, agendamentoISO, visitaTecnicaISO);
       toast.success("Status alterado - Webhook enviado");
     } else {
       // Para outros campos, apenas autosave sem webhook
-      autoSave(updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
     }
   };
 
   const updateDataAgendamento = (data: string) => {
     setDataAgendamento(data);
     if (ficha) {
-      autoSave(ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
     }
   };
 
   const updateHoraAgendamento = (hora: string) => {
     setHoraAgendamento(hora);
     if (ficha) {
-      autoSave(ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica);
     }
   };
 
@@ -395,14 +393,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (ficha) {
       const updatedFicha = { ...ficha, data_visita_tecnica: data };
       setFicha(updatedFicha);
-      autoSave(updatedFicha, dataAgendamento, horaAgendamento, data, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, data, horaVisitaTecnica);
     }
   };
 
   const updateHoraVisitaTecnica = (hora: string) => {
     setHoraVisitaTecnica(hora);
     if (ficha) {
-      autoSave(ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, hora);
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, hora);
     }
   };
 
@@ -424,11 +422,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
     
     try {
+      console.log(`💾 Salvamento manual para ficha ${fichaId}:`, { agendamentoISO, visitaTecnicaISO });
+      
       const { error } = await supabase
         .from('fichas_de_servico')
-        .upsert([{
-          id: ficha.id,
-          telefone_cliente: ficha.telefone_cliente,
+        .update({
           nome_ficha: ficha.nome_ficha,
           descricao: ficha.descricao,
           status: ficha.status as any,
@@ -449,7 +447,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           data_visita_tecnica: ficha.data_visita_tecnica,
           horario_visita_tecnica: visitaTecnicaISO,
           motivo_perda: ficha.motivo_perda,
-        }] as any);
+        })
+        .eq('id', fichaId);
 
       if (error) {
         console.error('Erro ao salvar ficha:', error);
