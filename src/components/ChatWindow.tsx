@@ -54,7 +54,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [botDesabilitado, setBotDesabilitado] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { dentroJanela } = useConversationTimer(clienteTelefone);
+
+  // Auto-resize do textarea
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height para calcular corretamente
+      textarea.style.height = 'auto';
+      // Setar altura baseado no scrollHeight
+      const newHeight = Math.min(textarea.scrollHeight, 120); // max 120px
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, [novaMsg]);
 
   useEffect(() => {
     console.log('[ChatWindow] Inicializando canais Realtime para:', clienteTelefone);
@@ -593,6 +606,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           </Button>
           
           <Textarea
+            ref={textareaRef}
             placeholder={statusConversa === "aberta" ? "Digite sua mensagem..." : "Conversa fechada"}
             value={novaMsg}
             onChange={(e) => setNovaMsg(e.target.value)}
@@ -603,8 +617,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
               }
             }}
             disabled={statusConversa === "fechada"}
-            className="flex-1 min-h-[36px] md:min-h-[40px] max-h-[100px] md:max-h-[120px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
+            className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5 overflow-hidden"
             rows={1}
+            style={{ height: 'auto' }}
           />
           
           <Button 

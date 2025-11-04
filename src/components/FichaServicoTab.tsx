@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock } from "lucide-react";
+import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock, X } from "lucide-react";
 import { toast } from "sonner";
 import debounce from "lodash-es/debounce";
 
@@ -250,18 +250,18 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             return;
           }
 
-          // Preparar horários ISO
-          let agendamentoISO: string | undefined;
-          if (dataAgend && horaAgend) {
+          // Preparar horários ISO - APENAS se houver valores válidos
+          let agendamentoISO: string | null = null;
+          if (dataAgend && dataAgend.trim() && horaAgend && horaAgend.trim()) {
             agendamentoISO = `${dataAgend}T${horaAgend}:00`;
-          } else if (dataAgend) {
+          } else if (dataAgend && dataAgend.trim()) {
             agendamentoISO = `${dataAgend}T00:00:00`;
           }
 
-          let visitaTecnicaISO: string | undefined;
-          if (dataVisita && horaVisita) {
+          let visitaTecnicaISO: string | null = null;
+          if (dataVisita && dataVisita.trim() && horaVisita && horaVisita.trim()) {
             visitaTecnicaISO = `${dataVisita}T${horaVisita}:00`;
-          } else if (dataVisita) {
+          } else if (dataVisita && dataVisita.trim()) {
             visitaTecnicaISO = `${dataVisita}T00:00:00`;
           }
 
@@ -459,23 +459,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     const updatedFicha = { ...ficha, ...updates };
     setFicha(updatedFicha);
     
-    // Se o status mudou, enviar webhook imediatamente
-    if (updates.status && updates.status !== statusAnterior) {
-      setStatusAnterior(updates.status);
-      
-      let agendamentoISO: string | undefined;
-      if (dataAgendamento && horaAgendamento) {
-        agendamentoISO = `${dataAgendamento}T${horaAgendamento}:00`;
-      } else if (dataAgendamento) {
-        agendamentoISO = `${dataAgendamento}T00:00:00`;
-      }
+      // Se o status mudou, enviar webhook imediatamente
+      if (updates.status && updates.status !== statusAnterior) {
+        setStatusAnterior(updates.status);
+        
+        let agendamentoISO: string | null = null;
+        if (dataAgendamento && dataAgendamento.trim() && horaAgendamento && horaAgendamento.trim()) {
+          agendamentoISO = `${dataAgendamento}T${horaAgendamento}:00`;
+        } else if (dataAgendamento && dataAgendamento.trim()) {
+          agendamentoISO = `${dataAgendamento}T00:00:00`;
+        }
 
-      let visitaTecnicaISO: string | undefined;
-      if (dataVisitaTecnica && horaVisitaTecnica) {
-        visitaTecnicaISO = `${dataVisitaTecnica}T${horaVisitaTecnica}:00`;
-      } else if (dataVisitaTecnica) {
-        visitaTecnicaISO = `${dataVisitaTecnica}T00:00:00`;
-      }
+        let visitaTecnicaISO: string | null = null;
+        if (dataVisitaTecnica && dataVisitaTecnica.trim() && horaVisitaTecnica && horaVisitaTecnica.trim()) {
+          visitaTecnicaISO = `${dataVisitaTecnica}T${horaVisitaTecnica}:00`;
+        } else if (dataVisitaTecnica && dataVisitaTecnica.trim()) {
+          visitaTecnicaISO = `${dataVisitaTecnica}T00:00:00`;
+        }
       
       // Salvar no banco usando UPDATE com WHERE específico
       await supabase
@@ -541,6 +541,38 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
   };
 
+  const limparAgendamento = () => {
+    console.log('🧹 Limpando agendamento manualmente');
+    setDataAgendamento('');
+    setHoraAgendamento('');
+    
+    if (ficha) {
+      const updatedFicha = { ...ficha, horario_agendamento: null };
+      setFicha(updatedFicha);
+      autoSave(fichaId, updatedFicha, '', '', dataVisitaTecnica, horaVisitaTecnica);
+    }
+    
+    toast.success('Agendamento limpo');
+  };
+
+  const limparVisitaTecnica = () => {
+    console.log('🧹 Limpando visita técnica manualmente');
+    setDataVisitaTecnica('');
+    setHoraVisitaTecnica('');
+    
+    if (ficha) {
+      const updatedFicha = { 
+        ...ficha, 
+        horario_visita_tecnica: null,
+        data_visita_tecnica: null 
+      };
+      setFicha(updatedFicha);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, '', '');
+    }
+    
+    toast.success('Visita técnica limpa');
+  };
+
   const salvarManualmente = async () => {
     if (!ficha || !fichaId) {
       console.error('❌ SalvarManualmente: ficha ou fichaId inválido');
@@ -577,17 +609,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         return;
       }
 
-      let agendamentoISO: string | undefined;
-      if (dataAgendamento && horaAgendamento) {
+      let agendamentoISO: string | null = null;
+      if (dataAgendamento && dataAgendamento.trim() && horaAgendamento && horaAgendamento.trim()) {
         agendamentoISO = `${dataAgendamento}T${horaAgendamento}:00`;
-      } else if (dataAgendamento) {
+      } else if (dataAgendamento && dataAgendamento.trim()) {
         agendamentoISO = `${dataAgendamento}T00:00:00`;
       }
 
-      let visitaTecnicaISO: string | undefined;
-      if (dataVisitaTecnica && horaVisitaTecnica) {
+      let visitaTecnicaISO: string | null = null;
+      if (dataVisitaTecnica && dataVisitaTecnica.trim() && horaVisitaTecnica && horaVisitaTecnica.trim()) {
         visitaTecnicaISO = `${dataVisitaTecnica}T${horaVisitaTecnica}:00`;
-      } else if (dataVisitaTecnica) {
+      } else if (dataVisitaTecnica && dataVisitaTecnica.trim()) {
         visitaTecnicaISO = `${dataVisitaTecnica}T00:00:00`;
       }
       
@@ -907,10 +939,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               <div>
-                <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  Agendamento do Serviço
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Agendamento do Serviço
+                  </Label>
+                  {(dataAgendamento || horaAgendamento) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={limparAgendamento}
+                      className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                      title="Limpar agendamento"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2 mt-1.5">
                   <div>
                     <Label htmlFor="data_agendamento" className="text-[10px] text-muted-foreground">Data</Label>
@@ -936,10 +981,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               <div className="pt-2 border-t">
-                <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Visita Técnica
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Visita Técnica
+                  </Label>
+                  {(dataVisitaTecnica || horaVisitaTecnica) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={limparVisitaTecnica}
+                      className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                      title="Limpar visita técnica"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2 mt-1.5">
                   <div>
                     <Label htmlFor="data_visita_tecnica" className="text-[10px] text-muted-foreground">Data</Label>
