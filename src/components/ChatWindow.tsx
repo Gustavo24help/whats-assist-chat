@@ -131,10 +131,33 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         }
       });
 
+    // Canal para monitorar mudanças no status do bot
+    const botStatusChannel = supabase
+      .channel(`bot-status-${clienteTelefone}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clientes',
+          filter: `telefone=eq.${clienteTelefone}`
+        },
+        (payload) => {
+          console.log('[ChatWindow] Status do bot atualizado:', payload);
+          if (payload.new && 'bot_habilitado' in payload.new) {
+            setBotDesabilitado(payload.new.bot_habilitado === false);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[ChatWindow] Status do canal bot-status:', status);
+      });
+
     return () => {
       console.log('[ChatWindow] Limpando canais Realtime');
       supabase.removeChannel(channel);
       supabase.removeChannel(broadcastChannel);
+      supabase.removeChannel(botStatusChannel);
     };
   }, [clienteTelefone]);
 
@@ -334,22 +357,54 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
   const toggleBot = async () => {
     try {
-      const novoStatus = botDesabilitado ? 'enabled' : 'disabled';
-      
-      const { error } = await supabase.functions.invoke('toggle-bot-status', {
-        body: {
-          telefone: clienteTelefone,
-          bot_status: novoStatus
+      // Se o bot está habilitado (não desabilitado), precisamos encerrar o fluxo ativo
+      if (!botDesabilitado) {
+        console.log(`[ChatWindow] Encerrando fluxo ativo do bot para ${clienteTelefone}`);
+        
+        const { data, error } = await supabase.functions.invoke('stop-twilio-flow', {
+          body: {
+            telefone: clienteTelefone
+          }
+        });
+
+        if (error) throw error;
+
+        if (data?.success) {
+          setBotDesabilitado(true);
+          toast.success("Bot encerrado e desabilitado com sucesso!");
+          console.log(`[ChatWindow] ✅ Fluxo encerrado: ${data.executionSid}`);
+        } else {
+          // Não havia execução ativa, mas ainda desabilita o bot
+          const { error: toggleError } = await supabase.functions.invoke('toggle-bot-status', {
+            body: {
+              telefone: clienteTelefone,
+              bot_status: 'disabled'
+            }
+          });
+
+          if (toggleError) throw toggleError;
+          
+          setBotDesabilitado(true);
+          toast.info("Bot desabilitado (nenhuma execução ativa encontrada)");
         }
-      });
+      } else {
+        // Reativar bot
+        const { error } = await supabase.functions.invoke('toggle-bot-status', {
+          body: {
+            telefone: clienteTelefone,
+            bot_status: 'enabled'
+          }
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setBotDesabilitado(!botDesabilitado);
-      toast.success(botDesabilitado ? "Bot reativado com sucesso!" : "Bot desabilitado.");
+        setBotDesabilitado(false);
+        toast.success("Bot reativado com sucesso!");
+      }
+      
       setAssumirDialogOpen(false);
     } catch (error) {
-      console.error("Erro ao alterar status do bot:", error);
+      console.error("[ChatWindow] Erro ao alterar status do bot:", error);
       toast.error("Não foi possível alterar o status do bot");
     }
   };
@@ -501,19 +556,35 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {botDesabilitado ? "Habilitar Bot" : "Desabilitar Bot"}
+              {botDesabilitado ? "Reativar Bot?" : "Assumir Atendimento"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {botDesabilitado 
-                ? "Tem certeza que deseja reativar o bot? Ele voltará a responder automaticamente às mensagens deste cliente."
-                : "Tem certeza que deseja desabilitar o bot? Ele não responderá mais às mensagens deste cliente até que você o reative."
-              }
+              {botDesabilitado ? (
+                "Deseja reativar o bot automático para este cliente?"
+              ) : (
+                <div className="space-y-2">
+                  <p>
+                    O bot está atualmente <strong>ativo</strong> para este cliente.
+                  </p>
+                  <p className="text-destructive font-medium">
+                    Ao assumir, esta ação irá:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li>Encerrar imediatamente qualquer fluxo ativo no Twilio Studio</li>
+                    <li>Desabilitar o bot para este cliente</li>
+                    <li>Permitir atendimento 100% manual</li>
+                  </ul>
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={toggleBot}>
-              Confirmar
+            <AlertDialogAction 
+              onClick={toggleBot}
+              className={botDesabilitado ? "" : "bg-destructive hover:bg-destructive/90"}
+            >
+              {botDesabilitado ? "Reativar Bot" : "Assumir Agora"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

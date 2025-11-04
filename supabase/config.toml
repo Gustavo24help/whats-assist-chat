@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.process-bot-reactivation]
 verify_jwt = false
+
+[functions.stop-twilio-flow]
+verify_jwt = false
