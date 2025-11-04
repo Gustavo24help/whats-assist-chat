@@ -342,6 +342,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   );
 
   useEffect(() => {
+    // ✅ Limpar IMEDIATAMENTE ao trocar de ficha
+    console.log(`🔄 Trocando para ficha ${fichaId} - limpando estados`);
+    setDataAgendamento('');
+    setHoraAgendamento('');
+    setDataVisitaTecnica('');
+    setHoraVisitaTecnica('');
+    setFicha(null); // Limpar ficha também
+    
     fetchFicha();
     fetchPrestadores();
 
@@ -383,6 +391,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       setFicha(fichaCompleta);
       setStatusAnterior(fichaCompleta.status);
       
+      // ✅ SEMPRE LIMPAR TODOS OS ESTADOS DE HORÁRIO PRIMEIRO
+      console.log(`🧹 Limpando estados de horário para ficha ${fichaId}`);
+      setDataAgendamento('');
+      setHoraAgendamento('');
+      setDataVisitaTecnica('');
+      setHoraVisitaTecnica('');
+      
+      // ✅ DEPOIS setar apenas se existirem valores
       // Extrair data/hora do agendamento
       if (fichaCompleta.horario_agendamento) {
         const horarioStr = fichaCompleta.horario_agendamento;
@@ -390,9 +406,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         if (partes.length === 2) {
           const dataStr = partes[0];
           const horaStr = partes[1].substring(0, 5);
+          console.log(`📅 Setando horário de agendamento: ${dataStr} ${horaStr}`);
           setDataAgendamento(dataStr);
           setHoraAgendamento(horaStr);
         }
+      } else {
+        console.log(`✅ Ficha ${fichaId} não tem horário de agendamento`);
       }
 
       // Extrair data/hora da visita técnica
@@ -402,9 +421,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         if (partes.length === 2) {
           const dataStr = partes[0];
           const horaStr = partes[1].substring(0, 5);
+          console.log(`🔧 Setando horário de visita técnica: ${dataStr} ${horaStr}`);
           setDataVisitaTecnica(dataStr);
           setHoraVisitaTecnica(horaStr);
         }
+      } else {
+        console.log(`✅ Ficha ${fichaId} não tem horário de visita técnica`);
       }
     }
   };
