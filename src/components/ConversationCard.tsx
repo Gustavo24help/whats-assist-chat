@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,8 @@ interface ConversationCardProps {
   onUnarchive: () => void;
   onDelete: () => void;
   isArchived: boolean;
+  marcadoNaoLido?: boolean;
+  onToggleUnread: () => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -61,7 +63,9 @@ export const ConversationCard = ({
   onArchive,
   onUnarchive,
   onDelete,
-  isArchived
+  isArchived,
+  marcadoNaoLido = false,
+  onToggleUnread
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -98,6 +102,19 @@ export const ConversationCard = ({
           <DropdownMenuContent align="end">
             {!isArchived && (
               <>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleUnread(); }}>
+                  {marcadoNaoLido ? (
+                    <>
+                      <Circle className="mr-2 h-4 w-4" />
+                      Marcar como Lida
+                    </>
+                  ) : (
+                    <>
+                      <CircleDot className="mr-2 h-4 w-4" />
+                      Marcar como Não Lida
+                    </>
+                  )}
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenTagManager(); }}>
                   <Tag className="mr-2 h-4 w-4" />
                   Gerenciar Tags
@@ -152,11 +169,16 @@ export const ConversationCard = ({
           {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
         </span>
         
-        {unreadCount > 0 && (
-          <Badge variant="destructive" className="h-4 px-1.5 text-xs shrink-0">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </Badge>
-        )}
+        <div className="flex items-center gap-1.5">
+          {marcadoNaoLido && (
+            <div className="w-2 h-2 rounded-full bg-destructive shrink-0" />
+          )}
+          {unreadCount > 0 && (
+            <Badge variant="destructive" className="h-4 px-1.5 text-xs shrink-0">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Badge>
+          )}
+        </div>
       </div>
 
       <DeleteContactDialog

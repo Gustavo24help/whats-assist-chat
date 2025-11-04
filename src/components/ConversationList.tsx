@@ -22,6 +22,7 @@ interface Cliente {
   unread_count?: number;
   dentroJanela?: boolean;
   bot_habilitado?: boolean;
+  marcado_nao_lido?: boolean;
 }
 
 interface ConversationListProps {
@@ -103,7 +104,7 @@ export const ConversationList = ({
     // Filtro por mensagens não lidas
     if (unreadFilter !== "todas") {
       filtered = filtered.filter(c => {
-        const hasUnread = (unreadMessages[c.telefone] || 0) > 0;
+        const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
         if (unreadFilter === "nao_lidas") {
           return hasUnread;
         } else {
@@ -205,7 +206,8 @@ export const ConversationList = ({
             status_ficha: fichaData?.status || undefined,
             unread_count: unreadMessages[cliente.telefone] || 0,
             dentroJanela,
-            bot_habilitado: cliente.bot_habilitado
+            bot_habilitado: cliente.bot_habilitado,
+            marcado_nao_lido: cliente.marcado_nao_lido
           };
           }
 
@@ -224,7 +226,8 @@ export const ConversationList = ({
             status_ficha: fichaData?.status || undefined,
             unread_count: unreadMessages[cliente.telefone] || 0,
             dentroJanela,
-            bot_habilitado: cliente.bot_habilitado
+            bot_habilitado: cliente.bot_habilitado,
+            marcado_nao_lido: cliente.marcado_nao_lido
           };
         })
       );
@@ -306,6 +309,20 @@ export const ConversationList = ({
       toast.error("Erro ao deletar contato");
     } else {
       toast.success("Contato deletado permanentemente");
+      fetchClientes();
+    }
+  };
+
+  const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
+    const { error } = await supabase
+      .from('clientes')
+      .update({ marcado_nao_lido: !currentState })
+      .eq('telefone', telefone);
+
+    if (error) {
+      toast.error("Erro ao marcar conversa");
+    } else {
+      toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
       fetchClientes();
     }
   };
@@ -429,6 +446,8 @@ export const ConversationList = ({
                   onUnarchive={() => unarchiveContact(cliente.telefone)}
                   onDelete={() => deleteContact(cliente.telefone)}
                   isArchived={showArchived}
+                  marcadoNaoLido={cliente.marcado_nao_lido}
+                  onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
                 />
               ))
             )}

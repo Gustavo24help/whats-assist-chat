@@ -66,6 +66,7 @@ export type Database = {
           created_at: string | null
           data_bot_desabilitado: string | null
           ficha_ativa_id: string | null
+          marcado_nao_lido: boolean | null
           nome: string
           status_conversa:
             | Database["public"]["Enums"]["status_conversa_enum"]
@@ -80,6 +81,7 @@ export type Database = {
           created_at?: string | null
           data_bot_desabilitado?: string | null
           ficha_ativa_id?: string | null
+          marcado_nao_lido?: boolean | null
           nome?: string
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
@@ -94,6 +96,7 @@ export type Database = {
           created_at?: string | null
           data_bot_desabilitado?: string | null
           ficha_ativa_id?: string | null
+          marcado_nao_lido?: boolean | null
           nome?: string
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
