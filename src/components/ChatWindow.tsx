@@ -228,9 +228,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
     const isAudio = file.type.startsWith('audio/');
+    const isPDF = file.type === 'application/pdf';
 
-    if (!isImage && !isVideo && !isAudio) {
-      toast.error("Apenas imagens, vídeos e áudios são suportados");
+    if (!isImage && !isVideo && !isAudio && !isPDF) {
+      toast.error("Apenas imagens, vídeos, áudios e PDFs são suportados");
       return;
     }
 
@@ -258,9 +259,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       const mediaUrl = urlData.publicUrl;
       
       // Determinar tipo de mensagem
-      let tipoMensagem: "imagem" | "video" | "audio" = "imagem";
+      let tipoMensagem: "imagem" | "video" | "audio" | "arquivo" = "imagem";
       if (isVideo) tipoMensagem = "video";
       if (isAudio) tipoMensagem = "audio";
+      if (isPDF) tipoMensagem = "arquivo";
 
       // Enviar via Twilio apenas com o arquivo (sem texto na mensagem)
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
