@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,7 @@ interface ConversationListProps {
   unreadMessages: Record<string, number>;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  botDisabledAcknowledged?: Set<string>;
 }
 
 export const ConversationList = ({ 
@@ -38,7 +39,8 @@ export const ConversationList = ({
   onSelectCliente, 
   unreadMessages,
   isCollapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  botDisabledAcknowledged = new Set()
 }: ConversationListProps) => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
@@ -54,6 +56,7 @@ export const ConversationList = ({
   const [currentTagClient, setCurrentTagClient] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
+  const [showBotDisabledOnly, setShowBotDisabledOnly] = useState(false);
 
   useEffect(() => {
     fetchClientes();
@@ -74,6 +77,11 @@ export const ConversationList = ({
 
   useEffect(() => {
     let filtered = clientes;
+
+    // Filtro de bot desabilitado (tem prioridade)
+    if (showBotDisabledOnly) {
+      filtered = filtered.filter(c => c.bot_habilitado === false);
+    }
 
     // Filtro por busca de texto
     if (searchTerm) {
@@ -152,7 +160,7 @@ export const ConversationList = ({
       }
     });
     setAllTags(Array.from(tags));
-  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags]);
+  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly]);
 
   const fetchClientes = async () => {
     // Buscar clientes arquivados para o contador
@@ -390,6 +398,23 @@ export const ConversationList = ({
               />
             </div>
 
+            {/* Indicador de bots desabilitados */}
+            {clientes.filter(c => c.bot_habilitado === false && !botDisabledAcknowledged.has(c.telefone)).length > 0 && (
+              <Button
+                variant={showBotDisabledOnly ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowBotDisabledOnly(!showBotDisabledOnly)}
+                className="w-full justify-start gap-2"
+              >
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 shrink-0">
+                  <AlertTriangle className="h-3 w-3 text-white" />
+                </div>
+                <span className="text-sm">
+                  {clientes.filter(c => c.bot_habilitado === false && !botDisabledAcknowledged.has(c.telefone)).length} {clientes.filter(c => c.bot_habilitado === false && !botDisabledAcknowledged.has(c.telefone)).length === 1 ? 'conversa precisa' : 'conversas precisam'} de atendimento
+                </span>
+              </Button>
+            )}
+
             <FilterDropdown
               statusFilter={statusFilter}
               conversaFilter={conversaFilter}
@@ -453,6 +478,8 @@ export const ConversationList = ({
                   isArchived={showArchived}
                   marcadoNaoLido={cliente.marcado_nao_lido}
                   onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
+                  botHabilitado={cliente.bot_habilitado}
+                  botDisabledAcknowledged={botDisabledAcknowledged.has(cliente.telefone)}
                 />
               ))
             )}

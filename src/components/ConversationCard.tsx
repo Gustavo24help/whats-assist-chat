@@ -26,6 +26,8 @@ interface ConversationCardProps {
   isArchived: boolean;
   marcadoNaoLido?: boolean;
   onToggleUnread: () => void;
+  botHabilitado?: boolean;
+  botDisabledAcknowledged?: boolean;
 }
 
 const getStatusColor = (status: string) => {
@@ -65,7 +67,9 @@ export const ConversationCard = ({
   onDelete,
   isArchived,
   marcadoNaoLido = false,
-  onToggleUnread
+  onToggleUnread,
+  botHabilitado = true,
+  botDisabledAcknowledged = false
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -169,9 +173,16 @@ export const ConversationCard = ({
           {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
         </span>
         
-        {(marcadoNaoLido || unreadCount > 0) && (
-          <div className="w-2 h-2 rounded-full bg-destructive shrink-0" />
-        )}
+        <div className="flex items-center gap-1.5">
+          {!botHabilitado && !botDisabledAcknowledged && (
+            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 shrink-0">
+              <span className="text-white text-xs font-bold">!</span>
+            </div>
+          )}
+          {(marcadoNaoLido || unreadCount > 0) && (
+            <div className="w-2 h-2 rounded-full bg-destructive shrink-0" />
+          )}
+        </div>
       </div>
 
       <DeleteContactDialog

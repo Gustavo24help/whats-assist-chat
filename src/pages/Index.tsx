@@ -17,6 +17,7 @@ const Index = () => {
   const [fichaOpen, setFichaOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [botDisabledAcknowledged, setBotDisabledAcknowledged] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -56,6 +57,10 @@ const Index = () => {
       ...prev,
       [cliente.telefone]: 0
     }));
+    // Mark bot disabled alert as acknowledged
+    if (cliente.bot_habilitado === false) {
+      setBotDisabledAcknowledged(prev => new Set(prev).add(cliente.telefone));
+    }
   };
 
   return (
@@ -91,6 +96,7 @@ const Index = () => {
               unreadMessages={unreadMessages}
               isCollapsed={sidebarCollapsed}
               onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+              botDisabledAcknowledged={botDisabledAcknowledged}
             />
           </div>
         )}
