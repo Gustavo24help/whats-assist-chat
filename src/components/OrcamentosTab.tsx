@@ -218,7 +218,15 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
           .eq('telefone', fichaAtualizada.telefone_cliente)
           .maybeSingle();
 
-        const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
+        // Buscar webhook do banco
+        const { data: webhookConfig } = await supabase
+          .from('configuracoes')
+          .select('valor')
+          .eq('chave', 'webhook_ficha_atualizada')
+          .single();
+
+        const webhookUrl = webhookConfig?.valor;
+
         if (webhookUrl) {
           const webhookPayload = {
             ...fichaAtualizada,

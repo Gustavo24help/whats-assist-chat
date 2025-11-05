@@ -26,36 +26,91 @@ const Settings = () => {
   const [webhookCriarFicha, setWebhookCriarFicha] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem('webhook_ficha_atualizada');
-    if (saved) setWebhookUrl(saved);
-    
-    fetchWebhookCriarFicha();
+    fetchConfiguracoes();
   }, []);
 
-  const fetchWebhookCriarFicha = async () => {
+  const fetchConfiguracoes = async () => {
     const { supabase } = await import("@/integrations/supabase/client");
     const { data } = await supabase
       .from("configuracoes")
-      .select("valor")
-      .eq("chave", "webhook_criar_ficha")
-      .single();
+      .select("chave, valor")
+      .in("chave", [
+        "twilio_account_sid",
+        "twilio_auth_token",
+        "twilio_phone_number",
+        "webhook_criar_ficha",
+        "webhook_ficha_atualizada"
+      ]);
 
-    if (data?.valor) {
-      setWebhookCriarFicha(data.valor);
+    if (data) {
+      data.forEach((config) => {
+        switch (config.chave) {
+          case "twilio_account_sid":
+            setTwilioAccountSid(config.valor || "");
+            break;
+          case "twilio_auth_token":
+            setTwilioAuthToken(config.valor || "");
+            break;
+          case "twilio_phone_number":
+            setTwilioPhoneNumber(config.valor || "");
+            break;
+          case "webhook_criar_ficha":
+            setWebhookCriarFicha(config.valor || "");
+            break;
+          case "webhook_ficha_atualizada":
+            setWebhookUrl(config.valor || "");
+            break;
+        }
+      });
     }
   };
 
-  const handleSaveSettings = () => {
-    // Aqui você implementaria a lógica para salvar as configurações
-    // usando edge functions ou Supabase
+  const handleSaveSettings = async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const configs = [
+      { chave: "twilio_account_sid", valor: twilioAccountSid, descricao: "Twilio Account SID" },
+      { chave: "twilio_auth_token", valor: twilioAuthToken, descricao: "Twilio Auth Token" },
+      { chave: "twilio_phone_number", valor: twilioPhoneNumber, descricao: "Twilio Phone Number" }
+    ];
+
+    const { error } = await supabase
+      .from("configuracoes")
+      .upsert(configs, { onConflict: "chave" });
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar configurações da API Twilio",
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
       title: "Configurações salvas",
       description: "As credenciais da Twilio foram salvas com sucesso.",
     });
   };
 
-  const handleSaveWebhook = () => {
-    localStorage.setItem('webhook_ficha_atualizada', webhookUrl);
+  const handleSaveWebhook = async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { error } = await supabase
+      .from("configuracoes")
+      .upsert({
+        chave: "webhook_ficha_atualizada",
+        valor: webhookUrl,
+        descricao: "Webhook de atualização de ficha"
+      }, { onConflict: "chave" });
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar webhook",
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
       title: "Webhook salvo",
       description: "O webhook foi configurado com sucesso.",
@@ -66,8 +121,11 @@ const Settings = () => {
     const { supabase } = await import("@/integrations/supabase/client");
     const { error } = await supabase
       .from("configuracoes")
-      .update({ valor: webhookCriarFicha })
-      .eq("chave", "webhook_criar_ficha");
+      .upsert({
+        chave: "webhook_criar_ficha",
+        valor: webhookCriarFicha,
+        descricao: "Webhook de criação de ficha"
+      }, { onConflict: "chave" });
 
     if (error) {
       toast({

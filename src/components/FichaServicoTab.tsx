@@ -111,7 +111,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   // Função centralizada para enviar webhook
   const enviarWebhook = async (fichaData: Ficha, agendamentoISO: string | undefined, visitaTecnicaISO: string | undefined) => {
-    const webhookUrl = localStorage.getItem('webhook_ficha_atualizada');
+    // Buscar webhook do banco
+    const { data: config } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'webhook_ficha_atualizada')
+      .single();
+    
+    const webhookUrl = config?.valor;
+    
     if (!webhookUrl) {
       console.warn("⚠️ WEBHOOK NÃO CONFIGURADO - Ficha salva mas webhook não enviado");
       toast.warning("Webhook não configurado. Configure em Configurações.");
