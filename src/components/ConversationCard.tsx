@@ -145,9 +145,9 @@ export const ConversationCard = ({
       </div>
 
       {/* Linha 2: Nome e Telefone */}
-      <div className="flex items-center justify-between mb-1 gap-2">
-        <h3 className="font-semibold text-sm truncate flex-1">{nome}</h3>
-        <span className="text-xs text-muted-foreground shrink-0">{telefone}</span>
+      <div className="flex items-center justify-between mb-1 gap-2 min-w-0">
+        <h3 className="font-semibold text-sm truncate min-w-0">{nome}</h3>
+        <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">{telefone}</span>
       </div>
 
       {/* Linha 3: Ficha Ativa e Status */}

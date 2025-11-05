@@ -84,6 +84,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
   const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
   const [horaVisitaTecnica, setHoraVisitaTecnica] = useState<string>('');
+  const [nomeCliente, setNomeCliente] = useState<string>('');
 
   // Função de validação de dados
   const validarDadosFicha = (fichaData: Ficha): { valid: boolean; errors: string[] } => {
@@ -368,6 +369,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       
       setFicha(fichaCompleta);
       
+      // Buscar nome do cliente
+      const { data: clienteData } = await supabase
+        .from('clientes')
+        .select('nome')
+        .eq('telefone', fichaCompleta.telefone_cliente)
+        .single();
+      
+      if (clienteData) {
+        setNomeCliente(clienteData.nome);
+      }
+      
       // ✅ SEMPRE LIMPAR TODOS OS ESTADOS DE HORÁRIO PRIMEIRO
       console.log(`🧹 Limpando estados de horário para ficha ${fichaId}`);
       setDataAgendamento('');
@@ -463,6 +475,29 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     setHoraVisitaTecnica(hora);
     if (ficha) {
       autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, hora);
+    }
+  };
+
+  const updateNomeCliente = async (novoNome: string) => {
+    setNomeCliente(novoNome);
+    
+    if (!ficha?.telefone_cliente) return;
+    
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .update({ nome: novoNome })
+        .eq('telefone', ficha.telefone_cliente);
+      
+      if (error) {
+        console.error('Erro ao atualizar nome do cliente:', error);
+        toast.error('Erro ao atualizar nome do cliente');
+      } else {
+        toast.success('Nome do cliente atualizado com sucesso');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar nome do cliente:', error);
+      toast.error('Erro ao atualizar nome do cliente');
     }
   };
 
@@ -1018,6 +1053,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </AccordionTrigger>
           <AccordionContent className="px-2.5 pb-2.5">
             <div className="space-y-2 w-full">
+              <div>
+                <Label htmlFor="nome_cliente" className="text-xs font-medium text-gray-600">Nome do Cliente</Label>
+                <Input
+                  id="nome_cliente"
+                  value={nomeCliente}
+                  onChange={(e) => updateNomeCliente(e.target.value)}
+                  placeholder="Nome do cliente"
+                  className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
               <div>
                 <Label htmlFor="telefone_cliente" className="text-xs font-medium text-gray-600">Telefone do Cliente</Label>
                 <Input
