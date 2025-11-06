@@ -22,6 +22,7 @@ interface Cliente {
   unread_count?: number;
   dentroJanela?: boolean;
   bot_habilitado?: boolean;
+  bot_desativado_notificacao_vista?: boolean;
   marcado_nao_lido?: boolean;
 }
 
@@ -80,7 +81,10 @@ export const ConversationList = ({
 
     // Filtro de bot desabilitado (tem prioridade)
     if (showBotDisabledOnly) {
-      filtered = filtered.filter(c => c.bot_habilitado === false);
+      filtered = filtered.filter(c => 
+        c.bot_habilitado === false && 
+        c.bot_desativado_notificacao_vista === false
+      );
     }
 
     // Filtro por busca de texto
@@ -399,7 +403,7 @@ export const ConversationList = ({
             </div>
 
             {/* Indicador de bots desabilitados */}
-            {clientes.filter(c => c.bot_habilitado === false && !botDisabledAcknowledged.has(c.telefone)).length > 0 && (
+            {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false).length > 0 && (
               <Button
                 variant={showBotDisabledOnly ? "default" : "outline"}
                 size="sm"
@@ -410,7 +414,7 @@ export const ConversationList = ({
                   <AlertTriangle className="h-3 w-3 text-white" />
                 </div>
                 <span className="text-sm">
-                  {clientes.filter(c => c.bot_habilitado === false && !botDisabledAcknowledged.has(c.telefone)).length} {clientes.filter(c => c.bot_habilitado === false && !botDisabledAcknowledged.has(c.telefone)).length === 1 ? 'conversa precisa' : 'conversas precisam'} de atendimento
+                  {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false).length} {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false).length === 1 ? 'conversa precisa' : 'conversas precisam'} de atendimento
                 </span>
               </Button>
             )}
@@ -478,8 +482,8 @@ export const ConversationList = ({
                   isArchived={showArchived}
                   marcadoNaoLido={cliente.marcado_nao_lido}
                   onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
-                  botHabilitado={cliente.bot_habilitado}
-                  botDisabledAcknowledged={botDisabledAcknowledged.has(cliente.telefone)}
+            botHabilitado={cliente.bot_habilitado}
+            botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
                 />
               ))
             )}

@@ -62,6 +62,7 @@ export type Database = {
       clientes: {
         Row: {
           arquivado: boolean
+          bot_desativado_notificacao_vista: boolean | null
           bot_habilitado: boolean | null
           created_at: string | null
           data_bot_desabilitado: string | null
@@ -77,6 +78,7 @@ export type Database = {
         }
         Insert: {
           arquivado?: boolean
+          bot_desativado_notificacao_vista?: boolean | null
           bot_habilitado?: boolean | null
           created_at?: string | null
           data_bot_desabilitado?: string | null
@@ -92,6 +94,7 @@ export type Database = {
         }
         Update: {
           arquivado?: boolean
+          bot_desativado_notificacao_vista?: boolean | null
           bot_habilitado?: boolean | null
           created_at?: string | null
           data_bot_desabilitado?: string | null

@@ -27,7 +27,7 @@ interface ConversationCardProps {
   marcadoNaoLido?: boolean;
   onToggleUnread: () => void;
   botHabilitado?: boolean;
-  botDisabledAcknowledged?: boolean;
+  botDesativadoNotificacaoVista?: boolean;
 }
 
 const getStatusColor = (status: string) => {
@@ -69,7 +69,7 @@ export const ConversationCard = ({
   marcadoNaoLido = false,
   onToggleUnread,
   botHabilitado = true,
-  botDisabledAcknowledged = false
+  botDesativadoNotificacaoVista = true
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -174,7 +174,7 @@ export const ConversationCard = ({
         </span>
         
         <div className="flex items-center gap-1.5">
-          {!botHabilitado && !botDisabledAcknowledged && (
+          {!botHabilitado && !botDesativadoNotificacaoVista && (
             <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 shrink-0">
               <span className="text-white text-xs font-bold">!</span>
             </div>

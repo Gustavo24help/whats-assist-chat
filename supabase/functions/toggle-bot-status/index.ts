@@ -43,13 +43,15 @@ Deno.serve(async (req) => {
 
     const botHabilitado = bot_status === 'enabled';
     const dataDesabilitado = bot_status === 'disabled' ? new Date().toISOString() : null;
+    const notificacaoVista = bot_status === 'disabled' ? false : null;
 
     // Atualizar status do bot no cliente
     const { error: updateError } = await supabase
       .from('clientes')
       .update({
         bot_habilitado: botHabilitado,
-        data_bot_desabilitado: dataDesabilitado
+        data_bot_desabilitado: dataDesabilitado,
+        bot_desativado_notificacao_vista: notificacaoVista
       })
       .eq('telefone', telefone);
 

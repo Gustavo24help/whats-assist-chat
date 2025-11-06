@@ -50,16 +50,27 @@ const Index = () => {
     }));
   };
 
-  const handleSelectCliente = (cliente: any) => {
+  const handleSelectCliente = async (cliente: any) => {
     setSelectedCliente(cliente);
     // Clear unread count when opening conversation
     setUnreadMessages(prev => ({
       ...prev,
       [cliente.telefone]: 0
     }));
-    // Mark bot disabled alert as acknowledged
+    
+    // Mark bot disabled notification as seen in database when opening conversation
     if (cliente.bot_habilitado === false) {
       setBotDisabledAcknowledged(prev => new Set(prev).add(cliente.telefone));
+      
+      // Update database to mark notification as seen
+      const { error } = await supabase
+        .from('clientes')
+        .update({ bot_desativado_notificacao_vista: true })
+        .eq('telefone', cliente.telefone);
+      
+      if (error) {
+        console.error('Erro ao marcar notificação como vista:', error);
+      }
     }
   };
 
