@@ -166,6 +166,20 @@ export const ConversationList = ({
     setAllTags(Array.from(tags));
   }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly]);
 
+  // Auto-limpar filtro de bot desativado quando não houver mais conversas com aviso
+  useEffect(() => {
+    if (showBotDisabledOnly) {
+      const botDisabledCount = clientes.filter(c => 
+        c.bot_habilitado === false && 
+        c.bot_desativado_notificacao_vista === false
+      ).length;
+      
+      if (botDisabledCount === 0) {
+        setShowBotDisabledOnly(false);
+      }
+    }
+  }, [clientes, showBotDisabledOnly]);
+
   const fetchClientes = async () => {
     // Buscar clientes arquivados para o contador
     const { count } = await supabase
