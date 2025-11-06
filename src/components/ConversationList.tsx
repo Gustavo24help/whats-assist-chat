@@ -219,6 +219,7 @@ export const ConversationList = ({
             unread_count: unreadMessages[cliente.telefone] || 0,
             dentroJanela,
             bot_habilitado: cliente.bot_habilitado,
+            bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
             marcado_nao_lido: cliente.marcado_nao_lido
           };
           }
@@ -239,6 +240,7 @@ export const ConversationList = ({
             unread_count: unreadMessages[cliente.telefone] || 0,
             dentroJanela,
             bot_habilitado: cliente.bot_habilitado,
+            bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
             marcado_nao_lido: cliente.marcado_nao_lido
           };
         })
