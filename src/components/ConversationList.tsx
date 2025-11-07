@@ -58,6 +58,7 @@ export const ConversationList = ({
   const [showArchived, setShowArchived] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
   const [showBotDisabledOnly, setShowBotDisabledOnly] = useState(false);
+  const [clientesTelefonesPorPrestador, setClientesTelefonesPorPrestador] = useState<string[]>([]);
 
   useEffect(() => {
     fetchClientes();
@@ -93,7 +94,8 @@ export const ConversationList = ({
         c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.telefone.includes(searchTerm) ||
         (c.nome_ficha && c.nome_ficha.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (c.tags && c.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
+        (c.tags && c.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+        clientesTelefonesPorPrestador.includes(c.telefone)
       );
     }
 
@@ -164,7 +166,7 @@ export const ConversationList = ({
       }
     });
     setAllTags(Array.from(tags));
-  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly]);
+  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly, clientesTelefonesPorPrestador, unreadMessages]);
 
   // Auto-limpar filtro de bot desativado quando não houver mais conversas com aviso
   useEffect(() => {
@@ -179,6 +181,47 @@ export const ConversationList = ({
       }
     }
   }, [clientes, showBotDisabledOnly]);
+
+  // Buscar clientes por nome do prestador
+  useEffect(() => {
+    const buscarClientesPorPrestador = async () => {
+      if (!searchTerm) {
+        setClientesTelefonesPorPrestador([]);
+        return;
+      }
+
+      // 1. Buscar prestadores cujo nome contenha o termo
+      const { data: prestadores } = await supabase
+        .from('prestadores')
+        .select('cpf')
+        .ilike('nome', `%${searchTerm}%`);
+
+      if (!prestadores || prestadores.length === 0) {
+        setClientesTelefonesPorPrestador([]);
+        return;
+      }
+
+      // 2. Pegar os CPFs dos prestadores encontrados
+      const cpfs = prestadores.map(p => p.cpf);
+
+      // 3. Buscar fichas que têm esses prestadores
+      const { data: fichas } = await supabase
+        .from('fichas_de_servico')
+        .select('telefone_cliente')
+        .in('prestador_id', cpfs);
+
+      if (!fichas || fichas.length === 0) {
+        setClientesTelefonesPorPrestador([]);
+        return;
+      }
+
+      // 4. Extrair telefones únicos dos clientes
+      const telefones = [...new Set(fichas.map(f => f.telefone_cliente))];
+      setClientesTelefonesPorPrestador(telefones);
+    };
+
+    buscarClientesPorPrestador();
+  }, [searchTerm]);
 
   const fetchClientes = async () => {
     // Buscar clientes arquivados para o contador
