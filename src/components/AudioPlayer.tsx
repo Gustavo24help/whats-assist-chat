@@ -57,28 +57,25 @@ export const AudioPlayer = ({ src, className }: AudioPlayerProps) => {
     audio.currentTime = percentage * duration;
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     try {
       setIsDownloading(true);
-      const response = await fetch(src);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
       
-      // Extrair extensão da URL ou usar .ogg como padrão
-      const extension = src.split('.').pop()?.split('?')[0] || 'ogg';
-      a.download = `audio_${Date.now()}.${extension}`;
+      // Criar elemento <a> para download
+      const a = document.createElement('a');
+      a.href = src;
+      a.download = `audio_${Date.now()}.ogg`;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
       
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      toast.success("Áudio baixado com sucesso!");
+      toast.success("Download iniciado!");
     } catch (error) {
       console.error('Erro ao baixar áudio:', error);
-      toast.error("Erro ao baixar áudio");
+      toast.error("Erro ao iniciar download");
     } finally {
       setIsDownloading(false);
     }
