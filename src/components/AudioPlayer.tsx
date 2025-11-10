@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface AudioPlayerProps {
   src: string;
@@ -12,6 +13,7 @@ export const AudioPlayer = ({ src, className }: AudioPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -55,6 +57,33 @@ export const AudioPlayer = ({ src, className }: AudioPlayerProps) => {
     audio.currentTime = percentage * duration;
   };
 
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+      const response = await fetch(src);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Extrair extensão da URL ou usar .ogg como padrão
+      const extension = src.split('.').pop()?.split('?')[0] || 'ogg';
+      a.download = `audio_${Date.now()}.${extension}`;
+      
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success("Áudio baixado com sucesso!");
+    } catch (error) {
+      console.error('Erro ao baixar áudio:', error);
+      toast.error("Erro ao baixar áudio");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const formatTime = (time: number) => {
     if (isNaN(time)) return "0:00";
     const minutes = Math.floor(time / 60);
@@ -79,6 +108,16 @@ export const AudioPlayer = ({ src, className }: AudioPlayerProps) => {
         ) : (
           <Play className="h-4 w-4 text-primary ml-0.5" />
         )}
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleDownload}
+        disabled={isDownloading}
+        className="h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 shrink-0"
+      >
+        <Download className="h-4 w-4 text-primary" />
       </Button>
 
       <div className="flex-1 space-y-1">
