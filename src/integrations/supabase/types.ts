@@ -255,6 +255,7 @@ export type Database = {
           id: string
           message_sid: string | null
           remetente: string
+          reply_to_message_id: string | null
           status: Database["public"]["Enums"]["status_mensagem_enum"] | null
           status_atualizado_em: string | null
           texto: string | null
@@ -268,6 +269,7 @@ export type Database = {
           id?: string
           message_sid?: string | null
           remetente: string
+          reply_to_message_id?: string | null
           status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
           status_atualizado_em?: string | null
           texto?: string | null
@@ -281,6 +283,7 @@ export type Database = {
           id?: string
           message_sid?: string | null
           remetente?: string
+          reply_to_message_id?: string | null
           status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
           status_atualizado_em?: string | null
           texto?: string | null
@@ -299,6 +302,13 @@ export type Database = {
             columns: ["ficha_id"]
             isOneToOne: false
             referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "mensagens"
             referencedColumns: ["id"]
           },
         ]

@@ -10,12 +10,14 @@ import {
 } from "@/components/ui/context-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ClipboardCopy, FileText, Calendar, User, DollarSign } from "lucide-react";
+import { ClipboardCopy, FileText, Calendar, User, DollarSign, Reply } from "lucide-react";
 
 interface MessageContextMenuProps {
   children: React.ReactNode;
   messageText: string;
   fichaId: string | null;
+  messageData?: any;
+  onReply?: (message: any) => void;
 }
 
 const FIELD_GROUPS = {
@@ -38,7 +40,7 @@ const FIELD_GROUPS = {
   ],
 };
 
-export const MessageContextMenu = ({ children, messageText, fichaId }: MessageContextMenuProps) => {
+export const MessageContextMenu = ({ children, messageText, fichaId, messageData, onReply }: MessageContextMenuProps) => {
   const [selectedText, setSelectedText] = useState("");
 
   const handleCopyText = () => {
@@ -94,6 +96,13 @@ export const MessageContextMenu = ({ children, messageText, fichaId }: MessageCo
           <ClipboardCopy className="mr-2 h-4 w-4" />
           {selectedText ? "Copiar seleção" : "Copiar mensagem"}
         </ContextMenuItem>
+
+        {onReply && messageData && (
+          <ContextMenuItem onClick={() => onReply(messageData)}>
+            <Reply className="mr-2 h-4 w-4" />
+            Responder
+          </ContextMenuItem>
+        )}
 
         {fichaId && (
           <ContextMenuSub>

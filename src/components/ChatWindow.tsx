@@ -14,6 +14,7 @@ import { useConversationTimer } from "@/hooks/useConversationTimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
 import { MessageContextMenu } from "./MessageContextMenu";
+import { ReplyIndicator } from "./ReplyIndicator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +35,49 @@ interface Mensagem {
   remetente: "cliente" | "atendente" | "bot";
   status: "enviado" | "recebido" | "lido";
   status_atualizado_em?: string;
+  reply_to_message_id?: string | null;
+  reply_to?: Mensagem | null;
 }
+
+const QuotedMessage = ({ quotedMsg }: { quotedMsg: Mensagem | null }) => {
+  if (!quotedMsg) return null;
+  
+  const getSenderName = (remetente: string) => {
+    switch (remetente) {
+      case "atendente": return "Você";
+      case "bot": return "Bot";
+      default: return "Cliente";
+    }
+  };
+
+  const getPreview = () => {
+    if (quotedMsg.tipo === "texto" && quotedMsg.texto) {
+      return quotedMsg.texto.length > 50 
+        ? quotedMsg.texto.substring(0, 50) + "..."
+        : quotedMsg.texto;
+    }
+    
+    const mediaIcons: Record<string, string> = {
+      audio: "🎵 Áudio",
+      imagem: "🖼️ Imagem",
+      video: "🎥 Vídeo",
+      arquivo: "📄 Arquivo"
+    };
+    
+    return mediaIcons[quotedMsg.tipo] || "Mensagem";
+  };
+
+  return (
+    <div className="bg-black/10 dark:bg-white/10 border-l-4 border-l-current pl-2 py-1 mb-2 rounded-r">
+      <div className="text-xs font-semibold opacity-80">
+        {getSenderName(quotedMsg.remetente)}
+      </div>
+      <div className="text-xs opacity-70 truncate">
+        {getPreview()}
+      </div>
+    </div>
+  );
+};
 
 const MessageStatusIndicator = ({ status, remetente }: { status: string | null, remetente: string }) => {
   // Só mostrar para mensagens do atendente
@@ -79,6 +122,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [fichaId, setFichaId] = useState<string | undefined>();
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Mensagem | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -215,12 +259,23 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const fetchMensagens = async () => {
     const { data, error } = await supabase
       .from('mensagens')
-      .select('*')
+      .select(`
+        *,
+        reply_to:mensagens!reply_to_message_id(
+          id,
+          texto,
+          tipo,
+          remetente,
+          data_hora,
+          arquivo_url,
+          status
+        )
+      `)
       .eq('cliente_id', clienteTelefone)
       .order('data_hora', { ascending: true });
 
     if (!error && data) {
-      setMensagens(data as Mensagem[]);
+      setMensagens(data as any);
     }
   };
 
@@ -363,7 +418,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
 
     const mensagemTexto = novaMsg;
+    const replyToId = replyingTo?.id || null;
     setNovaMsg(""); // Limpar imediatamente para UX
+    setReplyingTo(null); // Limpar resposta
 
     // Optimistic update - adicionar mensagem localmente
     const tempId = `temp-${Date.now()}`;
@@ -374,7 +431,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       arquivo_url: null,
       data_hora: new Date().toISOString(),
       remetente: "atendente",
-      status: "enviado"
+      status: "enviado",
+      reply_to_message_id: replyToId,
+      reply_to: replyingTo
     };
     
     setMensagens(prev => [...prev, novaMensagemTemp]);
@@ -385,6 +444,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         body: {
           to: clienteTelefone,
           message: mensagemTexto,
+          reply_to_message_id: replyToId,
         },
       });
 
@@ -463,6 +523,15 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       console.error("[ChatWindow] Erro ao alterar status do bot:", error);
       toast.error("Não foi possível alterar o status do bot");
     }
+  };
+
+  const handleReply = (message: Mensagem) => {
+    setReplyingTo(message);
+    textareaRef.current?.focus();
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
   };
 
   const getDateLabel = (date: Date) => {
@@ -670,6 +739,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 <MessageContextMenu 
                   messageText={msg.texto || ""} 
                   fichaId={fichaId || null}
+                  messageData={msg}
+                  onReply={handleReply}
                 >
                   <div
                     className={cn(
@@ -687,6 +758,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                           : "bg-card border rounded-bl-sm"
                       )}
                     >
+                      {msg.reply_to && (
+                        <QuotedMessage quotedMsg={msg.reply_to} />
+                      )}
                       {msg.texto && (
                         <p className="text-sm break-words leading-relaxed whitespace-pre-wrap select-text">
                           {msg.texto}
@@ -713,6 +787,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Reply indicator - Above input */}
+      {replyingTo && (
+        <ReplyIndicator 
+          message={replyingTo} 
+          onCancel={cancelReply} 
+        />
+      )}
 
       {/* Input area - Fixed at bottom */}
       <div className="px-3 py-2.5 md:px-4 md:py-3 border-t bg-background shadow-sm shrink-0 flex-none">

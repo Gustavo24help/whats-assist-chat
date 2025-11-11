@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, message, mediaUrl } = await req.json();
+    const { to, message, mediaUrl, reply_to_message_id } = await req.json();
     
     console.log("Enviando mensagem via Twilio:", { to, message });
 
@@ -106,6 +106,7 @@ serve(async (req) => {
       status: 'enviado',
       data_hora: new Date().toISOString(),
       message_sid: twilioData.sid,
+      reply_to_message_id: reply_to_message_id || null,
     });
 
     if (insertError) {
