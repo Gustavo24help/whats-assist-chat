@@ -253,8 +253,10 @@ export type Database = {
           data_hora: string | null
           ficha_id: string | null
           id: string
+          message_sid: string | null
           remetente: string
           status: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          status_atualizado_em: string | null
           texto: string | null
           tipo: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
         }
@@ -264,8 +266,10 @@ export type Database = {
           data_hora?: string | null
           ficha_id?: string | null
           id?: string
+          message_sid?: string | null
           remetente: string
           status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          status_atualizado_em?: string | null
           texto?: string | null
           tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
         }
@@ -275,8 +279,10 @@ export type Database = {
           data_hora?: string | null
           ficha_id?: string | null
           id?: string
+          message_sid?: string | null
           remetente?: string
           status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          status_atualizado_em?: string | null
           texto?: string | null
           tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
         }

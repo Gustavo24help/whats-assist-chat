@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.twilio-status-callback]
 verify_jwt = false
 
+[functions.update-message-status]
+verify_jwt = false
+
 [functions.get-twilio-templates]
 verify_jwt = false
 

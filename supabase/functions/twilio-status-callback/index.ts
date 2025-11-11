@@ -105,7 +105,8 @@ Deno.serve(async (req) => {
           texto: body || null,
           tipo: tipoMensagem,
           arquivo_url: arquivoUrl,
-          status: messageStatus === 'delivered' ? 'entregue' : 'enviado',
+          status: messageStatus === 'delivered' ? 'recebido' : 'enviado',
+          message_sid: messageSid,
         })
         .select()
         .single();

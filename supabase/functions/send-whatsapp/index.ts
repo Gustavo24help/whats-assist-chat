@@ -105,6 +105,7 @@ serve(async (req) => {
       arquivo_url: mediaUrl || null,
       status: 'enviado',
       data_hora: new Date().toISOString(),
+      message_sid: twilioData.sid,
     });
 
     if (insertError) {

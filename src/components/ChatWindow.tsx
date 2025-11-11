@@ -33,7 +33,34 @@ interface Mensagem {
   data_hora: string;
   remetente: "cliente" | "atendente" | "bot";
   status: "enviado" | "recebido" | "lido";
+  status_atualizado_em?: string;
 }
+
+const MessageStatusIndicator = ({ status, remetente }: { status: string | null, remetente: string }) => {
+  // Só mostrar para mensagens do atendente
+  if (remetente !== 'atendente') return null;
+  
+  switch (status) {
+    case 'enviado':
+      return <Check className="h-3 w-3 opacity-60" />;
+    case 'recebido':
+      return (
+        <div className="flex -space-x-1">
+          <Check className="h-3 w-3 opacity-60" />
+          <Check className="h-3 w-3 opacity-60" />
+        </div>
+      );
+    case 'lido':
+      return (
+        <div className="flex -space-x-1">
+          <Check className="h-3 w-3 text-blue-400" />
+          <Check className="h-3 w-3 text-blue-400" />
+        </div>
+      );
+    default:
+      return null;
+  }
+};
 
 interface ChatWindowProps {
   clienteTelefone: string;
@@ -89,14 +116,33 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .on(
         'postgres_changes',
         { 
-          event: '*', 
+          event: 'INSERT', 
           schema: 'public', 
           table: 'mensagens',
           filter: `cliente_id=eq.${clienteTelefone}`
         },
         () => {
-          console.log('[ChatWindow] Mudança detectada no banco, recarregando mensagens');
+          console.log('[ChatWindow] Nova mensagem detectada, recarregando');
           fetchMensagens();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'mensagens',
+          filter: `cliente_id=eq.${clienteTelefone}`
+        },
+        (payload) => {
+          console.log('[ChatWindow] Status de mensagem atualizado:', payload);
+          setMensagens(prev => 
+            prev.map(msg => 
+              msg.id === payload.new.id 
+                ? { ...msg, status: (payload.new as any).status, status_atualizado_em: (payload.new as any).status_atualizado_em }
+                : msg
+            )
+          );
         }
       )
       .subscribe((status) => {
@@ -647,14 +693,17 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                         </p>
                       )}
                       {renderMedia(msg)}
-                      <p className={cn(
-                        "text-xs mt-1 opacity-70 select-none",
-                        msg.remetente === "atendente" 
-                          ? "text-primary-foreground" 
-                          : "text-muted-foreground"
-                      )}>
-                        {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
-                      </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <MessageStatusIndicator status={msg.status} remetente={msg.remetente} />
+                        <p className={cn(
+                          "text-xs opacity-70 select-none",
+                          msg.remetente === "atendente" 
+                            ? "text-primary-foreground" 
+                            : "text-muted-foreground"
+                        )}>
+                          {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </MessageContextMenu>
