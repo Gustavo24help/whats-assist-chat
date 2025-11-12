@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const { to, message, mediaUrl, reply_to_message_id } = await req.json();
     
-    console.log("Enviando mensagem via Twilio:", { to, message });
+    console.log("Enviando mensagem via Twilio:", { to, message, reply_to_message_id });
 
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
@@ -45,6 +45,21 @@ serve(async (req) => {
 
     console.log("Verificação janela 24h:", { diferencaHoras, dentroJanela24h });
 
+    // Buscar message_sid se for reply
+    let replyContext = null;
+    if (reply_to_message_id) {
+      const { data: originalMsg } = await supabase
+        .from('mensagens')
+        .select('message_sid')
+        .eq('id', reply_to_message_id)
+        .single();
+      
+      if (originalMsg?.message_sid) {
+        replyContext = originalMsg.message_sid;
+        console.log('Enviando como resposta para:', replyContext);
+      }
+    }
+
     if (!dentroJanela24h) {
       return new Response(
         JSON.stringify({ 
@@ -73,6 +88,9 @@ serve(async (req) => {
     body.append('Body', message);
     if (mediaUrl) {
       body.append('MediaUrl', mediaUrl);
+    }
+    if (replyContext) {
+      body.append('Context', replyContext);
     }
 
     const twilioResponse = await fetch(

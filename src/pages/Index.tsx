@@ -74,6 +74,11 @@ const Index = () => {
     }
   };
 
+  const handleBackToEmpty = () => {
+    setSelectedCliente(null);
+    setFichaOpen(false);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <NotificationSystem 
@@ -132,7 +137,7 @@ const Index = () => {
                 clienteNome={selectedCliente.nome}
                 statusConversa={selectedCliente.status_conversa}
                 onOpenFicha={() => setFichaOpen(true)}
-                onBack={() => setSelectedCliente(null)}
+                onBack={handleBackToEmpty}
                 fichaOpen={fichaOpen}
                 onToggleFicha={() => setFichaOpen(!fichaOpen)}
               />

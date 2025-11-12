@@ -39,7 +39,13 @@ interface Mensagem {
   reply_to?: Mensagem | null;
 }
 
-const QuotedMessage = ({ quotedMsg }: { quotedMsg: Mensagem | null }) => {
+const QuotedMessage = ({ 
+  quotedMsg, 
+  onScrollToMessage 
+}: { 
+  quotedMsg: Mensagem | null;
+  onScrollToMessage?: (messageId: string) => void;
+}) => {
   if (!quotedMsg) return null;
   
   const getSenderName = (remetente: string) => {
@@ -68,7 +74,13 @@ const QuotedMessage = ({ quotedMsg }: { quotedMsg: Mensagem | null }) => {
   };
 
   return (
-    <div className="bg-black/10 dark:bg-white/10 border-l-4 border-l-current pl-2 py-1 mb-2 rounded-r">
+    <div 
+      className="bg-black/10 dark:bg-white/10 border-l-4 border-l-current pl-2 py-1 mb-2 rounded-r cursor-pointer hover:bg-black/20 dark:hover:bg-white/20 transition-colors"
+      onClick={(e) => {
+        e.stopPropagation();
+        onScrollToMessage?.(quotedMsg.id);
+      }}
+    >
       <div className="text-xs font-semibold opacity-80">
         {getSenderName(quotedMsg.remetente)}
       </div>
@@ -123,9 +135,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Mensagem | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const { dentroJanela } = useConversationTimer(clienteTelefone);
 
   // Auto-resize do textarea
@@ -255,6 +269,24 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (replyingTo) {
+          cancelReply();
+        } else {
+          onBack?.();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [replyingTo, onBack]);
 
   const fetchMensagens = async () => {
     const { data, error } = await supabase
@@ -534,6 +566,22 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     setReplyingTo(null);
   };
 
+  const scrollToMessage = (messageId: string) => {
+    const messageElement = messageRefs.current[messageId];
+    if (messageElement) {
+      messageElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      setHighlightedMessageId(messageId);
+      
+      setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 5000);
+    }
+  };
+
   const getDateLabel = (date: Date) => {
     if (isToday(date)) return "Hoje";
     if (isYesterday(date)) return "Ontem";
@@ -727,7 +775,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
           
           return (
-            <div key={msg.id}>
+            <div 
+              key={msg.id}
+              ref={(el) => { messageRefs.current[msg.id] = el; }}
+            >
                 {showDateSeparator && (
                   <div className="flex justify-center my-3">
                     <div className="bg-muted/60 backdrop-blur-sm text-muted-foreground text-xs px-3 py-1 rounded-full shadow-sm">
@@ -755,11 +806,15 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                           ? "bg-primary text-primary-foreground rounded-br-sm"
                           : msg.remetente === "bot"
                           ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
-                          : "bg-card border rounded-bl-sm"
+                          : "bg-card border rounded-bl-sm",
+                        highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-50"
                       )}
                     >
-                      {msg.reply_to && (
-                        <QuotedMessage quotedMsg={msg.reply_to} />
+                      {msg.reply_to_message_id && msg.reply_to && (
+                        <QuotedMessage 
+                          quotedMsg={msg.reply_to} 
+                          onScrollToMessage={scrollToMessage}
+                        />
                       )}
                       {msg.texto && (
                         <p className="text-sm break-words leading-relaxed whitespace-pre-wrap select-text">

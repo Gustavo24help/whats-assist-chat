@@ -20,6 +20,8 @@ serve(async (req) => {
     const body = formData.get('Body') as string; // Texto da mensagem
     const numMedia = formData.get('NumMedia') as string;
     const profileName = formData.get('ProfileName') as string; // Nome do perfil WhatsApp
+    const messageContext = formData.get('Context') as string; // SID da mensagem sendo respondida
+    const messageSid = formData.get('MessageSid') as string; // SID desta mensagem
     
     // Coletar todas as mídias (até 10 arquivos)
     const mediaUrls: string[] = [];
@@ -35,7 +37,7 @@ serve(async (req) => {
       }
     }
 
-    console.log("Mensagem recebida:", { from, body, numMedia, mediaUrls, mediaTypes, profileName });
+    console.log("Mensagem recebida:", { from, body, numMedia, mediaUrls, mediaTypes, profileName, messageContext, messageSid });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -96,6 +98,21 @@ serve(async (req) => {
 
     console.log("Cliente identificado:", cliente.telefone);
 
+    // Buscar mensagem original se houver contexto
+    let replyToMessageId = null;
+    if (messageContext) {
+      const { data: originalMsg } = await supabase
+        .from('mensagens')
+        .select('id')
+        .eq('message_sid', messageContext)
+        .single();
+      
+      if (originalMsg) {
+        replyToMessageId = originalMsg.id;
+        console.log('Mensagem é resposta para:', replyToMessageId);
+      }
+    }
+
     // Determinar tipo de mensagem baseado na mídia
     const getTipoMensagem = (contentType: string): string => {
       if (contentType.startsWith('image/')) return 'imagem';
@@ -116,6 +133,8 @@ serve(async (req) => {
           status: 'recebido',
           data_hora: new Date().toISOString(),
           ficha_id: null,
+          message_sid: messageSid,
+          reply_to_message_id: replyToMessageId,
         };
 
         const { error: mensagemError } = await supabase
@@ -137,6 +156,8 @@ serve(async (req) => {
         status: 'recebido',
         data_hora: new Date().toISOString(),
         ficha_id: null,
+        message_sid: messageSid,
+        reply_to_message_id: replyToMessageId,
       };
 
       const { error: mensagemError } = await supabase
