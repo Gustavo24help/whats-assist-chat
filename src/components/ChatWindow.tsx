@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,14 +39,23 @@ interface Mensagem {
   reply_to?: Mensagem | null;
 }
 
-const QuotedMessage = ({ 
+const QuotedMessage = React.memo(({ 
   quotedMsg, 
   onScrollToMessage 
 }: { 
   quotedMsg: Mensagem | null;
   onScrollToMessage?: (messageId: string) => void;
 }) => {
-  if (!quotedMsg) return null;
+  if (!quotedMsg) {
+    console.log('❌ QuotedMessage: quotedMsg é null/undefined');
+    return null;
+  }
+  
+  console.log('✅ Renderizando QuotedMessage:', {
+    id: quotedMsg.id,
+    texto: quotedMsg.texto?.substring(0, 30),
+    tipo: quotedMsg.tipo
+  });
   
   const getSenderName = (remetente: string) => {
     switch (remetente) {
@@ -57,7 +66,12 @@ const QuotedMessage = ({
   };
 
   const getPreview = () => {
-    if (quotedMsg.tipo === "texto" && quotedMsg.texto) {
+    if (quotedMsg.tipo === "texto") {
+      if (!quotedMsg.texto) {
+        console.warn('⚠️ Mensagem citada sem texto:', quotedMsg.id);
+        return "(mensagem sem texto)";
+      }
+      
       return quotedMsg.texto.length > 50 
         ? quotedMsg.texto.substring(0, 50) + "..."
         : quotedMsg.texto;
@@ -75,21 +89,21 @@ const QuotedMessage = ({
 
   return (
     <div 
-      className="bg-black/10 dark:bg-white/10 border-l-4 border-l-current pl-2 py-1 mb-2 rounded-r cursor-pointer hover:bg-black/20 dark:hover:bg-white/20 transition-colors"
+      className="bg-black/10 dark:bg-white/10 border-l-4 border-l-current pl-2 py-1.5 mb-2 rounded-r cursor-pointer hover:bg-black/15 dark:hover:bg-white/15 transition-all active:scale-[0.98]"
       onClick={(e) => {
         e.stopPropagation();
         onScrollToMessage?.(quotedMsg.id);
       }}
     >
-      <div className="text-xs font-semibold opacity-80">
+      <div className="text-xs font-semibold opacity-90 mb-0.5">
         {getSenderName(quotedMsg.remetente)}
       </div>
-      <div className="text-xs opacity-70 truncate">
+      <div className="text-xs opacity-75 truncate leading-tight">
         {getPreview()}
       </div>
     </div>
   );
-};
+});
 
 const MessageStatusIndicator = ({ status, remetente }: { status: string | null, remetente: string }) => {
   // Só mostrar para mensagens do atendente
@@ -273,9 +287,15 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        console.log('⌨️ ESC pressionado');
+        
         if (replyingTo) {
-          cancelReply();
+          // Prioridade 1: Cancelar resposta
+          console.log('❌ Cancelando resposta');
+          setReplyingTo(null);
         } else {
+          // Prioridade 2: Sair da conversa
+          console.log('🚪 Saindo da conversa');
           onBack?.();
         }
       }
@@ -289,32 +309,43 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   }, [replyingTo, onBack]);
 
   const fetchMensagens = async () => {
+    console.log('🔍 Buscando mensagens para:', clienteTelefone);
+    
     const { data, error } = await supabase
       .from('mensagens')
-      .select(`
-        *,
-        reply_to:mensagens!mensagens_reply_to_message_id_fkey(
-          id,
-          texto,
-          tipo,
-          remetente,
-          data_hora,
-          arquivo_url,
-          status
-        )
-      `)
+      .select('*')
       .eq('cliente_id', clienteTelefone)
       .order('data_hora', { ascending: true });
 
     if (error) {
-      console.error('Erro ao buscar mensagens:', error);
+      console.error('❌ Erro ao buscar mensagens:', error);
+      toast.error('Erro ao carregar mensagens');
+      return;
     }
     
-    if (!error && data) {
+    if (data) {
       console.log('✅ Mensagens carregadas:', data.length);
-      const withReplies = data.filter(m => m.reply_to_message_id);
-      console.log('📨 Mensagens com reply:', withReplies.length, withReplies);
-      setMensagens(data as any);
+      
+      // Buscar reply_to manualmente para cada mensagem que tem reply
+      const mensagensComReply = await Promise.all(
+        data.map(async (msg) => {
+          if (msg.reply_to_message_id) {
+            const { data: replyMsg } = await supabase
+              .from('mensagens')
+              .select('id, texto, tipo, remetente, data_hora, arquivo_url, status')
+              .eq('id', msg.reply_to_message_id)
+              .single();
+            
+            return { ...msg, reply_to: replyMsg || null };
+          }
+          return msg;
+        })
+      );
+      
+      const withReplies = mensagensComReply.filter(m => m.reply_to_message_id);
+      console.log('📨 Mensagens com reply:', withReplies.length);
+      
+      setMensagens(mensagensComReply as any);
     }
   };
 
@@ -564,30 +595,37 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
-  const handleReply = (message: Mensagem) => {
+  const handleReply = useCallback((message: Mensagem) => {
     setReplyingTo(message);
     textareaRef.current?.focus();
-  };
+  }, []);
 
-  const cancelReply = () => {
+  const cancelReply = useCallback(() => {
     setReplyingTo(null);
-  };
+  }, []);
 
-  const scrollToMessage = (messageId: string) => {
+  const scrollToMessage = useCallback((messageId: string) => {
     const messageElement = messageRefs.current[messageId];
-    if (messageElement) {
-      messageElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
-      });
-      
-      setHighlightedMessageId(messageId);
-      
-      setTimeout(() => {
-        setHighlightedMessageId(null);
-      }, 5000);
+    if (!messageElement) {
+      console.warn('⚠️ Elemento da mensagem não encontrado:', messageId);
+      return;
     }
-  };
+    
+    messageElement.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'center' 
+    });
+    
+    // Adicionar highlight
+    setHighlightedMessageId(messageId);
+    console.log('✨ Highlight aplicado em:', messageId);
+    
+    // Remover após 5 segundos
+    setTimeout(() => {
+      setHighlightedMessageId(null);
+      console.log('🔄 Highlight removido');
+    }, 5000);
+  }, []);
 
   const getDateLabel = (date: Date) => {
     if (isToday(date)) return "Hoje";
@@ -814,7 +852,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                           : msg.remetente === "bot"
                           ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
                           : "bg-card border rounded-bl-sm",
-                        highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-50"
+                        highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]"
                       )}
                     >
                       {msg.reply_to_message_id && msg.reply_to && (
