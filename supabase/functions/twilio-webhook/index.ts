@@ -101,15 +101,23 @@ serve(async (req) => {
     // Buscar mensagem original se houver contexto
     let replyToMessageId = null;
     if (messageContext) {
-      const { data: originalMsg } = await supabase
+      console.log('🔍 Buscando mensagem original por SID:', messageContext);
+      
+      const { data: originalMsg, error: originalError } = await supabase
         .from('mensagens')
         .select('id')
         .eq('message_sid', messageContext)
         .single();
       
+      if (originalError) {
+        console.error('❌ Erro ao buscar mensagem original:', originalError);
+      }
+      
       if (originalMsg) {
         replyToMessageId = originalMsg.id;
-        console.log('Mensagem é resposta para:', replyToMessageId);
+        console.log('✅ Mensagem é resposta para:', replyToMessageId);
+      } else {
+        console.warn('⚠️ Mensagem original não encontrada com SID:', messageContext);
       }
     }
 
