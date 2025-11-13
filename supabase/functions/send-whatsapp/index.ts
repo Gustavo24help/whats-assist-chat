@@ -48,15 +48,25 @@ serve(async (req) => {
     // Buscar message_sid se for reply
     let replyContext = null;
     if (reply_to_message_id) {
-      const { data: originalMsg } = await supabase
+      console.log('🔍 Buscando message_sid para reply_to_message_id:', reply_to_message_id);
+      
+      const { data: originalMsg, error: replyError } = await supabase
         .from('mensagens')
         .select('message_sid')
         .eq('id', reply_to_message_id)
         .single();
       
+      if (replyError) {
+        console.error('❌ Erro ao buscar mensagem original:', replyError);
+      }
+      
+      console.log('📧 Mensagem original encontrada:', originalMsg);
+      
       if (originalMsg?.message_sid) {
         replyContext = originalMsg.message_sid;
-        console.log('Enviando como resposta para:', replyContext);
+        console.log('✅ Enviando como resposta para SID:', replyContext);
+      } else {
+        console.warn('⚠️ Mensagem original sem message_sid, enviando sem contexto');
       }
     }
 

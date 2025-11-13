@@ -127,14 +127,39 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
 
     try {
-      // Buscar id_crm do prestador
+      // Buscar id_crm do prestador diretamente do banco
       let prestadorIdCrm = null;
       let prestadorCpf = null;
       
       if (fichaData.prestador_id) {
-        const prestador = prestadores.find(p => p.cpf === fichaData.prestador_id);
-        prestadorIdCrm = prestador?.id_crm || null;
         prestadorCpf = fichaData.prestador_id; // CPF é a chave primária
+        
+        console.log('🔍 Buscando id_crm do prestador no banco:', prestadorCpf);
+        
+        const { data: prestadorData, error: prestadorError } = await supabase
+          .from('prestadores')
+          .select('id_crm')
+          .eq('cpf', fichaData.prestador_id)
+          .single();
+        
+        if (prestadorError) {
+          console.error('❌ Erro ao buscar prestador:', prestadorError);
+        }
+        
+        if (prestadorData) {
+          prestadorIdCrm = prestadorData.id_crm;
+          console.log('✅ ID CRM encontrado:', prestadorIdCrm);
+          
+          if (!prestadorIdCrm) {
+            console.warn('⚠️ AVISO: Prestador não tem id_crm cadastrado!', {
+              cpf: prestadorCpf,
+              fichaId: fichaData.id
+            });
+            toast.warning(`Prestador ${prestadorCpf} sem ID CRM cadastrado`);
+          }
+        } else {
+          console.warn('⚠️ Prestador não encontrado no banco:', prestadorCpf);
+        }
       }
 
       // Buscar nome do cliente
@@ -452,22 +477,21 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     const updatedFicha = { ...ficha, ...updates };
     setFicha(updatedFicha);
     
-    // Sempre usar autoSave - ele salva e envia webhook automaticamente
-    autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+    // Auto-save APENAS em mudança de STATUS
+    if (updates.status && updates.status !== ficha.status) {
+      console.log('📊 Status mudou, salvando automaticamente:', updates.status);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+    }
   };
 
   const updateDataAgendamento = (data: string) => {
     setDataAgendamento(data);
-    if (ficha) {
-      autoSave(fichaId, ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
-    }
+    // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
   };
 
   const updateHoraAgendamento = (hora: string) => {
     setHoraAgendamento(hora);
-    if (ficha) {
-      autoSave(fichaId, ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica);
-    }
+    // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
   };
 
   const updateDataVisitaTecnica = (data: string) => {
@@ -475,38 +499,48 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (ficha) {
       const updatedFicha = { ...ficha, data_visita_tecnica: data };
       setFicha(updatedFicha);
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, data, horaVisitaTecnica);
+      // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
     }
   };
 
   const updateHoraVisitaTecnica = (hora: string) => {
     setHoraVisitaTecnica(hora);
-    if (ficha) {
-      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, hora);
-    }
+    // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
   };
 
-  const updateNomeCliente = async (novoNome: string) => {
-    setNomeCliente(novoNome);
+  // Debounced update para nome do cliente
+  const debouncedUpdateNomeCliente = useMemo(
+    () =>
+      debounce(async (novoNome: string, telefone: string) => {
+        console.log('💾 Salvando nome do cliente (debounced):', novoNome);
+        
+        try {
+          const { error } = await supabase
+            .from('clientes')
+            .update({ nome: novoNome })
+            .eq('telefone', telefone);
+          
+          if (error) {
+            console.error('❌ Erro ao atualizar nome:', error);
+            toast.error('Erro ao atualizar nome do cliente');
+          } else {
+            toast.success('Nome do cliente atualizado');
+          }
+        } catch (error) {
+          console.error('❌ Erro:', error);
+          toast.error('Erro ao atualizar nome do cliente');
+        }
+      }, 1500), // 1.5 segundos de debounce
+    []
+  );
+
+  const updateNomeCliente = (novoNome: string) => {
+    setNomeCliente(novoNome); // Atualiza UI imediatamente
     
     if (!ficha?.telefone_cliente) return;
     
-    try {
-      const { error } = await supabase
-        .from('clientes')
-        .update({ nome: novoNome })
-        .eq('telefone', ficha.telefone_cliente);
-      
-      if (error) {
-        console.error('Erro ao atualizar nome do cliente:', error);
-        toast.error('Erro ao atualizar nome do cliente');
-      } else {
-        toast.success('Nome do cliente atualizado com sucesso');
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar nome do cliente:', error);
-      toast.error('Erro ao atualizar nome do cliente');
-    }
+    // Cancela o debounce anterior e agenda novo
+    debouncedUpdateNomeCliente(novoNome, ficha.telefone_cliente);
   };
 
   const limparAgendamento = () => {

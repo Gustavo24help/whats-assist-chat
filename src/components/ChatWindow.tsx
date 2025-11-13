@@ -293,7 +293,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .from('mensagens')
       .select(`
         *,
-        reply_to:mensagens!reply_to_message_id(
+        reply_to:mensagens!mensagens_reply_to_message_id_fkey(
           id,
           texto,
           tipo,
@@ -306,7 +306,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .eq('cliente_id', clienteTelefone)
       .order('data_hora', { ascending: true });
 
+    if (error) {
+      console.error('Erro ao buscar mensagens:', error);
+    }
+    
     if (!error && data) {
+      console.log('✅ Mensagens carregadas:', data.length);
+      const withReplies = data.filter(m => m.reply_to_message_id);
+      console.log('📨 Mensagens com reply:', withReplies.length, withReplies);
       setMensagens(data as any);
     }
   };
