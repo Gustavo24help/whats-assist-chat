@@ -17,35 +17,35 @@ serve(async (req) => {
     // Parse form data from Twilio
     const formData = await req.formData();
     
-    // 🔍 LOG COMPLETO: Ver TODOS os campos recebidos
-    console.log("📦 TODOS os campos do FormData:");
-    const allFields: Record<string, any> = {};
-    for (const [key, value] of formData.entries()) {
-      allFields[key] = value;
-      console.log(`  ${key}: ${value}`);
-    }
-    
+    // 🔍 Extrair campos DIRETAMENTE (mais confiável que loop)
     const from = formData.get('From') as string;
     const body = formData.get('Body') as string;
     const numMedia = formData.get('NumMedia') as string;
     const profileName = formData.get('ProfileName') as string;
     
-    // Tentar vários campos possíveis para MessageSid
-    let messageSid = formData.get('MessageSid') as string;
-    if (!messageSid) messageSid = formData.get('SmsMessageSid') as string;
-    if (!messageSid) messageSid = formData.get('SmsSid') as string;
+    // CAMPOS CORRETOS segundo documentação Twilio:
+    const messageSid = (formData.get('MessageSid') || formData.get('SmsMessageSid') || formData.get('SmsSid')) as string;
+    const originalRepliedMessageSid = formData.get('OriginalRepliedMessageSid') as string; // Campo correto para reply!
     
-    // Tentar vários campos possíveis para Context (mensagem sendo respondida)
-    let messageContext = formData.get('Context') as string;
-    if (!messageContext) messageContext = formData.get('ReferralNumMedia') as string;
-    
-    console.log("📨 Campos principais extraídos:", {
+    // Log detalhado
+    console.log("📨 Campos extraídos:", {
       from,
       body: body?.substring(0, 50),
-      messageSid,
-      messageContext,
-      numMedia
+      numMedia,
+      profileName,
+      messageSid: messageSid || '❌ NULL',
+      originalRepliedMessageSid: originalRepliedMessageSid || '❌ NULL',
+      hasMessageSid: !!messageSid,
+      hasReply: !!originalRepliedMessageSid
     });
+    
+    // Log de TODOS os campos do FormData para debug
+    console.log("📦 Todos os campos disponíveis:");
+    const allFields: Record<string, any> = {};
+    for (const [key, value] of formData.entries()) {
+      allFields[key] = value;
+      console.log(`  ${key}: ${typeof value === 'string' ? value.substring(0, 100) : value}`);
+    }
     
     // Coletar todas as mídias (até 10 arquivos)
     const mediaUrls: string[] = [];
@@ -67,10 +67,10 @@ serve(async (req) => {
       numMedia, 
       mediaCount: mediaUrls.length,
       profileName, 
-      messageContext, 
+      originalRepliedMessageSid,
       messageSid,
       hasMessageSid: !!messageSid,
-      hasContext: !!messageContext
+      hasReply: !!originalRepliedMessageSid
     });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -132,15 +132,15 @@ serve(async (req) => {
 
     console.log("Cliente identificado:", cliente.telefone);
 
-    // Buscar mensagem original se houver contexto
+    // Buscar mensagem original se houver reply (OriginalRepliedMessageSid)
     let replyToMessageId = null;
-    if (messageContext) {
-      console.log('🔍 Buscando mensagem original por SID:', messageContext);
+    if (originalRepliedMessageSid) {
+      console.log('🔍 Mensagem é REPLY! Buscando original por SID:', originalRepliedMessageSid);
       
       const { data: originalMsg, error: originalError } = await supabase
         .from('mensagens')
-        .select('id')
-        .eq('message_sid', messageContext)
+        .select('id, texto, remetente')
+        .eq('message_sid', originalRepliedMessageSid)
         .single();
       
       if (originalError) {
@@ -149,9 +149,13 @@ serve(async (req) => {
       
       if (originalMsg) {
         replyToMessageId = originalMsg.id;
-        console.log('✅ Mensagem é resposta para:', replyToMessageId);
+        console.log('✅ Mensagem original encontrada:', {
+          id: replyToMessageId,
+          texto: originalMsg.texto?.substring(0, 30),
+          remetente: originalMsg.remetente
+        });
       } else {
-        console.warn('⚠️ Mensagem original não encontrada com SID:', messageContext);
+        console.warn('⚠️ Mensagem original não encontrada com SID:', originalRepliedMessageSid);
       }
     }
 
