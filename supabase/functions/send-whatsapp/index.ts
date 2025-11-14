@@ -13,8 +13,13 @@ serve(async (req) => {
 
   try {
     const { to, message, mediaUrl, reply_to_message_id } = await req.json();
-    
-    console.log("Enviando mensagem via Twilio:", { to, message, reply_to_message_id });
+    console.log('📤 [send-whatsapp] Iniciando envio:', {
+      to,
+      message: message?.substring(0, 50),
+      hasMedia: !!mediaUrl,
+      reply_to_message_id,
+      hasReply: !!reply_to_message_id
+    });
 
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
@@ -45,14 +50,14 @@ serve(async (req) => {
 
     console.log("Verificação janela 24h:", { diferencaHoras, dentroJanela24h });
 
-    // Buscar message_sid se for reply
+    // 🔗 Se há reply_to_message_id, buscar o message_sid da mensagem original
     let replyContext = null;
     if (reply_to_message_id) {
       console.log('🔍 Buscando message_sid para reply_to_message_id:', reply_to_message_id);
       
       const { data: originalMsg, error: replyError } = await supabase
         .from('mensagens')
-        .select('message_sid')
+        .select('message_sid, texto, remetente')
         .eq('id', reply_to_message_id)
         .single();
       
@@ -60,11 +65,16 @@ serve(async (req) => {
         console.error('❌ Erro ao buscar mensagem original:', replyError);
       }
       
-      console.log('📧 Mensagem original encontrada:', originalMsg);
+      console.log('📋 Mensagem original encontrada:', {
+        id: reply_to_message_id,
+        message_sid: originalMsg?.message_sid,
+        remetente: originalMsg?.remetente,
+        texto: originalMsg?.texto?.substring(0, 30)
+      });
       
       if (originalMsg?.message_sid) {
         replyContext = originalMsg.message_sid;
-        console.log('✅ Enviando como resposta para SID:', replyContext);
+        console.log('✅ Contexto de resposta configurado:', replyContext);
       } else {
         console.warn('⚠️ Mensagem original sem message_sid, enviando sem contexto');
       }

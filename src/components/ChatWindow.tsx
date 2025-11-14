@@ -489,6 +489,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
     const mensagemTexto = novaMsg;
     const replyToId = replyingTo?.id || null;
+    
+    console.log('📤 [enviarMensagem] Preparando envio:', {
+      texto: mensagemTexto.substring(0, 50),
+      replyingTo: replyingTo ? {
+        id: replyingTo.id,
+        message_sid: (replyingTo as any).message_sid,
+        texto: replyingTo.texto?.substring(0, 30),
+        remetente: replyingTo.remetente
+      } : null,
+      replyToId
+    });
+    
     setNovaMsg(""); // Limpar imediatamente para UX
     setReplyingTo(null); // Limpar resposta
 
@@ -509,6 +521,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     setMensagens(prev => [...prev, novaMensagemTemp]);
 
     try {
+      console.log('🚀 Invocando send-whatsapp com:', {
+        to: clienteTelefone,
+        message: mensagemTexto.substring(0, 50),
+        reply_to_message_id: replyToId,
+        hasReply: !!replyToId
+      });
+      
       // Enviar via Twilio
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
@@ -517,6 +536,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           reply_to_message_id: replyToId,
         },
       });
+      
+      console.log('📬 Resposta do send-whatsapp:', { data, error });
 
       if (error) throw error;
 

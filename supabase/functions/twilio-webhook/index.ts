@@ -12,16 +12,40 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Webhook recebido do Twilio");
+    console.log("🔔 Webhook recebido do Twilio");
     
     // Parse form data from Twilio
     const formData = await req.formData();
-    const from = formData.get('From') as string; // Número do remetente
-    const body = formData.get('Body') as string; // Texto da mensagem
+    
+    // 🔍 LOG COMPLETO: Ver TODOS os campos recebidos
+    console.log("📦 TODOS os campos do FormData:");
+    const allFields: Record<string, any> = {};
+    for (const [key, value] of formData.entries()) {
+      allFields[key] = value;
+      console.log(`  ${key}: ${value}`);
+    }
+    
+    const from = formData.get('From') as string;
+    const body = formData.get('Body') as string;
     const numMedia = formData.get('NumMedia') as string;
-    const profileName = formData.get('ProfileName') as string; // Nome do perfil WhatsApp
-    const messageContext = formData.get('Context') as string; // SID da mensagem sendo respondida
-    const messageSid = formData.get('MessageSid') as string; // SID desta mensagem
+    const profileName = formData.get('ProfileName') as string;
+    
+    // Tentar vários campos possíveis para MessageSid
+    let messageSid = formData.get('MessageSid') as string;
+    if (!messageSid) messageSid = formData.get('SmsMessageSid') as string;
+    if (!messageSid) messageSid = formData.get('SmsSid') as string;
+    
+    // Tentar vários campos possíveis para Context (mensagem sendo respondida)
+    let messageContext = formData.get('Context') as string;
+    if (!messageContext) messageContext = formData.get('ReferralNumMedia') as string;
+    
+    console.log("📨 Campos principais extraídos:", {
+      from,
+      body: body?.substring(0, 50),
+      messageSid,
+      messageContext,
+      numMedia
+    });
     
     // Coletar todas as mídias (até 10 arquivos)
     const mediaUrls: string[] = [];
@@ -37,7 +61,17 @@ serve(async (req) => {
       }
     }
 
-    console.log("Mensagem recebida:", { from, body, numMedia, mediaUrls, mediaTypes, profileName, messageContext, messageSid });
+    console.log("✉️ Mensagem processada:", { 
+      from, 
+      body: body?.substring(0, 50), 
+      numMedia, 
+      mediaCount: mediaUrls.length,
+      profileName, 
+      messageContext, 
+      messageSid,
+      hasMessageSid: !!messageSid,
+      hasContext: !!messageContext
+    });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
