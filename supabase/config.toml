@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.stop-twilio-flow]
 verify_jwt = false
+
+[functions.reactivate-bots-24h]
+verify_jwt = false

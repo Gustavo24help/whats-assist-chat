@@ -10,15 +10,19 @@ export const StatusConexaoTwilio = ({ telefoneCliente }: StatusConexaoTwilioProp
 
   if (dentroJanela) {
     return (
-      <Badge variant="default" className="bg-green-600">
-        Janela 24h: {horasRestantes}h {minutosRestantes}m restantes
+      <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+        <span className="flex items-center gap-1">
+          ⏰ Janela 24h: {horasRestantes}h {minutosRestantes}m
+        </span>
       </Badge>
     );
   }
 
   return (
-    <Badge variant="destructive">
-      Fora da janela de 24h
+    <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+      <span className="flex items-center gap-1">
+        🔄 Fora da janela • Bot religa automaticamente
+      </span>
     </Badge>
   );
 };
