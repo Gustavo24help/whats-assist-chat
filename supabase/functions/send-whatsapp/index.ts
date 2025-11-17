@@ -53,11 +53,11 @@ serve(async (req) => {
     // 🔗 Se há reply_to_message_id, buscar o message_sid da mensagem original
     let replyContext = null;
     if (reply_to_message_id) {
-      console.log('🔍 Buscando message_sid para reply_to_message_id:', reply_to_message_id);
+      console.log('🔗 REPLY SOLICITADO! Buscando message_sid:', reply_to_message_id);
       
       const { data: originalMsg, error: replyError } = await supabase
         .from('mensagens')
-        .select('message_sid, texto, remetente')
+        .select('message_sid, texto, remetente, data_hora')
         .eq('id', reply_to_message_id)
         .single();
       
@@ -65,18 +65,22 @@ serve(async (req) => {
         console.error('❌ Erro ao buscar mensagem original:', replyError);
       }
       
-      console.log('📋 Mensagem original encontrada:', {
+      console.log('📋 Resultado da busca:', {
+        found: !!originalMsg,
         id: reply_to_message_id,
-        message_sid: originalMsg?.message_sid,
+        message_sid: originalMsg?.message_sid || '❌ NULL',
         remetente: originalMsg?.remetente,
+        data_hora: originalMsg?.data_hora,
         texto: originalMsg?.texto?.substring(0, 30)
       });
       
       if (originalMsg?.message_sid) {
         replyContext = originalMsg.message_sid;
-        console.log('✅ Contexto de resposta configurado:', replyContext);
+        console.log('✅ Context configurado para Twilio:', replyContext);
       } else {
-        console.warn('⚠️ Mensagem original sem message_sid, enviando sem contexto');
+        console.warn('⚠️ AVISO: Mensagem original encontrada mas SEM message_sid!');
+        console.warn('💡 Isso significa que a Twilio não está enviando MessageSid no webhook');
+        console.warn('💡 Reply não funcionará até que o MessageSid seja capturado corretamente');
       }
     }
 
@@ -111,7 +115,23 @@ serve(async (req) => {
     }
     if (replyContext) {
       body.append('Context', replyContext);
+      console.log('✅ Context adicionado ao payload Twilio:', {
+        Context: replyContext,
+        reply_to_message_id,
+        willAppearAsReply: true
+      });
+    } else if (reply_to_message_id) {
+      console.warn('⚠️ Reply solicitado mas Context não pode ser adicionado (sem message_sid)');
     }
+    
+    console.log('📤 Payload completo sendo enviado para Twilio:', {
+      To: to,
+      From: fromNumber,
+      Body: message?.substring(0, 50),
+      hasMedia: !!mediaUrl,
+      hasContext: !!replyContext,
+      Context: replyContext || 'N/A'
+    });
 
     const twilioResponse = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`,
@@ -126,6 +146,14 @@ serve(async (req) => {
     );
 
     const twilioData = await twilioResponse.json();
+    
+    console.log("📬 Resposta da Twilio:", {
+      status: twilioResponse.status,
+      sid: twilioData.sid,
+      status_msg: twilioData.status,
+      error: twilioData.error_message,
+      hasContext: !!replyContext
+    });
 
     if (!twilioResponse.ok) {
       console.error("Erro Twilio:", twilioData);

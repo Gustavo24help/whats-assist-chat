@@ -17,35 +17,58 @@ serve(async (req) => {
     // Parse form data from Twilio
     const formData = await req.formData();
     
-    // 🔍 Extrair campos DIRETAMENTE (mais confiável que loop)
+    // 📋 PRIMEIRO: Coletar TODOS os campos para análise
+    const allFields: Record<string, string> = {};
+    console.log("📦 ========== TODOS OS CAMPOS RECEBIDOS DA TWILIO ==========");
+    for (const [key, value] of formData.entries()) {
+      const strValue = String(value);
+      allFields[key] = strValue;
+      console.log(`  ✓ ${key}: ${strValue}`);
+    }
+    console.log("📦 =======================================================");
+    
+    // 🔍 Extrair campos básicos
     const from = formData.get('From') as string;
     const body = formData.get('Body') as string;
     const numMedia = formData.get('NumMedia') as string;
     const profileName = formData.get('ProfileName') as string;
     
-    // CAMPOS CORRETOS segundo documentação Twilio:
-    const messageSid = (formData.get('MessageSid') || formData.get('SmsMessageSid') || formData.get('SmsSid')) as string;
-    const originalRepliedMessageSid = formData.get('OriginalRepliedMessageSid') as string; // Campo correto para reply!
+    // 🆔 TENTAR VÁRIOS CAMPOS PARA MessageSid (WhatsApp pode usar nomes diferentes)
+    const messageSid = (
+      formData.get('MessageSid') ||
+      formData.get('SmsMessageSid') ||
+      formData.get('SmsSid') ||
+      formData.get('WaId') ||
+      allFields['MessageSid'] ||
+      allFields['SmsMessageSid']
+    ) as string;
     
-    // Log detalhado
-    console.log("📨 Campos extraídos:", {
+    // 🔗 TENTAR VÁRIOS CAMPOS PARA Reply (contexto de resposta)
+    const originalRepliedMessageSid = (
+      formData.get('OriginalRepliedMessageSid') ||
+      formData.get('Context') ||
+      formData.get('ReferredMessage') ||
+      allFields['OriginalRepliedMessageSid'] ||
+      allFields['Context']
+    ) as string;
+    
+    // 🔘 Campos para templates com botões
+    const buttonPayload = formData.get('ButtonPayload') as string;
+    const buttonText = formData.get('ButtonText') as string;
+    
+    console.log("📨 Campos extraídos e processados:", {
       from,
-      body: body?.substring(0, 50),
+      bodyPreview: body?.substring(0, 50),
       numMedia,
       profileName,
       messageSid: messageSid || '❌ NULL',
       originalRepliedMessageSid: originalRepliedMessageSid || '❌ NULL',
+      buttonPayload: buttonPayload || 'N/A',
+      buttonText: buttonText || 'N/A',
       hasMessageSid: !!messageSid,
-      hasReply: !!originalRepliedMessageSid
+      hasReply: !!originalRepliedMessageSid,
+      hasButton: !!(buttonPayload || buttonText)
     });
-    
-    // Log de TODOS os campos do FormData para debug
-    console.log("📦 Todos os campos disponíveis:");
-    const allFields: Record<string, any> = {};
-    for (const [key, value] of formData.entries()) {
-      allFields[key] = value;
-      console.log(`  ${key}: ${typeof value === 'string' ? value.substring(0, 100) : value}`);
-    }
     
     // Coletar todas as mídias (até 10 arquivos)
     const mediaUrls: string[] = [];
@@ -61,16 +84,28 @@ serve(async (req) => {
       }
     }
 
+    // 📝 Construir texto da mensagem (incluindo botões se houver)
+    let finalBody = body || '';
+    if (buttonText && buttonPayload) {
+      finalBody = finalBody 
+        ? `${finalBody}\n\n🔘 Botão clicado: ${buttonText}`
+        : `🔘 Botão clicado: ${buttonText}`;
+    }
+    
     console.log("✉️ Mensagem processada:", { 
       from, 
-      body: body?.substring(0, 50), 
+      originalBody: body?.substring(0, 50),
+      finalBody: finalBody?.substring(0, 100),
       numMedia, 
       mediaCount: mediaUrls.length,
       profileName, 
-      originalRepliedMessageSid,
-      messageSid,
+      messageSid: messageSid || '❌ NULL',
+      originalRepliedMessageSid: originalRepliedMessageSid || '❌ NULL',
+      buttonPayload: buttonPayload || 'N/A',
+      buttonText: buttonText || 'N/A',
       hasMessageSid: !!messageSid,
-      hasReply: !!originalRepliedMessageSid
+      hasReply: !!originalRepliedMessageSid,
+      hasButton: !!(buttonText || buttonPayload)
     });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -132,14 +167,31 @@ serve(async (req) => {
 
     console.log("Cliente identificado:", cliente.telefone);
 
+    // Buscar ficha ativa do cliente
+    const { data: fichaAtiva } = await supabase
+      .from('fichas_de_servico')
+      .select('id')
+      .eq('telefone_cliente', cliente.telefone)
+      .eq('status', 'Agendado')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     // Buscar mensagem original se houver reply (OriginalRepliedMessageSid)
     let replyToMessageId = null;
     if (originalRepliedMessageSid) {
-      console.log('🔍 Mensagem é REPLY! Buscando original por SID:', originalRepliedMessageSid);
+      console.log('🔗 REPLY DETECTADO! Buscando mensagem original:', {
+        originalRepliedMessageSid,
+        allPossibleFields: {
+          OriginalRepliedMessageSid: allFields['OriginalRepliedMessageSid'],
+          Context: allFields['Context'],
+          ReferredMessage: allFields['ReferredMessage']
+        }
+      });
       
       const { data: originalMsg, error: originalError } = await supabase
         .from('mensagens')
-        .select('id, texto, remetente')
+        .select('id, texto, remetente, message_sid')
         .eq('message_sid', originalRepliedMessageSid)
         .single();
       
@@ -151,11 +203,13 @@ serve(async (req) => {
         replyToMessageId = originalMsg.id;
         console.log('✅ Mensagem original encontrada:', {
           id: replyToMessageId,
+          message_sid: originalMsg.message_sid,
           texto: originalMsg.texto?.substring(0, 30),
           remetente: originalMsg.remetente
         });
       } else {
-        console.warn('⚠️ Mensagem original não encontrada com SID:', originalRepliedMessageSid);
+        console.warn('⚠️ Mensagem original NÃO encontrada com SID:', originalRepliedMessageSid);
+        console.warn('💡 Possíveis causas: MessageSid não foi salvo corretamente na mensagem original');
       }
     }
 
@@ -166,6 +220,49 @@ serve(async (req) => {
       if (contentType.startsWith('audio/')) return 'audio';
       return 'arquivo';
     };
+
+    // Salvar mensagem(ns) no banco
+    const mensagensParaSalvar = [];
+    
+    // Se houver botão, adicionar informação ao texto
+    const textoComBotao = buttonText && buttonPayload
+      ? (finalBody ? `${finalBody}\n[Payload: ${buttonPayload}]` : `🔘 Botão: ${buttonText}\n[Payload: ${buttonPayload}]`)
+      : finalBody;
+    
+    if (finalBody || mediaUrls.length === 0) {
+      const novaMensagem = {
+        cliente_id: cliente.telefone,
+        ficha_id: fichaAtiva?.id || null,
+        remetente: 'cliente',
+        texto: textoComBotao || finalBody,
+        tipo: mediaUrls.length > 0 ? getTipoMensagem(mediaTypes[0]) : 'texto',
+        arquivo_url: mediaUrls[0] || null,
+        message_sid: messageSid || null,
+        reply_to_message_id: replyToMessageId
+      };
+      
+      console.log('💾 Salvando mensagem:', {
+        ...novaMensagem,
+        texto: novaMensagem.texto?.substring(0, 50),
+        hasButtonData: !!(buttonText || buttonPayload)
+      });
+      
+      mensagensParaSalvar.push(novaMensagem);
+    }
+    
+    // Adicionar mensagens extras para múltiplas mídias
+    for (let i = 1; i < mediaUrls.length; i++) {
+      mensagensParaSalvar.push({
+        cliente_id: cliente.telefone,
+        ficha_id: fichaAtiva?.id || null,
+        remetente: 'cliente',
+        texto: null,
+        tipo: getTipoMensagem(mediaTypes[i]),
+        arquivo_url: mediaUrls[i],
+        message_sid: messageSid || null,
+        reply_to_message_id: replyToMessageId
+      });
+    }
 
     // Se há mídia, criar uma mensagem para cada arquivo
     if (mediaUrls.length > 0) {
