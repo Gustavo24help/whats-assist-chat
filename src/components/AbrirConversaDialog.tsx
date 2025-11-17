@@ -184,11 +184,15 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         contentVariables[(index + 1).toString()] = variableValues[index];
       });
 
+      // Gerar preview do template com variáveis substituídas
+      const templateBody = getTemplatePreview(selectedTemplate);
+
       const { data, error } = await supabase.functions.invoke("send-template", {
         body: {
           to: phoneNumber,
           contentSid: selectedTemplate.content_sid,
           contentVariables,
+          templateBody,
         },
       });
 
@@ -199,17 +203,6 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
       if (!data || !data.success) {
         throw new Error(data?.error || "Erro ao enviar template");
       }
-
-      // Salvar mensagem no banco para aparecer no chat
-      const mensagemTexto = getTemplatePreview(selectedTemplate);
-      await supabase.from('mensagens').insert({
-        cliente_id: clienteTelefone,
-        texto: mensagemTexto,
-        tipo: 'texto',
-        remetente: 'atendente',
-        status: 'enviado',
-        data_hora: new Date().toISOString()
-      });
 
       toast.success("✅ Template enviado com sucesso!", {
         description: `Enviado para ${clienteNome}`

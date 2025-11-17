@@ -33,24 +33,15 @@ serve(async (req) => {
     const numMedia = formData.get('NumMedia') as string;
     const profileName = formData.get('ProfileName') as string;
     
-    // 🆔 TENTAR VÁRIOS CAMPOS PARA MessageSid (WhatsApp pode usar nomes diferentes)
+    // 🆔 Extrair MessageSid (campo correto confirmado pelo log)
     const messageSid = (
       formData.get('MessageSid') ||
       formData.get('SmsMessageSid') ||
-      formData.get('SmsSid') ||
-      formData.get('WaId') ||
-      allFields['MessageSid'] ||
-      allFields['SmsMessageSid']
+      formData.get('SmsSid')
     ) as string;
     
-    // 🔗 TENTAR VÁRIOS CAMPOS PARA Reply (contexto de resposta)
-    const originalRepliedMessageSid = (
-      formData.get('OriginalRepliedMessageSid') ||
-      formData.get('Context') ||
-      formData.get('ReferredMessage') ||
-      allFields['OriginalRepliedMessageSid'] ||
-      allFields['Context']
-    ) as string;
+    // 🔗 Extrair OriginalRepliedMessageSid para replies (campo correto confirmado pelo log)
+    const originalRepliedMessageSid = formData.get('OriginalRepliedMessageSid') as string;
     
     // 🔘 Campos para templates com botões
     const buttonPayload = formData.get('ButtonPayload') as string;
