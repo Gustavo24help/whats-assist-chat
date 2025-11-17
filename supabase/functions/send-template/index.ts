@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
@@ -17,7 +18,7 @@ serve(async (req) => {
   try {
     console.log("📤 Iniciando envio de template...");
     
-    const { to, contentSid, contentVariables } = await req.json();
+    const { to, contentSid, contentVariables, templateBody } = await req.json();
     
     console.log("📋 Dados recebidos:", { to, contentSid, contentVariables });
     
@@ -95,6 +96,47 @@ serve(async (req) => {
       status: data.status,
       to: data.to
     });
+
+    // Salvar mensagem no banco de dados
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const mensagemTexto = templateBody || '[Template enviado]';
+    
+    console.log("💾 Salvando template no banco:", {
+      cliente_id: whatsappNumber,
+      texto: mensagemTexto,
+      message_sid: data.sid
+    });
+
+    const { error: insertError } = await supabase.from('mensagens').insert({
+      cliente_id: whatsappNumber,
+      remetente: 'atendente',
+      texto: mensagemTexto,
+      tipo: 'texto',
+      arquivo_url: null,
+      status: 'enviado',
+      data_hora: new Date().toISOString(),
+      message_sid: data.sid,
+      reply_to_message_id: null,
+    });
+
+    if (insertError) {
+      console.error("❌ Erro ao inserir mensagem do template:", insertError);
+    } else {
+      console.log("✅ Mensagem do template salva no banco");
+    }
+
+    // Atualizar última interação do cliente
+    const { error: updateError } = await supabase
+      .from('clientes')
+      .update({ ultima_interacao: new Date().toISOString() })
+      .eq('telefone', whatsappNumber);
+
+    if (updateError) {
+      console.error("❌ Erro ao atualizar cliente:", updateError);
+    }
 
     return new Response(
       JSON.stringify({ 
