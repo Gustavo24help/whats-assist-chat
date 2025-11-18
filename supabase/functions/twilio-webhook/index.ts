@@ -70,14 +70,57 @@ serve(async (req) => {
       isReply: !!originalRepliedMessageSid
     });
     
-    // 🔘 Campos para templates com botões
-    const buttonPayload = formData.get('ButtonPayload') as string;
-    const buttonText = formData.get('ButtonText') as string;
+    // 🔘 Campos para templates com botões - tentar múltiplas variações
+    const buttonPayload = (
+      allFields['ButtonPayload'] ||
+      allFields['buttonPayload'] ||
+      allFields['button_payload'] ||
+      formData.get('ButtonPayload') ||
+      formData.get('buttonPayload') ||
+      formData.get('button_payload')
+    ) as string;
     
-    if (buttonPayload || buttonText) {
+    const buttonText = (
+      allFields['ButtonText'] ||
+      allFields['buttonText'] ||
+      allFields['button_text'] ||
+      allFields['Button'] ||
+      formData.get('ButtonText') ||
+      formData.get('buttonText') ||
+      formData.get('button_text') ||
+      formData.get('Button')
+    ) as string;
+    
+    // Também verificar se o Body contém indicação de botão
+    const isButtonResponse = body && (
+      body.startsWith('button:') || 
+      body.startsWith('btn:') ||
+      allFields['EventType'] === 'BUTTON'
+    );
+    
+    console.log('🔘 [DEBUG] Tentativa de captura de botão:', {
+      buttonPayload_variations: {
+        ButtonPayload: allFields['ButtonPayload'] || '❌',
+        buttonPayload: allFields['buttonPayload'] || '❌',
+        button_payload: allFields['button_payload'] || '❌'
+      },
+      buttonText_variations: {
+        ButtonText: allFields['ButtonText'] || '❌',
+        buttonText: allFields['buttonText'] || '❌',
+        button_text: allFields['button_text'] || '❌',
+        Button: allFields['Button'] || '❌'
+      },
+      body: body || '❌',
+      isButtonResponse,
+      finalButtonPayload: buttonPayload || 'N/A',
+      finalButtonText: buttonText || 'N/A'
+    });
+    
+    if (buttonPayload || buttonText || isButtonResponse) {
       console.log('🔘 TEMPLATE BUTTON DETECTADO:', {
-        buttonText: buttonText || 'N/A',
+        buttonText: buttonText || body || 'N/A',
         buttonPayload: buttonPayload || 'N/A',
+        isButtonResponse,
         willSaveAsSpecialMessage: true,
         messageWillInclude: '🔘 Botão clicado'
       });
@@ -113,10 +156,18 @@ serve(async (req) => {
 
     // 📝 Construir texto da mensagem (incluindo botões se houver)
     let finalBody = body || '';
-    if (buttonText && buttonPayload) {
-      finalBody = finalBody 
-        ? `${finalBody}\n\n🔘 Botão clicado: ${buttonText}`
-        : `🔘 Botão clicado: ${buttonText}`;
+    
+    // Se detectamos um botão, formatar a mensagem adequadamente
+    if (buttonText || buttonPayload || isButtonResponse) {
+      const displayText = buttonText || body || 'Botão';
+      const payloadInfo = buttonPayload ? `\n[Payload: ${buttonPayload}]` : '';
+      
+      finalBody = `🔘 Botão clicado: ${displayText}${payloadInfo}`;
+      
+      console.log('🔘 Mensagem de botão formatada:', {
+        original: body,
+        formatted: finalBody
+      });
     }
     
     console.log("✉️ Mensagem processada:", { 
@@ -249,63 +300,29 @@ serve(async (req) => {
     };
 
     // Salvar mensagem(ns) no banco
-    const mensagensParaSalvar = [];
-    
-    // Se houver botão, adicionar informação ao texto
-    const textoComBotao = buttonText && buttonPayload
-      ? (finalBody ? `${finalBody}\n[Payload: ${buttonPayload}]` : `🔘 Botão: ${buttonText}\n[Payload: ${buttonPayload}]`)
-      : finalBody;
-    
-    if (finalBody || mediaUrls.length === 0) {
-      const novaMensagem = {
-        cliente_id: cliente.telefone,
-        ficha_id: fichaAtiva?.id || null,
-        remetente: 'cliente',
-        texto: textoComBotao || finalBody,
-        tipo: mediaUrls.length > 0 ? getTipoMensagem(mediaTypes[0]) : 'texto',
-        arquivo_url: mediaUrls[0] || null,
-        message_sid: messageSid || null,
-        reply_to_message_id: replyToMessageId
-      };
-      
-      console.log('💾 Salvando mensagem:', {
-        ...novaMensagem,
-        texto: novaMensagem.texto?.substring(0, 50),
-        hasButtonData: !!(buttonText || buttonPayload)
-      });
-      
-      mensagensParaSalvar.push(novaMensagem);
-    }
-    
-    // Adicionar mensagens extras para múltiplas mídias
-    for (let i = 1; i < mediaUrls.length; i++) {
-      mensagensParaSalvar.push({
-        cliente_id: cliente.telefone,
-        ficha_id: fichaAtiva?.id || null,
-        remetente: 'cliente',
-        texto: null,
-        tipo: getTipoMensagem(mediaTypes[i]),
-        arquivo_url: mediaUrls[i],
-        message_sid: messageSid || null,
-        reply_to_message_id: replyToMessageId
-      });
-    }
 
     // Se há mídia, criar uma mensagem para cada arquivo
     if (mediaUrls.length > 0) {
       for (let i = 0; i < mediaUrls.length; i++) {
+        const textoMidia = i === 0 && finalBody ? finalBody : (body || `Arquivo ${i + 1}`);
         const mensagem = {
           cliente_id: cliente.telefone,
           remetente: 'cliente',
-          texto: body || `Arquivo ${i + 1}`,
+          texto: textoMidia,
           tipo: getTipoMensagem(mediaTypes[i]),
           arquivo_url: mediaUrls[i],
           status: 'recebido',
           data_hora: new Date().toISOString(),
-          ficha_id: null,
+          ficha_id: fichaAtiva?.id || null,
           message_sid: messageSid,
           reply_to_message_id: replyToMessageId,
         };
+
+        console.log('💾 Salvando mensagem de mídia:', {
+          tipo: mensagem.tipo,
+          hasText: !!mensagem.texto,
+          hasButton: !!(buttonText || buttonPayload || isButtonResponse)
+        });
 
         const { error: mensagemError } = await supabase
           .from('mensagens')
@@ -320,15 +337,25 @@ serve(async (req) => {
       const mensagem = {
         cliente_id: cliente.telefone,
         remetente: 'cliente',
-        texto: body || '',
+        texto: finalBody || body || '',
         tipo: 'texto',
         arquivo_url: null,
         status: 'recebido',
         data_hora: new Date().toISOString(),
-        ficha_id: null,
+        ficha_id: fichaAtiva?.id || null,
         message_sid: messageSid,
         reply_to_message_id: replyToMessageId,
       };
+
+      console.log('💾 Salvando mensagem de texto:', {
+        texto: mensagem.texto?.substring(0, 50),
+        hasButton: !!(buttonText || buttonPayload || isButtonResponse),
+        buttonDetected: {
+          buttonText: !!buttonText,
+          buttonPayload: !!buttonPayload,
+          isButtonResponse
+        }
+      });
 
       const { error: mensagemError } = await supabase
         .from('mensagens')
