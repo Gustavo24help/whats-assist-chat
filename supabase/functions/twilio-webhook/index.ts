@@ -17,15 +17,22 @@ serve(async (req) => {
     // Parse form data from Twilio
     const formData = await req.formData();
     
-    // 📋 PRIMEIRO: Coletar TODOS os campos para análise
-    const allFields: Record<string, string> = {};
-    console.log("📦 ========== TODOS OS CAMPOS RECEBIDOS DA TWILIO ==========");
-    for (const [key, value] of formData.entries()) {
-      const strValue = String(value);
-      allFields[key] = strValue;
-      console.log(`  ✓ ${key}: ${strValue}`);
-    }
-    console.log("📦 =======================================================");
+  // 📋 PRIMEIRO: Coletar TODOS os campos para análise
+  console.log("📦 ========== TODOS OS CAMPOS RECEBIDOS DA TWILIO ==========");
+  
+  const allFields: Record<string, string> = {};
+  const allFieldsArray: Array<{key: string, value: string}> = [];
+  
+  for (const [key, value] of formData.entries()) {
+    const strValue = String(value);
+    allFields[key] = strValue;
+    allFieldsArray.push({ key, value: strValue });
+    console.log(`  ✓ ${key}: ${strValue}`);
+  }
+  
+  console.log("📦 TOTAL DE CAMPOS:", allFieldsArray.length);
+  console.log("📦 TODOS OS CAMPOS (JSON):", JSON.stringify(allFields, null, 2));
+  console.log("📦 =======================================================");
     
     // 🔍 Extrair campos básicos
     const from = formData.get('From') as string;
@@ -33,19 +40,48 @@ serve(async (req) => {
     const numMedia = formData.get('NumMedia') as string;
     const profileName = formData.get('ProfileName') as string;
     
-    // 🆔 Extrair MessageSid (campo correto confirmado pelo log)
+    // 🆔 Extrair MessageSid - tentar todos os campos possíveis
     const messageSid = (
+      allFields['MessageSid'] ||
+      allFields['SmsMessageSid'] ||
+      allFields['SmsSid'] ||
       formData.get('MessageSid') ||
       formData.get('SmsMessageSid') ||
       formData.get('SmsSid')
     ) as string;
     
-    // 🔗 Extrair OriginalRepliedMessageSid para replies (campo correto confirmado pelo log)
-    const originalRepliedMessageSid = formData.get('OriginalRepliedMessageSid') as string;
+    console.log('🆔 [DEBUG] MessageSid - tentativas:', {
+      fromAllFields_MessageSid: allFields['MessageSid'] || '❌',
+      fromAllFields_SmsMessageSid: allFields['SmsMessageSid'] || '❌',
+      fromFormData_MessageSid: formData.get('MessageSid') || '❌',
+      final: messageSid || '❌ NENHUM MÉTODO FUNCIONOU'
+    });
+    
+    // 🔗 Extrair OriginalRepliedMessageSid para replies
+    const originalRepliedMessageSid = (
+      allFields['OriginalRepliedMessageSid'] ||
+      formData.get('OriginalRepliedMessageSid')
+    ) as string;
+    
+    console.log('🔗 [DEBUG] OriginalRepliedMessageSid - tentativas:', {
+      fromAllFields: allFields['OriginalRepliedMessageSid'] || '❌',
+      fromFormData: formData.get('OriginalRepliedMessageSid') || '❌',
+      final: originalRepliedMessageSid || '❌ NENHUM MÉTODO FUNCIONOU',
+      isReply: !!originalRepliedMessageSid
+    });
     
     // 🔘 Campos para templates com botões
     const buttonPayload = formData.get('ButtonPayload') as string;
     const buttonText = formData.get('ButtonText') as string;
+    
+    if (buttonPayload || buttonText) {
+      console.log('🔘 TEMPLATE BUTTON DETECTADO:', {
+        buttonText: buttonText || 'N/A',
+        buttonPayload: buttonPayload || 'N/A',
+        willSaveAsSpecialMessage: true,
+        messageWillInclude: '🔘 Botão clicado'
+      });
+    }
     
     console.log("📨 Campos extraídos e processados:", {
       from,
