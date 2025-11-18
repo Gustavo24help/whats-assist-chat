@@ -114,14 +114,16 @@ serve(async (req) => {
       body.append('MediaUrl', mediaUrl);
     }
     if (replyContext) {
-      body.append('Context', replyContext);
-      console.log('✅ Context adicionado ao payload Twilio:', {
-        Context: replyContext,
-        reply_to_message_id,
-        willAppearAsReply: true
+      body.append('QuotedMessageSid', replyContext);
+      console.log('📎 [REPLY] QuotedMessageSid adicionado ao payload Twilio:', {
+        QuotedMessageSid: replyContext,
+        originalMessageId: reply_to_message_id,
+        willShowAsReplyOnWhatsApp: true,
+        correctField: 'QuotedMessageSid (não Context)'
       });
     } else if (reply_to_message_id) {
-      console.warn('⚠️ Reply solicitado mas Context não pode ser adicionado (sem message_sid)');
+      console.warn('⚠️ Reply solicitado mas QuotedMessageSid não pode ser adicionado (sem message_sid)');
+      console.warn('💡 Isso significa que a mensagem original não tem message_sid no banco');
     }
     
     console.log('📤 Payload completo sendo enviado para Twilio:', {
@@ -129,8 +131,9 @@ serve(async (req) => {
       From: fromNumber,
       Body: message?.substring(0, 50),
       hasMedia: !!mediaUrl,
-      hasContext: !!replyContext,
-      Context: replyContext || 'N/A'
+      hasQuotedMessageSid: !!replyContext,
+      QuotedMessageSid: replyContext || 'N/A',
+      isReply: !!reply_to_message_id
     });
 
     const twilioResponse = await fetch(
@@ -152,7 +155,9 @@ serve(async (req) => {
       sid: twilioData.sid,
       status_msg: twilioData.status,
       error: twilioData.error_message,
-      hasContext: !!replyContext
+      hasQuotedMessageSid: !!replyContext,
+      wasReply: !!reply_to_message_id,
+      quotedMessageSid: replyContext || 'N/A'
     });
 
     if (!twilioResponse.ok) {

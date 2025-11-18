@@ -91,10 +91,13 @@ serve(async (req) => {
     }
 
     const data = JSON.parse(responseText);
-    console.log("✅ Template enviado com sucesso!", {
+    console.log("✅ Template enviado com sucesso via Twilio!", {
       sid: data.sid,
       status: data.status,
-      to: data.to
+      to: data.to,
+      templateBody: templateBody || '[não fornecido]',
+      willSaveInDB: true,
+      nextStep: 'Salvando mensagem no banco de dados'
     });
 
     // Salvar mensagem no banco de dados
@@ -106,8 +109,12 @@ serve(async (req) => {
     
     console.log("💾 Salvando template no banco:", {
       cliente_id: whatsappNumber,
-      texto: mensagemTexto,
-      message_sid: data.sid
+      texto_preview: mensagemTexto?.substring(0, 100),
+      texto_completo_length: mensagemTexto?.length,
+      message_sid: data.sid,
+      remetente: 'atendente',
+      tipo: 'texto',
+      status: 'enviado'
     });
 
     const { error: insertError } = await supabase.from('mensagens').insert({
