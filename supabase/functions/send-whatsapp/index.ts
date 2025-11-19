@@ -150,15 +150,29 @@ serve(async (req) => {
 
     const twilioData = await twilioResponse.json();
     
-    console.log("📬 Resposta da Twilio:", {
-      status: twilioResponse.status,
-      sid: twilioData.sid,
-      status_msg: twilioData.status,
-      error: twilioData.error_message,
-      hasQuotedMessageSid: !!replyContext,
-      wasReply: !!reply_to_message_id,
-      quotedMessageSid: replyContext || 'N/A'
-    });
+    console.log("📬 ========== RESPOSTA DA TWILIO ==========");
+    console.log("Status HTTP:", twilioResponse.status);
+    console.log("Resposta completa:", JSON.stringify(twilioData, null, 2));
+    
+    if (replyContext) {
+      console.log("🔗 [REPLY] Verificando se o reply foi enviado corretamente:");
+      console.log("  - QuotedMessageSid enviado:", replyContext);
+      console.log("  - SID da mensagem criada:", twilioData.sid);
+      console.log("  - Status da mensagem:", twilioData.status);
+      console.log("  - Erro (se houver):", twilioData.error_message || twilioData.message || 'Nenhum erro');
+      console.log("  - Código de erro:", twilioData.code || 'Nenhum código');
+      
+      if (twilioData.error_message || twilioData.message) {
+        console.error("❌ ERRO AO ENVIAR REPLY:", twilioData.error_message || twilioData.message);
+        console.error("💡 Possíveis causas:");
+        console.error("   1. QuotedMessageSid inválido ou expirado");
+        console.error("   2. Mensagem original não existe mais");
+        console.error("   3. Campo QuotedMessageSid não suportado pela Twilio");
+      } else {
+        console.log("✅ Reply enviado com sucesso!");
+      }
+    }
+    console.log("📬 ========================================");
 
     if (!twilioResponse.ok) {
       console.error("Erro Twilio:", twilioData);

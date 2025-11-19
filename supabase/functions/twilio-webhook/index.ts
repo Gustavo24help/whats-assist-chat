@@ -40,22 +40,34 @@ serve(async (req) => {
     const numMedia = formData.get('NumMedia') as string;
     const profileName = formData.get('ProfileName') as string;
     
-    // 🆔 Extrair MessageSid - tentar todos os campos possíveis
+    // 🆔 Extrair MessageSid - tentar TODAS as variações possíveis
+    console.log('🆔 [DEBUG] Tentando capturar MessageSid de várias formas:');
+    console.log('  - allFields["MessageSid"]:', allFields['MessageSid'] || '❌');
+    console.log('  - allFields["SmsMessageSid"]:', allFields['SmsMessageSid'] || '❌');
+    console.log('  - allFields["SmsSid"]:', allFields['SmsSid'] || '❌');
+    console.log('  - allFields["message_sid"]:', allFields['message_sid'] || '❌');
+    console.log('  - formData.get("MessageSid"):', formData.get('MessageSid') || '❌');
+    console.log('  - formData.get("SmsMessageSid"):', formData.get('SmsMessageSid') || '❌');
+    console.log('  - formData.get("SmsSid"):', formData.get('SmsSid') || '❌');
+    
     const messageSid = (
       allFields['MessageSid'] ||
       allFields['SmsMessageSid'] ||
       allFields['SmsSid'] ||
+      allFields['message_sid'] ||
       formData.get('MessageSid') ||
       formData.get('SmsMessageSid') ||
-      formData.get('SmsSid')
+      formData.get('SmsSid') ||
+      formData.get('message_sid')
     ) as string;
     
-    console.log('🆔 [DEBUG] MessageSid - tentativas:', {
-      fromAllFields_MessageSid: allFields['MessageSid'] || '❌',
-      fromAllFields_SmsMessageSid: allFields['SmsMessageSid'] || '❌',
-      fromFormData_MessageSid: formData.get('MessageSid') || '❌',
-      final: messageSid || '❌ NENHUM MÉTODO FUNCIONOU'
-    });
+    if (messageSid) {
+      console.log('✅ MessageSid capturado com sucesso:', messageSid);
+    } else {
+      console.error('❌ CRÍTICO: MessageSid NÃO CAPTURADO!');
+      console.error('💡 Isso significa que REPLIES NÃO FUNCIONARÃO!');
+      console.error('💡 Verifique se a Twilio está enviando o MessageSid no webhook');
+    }
     
     // 🔗 Extrair OriginalRepliedMessageSid para replies
     const originalRepliedMessageSid = (
