@@ -219,12 +219,32 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   };
 
   const getTemplatePreview = (template: Template) => {
+    if (!template.body || template.body.trim() === '') {
+      console.warn("⚠️ Template sem body:", template.friendly_name);
+      // Se não tem body, criar uma mensagem com as variáveis
+      if (template.variables.length > 0) {
+        const varsText = template.variables
+          .map((_, idx) => variableValues[idx] || `{{${idx + 1}}}`)
+          .join(' | ');
+        return `Template: ${template.friendly_name} - ${varsText}`;
+      }
+      return `Template: ${template.friendly_name}`;
+    }
+    
     let preview = template.body;
     // Substituir variáveis do tipo {{1}}, {{2}}, etc
     template.variables.forEach((_, index) => {
       const value = variableValues[index] || `{{${index + 1}}}`;
-      preview = preview.replace(`{{${index + 1}}}`, value);
+      preview = preview.replace(new RegExp(`\\{\\{${index + 1}\\}\\}`, 'g'), value);
     });
+    
+    console.log("📝 Preview gerado:", { 
+      template: template.friendly_name,
+      originalBody: template.body,
+      preview,
+      variables: variableValues 
+    });
+    
     return preview;
   };
 
