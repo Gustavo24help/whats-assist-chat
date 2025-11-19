@@ -44,11 +44,40 @@ serve(async (req) => {
     }
 
     const template = await response.json();
-    console.log("Template encontrado:", template.friendly_name);
+    console.log("📋 Template encontrado:", template.friendly_name);
+    console.log("📋 Tipos disponíveis:", Object.keys(template.types || {}));
+
+    // Buscar body em diferentes tipos de template
+    // Ordem de prioridade: quick-reply (botões) > text > list-picker > call-to-action
+    let body = '';
+    let templateType = '';
+    
+    if (template.types?.['twilio/quick-reply']?.body) {
+      body = template.types['twilio/quick-reply'].body;
+      templateType = 'quick-reply';
+      console.log("✅ Body encontrado em quick-reply");
+    } else if (template.types?.['twilio/text']?.body) {
+      body = template.types['twilio/text'].body;
+      templateType = 'text';
+      console.log("✅ Body encontrado em text");
+    } else if (template.types?.['twilio/list-picker']?.body) {
+      body = template.types['twilio/list-picker'].body;
+      templateType = 'list-picker';
+      console.log("✅ Body encontrado em list-picker");
+    } else if (template.types?.['twilio/call-to-action']?.body) {
+      body = template.types['twilio/call-to-action'].body;
+      templateType = 'call-to-action';
+      console.log("✅ Body encontrado em call-to-action");
+    } else {
+      console.warn("⚠️ Nenhum body encontrado nos tipos conhecidos");
+      console.log("Tipos disponíveis:", JSON.stringify(template.types, null, 2));
+    }
 
     // Extrair variáveis do body
-    const body = template.types?.['twilio/text']?.body || '';
     const variables = [...body.matchAll(/\{\{(\d+)\}\}/g)].map(match => `var_${match[1]}`);
+    
+    console.log("📝 Variáveis encontradas:", variables);
+    console.log("📝 Body extraído:", body.substring(0, 100) + (body.length > 100 ? '...' : ''));
 
     return new Response(
       JSON.stringify({ 
@@ -58,6 +87,7 @@ serve(async (req) => {
           friendly_name: template.friendly_name,
           body: body,
           variables: variables,
+          type: templateType,
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

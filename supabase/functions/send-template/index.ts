@@ -20,7 +20,13 @@ serve(async (req) => {
     
     const { to, contentSid, contentVariables, templateBody } = await req.json();
     
-    console.log("📋 Dados recebidos:", { to, contentSid, contentVariables });
+    console.log("📋 Dados recebidos:", { 
+      to, 
+      contentSid, 
+      contentVariables,
+      templateBody: templateBody || '[não fornecido]',
+      templateBodyLength: templateBody?.length || 0
+    });
     
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
       console.error("❌ Credenciais não configuradas");
@@ -105,7 +111,20 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const mensagemTexto = templateBody || '[Template enviado]';
+    // Se não tiver templateBody, tentar montar a mensagem a partir das variáveis
+    let mensagemTexto = templateBody || '';
+    
+    // Se ainda estiver vazio, criar uma mensagem descritiva
+    if (!mensagemTexto || mensagemTexto.trim() === '') {
+      if (contentVariables && Object.keys(contentVariables).length > 0) {
+        const vars = Object.entries(contentVariables)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ');
+        mensagemTexto = `📋 Template com variáveis: ${vars}`;
+      } else {
+        mensagemTexto = '📋 Template enviado';
+      }
+    }
     
     console.log("💾 Salvando template no banco:", {
       cliente_id: whatsappNumber,
@@ -114,7 +133,8 @@ serve(async (req) => {
       message_sid: data.sid,
       remetente: 'atendente',
       tipo: 'texto',
-      status: 'enviado'
+      status: 'enviado',
+      tinha_templateBody: !!templateBody
     });
 
     const { error: insertError } = await supabase.from('mensagens').insert({
