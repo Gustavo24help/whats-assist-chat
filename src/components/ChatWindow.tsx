@@ -14,7 +14,7 @@ import { useConversationTimer } from "@/hooks/useConversationTimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
 import { MessageContextMenu } from "./MessageContextMenu";
-import { ReplyIndicator } from "./ReplyIndicator";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -148,7 +148,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [fichaId, setFichaId] = useState<string | undefined>();
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<Mensagem | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -288,16 +287,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         console.log('⌨️ ESC pressionado');
-        
-        if (replyingTo) {
-          // Prioridade 1: Cancelar resposta
-          console.log('❌ Cancelando resposta');
-          setReplyingTo(null);
-        } else {
-          // Prioridade 2: Sair da conversa
-          console.log('🚪 Saindo da conversa');
-          onBack?.();
-        }
+        console.log('🚪 Saindo da conversa');
+        onBack?.();
       }
     };
 
@@ -306,7 +297,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [replyingTo, onBack]);
+  }, [onBack]);
 
   const fetchMensagens = async () => {
     console.log('🔍 Buscando mensagens para:', clienteTelefone);
@@ -488,21 +479,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
 
     const mensagemTexto = novaMsg;
-    const replyToId = replyingTo?.id || null;
     
     console.log('📤 [enviarMensagem] Preparando envio:', {
-      texto: mensagemTexto.substring(0, 50),
-      replyingTo: replyingTo ? {
-        id: replyingTo.id,
-        message_sid: (replyingTo as any).message_sid,
-        texto: replyingTo.texto?.substring(0, 30),
-        remetente: replyingTo.remetente
-      } : null,
-      replyToId
+      texto: mensagemTexto.substring(0, 50)
     });
     
     setNovaMsg(""); // Limpar imediatamente para UX
-    setReplyingTo(null); // Limpar resposta
 
     // Optimistic update - adicionar mensagem localmente
     const tempId = `temp-${Date.now()}`;
@@ -513,9 +495,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       arquivo_url: null,
       data_hora: new Date().toISOString(),
       remetente: "atendente",
-      status: "enviado",
-      reply_to_message_id: replyToId,
-      reply_to: replyingTo
+      status: "enviado"
     };
     
     setMensagens(prev => [...prev, novaMensagemTemp]);
@@ -523,17 +503,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     try {
       console.log('🚀 Invocando send-whatsapp com:', {
         to: clienteTelefone,
-        message: mensagemTexto.substring(0, 50),
-        reply_to_message_id: replyToId,
-        hasReply: !!replyToId
+        message: mensagemTexto.substring(0, 50)
       });
       
       // Enviar via Twilio
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
           to: clienteTelefone,
-          message: mensagemTexto,
-          reply_to_message_id: replyToId,
+          message: mensagemTexto
         },
       });
       
@@ -616,14 +593,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
-  const handleReply = useCallback((message: Mensagem) => {
-    setReplyingTo(message);
-    textareaRef.current?.focus();
-  }, []);
-
-  const cancelReply = useCallback(() => {
-    setReplyingTo(null);
-  }, []);
 
   const scrollToMessage = useCallback((messageId: string) => {
     const messageElement = messageRefs.current[messageId];
@@ -857,7 +826,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   messageText={msg.texto || ""} 
                   fichaId={fichaId || null}
                   messageData={msg}
-                  onReply={handleReply}
                 >
                   <div
                     className={cn(
@@ -908,14 +876,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         )}
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Reply indicator - Above input */}
-      {replyingTo && (
-        <ReplyIndicator 
-          message={replyingTo} 
-          onCancel={cancelReply} 
-        />
-      )}
 
       {/* Input area - Fixed at bottom */}
       <div className="px-3 py-2.5 md:px-4 md:py-3 border-t bg-background shadow-sm shrink-0 flex-none">
