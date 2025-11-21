@@ -13,26 +13,72 @@ serve(async (req) => {
 
   try {
     console.log("🔔 Webhook recebido do Twilio");
-    
-    // Parse form data from Twilio
-    const formData = await req.formData();
-    
-  // 📋 PRIMEIRO: Coletar TODOS os campos para análise
-  console.log("📦 ========== TODOS OS CAMPOS RECEBIDOS DA TWILIO ==========");
-  
-  const allFields: Record<string, string> = {};
-  const allFieldsArray: Array<{key: string, value: string}> = [];
-  
-  for (const [key, value] of formData.entries()) {
-    const strValue = String(value);
-    allFields[key] = strValue;
-    allFieldsArray.push({ key, value: strValue });
-    console.log(`  ✓ ${key}: ${strValue}`);
-  }
-  
-  console.log("📦 TOTAL DE CAMPOS:", allFieldsArray.length);
-  console.log("📦 TODOS OS CAMPOS (JSON):", JSON.stringify(allFields, null, 2));
-  console.log("📦 =======================================================");
+
+    // Detectar o Content-Type
+    const contentType = req.headers.get('content-type') || '';
+    console.log("📝 Content-Type recebido:", contentType);
+
+    let allFields: Record<string, string> = {};
+    let formData: FormData;
+
+    try {
+      if (contentType.includes('application/json')) {
+        // Tentar como JSON
+        console.log("📦 Tentando processar como JSON...");
+        const jsonData = await req.json();
+        console.log("📦 Dados JSON recebidos:", JSON.stringify(jsonData, null, 2));
+        
+        // Converter JSON para o formato esperado
+        allFields = jsonData;
+        
+        // Criar um FormData mock para compatibilidade com o código existente
+        formData = new FormData();
+        for (const [key, value] of Object.entries(jsonData)) {
+          formData.append(key, String(value));
+        }
+        
+        console.log("✅ Dados processados como JSON com sucesso");
+      } else {
+        // Tentar como FormData (padrão)
+        console.log("📦 Tentando processar como FormData...");
+        formData = await req.formData();
+        
+        // Coletar todos os campos
+        for (const [key, value] of formData.entries()) {
+          allFields[key] = String(value);
+        }
+        
+        console.log("✅ Dados processados como FormData com sucesso");
+      }
+    } catch (parseError) {
+      console.error("❌ Erro ao processar webhook:", parseError);
+      console.error("💡 Content-Type:", contentType);
+      console.error("💡 Tente verificar o formato de envio no Twilio Studio");
+      
+      const errorMessage = parseError instanceof Error ? parseError.message : 'Erro desconhecido';
+      
+      return new Response(
+        JSON.stringify({ 
+          error: "Formato de dados inválido", 
+          contentType,
+          message: errorMessage 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log("📦 ========== TODOS OS CAMPOS RECEBIDOS DA TWILIO ==========");
+    console.log("📦 TOTAL DE CAMPOS:", Object.keys(allFields).length);
+
+    for (const [key, value] of Object.entries(allFields)) {
+      console.log(`  ✓ ${key}: ${value}`);
+    }
+
+    console.log("📦 TODOS OS CAMPOS (JSON):", JSON.stringify(allFields, null, 2));
+    console.log("📦 =======================================================");
     
     // 🔍 Extrair campos básicos
     const from = formData.get('From') as string;
