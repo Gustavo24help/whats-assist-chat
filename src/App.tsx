@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import FichasGeral from "./pages/FichasGeral";
+import OrcamentoPublico from "./pages/OrcamentoPublico";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/orcamento" element={<OrcamentoPublico />} />
             <Route
               path="/"
               element={
