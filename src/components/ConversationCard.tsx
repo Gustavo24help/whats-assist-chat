@@ -28,6 +28,7 @@ interface ConversationCardProps {
   onToggleUnread: () => void;
   botHabilitado?: boolean;
   botDesativadoNotificacaoVista?: boolean;
+  orcamentosCount?: number;
 }
 
 const getStatusColor = (status: string) => {
@@ -69,7 +70,8 @@ export const ConversationCard = ({
   marcadoNaoLido = false,
   onToggleUnread,
   botHabilitado = true,
-  botDesativadoNotificacaoVista = true
+  botDesativadoNotificacaoVista = true,
+  orcamentosCount = 0
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -163,6 +165,11 @@ export const ConversationCard = ({
               <div className={cn("w-2 h-2 rounded-full shrink-0", getStatusColor(fichaStatus))} />
               <span className="text-xs text-muted-foreground truncate">{fichaStatus}</span>
             </div>
+          )}
+          {orcamentosCount > 0 && (
+            <Badge variant="secondary" className="text-xs h-5 px-1.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700">
+              💰 {orcamentosCount}
+            </Badge>
           )}
         </div>
       )}
