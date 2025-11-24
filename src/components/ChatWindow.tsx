@@ -416,14 +416,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const fetchAtendente = async () => {
     const { data } = await supabase
       .from('clientes')
-      .select('atendente_id, profiles!clientes_atendente_id_fkey(full_name)')
+      .select('atendente_id, atendente:profiles!atendente_id(full_name)')
       .eq('telefone', clienteTelefone)
-      .single();
+      .maybeSingle();
 
-    if (data?.atendente_id && (data as any).profiles) {
+    if (data?.atendente_id && (data as any).atendente) {
       setAtendenteAtual({
         id: data.atendente_id,
-        nome: (data as any).profiles.full_name
+        nome: (data as any).atendente.full_name
       });
     }
   };

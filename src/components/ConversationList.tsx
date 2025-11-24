@@ -239,7 +239,7 @@ export const ConversationList = ({
       .from('clientes')
       .select(`
         *,
-        profiles:clientes_atendente_id_fkey (
+        atendente:profiles!atendente_id (
           full_name
         )
       `)
@@ -601,7 +601,7 @@ export const ConversationList = ({
                   botHabilitado={cliente.bot_habilitado}
                   botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
                   orcamentosCount={cliente.orcamentos_count}
-                  atendenteNome={(cliente as any).profiles?.full_name}
+                  atendenteNome={(cliente as any).atendente?.full_name}
                 />
               ))
             )}
