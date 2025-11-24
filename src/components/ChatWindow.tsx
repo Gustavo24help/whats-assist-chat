@@ -105,7 +105,7 @@ const QuotedMessage = React.memo(({
   );
 });
 
-const MessageStatusIndicator = ({ status, remetente }: { status: string | null, remetente: string }) => {
+const MessageStatusIndicator = React.memo(({ status, remetente }: { status: string | null, remetente: string }) => {
   // Só mostrar para mensagens do atendente
   if (remetente !== 'atendente') return null;
   
@@ -129,7 +129,7 @@ const MessageStatusIndicator = ({ status, remetente }: { status: string | null, 
     default:
       return null;
   }
-};
+});
 
 interface ChatWindowProps {
   clienteTelefone: string;
@@ -176,6 +176,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   }, [novaMsg]);
 
   useEffect(() => {
+    console.log('[ChatWindow] Limpando estados para:', clienteTelefone);
+    setMensagens([]);
+    setNovaMsg("");
+    setHighlightedMessageId(null);
+    
     console.log('[ChatWindow] Inicializando canais Realtime para:', clienteTelefone);
     fetchMensagens();
     fetchFichaId();
@@ -317,21 +322,25 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     if (data) {
       console.log('✅ Mensagens carregadas:', data.length);
       
-      // Buscar reply_to manualmente para cada mensagem que tem reply
-      const mensagensComReply = await Promise.all(
-        data.map(async (msg) => {
-          if (msg.reply_to_message_id) {
-            const { data: replyMsg } = await supabase
-              .from('mensagens')
-              .select('id, texto, tipo, remetente, data_hora, arquivo_url, status')
-              .eq('id', msg.reply_to_message_id)
-              .single();
-            
-            return { ...msg, reply_to: replyMsg || null };
-          }
-          return msg;
-        })
-      );
+      // ✅ Buscar TODAS as mensagens de reply de uma vez (batch query)
+      const replyIds = data
+        .filter(m => m.reply_to_message_id)
+        .map(m => m.reply_to_message_id);
+
+      const { data: replyMessages } = await supabase
+        .from('mensagens')
+        .select('id, texto, tipo, remetente, data_hora, arquivo_url, status')
+        .in('id', replyIds);
+
+      // Criar mapa de replies
+      const repliesMap = new Map();
+      replyMessages?.forEach(r => repliesMap.set(r.id, r));
+
+      // ✅ Combinar SEM QUERIES EXTRAS
+      const mensagensComReply = data.map(msg => ({
+        ...msg,
+        reply_to: msg.reply_to_message_id ? repliesMap.get(msg.reply_to_message_id) : null
+      }));
       
       const withReplies = mensagensComReply.filter(m => m.reply_to_message_id);
       console.log('📨 Mensagens com reply:', withReplies.length);

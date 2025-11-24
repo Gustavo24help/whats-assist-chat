@@ -97,21 +97,23 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
       .order('data_criacao', { ascending: false });
 
     if (data) {
-      // Buscar nome dos prestadores
-      const orcamentosComNome = await Promise.all(
-        data.map(async (orc) => {
-          const { data: prestadorData } = await supabase
-            .from('prestadores')
-            .select('nome')
-            .eq('cpf', orc.prestador_cpf)
-            .maybeSingle();
+      // ✅ Buscar TODOS os prestadores de uma vez (batch query)
+      const cpfs = [...new Set(data.map(o => o.prestador_cpf))];
+      const { data: prestadores } = await supabase
+        .from('prestadores')
+        .select('cpf, nome')
+        .in('cpf', cpfs);
 
-          return {
-            ...orc,
-            prestador_nome: prestadorData?.nome || orc.prestador_cpf
-          };
-        })
-      );
+      // Criar mapa
+      const prestadoresMap = new Map();
+      prestadores?.forEach(p => prestadoresMap.set(p.cpf, p.nome));
+
+      // ✅ Combinar SEM QUERIES EXTRAS
+      const orcamentosComNome = data.map(orc => ({
+        ...orc,
+        prestador_nome: prestadoresMap.get(orc.prestador_cpf) || orc.prestador_cpf
+      }));
+
       setOrcamentos(orcamentosComNome);
     }
   };

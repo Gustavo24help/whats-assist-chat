@@ -334,7 +334,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
   };
 
-  // AutoSave com debounce
+  // AutoSave com debounce ✅ REDUZIDO DE 2000ms PARA 500ms
   const autoSave = useMemo(
     () =>
       debounce(
@@ -348,19 +348,22 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         ) => {
           salvarFichaEEnviarWebhook(targetFichaId, fichaData, dataAgend, horaAgend, dataVisita, horaVisita);
         },
-        2000
+        500
       ),
     []
   );
 
   useEffect(() => {
+    // ✅ CANCELAR DEBOUNCE PENDENTE
+    autoSave.cancel();
+    
     // ✅ Limpar IMEDIATAMENTE ao trocar de ficha
     console.log(`🔄 Trocando para ficha ${fichaId} - limpando estados`);
+    setFicha(null);
     setDataAgendamento('');
     setHoraAgendamento('');
     setDataVisitaTecnica('');
     setHoraVisitaTecnica('');
-    setFicha(null); // Limpar ficha também
     
     fetchFicha();
     fetchPrestadores();

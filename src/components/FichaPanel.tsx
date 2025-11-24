@@ -26,6 +26,10 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
   const [webhookUrl, setWebhookUrl] = useState("");
 
   useEffect(() => {
+    console.log('[FichaPanel] Limpando fichas para:', clienteTelefone);
+    setFichas([]);
+    setFichaAtual(null);
+    
     fetchFichas();
     fetchWebhookUrl();
   }, [clienteTelefone]);
