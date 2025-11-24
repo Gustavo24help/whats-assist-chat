@@ -1,11 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Filter } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CalendarIcon, Filter, Check } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -48,8 +49,8 @@ export const FichasOverview = () => {
   const [searchNome, setSearchNome] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("Todos");
   const [selectedPrestador, setSelectedPrestador] = useState("Todos");
-  const [dateFrom, setDateFrom] = useState<Date>();
-  const [dateTo, setDateTo] = useState<Date>();
+  const [selectedDate, setSelectedDate] = useState<Date>();
+  const [openPrestador, setOpenPrestador] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -136,28 +137,26 @@ export const FichasOverview = () => {
       }
 
       // Filtro por data
-      if (dateFrom && ficha.created_at) {
+      if (selectedDate && ficha.created_at) {
         const fichaDate = new Date(ficha.created_at);
-        if (fichaDate < dateFrom) return false;
-      }
-
-      if (dateTo && ficha.created_at) {
-        const fichaDate = new Date(ficha.created_at);
-        const dateToEnd = new Date(dateTo);
-        dateToEnd.setHours(23, 59, 59, 999);
-        if (fichaDate > dateToEnd) return false;
+        const filterDate = new Date(selectedDate);
+        
+        // Normalizar ambas as datas para comparar apenas dia/mês/ano
+        fichaDate.setHours(0, 0, 0, 0);
+        filterDate.setHours(0, 0, 0, 0);
+        
+        if (fichaDate.getTime() !== filterDate.getTime()) return false;
       }
 
       return true;
     });
-  }, [fichas, searchNome, selectedStatus, selectedPrestador, dateFrom, dateTo]);
+  }, [fichas, searchNome, selectedStatus, selectedPrestador, selectedDate]);
 
   const limparFiltros = () => {
     setSearchNome("");
     setSelectedStatus("Todos");
     setSelectedPrestador("Todos");
-    setDateFrom(undefined);
-    setDateTo(undefined);
+    setSelectedDate(undefined);
   };
 
   return (
@@ -197,59 +196,90 @@ export const FichasOverview = () => {
             </SelectContent>
           </Select>
 
-          {/* Filtro Prestador */}
-          <Select value={selectedPrestador} onValueChange={setSelectedPrestador}>
-            <SelectTrigger>
-              <SelectValue placeholder="Prestador" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Todos">Todos</SelectItem>
-              {prestadores.map((prest) => (
-                <SelectItem key={prest.cpf} value={prest.cpf}>
-                  {prest.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Filtro Prestador com Busca */}
+          <Popover open={openPrestador} onOpenChange={setOpenPrestador}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openPrestador}
+                className="w-full justify-between"
+              >
+                {selectedPrestador === "Todos"
+                  ? "Todos os Prestadores"
+                  : prestadores.find((p) => p.cpf === selectedPrestador)?.nome || "Selecione..."}
+                <Filter className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Buscar prestador..." />
+                <CommandList>
+                  <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="Todos"
+                      onSelect={() => {
+                        setSelectedPrestador("Todos");
+                        setOpenPrestador(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedPrestador === "Todos" ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      Todos os Prestadores
+                    </CommandItem>
+                    {prestadores.map((prest) => (
+                      <CommandItem
+                        key={prest.cpf}
+                        value={prest.nome}
+                        onSelect={() => {
+                          setSelectedPrestador(prest.cpf);
+                          setOpenPrestador(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedPrestador === prest.cpf ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {prest.nome}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
-          {/* Filtro Data */}
-          <div className="flex gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "justify-start text-left font-normal flex-1",
-                    !dateFrom && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateFrom ? format(dateFrom, "dd/MM/yy", { locale: ptBR }) : "De"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} locale={ptBR} />
-              </PopoverContent>
-            </Popover>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "justify-start text-left font-normal flex-1",
-                    !dateTo && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateTo ? format(dateTo, "dd/MM/yy", { locale: ptBR }) : "Até"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={dateTo} onSelect={setDateTo} locale={ptBR} />
-              </PopoverContent>
-            </Popover>
-          </div>
+          {/* Filtro Data Única */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !selectedDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "dd/MM/yyyy", { locale: ptBR }) : "Filtrar por data"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar 
+                mode="single" 
+                selected={selectedDate} 
+                onSelect={setSelectedDate} 
+                locale={ptBR}
+                className="pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
         <Button variant="outline" size="sm" onClick={limparFiltros}>
