@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
@@ -148,6 +148,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [fichaId, setFichaId] = useState<string | undefined>();
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
@@ -596,50 +597,52 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   };
 
   const enviarMensagem = async () => {
-    if (!novaMsg.trim()) return;
+    if (!novaMsg.trim() || isSending) return;
 
     if (statusConversa === "fechada") {
       toast.error("Conversa fechada! Use templates aprovados para enviar mensagens.");
       return;
     }
 
-    // Auto-atribuir operador se ainda não atribuído
-    if (!atendenteAtual) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
-          .single();
-        
-        await atribuirOperador(user.id, profile?.full_name || 'Você');
-      }
-    }
-
-    const mensagemTexto = novaMsg;
-    
-    console.log('📤 [enviarMensagem] Preparando envio:', {
-      texto: mensagemTexto.substring(0, 50)
-    });
-    
-    setNovaMsg(""); // Limpar imediatamente para UX
-
-    // Optimistic update - adicionar mensagem localmente
-    const tempId = `temp-${Date.now()}`;
-    const novaMensagemTemp: Mensagem = {
-      id: tempId,
-      texto: mensagemTexto,
-      tipo: "texto",
-      arquivo_url: null,
-      data_hora: new Date().toISOString(),
-      remetente: "atendente",
-      status: "enviado"
-    };
-    
-    setMensagens(prev => [...prev, novaMensagemTemp]);
+    setIsSending(true);
 
     try {
+      // Auto-atribuir operador se ainda não atribuído
+      if (!atendenteAtual) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+          
+          await atribuirOperador(user.id, profile?.full_name || 'Você');
+        }
+      }
+
+      const mensagemTexto = novaMsg;
+      
+      console.log('📤 [enviarMensagem] Preparando envio:', {
+        texto: mensagemTexto.substring(0, 50)
+      });
+      
+      setNovaMsg(""); // Limpar imediatamente para UX
+
+      // Optimistic update - adicionar mensagem localmente
+      const tempId = `temp-${Date.now()}`;
+      const novaMensagemTemp: Mensagem = {
+        id: tempId,
+        texto: mensagemTexto,
+        tipo: "texto",
+        arquivo_url: null,
+        data_hora: new Date().toISOString(),
+        remetente: "atendente",
+        status: "enviado"
+      };
+      
+      setMensagens(prev => [...prev, novaMensagemTemp]);
+
       console.log('🚀 Invocando send-whatsapp com:', {
         to: clienteTelefone,
         message: mensagemTexto.substring(0, 50)
@@ -672,9 +675,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       // Remover mensagem temporária em caso de erro
-      setMensagens(prev => prev.filter(m => m.id !== tempId));
+      const mensagemTexto = novaMsg || ""; // novaMsg pode ter sido limpa
+      setMensagens(prev => prev.filter(m => !m.id.startsWith('temp-')));
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mensagem");
-      setNovaMsg(mensagemTexto); // Restaurar texto
+      if (mensagemTexto) {
+        setNovaMsg(mensagemTexto); // Restaurar texto apenas se houver
+      }
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -1210,12 +1218,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           
           <Button 
             onClick={enviarMensagem} 
-            disabled={statusConversa === "fechada" || !novaMsg.trim()}
+            disabled={statusConversa === "fechada" || !novaMsg.trim() || isSending}
             className="shrink-0 shadow-md h-9 w-9 md:h-10 md:w-10"
             size="icon"
             title="Enviar mensagem"
           >
-            <Send className="h-4 w-4" />
+            {isSending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
