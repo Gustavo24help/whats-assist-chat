@@ -260,9 +260,9 @@ export const FichasOverview = () => {
       {/* Lista de Fichas */}
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-64 rounded-lg" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-56 rounded-lg" />
             ))}
           </div>
         ) : fichasFiltradas.length === 0 ? (
@@ -270,7 +270,7 @@ export const FichasOverview = () => {
             <p className="text-muted-foreground text-lg">Nenhuma ficha encontrada</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4">
             {fichasFiltradas.map((ficha) => (
               <FichaCard key={ficha.id} ficha={ficha} />
             ))}

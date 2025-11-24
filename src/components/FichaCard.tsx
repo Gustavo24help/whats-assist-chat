@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronDown, ChevronUp, Calendar, User, DollarSign, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 
 type FichaDeServico = Database["public"]["Tables"]["fichas_de_servico"]["Row"];
@@ -60,6 +61,16 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [loadingOrcamentos, setLoadingOrcamentos] = useState(false);
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [isDescriptionTruncated, setIsDescriptionTruncated] = useState(false);
+  const descriptionRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (descriptionRef.current && ficha.descricao) {
+      const element = descriptionRef.current;
+      setIsDescriptionTruncated(element.scrollHeight > element.clientHeight);
+    }
+  }, [ficha.descricao]);
 
   const fetchOrcamentos = async () => {
     if (orcamentos.length > 0) return; // Já carregou
@@ -99,29 +110,22 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
     }
   };
 
-  const handleToggle = () => {
-    if (!isOpen && ficha.orcamentos_count && ficha.orcamentos_count > 0) {
-      fetchOrcamentos();
-    }
-    setIsOpen(!isOpen);
-  };
-
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow border-border">
-      <CardHeader className="pb-3">
+    <Card className="shadow-md hover:shadow-lg transition-all duration-200 border-border hover:border-primary/50">
+      <CardHeader className="pb-2 pt-3 px-3">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg font-bold text-foreground line-clamp-1">
+          <CardTitle className="text-base font-bold text-foreground line-clamp-1">
             {ficha.nome_ficha || "Sem nome"}
           </CardTitle>
           <Badge className={getStatusColor(ficha.status)}>{ficha.status || "Sem status"}</Badge>
         </div>
-        <p className="text-sm text-muted-foreground">Cliente: {ficha.cliente_nome}</p>
+        <p className="text-xs text-muted-foreground">Cliente: {ficha.cliente_nome}</p>
       </CardHeader>
 
-      <CardContent className="space-y-3 pb-4">
+      <CardContent className="space-y-2 pb-3 px-3">
         {/* Data de criação */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-4 w-4" />
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Calendar className="h-3.5 w-3.5" />
           <span>
             {ficha.created_at
               ? format(new Date(ficha.created_at), "dd/MM/yyyy", { locale: ptBR })
@@ -131,91 +135,125 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
 
         {/* Descrição */}
         {ficha.descricao && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{ficha.descricao}</p>
+          <div className="space-y-1">
+            <p 
+              ref={descriptionRef}
+              className={cn(
+                "text-xs text-muted-foreground",
+                !showFullDescription && "line-clamp-2"
+              )}
+            >
+              {ficha.descricao}
+            </p>
+            {isDescriptionTruncated && (
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs text-primary"
+                onClick={() => setShowFullDescription(!showFullDescription)}
+              >
+                {showFullDescription ? "Ver menos" : "Ler mais"}
+              </Button>
+            )}
+          </div>
         )}
 
         {/* Prestador */}
         {ficha.prestador_nome && (
-          <div className="flex items-center gap-2 text-sm">
-            <User className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-1.5 text-xs">
+            <User className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="font-medium text-foreground">Prestador:</span>
-            <span className="text-muted-foreground">{ficha.prestador_nome}</span>
+            <span className="text-muted-foreground truncate">{ficha.prestador_nome}</span>
           </div>
         )}
 
         {/* Agendamento */}
         {ficha.horario_agendamento && (
-          <div className="flex items-center gap-2 text-sm">
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-1.5 text-xs">
+            <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="font-medium text-foreground">Agendado:</span>
-            <span className="text-muted-foreground">
-              {format(new Date(ficha.horario_agendamento), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+            <span className="text-muted-foreground truncate">
+              {format(new Date(ficha.horario_agendamento), "dd/MM/yy HH:mm", { locale: ptBR })}
             </span>
           </div>
         )}
 
         {/* Número de orçamentos */}
         {ficha.orcamentos_count !== undefined && ficha.orcamentos_count > 0 && (
-          <Badge variant="secondary" className="w-fit">
+          <Badge variant="secondary" className="w-fit text-xs px-1.5 py-0.5">
             <DollarSign className="h-3 w-3 mr-1" />
             {ficha.orcamentos_count} orçamento{ficha.orcamentos_count > 1 ? "s" : ""}
           </Badge>
         )}
 
-        {/* Dropdown de Orçamentos */}
+        {/* Popover de Orçamentos */}
         {ficha.orcamentos_count !== undefined && ficha.orcamentos_count > 0 && (
-          <Collapsible open={isOpen} onOpenChange={handleToggle}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full justify-between">
+          <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full justify-between h-8 text-xs"
+                onClick={() => {
+                  if (!isOpen) fetchOrcamentos();
+                }}
+              >
                 <span>Ver Orçamentos</span>
-                {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-2 mt-2">
-              {loadingOrcamentos ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-20 w-full" />
-                  <Skeleton className="h-20 w-full" />
-                </div>
-              ) : orcamentos.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-2">
-                  Nenhum orçamento encontrado
-                </p>
-              ) : (
-                orcamentos.map((orc) => (
-                  <Card key={orc.id} className="p-3 bg-muted/30 border-border">
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-foreground">
-                          {orc.prestador_nome}
-                        </span>
-                        <Badge
-                          variant={
-                            orc.status === "aprovado"
-                              ? "default"
-                              : orc.status === "rejeitado"
-                                ? "destructive"
-                                : "secondary"
-                          }
-                          className="text-xs"
-                        >
-                          {orc.status}
-                        </Badge>
+            </PopoverTrigger>
+            
+            <PopoverContent 
+              className="w-80 max-h-96 overflow-y-auto p-4 z-50"
+              align="start"
+              side="bottom"
+            >
+              <div className="space-y-2">
+                {loadingOrcamentos ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                  </div>
+                ) : orcamentos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    Nenhum orçamento encontrado
+                  </p>
+                ) : (
+                  orcamentos.map((orc) => (
+                    <Card key={orc.id} className="p-3 bg-muted/30 border-border">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-foreground">
+                            {orc.prestador_nome}
+                          </span>
+                          <Badge
+                            variant={
+                              orc.status === "aprovado"
+                                ? "default"
+                                : orc.status === "rejeitado"
+                                  ? "destructive"
+                                  : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {orc.status}
+                          </Badge>
+                        </div>
+                        {orc.valor_total !== null && (
+                          <p className="text-sm text-muted-foreground">
+                            Valor: R$ {orc.valor_total.toFixed(2)}
+                          </p>
+                        )}
+                        {orc.tempo_servico && (
+                          <p className="text-xs text-muted-foreground">Tempo: {orc.tempo_servico}</p>
+                        )}
                       </div>
-                      {orc.valor_total !== null && (
-                        <p className="text-sm text-muted-foreground">
-                          Valor: R$ {orc.valor_total.toFixed(2)}
-                        </p>
-                      )}
-                      {orc.tempo_servico && (
-                        <p className="text-xs text-muted-foreground">Tempo: {orc.tempo_servico}</p>
-                      )}
-                    </div>
-                  </Card>
-                ))
-              )}
-            </CollapsibleContent>
-          </Collapsible>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
       </CardContent>
     </Card>
