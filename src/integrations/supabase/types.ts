@@ -159,6 +159,9 @@ export type Database = {
           data_visita_tecnica: string | null
           descricao: string | null
           endereco: string | null
+          formulario_orcamento_ativo: boolean | null
+          formulario_orcamento_data_primeiro_envio: string | null
+          formulario_orcamento_encerrado_em: string | null
           horario_agendamento: string | null
           horario_visita_tecnica: string | null
           id: string
@@ -187,6 +190,9 @@ export type Database = {
           data_visita_tecnica?: string | null
           descricao?: string | null
           endereco?: string | null
+          formulario_orcamento_ativo?: boolean | null
+          formulario_orcamento_data_primeiro_envio?: string | null
+          formulario_orcamento_encerrado_em?: string | null
           horario_agendamento?: string | null
           horario_visita_tecnica?: string | null
           id: string
@@ -215,6 +221,9 @@ export type Database = {
           data_visita_tecnica?: string | null
           descricao?: string | null
           endereco?: string | null
+          formulario_orcamento_ativo?: boolean | null
+          formulario_orcamento_data_primeiro_envio?: string | null
+          formulario_orcamento_encerrado_em?: string | null
           horario_agendamento?: string | null
           horario_visita_tecnica?: string | null
           id?: string
@@ -520,6 +529,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_and_close_orcamento_forms: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

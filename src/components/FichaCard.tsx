@@ -3,12 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronDown, ChevronUp, Calendar, User, DollarSign, Briefcase } from "lucide-react";
+import { ChevronDown, ChevronUp, Calendar, User, DollarSign, Briefcase, Copy, RotateCcw, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 
 type FichaDeServico = Database["public"]["Tables"]["fichas_de_servico"]["Row"];
@@ -58,11 +59,13 @@ const getStatusColor = (status: string | null) => {
 };
 
 export const FichaCard = ({ ficha }: FichaCardProps) => {
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [loadingOrcamentos, setLoadingOrcamentos] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isDescriptionTruncated, setIsDescriptionTruncated] = useState(false);
+  const [reativando, setReativando] = useState(false);
   const descriptionRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
@@ -107,6 +110,47 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
       console.error("Erro ao buscar orçamentos:", error);
     } finally {
       setLoadingOrcamentos(false);
+    }
+  };
+
+  const copiarLinkOrcamento = () => {
+    const link = `${window.location.origin}/orcamento?ficha=${ficha.id}`;
+    navigator.clipboard.writeText(link);
+    toast({
+      title: "Link copiado!",
+      description: "O link do formulário de orçamento foi copiado.",
+    });
+  };
+
+  const reativarFormulario = async () => {
+    setReativando(true);
+    try {
+      const { error } = await supabase
+        .from("fichas_de_servico")
+        .update({
+          formulario_orcamento_ativo: true,
+          formulario_orcamento_encerrado_em: null,
+        })
+        .eq("id", ficha.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Formulário reativado!",
+        description: "O formulário de orçamento foi reativado com sucesso.",
+      });
+
+      // Atualizar localmente
+      ficha.formulario_orcamento_ativo = true;
+    } catch (error) {
+      console.error("Erro ao reativar formulário:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao reativar formulário. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setReativando(false);
     }
   };
 
@@ -183,6 +227,43 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
           <Badge variant="secondary" className="w-fit text-xs px-1.5 py-0.5">
             <DollarSign className="h-3 w-3 mr-1" />
             {ficha.orcamentos_count} orçamento{ficha.orcamentos_count > 1 ? "s" : ""}
+          </Badge>
+        )}
+
+        {/* Botões de Ação */}
+        <div className="flex gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 h-8 text-xs"
+            onClick={copiarLinkOrcamento}
+          >
+            <Copy className="h-3.5 w-3.5 mr-1" />
+            Copiar Link
+          </Button>
+          
+          {ficha.formulario_orcamento_ativo === false && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex-1 h-8 text-xs"
+              onClick={reativarFormulario}
+              disabled={reativando}
+            >
+              {reativando ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5 mr-1" />
+              )}
+              Reativar
+            </Button>
+          )}
+        </div>
+
+        {/* Status do Formulário */}
+        {ficha.formulario_orcamento_ativo === false && (
+          <Badge variant="destructive" className="w-fit text-xs px-1.5 py-0.5">
+            Formulário Encerrado
           </Badge>
         )}
 

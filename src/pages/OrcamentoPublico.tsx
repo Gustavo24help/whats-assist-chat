@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check, X } from "lucide-react";
 
 const OrcamentoPublico = () => {
   const [searchParams] = useSearchParams();
@@ -18,8 +18,11 @@ const OrcamentoPublico = () => {
   
   const [loading, setLoading] = useState(false);
   const [categorias, setCategorias] = useState<any[]>([]);
-  const [prestadores, setPrestadores] = useState<any[]>([]);
   const [fichaExists, setFichaExists] = useState(false);
+  const [formularioAtivo, setFormularioAtivo] = useState(true);
+  const [validandoCpf, setValidandoCpf] = useState(false);
+  const [cpfValido, setCpfValido] = useState<boolean | null>(null);
+  const [nomePrestador, setNomePrestador] = useState("");
   
   const [formData, setFormData] = useState({
     prestador_cpf: "",
@@ -38,18 +41,18 @@ const OrcamentoPublico = () => {
     if (fichaId) {
       verificarFicha();
       fetchCategorias();
-      fetchPrestadores();
     }
   }, [fichaId]);
 
   const verificarFicha = async () => {
     const { data } = await supabase
       .from("fichas_de_servico")
-      .select("id")
+      .select("id, formulario_orcamento_ativo")
       .eq("id", fichaId)
       .single();
     
     setFichaExists(!!data);
+    setFormularioAtivo(data?.formulario_orcamento_ativo ?? true);
   };
 
   const fetchCategorias = async () => {
@@ -61,13 +64,42 @@ const OrcamentoPublico = () => {
     if (data) setCategorias(data);
   };
 
-  const fetchPrestadores = async () => {
-    const { data } = await supabase
-      .from("prestadores")
-      .select("cpf, nome")
-      .order("nome");
+  const validarCpf = async (cpf: string) => {
+    // Remover caracteres não numéricos
+    const cpfLimpo = cpf.replace(/\D/g, "");
     
-    if (data) setPrestadores(data);
+    if (cpfLimpo.length !== 11) {
+      setCpfValido(null);
+      setNomePrestador("");
+      return;
+    }
+
+    setValidandoCpf(true);
+    try {
+      const { data } = await supabase
+        .from("prestadores")
+        .select("cpf, nome")
+        .eq("cpf", cpfLimpo)
+        .single();
+
+      if (data) {
+        setCpfValido(true);
+        setNomePrestador(data.nome);
+      } else {
+        setCpfValido(false);
+        setNomePrestador("");
+      }
+    } catch (error) {
+      setCpfValido(false);
+      setNomePrestador("");
+    } finally {
+      setValidandoCpf(false);
+    }
+  };
+
+  const handleCpfChange = (value: string) => {
+    setFormData({ ...formData, prestador_cpf: value });
+    validarCpf(value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,6 +114,24 @@ const OrcamentoPublico = () => {
       return;
     }
 
+    if (!formularioAtivo) {
+      toast({
+        title: "Formulário encerrado",
+        description: "Este formulário de orçamento já foi encerrado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!cpfValido) {
+      toast({
+        title: "CPF inválido",
+        description: "Por favor, digite um CPF válido cadastrado no sistema.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -89,12 +139,11 @@ const OrcamentoPublico = () => {
       const valorPecas = parseFloat(formData.valor_pecas) || 0;
       const valorTotal = valorMaoObra + valorPecas;
 
-      // Buscar nome do prestador
-      const prestador = prestadores.find(p => p.cpf === formData.prestador_cpf);
+      const cpfLimpo = formData.prestador_cpf.replace(/\D/g, "");
       
       const orcamentoData = {
         ficha_nome: fichaId,
-        prestador_cpf: formData.prestador_cpf,
+        prestador_cpf: cpfLimpo,
         categoria: formData.categoria,
         valor_mao_obra: valorMaoObra,
         valor_pecas: valorPecas,
@@ -117,7 +166,7 @@ const OrcamentoPublico = () => {
       await supabase.functions.invoke("submit-orcamento", {
         body: {
           ...orcamentoData,
-          prestador_nome: prestador?.nome,
+          prestador_nome: nomePrestador,
           pode_horario: formData.pode_horario,
           servico_adicional: formData.servico_adicional,
           porcentagem_desconto: formData.porcentagem_desconto,
@@ -178,6 +227,19 @@ const OrcamentoPublico = () => {
     );
   }
 
+  if (!formularioAtivo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center space-y-2">
+            <p className="text-lg font-semibold text-foreground">Formulário Encerrado</p>
+            <p className="text-muted-foreground">Este formulário de orçamento foi encerrado.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-xl">
@@ -197,34 +259,42 @@ const OrcamentoPublico = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="prestador">Nome do Prestador</Label>
-              <Select
-                value={formData.prestador_cpf}
-                onValueChange={(value) => setFormData({ ...formData, prestador_cpf: value })}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {prestadores.map((prestador) => (
-                    <SelectItem key={prestador.cpf} value={prestador.cpf}>
-                      {prestador.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="cpf">CPF do Prestador</Label>
+              <div className="relative">
+                <Input
+                  id="cpf"
+                  placeholder="000.000.000-00"
+                  value={formData.prestador_cpf}
+                  onChange={(e) => handleCpfChange(e.target.value)}
+                  required
+                  className="pr-10"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {validandoCpf ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : cpfValido === true ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : cpfValido === false ? (
+                    <X className="h-4 w-4 text-red-500" />
+                  ) : null}
+                </div>
+              </div>
+              {cpfValido === false && (
+                <p className="text-xs text-red-500">CPF não encontrado no sistema</p>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="cpf">CPF</Label>
-              <Input
-                id="cpf"
-                value={formData.prestador_cpf}
-                disabled
-                className="bg-muted"
-              />
-            </div>
+            {nomePrestador && (
+              <div className="space-y-2">
+                <Label htmlFor="nome_prestador">Nome do Prestador</Label>
+                <Input
+                  id="nome_prestador"
+                  value={nomePrestador}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="categoria">Categoria do Serviço</Label>
