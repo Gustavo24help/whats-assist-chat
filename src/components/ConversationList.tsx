@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,6 @@ export const ConversationList = ({
   botDisabledAcknowledged = new Set()
 }: ConversationListProps) => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [conversaFilter, setConversaFilter] = useState<"todas" | "aberta" | "fechada">("todas");
@@ -52,7 +51,6 @@ export const ConversationList = ({
   const [botFilter, setBotFilter] = useState<"todos" | "ativo" | "desativado">("todos");
   const [fichaFilter, setFichaFilter] = useState<"todas" | "com_ficha" | "sem_ficha">("todas");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [allTags, setAllTags] = useState<string[]>([]);
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [currentTagClient, setCurrentTagClient] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -77,7 +75,8 @@ export const ConversationList = ({
     };
   }, []);
 
-  useEffect(() => {
+  // ✅ Memoizar filtros pesados para melhor performance
+  const filteredClientes = useMemo(() => {
     let filtered = clientes;
 
     // Filtro de bot desabilitado (tem prioridade)
@@ -156,17 +155,19 @@ export const ConversationList = ({
       });
     }
 
-    setFilteredClientes(filtered);
+    return filtered;
+  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly, clientesTelefonesPorPrestador, unreadMessages]);
 
-    // Extrair todas as tags únicas
+  // ✅ Extrair tags únicas (memoizado)
+  const allTags = useMemo(() => {
     const tags = new Set<string>();
     clientes.forEach(c => {
       if (c.tags) {
         c.tags.forEach(tag => tags.add(tag));
       }
     });
-    setAllTags(Array.from(tags));
-  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly, clientesTelefonesPorPrestador, unreadMessages]);
+    return Array.from(tags);
+  }, [clientes]);
 
   // Auto-limpar filtro de bot desativado quando não houver mais conversas com aviso
   useEffect(() => {
@@ -232,7 +233,7 @@ export const ConversationList = ({
     
     setArchivedCount(count || 0);
 
-    // Buscar clientes baseado no estado atual (normal ou arquivado)
+    // ✅ Query 1: Buscar clientes baseado no estado atual
     const { data: clientesData, error } = await supabase
       .from('clientes')
       .select('*')
@@ -240,68 +241,86 @@ export const ConversationList = ({
       .order('ultima_interacao', { ascending: false });
 
     if (!error && clientesData) {
-      // Buscar nome e status da ficha ativa de cada cliente
-      const clientesComFicha = await Promise.all(
-        clientesData.map(async (cliente) => {
-          // Buscar última mensagem recebida do cliente para calcular janela
-          const { data: ultimaMensagem } = await supabase
-            .from('mensagens')
-            .select('data_hora')
-            .eq('cliente_id', cliente.telefone)
-            .eq('remetente', 'cliente')
-            .order('data_hora', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+      const telefones = clientesData.map(c => c.telefone);
 
-          let dentroJanela = false;
-          if (ultimaMensagem?.data_hora) {
-            const ultimaMsgTime = new Date(ultimaMensagem.data_hora).getTime();
-            const agora = Date.now();
-            const diferencaHoras = (agora - ultimaMsgTime) / (1000 * 60 * 60);
-            dentroJanela = diferencaHoras < 24;
-          }
+      // ✅ Query 2: Buscar TODAS as últimas mensagens de uma vez
+      const { data: ultimasMensagens } = await supabase
+        .from('mensagens')
+        .select('cliente_id, data_hora')
+        .in('cliente_id', telefones)
+        .eq('remetente', 'cliente')
+        .order('data_hora', { ascending: false });
 
-          // Se há ficha ativa definida, buscar essa ficha
-          if (cliente.ficha_ativa_id) {
-            const { data: fichaData } = await supabase
-              .from('fichas_de_servico')
-              .select('nome_ficha, status')
-              .eq('id', cliente.ficha_ativa_id)
-              .maybeSingle();
+      // Criar mapa de última mensagem por cliente
+      const mensagensMap = new Map();
+      ultimasMensagens?.forEach(msg => {
+        if (!mensagensMap.has(msg.cliente_id)) {
+          mensagensMap.set(msg.cliente_id, msg.data_hora);
+        }
+      });
 
-          return {
-            ...cliente,
-            nome_ficha: fichaData?.nome_ficha || undefined,
-            status_ficha: fichaData?.status || undefined,
-            unread_count: unreadMessages[cliente.telefone] || 0,
-            dentroJanela,
-            bot_habilitado: cliente.bot_habilitado,
-            bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
-            marcado_nao_lido: cliente.marcado_nao_lido
-          };
-          }
+      // ✅ Query 3: Buscar TODAS as fichas ativas de uma vez
+      const fichasAtivasIds = clientesData
+        .filter(c => c.ficha_ativa_id)
+        .map(c => c.ficha_ativa_id);
+      
+      const { data: fichasAtivas } = await supabase
+        .from('fichas_de_servico')
+        .select('id, nome_ficha, status')
+        .in('id', fichasAtivasIds);
 
-          // Se não há ficha ativa, buscar a última ficha criada
-          const { data: fichaData } = await supabase
-            .from('fichas_de_servico')
-            .select('nome_ficha, status')
-            .eq('telefone_cliente', cliente.telefone)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+      const fichasAtivasMap = new Map();
+      fichasAtivas?.forEach(f => fichasAtivasMap.set(f.id, f));
 
-          return {
-            ...cliente,
-            nome_ficha: fichaData?.nome_ficha || undefined,
-            status_ficha: fichaData?.status || undefined,
-            unread_count: unreadMessages[cliente.telefone] || 0,
-            dentroJanela,
-            bot_habilitado: cliente.bot_habilitado,
-            bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
-            marcado_nao_lido: cliente.marcado_nao_lido
-          };
-        })
-      );
+      // ✅ Query 4: Buscar últimas fichas para quem não tem ativa (em batch)
+      const telefonesSeficha = clientesData
+        .filter(c => !c.ficha_ativa_id)
+        .map(c => c.telefone);
+      
+      const { data: ultimasFichas } = await supabase
+        .from('fichas_de_servico')
+        .select('telefone_cliente, nome_ficha, status, created_at')
+        .in('telefone_cliente', telefonesSeficha)
+        .order('created_at', { ascending: false });
+
+      // Criar mapa de última ficha por telefone
+      const ultimasFichasMap = new Map();
+      ultimasFichas?.forEach(f => {
+        if (!ultimasFichasMap.has(f.telefone_cliente)) {
+          ultimasFichasMap.set(f.telefone_cliente, f);
+        }
+      });
+
+      // ✅ Combinar tudo SEM QUERIES EXTRAS
+      const clientesComFicha = clientesData.map(cliente => {
+        // Calcular janela 24h
+        const ultimaMsgTime = mensagensMap.get(cliente.telefone);
+        let dentroJanela = false;
+        if (ultimaMsgTime) {
+          const diff = (Date.now() - new Date(ultimaMsgTime).getTime()) / (1000 * 60 * 60);
+          dentroJanela = diff < 24;
+        }
+
+        // Buscar dados da ficha
+        let fichaData = null;
+        if (cliente.ficha_ativa_id) {
+          fichaData = fichasAtivasMap.get(cliente.ficha_ativa_id);
+        } else {
+          fichaData = ultimasFichasMap.get(cliente.telefone);
+        }
+
+        return {
+          ...cliente,
+          nome_ficha: fichaData?.nome_ficha || undefined,
+          status_ficha: fichaData?.status || undefined,
+          unread_count: unreadMessages[cliente.telefone] || 0,
+          dentroJanela,
+          bot_habilitado: cliente.bot_habilitado,
+          bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
+          marcado_nao_lido: cliente.marcado_nao_lido
+        };
+      });
+
       setClientes(clientesComFicha);
     }
   };
@@ -424,6 +443,9 @@ export const ConversationList = ({
   };
 
   useEffect(() => {
+    console.log(`[ConversationList] Trocando para ${showArchived ? 'arquivados' : 'ativos'}`);
+    setClientes([]);
+    
     fetchClientes();
   }, [showArchived]);
 

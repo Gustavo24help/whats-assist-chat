@@ -133,6 +133,7 @@ const Index = () => {
           <div className="flex-1 flex overflow-hidden min-w-0 relative">
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
               <ChatWindow
+                key={selectedCliente.telefone}
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
                 statusConversa={selectedCliente.status_conversa}
@@ -155,6 +156,7 @@ const Index = () => {
         fichaOpen ? "translate-x-0" : "translate-x-full"
       )}>
               <FichaPanel
+                key={selectedCliente.telefone}
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
                 onClose={() => setFichaOpen(false)}
