@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.reactivate-bots-24h]
 verify_jwt = false
+
+[functions.submit-orcamento]
+verify_jwt = false

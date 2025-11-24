@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Copy, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +24,7 @@ const Settings = () => {
   const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookCriarFicha, setWebhookCriarFicha] = useState("");
+  const [webhookOrcamento, setWebhookOrcamento] = useState("");
 
   useEffect(() => {
     fetchConfiguracoes();
@@ -39,7 +40,8 @@ const Settings = () => {
         "twilio_auth_token",
         "twilio_phone_number",
         "webhook_criar_ficha",
-        "webhook_ficha_atualizada"
+        "webhook_ficha_atualizada",
+        "webhook_orcamento"
       ]);
 
     if (data) {
@@ -59,6 +61,9 @@ const Settings = () => {
             break;
           case "webhook_ficha_atualizada":
             setWebhookUrl(config.valor || "");
+            break;
+          case "webhook_orcamento":
+            setWebhookOrcamento(config.valor || "");
             break;
         }
       });
@@ -139,6 +144,39 @@ const Settings = () => {
         description: "O webhook de criação de fichas foi configurado com sucesso.",
       });
     }
+  };
+
+  const handleSaveWebhookOrcamento = async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { error } = await supabase
+      .from("configuracoes")
+      .upsert({
+        chave: "webhook_orcamento",
+        valor: webhookOrcamento,
+        descricao: "Webhook de envio de orçamento"
+      }, { onConflict: "chave" });
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar webhook de orçamento",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Webhook salvo",
+        description: "O webhook de orçamento foi configurado com sucesso.",
+      });
+    }
+  };
+
+  const copiarLinkOrcamento = (fichaId: string) => {
+    const link = `${window.location.origin}/orcamento?ficha=${fichaId}`;
+    navigator.clipboard.writeText(link);
+    toast({
+      title: "Link copiado!",
+      description: "O link do formulário de orçamento foi copiado.",
+    });
   };
 
   return (
@@ -319,6 +357,75 @@ const Settings = () => {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Enviaremos um POST com os dados completos da ficha sempre que ela for criada ou alterada
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="webhook_orcamento">Webhook de Orçamento (Make/Zapier)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="webhook_orcamento"
+                      placeholder="https://hook.integromat.com/..."
+                      value={webhookOrcamento}
+                      onChange={(e) => setWebhookOrcamento(e.target.value)}
+                    />
+                    <Button onClick={handleSaveWebhookOrcamento}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Webhook do Make para receber orçamentos enviados pelos prestadores
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Links de Orçamento para Prestadores</CardTitle>
+                <CardDescription>
+                  Gere links exclusivos para cada ficha e envie aos prestadores
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="ficha_id">ID da Ficha</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="ficha_id"
+                      placeholder="Ex: FGM1@251124"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const input = e.currentTarget as HTMLInputElement;
+                          if (input.value.trim()) {
+                            copiarLinkOrcamento(input.value.trim());
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={(e) => {
+                        const input = document.getElementById('ficha_id') as HTMLInputElement;
+                        if (input?.value.trim()) {
+                          copiarLinkOrcamento(input.value.trim());
+                        }
+                      }}
+                      variant="outline"
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copiar Link
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Digite o ID da ficha e clique em "Copiar Link" para gerar o link único
+                  </p>
+                </div>
+
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs font-mono break-all text-muted-foreground">
+                    {window.location.origin}/orcamento?ficha=[ID_DA_FICHA]
                   </p>
                 </div>
               </CardContent>
