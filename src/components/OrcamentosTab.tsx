@@ -190,6 +190,7 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
       const { error: fichaError } = await supabase
         .from('fichas_de_servico')
         .update({
+          status: 'Orçamento Enviado',
           valor_total: orc.valor_total || 0,
           valor_mao_obra: orc.valor_mao_obra || 0,
           valor_pecas: orc.valor_pecas || 0,
