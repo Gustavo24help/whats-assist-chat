@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -29,6 +30,7 @@ interface ConversationCardProps {
   botHabilitado?: boolean;
   botDesativadoNotificacaoVista?: boolean;
   orcamentosCount?: number;
+  atendenteNome?: string | null;
 }
 
 const getStatusColor = (status: string) => {
@@ -71,7 +73,8 @@ export const ConversationCard = ({
   onToggleUnread,
   botHabilitado = true,
   botDesativadoNotificacaoVista = true,
-  orcamentosCount = 0
+  orcamentosCount = 0,
+  atendenteNome
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -89,7 +92,7 @@ export const ConversationCard = ({
       )}
       onClick={onClick}
     >
-      {/* Linha 1: Tag e Menu */}
+      {/* Linha 1: Tag, Avatar do Atendente e Menu */}
       <div className="flex items-start justify-between mb-1.5 gap-2">
         <div className="flex gap-1 flex-wrap flex-1 min-h-[18px]">
           {tags.map((tag, idx) => (
@@ -99,7 +102,23 @@ export const ConversationCard = ({
           ))}
         </div>
         
-        <DropdownMenu>
+        <div className="flex items-center gap-1">
+          {atendenteNome && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow-sm cursor-help">
+                    {atendenteNome.charAt(0).toUpperCase()}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Atendente: {atendenteNome}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 -mt-1">
               <MoreVertical className="h-3.5 w-3.5" />
@@ -148,6 +167,7 @@ export const ConversationCard = ({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       {/* Linha 2: Nome e Telefone */}

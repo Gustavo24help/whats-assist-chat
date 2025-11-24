@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
@@ -14,6 +14,9 @@ import { useConversationTimer } from "@/hooks/useConversationTimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
 import { MessageContextMenu } from "./MessageContextMenu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import {
   AlertDialog,
@@ -149,6 +152,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  
+  // Estados para atribuição de operador
+  const [atendenteAtual, setAtendenteAtual] = useState<{ id: string; nome: string } | null>(null);
+  const [todosAtendentes, setTodosAtendentes] = useState<Array<{ id: string; nome: string }>>([]);
+  
+  // Estados para notas internas
+  const [notasDialogOpen, setNotasDialogOpen] = useState(false);
+  const [notasInternas, setNotasInternas] = useState("");
+  const [hasNotas, setHasNotas] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -180,12 +193,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     setMensagens([]);
     setNovaMsg("");
     setHighlightedMessageId(null);
+    setAtendenteAtual(null);
+    setNotasInternas("");
+    setHasNotas(false);
     
     console.log('[ChatWindow] Inicializando canais Realtime para:', clienteTelefone);
     fetchMensagens();
     fetchFichaId();
     fetchBotStatus();
     clearUnreadMark();
+    fetchAtendente();
+    fetchAtendentes();
+    fetchNotas();
 
     const channel = supabase
       .channel(`mensagens-${clienteTelefone}`)
@@ -392,6 +411,89 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .from('clientes')
       .update({ marcado_nao_lido: false })
       .eq('telefone', clienteTelefone);
+  };
+
+  const fetchAtendente = async () => {
+    const { data } = await supabase
+      .from('clientes')
+      .select('atendente_id, profiles!clientes_atendente_id_fkey(full_name)')
+      .eq('telefone', clienteTelefone)
+      .single();
+
+    if (data?.atendente_id && (data as any).profiles) {
+      setAtendenteAtual({
+        id: data.atendente_id,
+        nome: (data as any).profiles.full_name
+      });
+    }
+  };
+
+  const fetchAtendentes = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .order('full_name');
+    
+    if (data) {
+      setTodosAtendentes(data.map(p => ({
+        id: p.id,
+        nome: p.full_name || 'Sem nome'
+      })));
+    }
+  };
+
+  const fetchNotas = async () => {
+    const { data } = await supabase
+      .from('clientes')
+      .select('notas_internas')
+      .eq('telefone', clienteTelefone)
+      .single();
+    
+    setNotasInternas(data?.notas_internas || "");
+    setHasNotas(!!data?.notas_internas && data.notas_internas.trim().length > 0);
+  };
+
+  const atribuirOperador = async (operadorId: string, operadorNome: string) => {
+    const { error } = await supabase
+      .from('clientes')
+      .update({ atendente_id: operadorId })
+      .eq('telefone', clienteTelefone);
+
+    if (error) {
+      toast.error('Erro ao atribuir operador');
+    } else {
+      setAtendenteAtual({ id: operadorId, nome: operadorNome });
+      toast.success(`Atribuído para ${operadorNome}`);
+    }
+  };
+
+  const removerAtribuicao = async () => {
+    const { error } = await supabase
+      .from('clientes')
+      .update({ atendente_id: null })
+      .eq('telefone', clienteTelefone);
+
+    if (error) {
+      toast.error('Erro ao remover atribuição');
+    } else {
+      setAtendenteAtual(null);
+      toast.success('Atribuição removida');
+    }
+  };
+
+  const salvarNotas = async () => {
+    const { error } = await supabase
+      .from('clientes')
+      .update({ notas_internas: notasInternas })
+      .eq('telefone', clienteTelefone);
+
+    if (error) {
+      toast.error('Erro ao salvar notas');
+    } else {
+      setHasNotas(!!notasInternas && notasInternas.trim().length > 0);
+      setNotasDialogOpen(false);
+      toast.success('Notas salvas com sucesso');
+    }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -731,6 +833,118 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 clienteTelefone={clienteTelefone}
                 clienteNome={clienteNome}
               />
+              
+              {/* Novo botão de atribuição de operador */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 px-2 hover:bg-accent"
+                    title={atendenteAtual ? `Atribuído: ${atendenteAtual.nome}` : "Atribuir operador"}
+                  >
+                    {atendenteAtual ? (
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                          {atendenteAtual.nome.charAt(0).toUpperCase()}
+                        </div>
+                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="end">
+                  <div className="space-y-1">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                      Atribuir Operador
+                    </div>
+                    <Separator />
+                    
+                    {/* Opção para assumir automaticamente */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start text-xs h-8"
+                      onClick={async () => {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (user) {
+                          const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('full_name')
+                            .eq('id', user.id)
+                            .single();
+                          
+                          await atribuirOperador(user.id, profile?.full_name || 'Você');
+                        }
+                      }}
+                    >
+                      <UserCheckIcon className="h-3.5 w-3.5 mr-2" />
+                      Assumir para mim
+                    </Button>
+
+                    <Separator />
+
+                    {/* Lista de operadores */}
+                    <div className="max-h-48 overflow-y-auto">
+                      <div className="px-2 py-1 text-[11px] text-muted-foreground">
+                        Outros operadores:
+                      </div>
+                      {todosAtendentes.map(a => (
+                        <Button
+                          key={a.id}
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "w-full justify-start text-xs h-8",
+                            atendenteAtual?.id === a.id && "bg-accent"
+                          )}
+                          onClick={() => atribuirOperador(a.id, a.nome)}
+                        >
+                          <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold mr-2">
+                            {a.nome.charAt(0).toUpperCase()}
+                          </div>
+                          {a.nome}
+                          {atendenteAtual?.id === a.id && (
+                            <Check className="h-3 w-3 ml-auto text-primary" />
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <Separator />
+
+                    {/* Opção para remover atribuição */}
+                    {atendenteAtual && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={removerAtribuicao}
+                      >
+                        <X className="h-3.5 w-3.5 mr-2" />
+                        Remover atribuição
+                      </Button>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Botão de notas internas */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setNotasDialogOpen(true)}
+                className="h-9 px-2 hover:bg-accent relative"
+                title="Notas Internas"
+              >
+                <MessageSquare className="h-4 w-4" />
+                {hasNotas && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full" />
+                )}
+              </Button>
+              
               <Button
                 variant="outline"
                 size="sm"
@@ -806,6 +1020,40 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de Notas Internas */}
+      <Dialog open={notasDialogOpen} onOpenChange={setNotasDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Notas Internas
+            </DialogTitle>
+            <DialogDescription>
+              Informações visíveis apenas para os operadores sobre este cliente.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Textarea
+            value={notasInternas}
+            onChange={(e) => setNotasInternas(e.target.value)}
+            placeholder="Ex: Cliente preferencial, solicitar desconto, histórico de problemas, contexto importante..."
+            className="min-h-[150px]"
+          />
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setNotasDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={salvarNotas}>
+              Salvar Notas
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Messages area - Scrollable */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10">

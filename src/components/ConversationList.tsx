@@ -234,10 +234,15 @@ export const ConversationList = ({
     
     setArchivedCount(count || 0);
 
-    // ✅ Query 1: Buscar clientes baseado no estado atual
+    // ✅ Query 1: Buscar clientes baseado no estado atual (com atendente)
     const { data: clientesData, error } = await supabase
       .from('clientes')
-      .select('*')
+      .select(`
+        *,
+        profiles:clientes_atendente_id_fkey (
+          full_name
+        )
+      `)
       .eq('arquivado', showArchived)
       .order('ultima_interacao', { ascending: false });
 
@@ -593,9 +598,10 @@ export const ConversationList = ({
                   isArchived={showArchived}
                   marcadoNaoLido={cliente.marcado_nao_lido}
                   onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
-            botHabilitado={cliente.bot_habilitado}
-            botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
-            orcamentosCount={cliente.orcamentos_count}
+                  botHabilitado={cliente.bot_habilitado}
+                  botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
+                  orcamentosCount={cliente.orcamentos_count}
+                  atendenteNome={(cliente as any).profiles?.full_name}
                 />
               ))
             )}
