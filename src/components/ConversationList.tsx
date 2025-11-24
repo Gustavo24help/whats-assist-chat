@@ -24,6 +24,7 @@ interface Cliente {
   bot_habilitado?: boolean;
   bot_desativado_notificacao_vista?: boolean;
   marcado_nao_lido?: boolean;
+  orcamentos_count?: number;
 }
 
 interface ConversationListProps {
@@ -279,7 +280,7 @@ export const ConversationList = ({
       
       const { data: ultimasFichas } = await supabase
         .from('fichas_de_servico')
-        .select('telefone_cliente, nome_ficha, status, created_at')
+        .select('id, telefone_cliente, nome_ficha, status, created_at')
         .in('telefone_cliente', telefonesSeficha)
         .order('created_at', { ascending: false });
 
@@ -289,6 +290,25 @@ export const ConversationList = ({
         if (!ultimasFichasMap.has(f.telefone_cliente)) {
           ultimasFichasMap.set(f.telefone_cliente, f);
         }
+      });
+
+      // ✅ Query 5: Buscar contagem de orçamentos para todas as fichas ativas (em batch)
+      const todasFichasIds = [
+        ...fichasAtivasIds,
+        ...Array.from(ultimasFichasMap.values()).map((f: any) => f.id).filter(Boolean)
+      ].filter(Boolean);
+
+      // Buscar orçamentos para todas essas fichas
+      const { data: orcamentosData } = await supabase
+        .from('orcamentos')
+        .select('ficha_nome')
+        .in('ficha_nome', todasFichasIds);
+
+      // Criar mapa de contagem de orçamentos por ficha
+      const orcamentosCountMap = new Map();
+      orcamentosData?.forEach(orc => {
+        const count = orcamentosCountMap.get(orc.ficha_nome) || 0;
+        orcamentosCountMap.set(orc.ficha_nome, count + 1);
       });
 
       // ✅ Combinar tudo SEM QUERIES EXTRAS
@@ -303,11 +323,20 @@ export const ConversationList = ({
 
         // Buscar dados da ficha
         let fichaData = null;
+        let fichaIdParaOrcamentos = null;
+        
         if (cliente.ficha_ativa_id) {
           fichaData = fichasAtivasMap.get(cliente.ficha_ativa_id);
+          fichaIdParaOrcamentos = cliente.ficha_ativa_id;
         } else {
           fichaData = ultimasFichasMap.get(cliente.telefone);
+          fichaIdParaOrcamentos = (fichaData as any)?.id;
         }
+
+        // Buscar contagem de orçamentos
+        const orcamentosCount = fichaIdParaOrcamentos 
+          ? orcamentosCountMap.get(fichaIdParaOrcamentos) || 0 
+          : 0;
 
         return {
           ...cliente,
@@ -317,7 +346,8 @@ export const ConversationList = ({
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
-          marcado_nao_lido: cliente.marcado_nao_lido
+          marcado_nao_lido: cliente.marcado_nao_lido,
+          orcamentos_count: orcamentosCount
         };
       });
 
@@ -565,6 +595,7 @@ export const ConversationList = ({
                   onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
             botHabilitado={cliente.bot_habilitado}
             botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
+            orcamentosCount={cliente.orcamentos_count}
                 />
               ))
             )}
