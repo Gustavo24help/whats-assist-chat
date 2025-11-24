@@ -114,7 +114,15 @@ export type Database = {
           telefone?: string
           ultima_interacao?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clientes_atendente_id_fkey"
+            columns: ["atendente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       configuracoes: {
         Row: {
