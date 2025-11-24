@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import FichasGeral from "./pages/FichasGeral";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/geral"
+              element={
+                <ProtectedRoute>
+                  <FichasGeral />
                 </ProtectedRoute>
               }
             />
