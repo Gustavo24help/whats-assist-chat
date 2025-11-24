@@ -505,6 +505,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       return;
     }
 
+    // Auto-atribuir operador se ainda não atribuído
+    if (!atendenteAtual) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        await atribuirOperador(user.id, profile?.full_name || 'Você');
+      }
+    }
+
     // Verificar tipo de arquivo
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
@@ -587,6 +601,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     if (statusConversa === "fechada") {
       toast.error("Conversa fechada! Use templates aprovados para enviar mensagens.");
       return;
+    }
+
+    // Auto-atribuir operador se ainda não atribuído
+    if (!atendenteAtual) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        await atribuirOperador(user.id, profile?.full_name || 'Você');
+      }
     }
 
     const mensagemTexto = novaMsg;
