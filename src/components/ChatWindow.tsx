@@ -1141,17 +1141,17 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                         </p>
                       )}
                       {renderMedia(msg)}
-                      <div className="flex items-center gap-1 mt-1">
-                        <MessageStatusIndicator status={msg.status} remetente={msg.remetente} />
-                        <p className={cn(
-                          "text-xs opacity-70 select-none",
-                          msg.remetente === "atendente" 
-                            ? "text-primary-foreground" 
-                            : "text-muted-foreground"
-                        )}>
-                          {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
+                  <div className="flex items-center gap-1 mt-1 select-none">
+                    <MessageStatusIndicator status={msg.status} remetente={msg.remetente} />
+                    <p className={cn(
+                      "text-xs opacity-70",
+                      msg.remetente === "atendente" 
+                        ? "text-primary-foreground" 
+                        : "text-muted-foreground"
+                    )}>
+                      {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
                     </div>
                   </div>
                 </MessageContextMenu>
