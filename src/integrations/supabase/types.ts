@@ -62,6 +62,7 @@ export type Database = {
       clientes: {
         Row: {
           arquivado: boolean
+          atendente_id: string | null
           bot_desativado_notificacao_vista: boolean | null
           bot_habilitado: boolean | null
           created_at: string | null
@@ -69,6 +70,7 @@ export type Database = {
           ficha_ativa_id: string | null
           marcado_nao_lido: boolean | null
           nome: string
+          notas_internas: string | null
           status_conversa:
             | Database["public"]["Enums"]["status_conversa_enum"]
             | null
@@ -78,6 +80,7 @@ export type Database = {
         }
         Insert: {
           arquivado?: boolean
+          atendente_id?: string | null
           bot_desativado_notificacao_vista?: boolean | null
           bot_habilitado?: boolean | null
           created_at?: string | null
@@ -85,6 +88,7 @@ export type Database = {
           ficha_ativa_id?: string | null
           marcado_nao_lido?: boolean | null
           nome?: string
+          notas_internas?: string | null
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
             | null
@@ -94,6 +98,7 @@ export type Database = {
         }
         Update: {
           arquivado?: boolean
+          atendente_id?: string | null
           bot_desativado_notificacao_vista?: boolean | null
           bot_habilitado?: boolean | null
           created_at?: string | null
@@ -101,6 +106,7 @@ export type Database = {
           ficha_ativa_id?: string | null
           marcado_nao_lido?: boolean | null
           nome?: string
+          notas_internas?: string | null
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
             | null
