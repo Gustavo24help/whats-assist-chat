@@ -7,9 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Check, X } from "lucide-react";
+import { Loader2, Check, X, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const OrcamentoPublico = () => {
   const [searchParams] = useSearchParams();
@@ -24,6 +28,7 @@ const OrcamentoPublico = () => {
   const [cpfValido, setCpfValido] = useState<boolean | null>(null);
   const [nomePrestador, setNomePrestador] = useState("");
   
+  const [dataSugerida, setDataSugerida] = useState<Date | undefined>(undefined);
   const [formData, setFormData] = useState({
     prestador_cpf: "",
     categoria: "",
@@ -32,7 +37,7 @@ const OrcamentoPublico = () => {
     pode_horario: "sim",
     tempo_estimado: "",
     unidade_tempo: "Horas",
-    servico_adicional: "",
+    horario_sugerido: "",
     observacoes: "",
     porcentagem_desconto: "",
   });
@@ -168,7 +173,8 @@ const OrcamentoPublico = () => {
           ...orcamentoData,
           prestador_nome: nomePrestador,
           pode_horario: formData.pode_horario,
-          servico_adicional: formData.servico_adicional,
+          data_sugerida: dataSugerida ? format(dataSugerida, "yyyy-MM-dd") : null,
+          horario_sugerido: formData.horario_sugerido || null,
           porcentagem_desconto: formData.porcentagem_desconto,
         },
       });
@@ -187,10 +193,13 @@ const OrcamentoPublico = () => {
         pode_horario: "sim",
         tempo_estimado: "",
         unidade_tempo: "Horas",
-        servico_adicional: "",
+        horario_sugerido: "",
         observacoes: "",
         porcentagem_desconto: "",
       });
+      setDataSugerida(undefined);
+      setCpfValido(null);
+      setNomePrestador("");
     } catch (error) {
       console.error("Erro ao enviar orçamento:", error);
       toast({
@@ -361,6 +370,50 @@ const OrcamentoPublico = () => {
               </RadioGroup>
             </div>
 
+            {formData.pode_horario === "nao" && (
+              <div className="space-y-3 p-3 border border-border rounded-md bg-muted/30">
+                <p className="text-sm font-medium text-foreground">Sugerir nova data e horário:</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="data_sugerida">Data</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !dataSugerida && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dataSugerida ? format(dataSugerida, "dd/MM/yyyy") : "Selecionar"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dataSugerida}
+                          onSelect={setDataSugerida}
+                          disabled={(date) => date < new Date()}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="horario_sugerido">Horário</Label>
+                    <Input
+                      id="horario_sugerido"
+                      type="time"
+                      value={formData.horario_sugerido}
+                      onChange={(e) => setFormData({ ...formData, horario_sugerido: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="tempo">Tempo Estimado</Label>
@@ -389,16 +442,6 @@ const OrcamentoPublico = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="adicional">Adicional/Serviço</Label>
-              <Input
-                id="adicional"
-                placeholder="Adicional (Opcional)"
-                value={formData.servico_adicional}
-                onChange={(e) => setFormData({ ...formData, servico_adicional: e.target.value })}
-              />
             </div>
 
             <div className="space-y-2">
