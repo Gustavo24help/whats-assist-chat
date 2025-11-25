@@ -47,8 +47,11 @@ interface Servico {
   descricao: string | null;
   status: string;
   horario_agendamento: string | null;
+  horario_visita_tecnica: string | null;
   endereco: string | null;
   valor_total: number;
+  valor_mao_obra: number | null;
+  valor_pecas: number | null;
   tempo_servico: string | null;
   updated_at: string;
 }
@@ -124,12 +127,12 @@ export default function PrestadorPortal() {
       if (orcamentosError) throw orcamentosError;
       setOrcamentos(orcamentosData || []);
 
-      // Buscar serviços vinculados
+      // Buscar serviços vinculados (incluindo visitas técnicas)
       const { data: servicosData, error: servicosError } = await supabase
         .from("fichas_de_servico")
         .select("*")
         .eq("prestador_id", cpfLimpo)
-        .in("status", ["Agendado", "Finalizado", "Em andamento"])
+        .in("status", ["Agendado", "Finalizado", "Em andamento", "Visita Técnica"])
         .order("horario_agendamento", { ascending: true });
 
       if (servicosError) throw servicosError;
@@ -193,6 +196,7 @@ export default function PrestadorPortal() {
 
   const servicosAgendados = servicos.filter(s => s.status === "Agendado" || s.status === "Em andamento");
   const servicosFinalizados = servicos.filter(s => s.status === "Finalizado");
+  const visitasTecnicas = servicos.filter(s => s.status === "Visita Técnica");
 
   const getServicosNaData = (date: Date) => {
     return servicos.filter(s => {
@@ -212,11 +216,15 @@ export default function PrestadorPortal() {
     finalizado: servicosFinalizados
       .filter(s => s.horario_agendamento)
       .map(s => new Date(s.horario_agendamento!)),
+    visitaTecnica: visitasTecnicas
+      .filter(s => s.horario_visita_tecnica)
+      .map(s => new Date(s.horario_visita_tecnica!)),
   };
 
   const modifiersClassNames = {
     agendado: "bg-orange-500 text-white hover:bg-orange-600",
     finalizado: "bg-green-500 text-white hover:bg-green-600",
+    visitaTecnica: "bg-blue-500 text-white hover:bg-blue-600",
   };
 
   if (!prestador) {
@@ -367,6 +375,10 @@ export default function PrestadorPortal() {
                     <span>Agendado</span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+                    <span>Visita Técnica</span>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-green-500"></div>
                     <span>Finalizado</span>
                   </div>
@@ -383,40 +395,61 @@ export default function PrestadorPortal() {
                       </p>
                     ) : (
                       <div className="space-y-3">
-                        {servicosNaDataSelecionada.map((servico) => (
-                          <Card key={servico.id} className="border-2">
-                            <CardContent className="pt-4">
-                              <div className="flex items-start gap-3">
-                                <div className={`w-3 h-3 rounded-full mt-1 ${
-                                  servico.status === "Finalizado" ? "bg-green-500" : "bg-orange-500"
-                                }`}></div>
-                                <div className="flex-1 space-y-1">
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="font-semibold">
-                                      {servico.horario_agendamento &&
-                                        format(new Date(servico.horario_agendamento), "HH:mm", { locale: ptBR })}
-                                      {" - "}
-                                      {servico.nome_ficha || servico.id}
-                                    </h4>
-                                    <Badge variant={servico.status === "Finalizado" ? "default" : "secondary"}>
-                                      {servico.status}
-                                    </Badge>
+                        {servicosNaDataSelecionada.map((servico) => {
+                          const isVisitaTecnica = servico.status === "Visita Técnica";
+                          const horario = isVisitaTecnica 
+                            ? servico.horario_visita_tecnica 
+                            : servico.horario_agendamento;
+                          
+                          return (
+                            <Card key={servico.id} className="border-2">
+                              <CardContent className="pt-4">
+                                <div className="flex items-start gap-3">
+                                  <div className={`w-3 h-3 rounded-full mt-1 ${
+                                    isVisitaTecnica 
+                                      ? "bg-blue-500" 
+                                      : servico.status === "Finalizado" 
+                                        ? "bg-green-500" 
+                                        : "bg-orange-500"
+                                  }`}></div>
+                                  <div className="flex-1 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="font-semibold">
+                                        {horario && format(new Date(horario), "HH:mm", { locale: ptBR })}
+                                        {" - "}
+                                        {servico.nome_ficha || servico.id}
+                                      </h4>
+                                      <Badge variant={servico.status === "Finalizado" ? "default" : "secondary"}>
+                                        {servico.status}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">{servico.descricao}</p>
+                                    {servico.endereco && (
+                                      <p className="text-sm flex items-center gap-1 text-muted-foreground">
+                                        <MapPin className="w-3 h-3" />
+                                        {servico.endereco}
+                                      </p>
+                                    )}
+                                    {!isVisitaTecnica && (
+                                      <div className="flex gap-3 text-sm">
+                                        {servico.valor_mao_obra && servico.valor_mao_obra > 0 && (
+                                          <span className="font-medium text-primary">
+                                            Mão de obra: R$ {servico.valor_mao_obra.toFixed(2)}
+                                          </span>
+                                        )}
+                                        {servico.valor_pecas && servico.valor_pecas > 0 && (
+                                          <span className="font-medium text-primary">
+                                            Peças: R$ {servico.valor_pecas.toFixed(2)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
-                                  <p className="text-sm text-muted-foreground">{servico.descricao}</p>
-                                  {servico.endereco && (
-                                    <p className="text-sm flex items-center gap-1 text-muted-foreground">
-                                      <MapPin className="w-3 h-3" />
-                                      {servico.endereco}
-                                    </p>
-                                  )}
-                                  <p className="text-sm font-medium text-primary">
-                                    R$ {servico.valor_total?.toFixed(2)}
-                                  </p>
                                 </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -431,7 +464,7 @@ export default function PrestadorPortal() {
               <CardHeader>
                 <CardTitle>📋 Meus Serviços</CardTitle>
                 <CardDescription>
-                  {servicosAgendados.length} agendado{servicosAgendados.length !== 1 ? "s" : ""} • {servicosFinalizados.length} finalizado{servicosFinalizados.length !== 1 ? "s" : ""}
+                  {servicosAgendados.length} agendado{servicosAgendados.length !== 1 ? "s" : ""} • {visitasTecnicas.length} visita{visitasTecnicas.length !== 1 ? "s" : ""} técnica{visitasTecnicas.length !== 1 ? "s" : ""} • {servicosFinalizados.length} finalizado{servicosFinalizados.length !== 1 ? "s" : ""}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -452,7 +485,7 @@ export default function PrestadorPortal() {
                           </p>
                         ) : (
                           servicosAgendados.map((servico) => (
-                            <Card key={servico.id} className="border-l-4 border-l-orange-500">
+                          <Card key={servico.id} className="border-l-4 border-l-orange-500">
                               <CardContent className="pt-4">
                                 <div className="space-y-2">
                                   <div className="flex items-center justify-between">
@@ -473,14 +506,67 @@ export default function PrestadorPortal() {
                                       {servico.endereco}
                                     </p>
                                   )}
-                                  <div className="flex gap-4 text-sm">
-                                    <span className="font-semibold text-primary">
-                                      R$ {servico.valor_total?.toFixed(2)}
-                                    </span>
+                                  <div className="flex flex-wrap gap-3 text-sm">
+                                    {servico.valor_mao_obra && servico.valor_mao_obra > 0 && (
+                                      <span className="font-semibold text-primary">
+                                        Mão de obra: R$ {servico.valor_mao_obra.toFixed(2)}
+                                      </span>
+                                    )}
+                                    {servico.valor_pecas && servico.valor_pecas > 0 && (
+                                      <span className="font-semibold text-primary">
+                                        Peças: R$ {servico.valor_pecas.toFixed(2)}
+                                      </span>
+                                    )}
                                     {servico.tempo_servico && (
                                       <span className="text-muted-foreground">⏱️ {servico.tempo_servico}</span>
                                     )}
                                   </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    {/* Visitas Técnicas */}
+                    <Collapsible>
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors">
+                        <span className="font-semibold flex items-center gap-2">
+                          🔵 Visitas Técnicas ({visitasTecnicas.length})
+                        </span>
+                        <ChevronDown className="w-5 h-5" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-3 space-y-3">
+                        {visitasTecnicas.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            Nenhuma visita técnica agendada.
+                          </p>
+                        ) : (
+                          visitasTecnicas.map((servico) => (
+                            <Card key={servico.id} className="border-l-4 border-l-blue-500">
+                              <CardContent className="pt-4">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold">
+                                      {servico.nome_ficha || servico.id}
+                                    </h4>
+                                    <Badge className="bg-blue-500 hover:bg-blue-600 text-white">
+                                      {servico.status}
+                                    </Badge>
+                                  </div>
+                                  {servico.horario_visita_tecnica && (
+                                    <p className="text-sm text-muted-foreground">
+                                      📅 {format(new Date(servico.horario_visita_tecnica), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                    </p>
+                                  )}
+                                  <p className="text-sm">{servico.descricao}</p>
+                                  {servico.endereco && (
+                                    <p className="text-sm flex items-center gap-1 text-muted-foreground">
+                                      <MapPin className="w-3 h-3" />
+                                      {servico.endereco}
+                                    </p>
+                                  )}
                                 </div>
                               </CardContent>
                             </Card>
@@ -525,9 +611,18 @@ export default function PrestadorPortal() {
                                       {servico.endereco}
                                     </p>
                                   )}
-                                  <p className="text-sm font-semibold text-primary">
-                                    R$ {servico.valor_total?.toFixed(2)}
-                                  </p>
+                                  <div className="flex flex-wrap gap-3 text-sm">
+                                    {servico.valor_mao_obra && servico.valor_mao_obra > 0 && (
+                                      <span className="font-semibold text-primary">
+                                        Mão de obra: R$ {servico.valor_mao_obra.toFixed(2)}
+                                      </span>
+                                    )}
+                                    {servico.valor_pecas && servico.valor_pecas > 0 && (
+                                      <span className="font-semibold text-primary">
+                                        Peças: R$ {servico.valor_pecas.toFixed(2)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </CardContent>
                             </Card>
