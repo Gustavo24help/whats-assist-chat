@@ -10,6 +10,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import FichasGeral from "./pages/FichasGeral";
 import OrcamentoPublico from "./pages/OrcamentoPublico";
+import PrestadorPortal from "./pages/PrestadorPortal";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/orcamento" element={<OrcamentoPublico />} />
+            <Route path="/prestador" element={<PrestadorPortal />} />
             <Route
               path="/"
               element={
