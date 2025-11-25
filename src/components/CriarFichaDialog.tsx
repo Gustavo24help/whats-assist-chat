@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -32,6 +33,7 @@ export const CriarFichaDialog = ({
   webhookUrl,
 }: CriarFichaDialogProps) => {
   const [loading, setLoading] = useState(false);
+  const [categorias, setCategorias] = useState<any[]>([]);
   
   // Gerar nome padrão da ficha baseado no banco de dados
   const generateDefaultFichaName = async () => {
@@ -75,12 +77,22 @@ export const CriarFichaDialog = ({
     categoria: "",
   });
 
+  const fetchCategorias = async () => {
+    const { data } = await supabase
+      .from("categorias")
+      .select("*")
+      .order("nome");
+    
+    if (data) setCategorias(data);
+  };
+
   // Gerar nome padrão ao abrir o diálogo
   useEffect(() => {
     if (open) {
       generateDefaultFichaName().then(name => {
         setFormData(prev => ({ ...prev, nome_ficha: name }));
       });
+      fetchCategorias();
     }
   }, [open]);
 
@@ -190,14 +202,31 @@ export const CriarFichaDialog = ({
 
             <div className="space-y-2">
               <Label htmlFor="categoria">Categoria</Label>
-              <Input
-                id="categoria"
-                placeholder="Ex: Elétrica, Hidráulica, etc."
+              <Select
                 value={formData.categoria}
-                onChange={(e) =>
-                  setFormData({ ...formData, categoria: e.target.value })
-                }
-              />
+                onValueChange={(value) => setFormData({ ...formData, categoria: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a categoria..." />
+                </SelectTrigger>
+                <SelectContent 
+                  position="popper" 
+                  side="bottom"
+                  align="start"
+                  className="z-50 max-h-[300px] bg-background"
+                  sideOffset={4}
+                >
+                  {categorias.map((cat) => (
+                    <SelectItem 
+                      key={cat.id} 
+                      value={cat.nome}
+                      className="min-h-[44px] cursor-pointer text-base"
+                    >
+                      {cat.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
