@@ -286,7 +286,7 @@ const OrcamentoPublico = () => {
             <Button 
               onClick={() => setOrcamentoEnviado(false)} 
               variant="outline"
-              className="w-full"
+              className="w-full h-12 text-base"
             >
               Enviar outro orçamento
             </Button>
@@ -372,10 +372,10 @@ const OrcamentoPublico = () => {
           </p>
         </CardHeader>
 
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="p-5 sm:p-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="cpf">CPF do Prestador</Label>
+              <Label htmlFor="cpf" className="text-base touch-action-manipulation">CPF do Prestador</Label>
               <div className="relative">
                 <Input
                   id="cpf"
@@ -383,7 +383,8 @@ const OrcamentoPublico = () => {
                   value={formData.prestador_cpf}
                   onChange={(e) => handleCpfChange(e.target.value)}
                   required
-                  className="pr-10"
+                  inputMode="numeric"
+                  className="pr-10 h-12"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   {validandoCpf ? (
@@ -402,24 +403,24 @@ const OrcamentoPublico = () => {
 
             {nomePrestador && (
               <div className="space-y-2">
-                <Label htmlFor="nome_prestador">Nome do Prestador</Label>
+                <Label htmlFor="nome_prestador" className="text-base touch-action-manipulation">Nome do Prestador</Label>
                 <Input
                   id="nome_prestador"
                   value={nomePrestador}
                   disabled
-                  className="bg-muted"
+                  className="bg-muted h-12"
                 />
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="categoria">Categoria do Serviço</Label>
+              <Label htmlFor="categoria" className="text-base touch-action-manipulation">Categoria do Serviço</Label>
               <Select
                 value={formData.categoria}
                 onValueChange={(value) => setFormData({ ...formData, categoria: value })}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-12">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -432,63 +433,65 @@ const OrcamentoPublico = () => {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="mao_obra">Mão de Obra (R$)</Label>
+                <Label htmlFor="mao_obra" className="text-base touch-action-manipulation">Mão de Obra (R$)</Label>
                 <Input
                   id="mao_obra"
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="0.00"
                   value={formData.valor_mao_obra}
                   onChange={(e) => setFormData({ ...formData, valor_mao_obra: e.target.value })}
                   required
+                  className="h-12 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pecas">Peças/Materiais (R$)</Label>
+                <Label htmlFor="pecas" className="text-base touch-action-manipulation">Peças/Materiais (R$)</Label>
                 <Input
                   id="pecas"
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="0.00"
                   value={formData.valor_pecas}
                   onChange={(e) => setFormData({ ...formData, valor_pecas: e.target.value })}
                   required
+                  className="h-12 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Pode no horário solicitado pelo cliente?</Label>
+              <Label className="text-base touch-action-manipulation">Pode no horário solicitado pelo cliente?</Label>
               <RadioGroup
                 value={formData.pode_horario}
                 onValueChange={(value) => setFormData({ ...formData, pode_horario: value })}
                 className="flex gap-4"
               >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="sim" id="sim" />
-                  <Label htmlFor="sim" className="cursor-pointer font-normal">Sim</Label>
+                <div className="flex items-center space-x-3 min-h-[44px] p-2 rounded-md hover:bg-accent transition-colors">
+                  <RadioGroupItem value="sim" id="sim" className="h-5 w-5" />
+                  <Label htmlFor="sim" className="cursor-pointer font-normal text-base">Sim</Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="nao" id="nao" />
-                  <Label htmlFor="nao" className="cursor-pointer font-normal">Não</Label>
+                <div className="flex items-center space-x-3 min-h-[44px] p-2 rounded-md hover:bg-accent transition-colors">
+                  <RadioGroupItem value="nao" id="nao" className="h-5 w-5" />
+                  <Label htmlFor="nao" className="cursor-pointer font-normal text-base">Não</Label>
                 </div>
               </RadioGroup>
             </div>
 
             {formData.pode_horario === "nao" && (
-              <div className="space-y-3 p-3 border border-border rounded-md bg-muted/30">
-                <p className="text-sm font-medium text-foreground">Sugerir nova data e horário:</p>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3 p-4 border border-border rounded-md bg-muted/30">
+                <p className="text-base font-medium text-foreground">Sugerir nova data e horário:</p>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="data_sugerida">Data</Label>
+                    <Label htmlFor="data_sugerida" className="text-base touch-action-manipulation">Data</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            "w-full justify-start text-left font-normal h-12",
                             !dataSugerida && "text-muted-foreground"
                           )}
                         >
@@ -509,37 +512,40 @@ const OrcamentoPublico = () => {
                     </Popover>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="horario_sugerido">Horário</Label>
+                    <Label htmlFor="horario_sugerido" className="text-base touch-action-manipulation">Horário</Label>
                     <Input
                       id="horario_sugerido"
                       type="time"
                       value={formData.horario_sugerido}
                       onChange={(e) => setFormData({ ...formData, horario_sugerido: e.target.value })}
+                      className="h-12"
                     />
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="tempo">Tempo Estimado</Label>
+                <Label htmlFor="tempo" className="text-base touch-action-manipulation">Tempo Estimado</Label>
                 <Input
                   id="tempo"
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="Ex: 2"
                   value={formData.tempo_estimado}
                   onChange={(e) => setFormData({ ...formData, tempo_estimado: e.target.value })}
                   required
+                  className="h-12 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="unidade">Unidade de Tempo</Label>
+                <Label htmlFor="unidade" className="text-base touch-action-manipulation">Unidade de Tempo</Label>
                 <Select
                   value={formData.unidade_tempo}
                   onValueChange={(value) => setFormData({ ...formData, unidade_tempo: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-12">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -552,35 +558,37 @@ const OrcamentoPublico = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="obs">Observação</Label>
+              <Label htmlFor="obs" className="text-base touch-action-manipulation">Observação</Label>
               <Textarea
                 id="obs"
                 placeholder="Digite uma observação (opcional)"
                 value={formData.observacoes}
                 onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                className="min-h-[80px] resize-none"
+                className="min-h-[100px] resize-none"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="desconto">Porcentagem de desconto (opcional)</Label>
+              <Label htmlFor="desconto" className="text-base touch-action-manipulation">Porcentagem de desconto (opcional)</Label>
               <Input
                 id="desconto"
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="Ex: 10"
                 value={formData.porcentagem_desconto}
                 onChange={(e) => setFormData({ ...formData, porcentagem_desconto: e.target.value })}
+                className="h-12 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-14 text-base"
               disabled={loading}
             >
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Enviando...
                 </>
               ) : (
