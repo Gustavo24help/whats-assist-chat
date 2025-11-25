@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, ChevronDown, ChevronUp, User, HardHat } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,7 @@ export const ConversationList = ({
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState("");
   const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
+  const [searchMode, setSearchMode] = useState<'ficha' | 'prestador'>('ficha');
 
   useEffect(() => {
     fetchClientes();
@@ -105,13 +106,20 @@ export const ConversationList = ({
 
     // Filtro por busca de texto
     if (searchTerm) {
-      filtered = filtered.filter(c => 
-        c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.telefone.includes(searchTerm) ||
-        (c.nome_ficha && c.nome_ficha.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (c.tags && c.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))) ||
-        clientesTelefonesPorPrestador.includes(c.telefone)
-      );
+      if (searchMode === 'ficha') {
+        // Modo ficha: busca por nome do cliente, nome da ficha, tags
+        filtered = filtered.filter(c => 
+          c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.telefone.includes(searchTerm) ||
+          (c.nome_ficha && c.nome_ficha.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (c.tags && c.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
+        );
+      } else {
+        // Modo prestador: busca apenas por prestadores vinculados
+        filtered = filtered.filter(c => 
+          clientesTelefonesPorPrestador.includes(c.telefone)
+        );
+      }
     }
 
     // Filtro por status da ficha
@@ -172,7 +180,7 @@ export const ConversationList = ({
     }
 
     return filtered;
-  }, [clientes, searchTerm, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly, clientesTelefonesPorPrestador, unreadMessages]);
+  }, [clientes, searchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly, clientesTelefonesPorPrestador, unreadMessages]);
 
   // ✅ Extrair tags únicas (memoizado)
   const allTags = useMemo(() => {
@@ -207,10 +215,10 @@ export const ConversationList = ({
     }
   }, [clientes, showBotDisabledOnly]);
 
-  // Buscar clientes por nome do prestador
+  // Buscar clientes por nome do prestador (apenas no modo prestador)
   useEffect(() => {
     const buscarClientesPorPrestador = async () => {
-      if (!searchTerm) {
+      if (!searchTerm || searchMode !== 'prestador') {
         setClientesTelefonesPorPrestador([]);
         return;
       }
@@ -246,7 +254,7 @@ export const ConversationList = ({
     };
 
     buscarClientesPorPrestador();
-  }, [searchTerm]);
+  }, [searchTerm, searchMode]);
 
   const fetchTagsWithColors = async () => {
     const { data: tagsData } = await supabase
@@ -543,14 +551,29 @@ export const ConversationList = ({
 
         {!isCollapsed && (
           <>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 h-9 text-sm"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder={searchMode === 'ficha' ? "Buscar..." : "Buscar prestador..."}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 h-9 text-sm"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setSearchMode(searchMode === 'ficha' ? 'prestador' : 'ficha')}
+                className="h-9 w-9 shrink-0"
+                title={searchMode === 'ficha' ? "Buscar por prestador" : "Buscar por ficha"}
+              >
+                {searchMode === 'ficha' ? (
+                  <User className="h-4 w-4" />
+                ) : (
+                  <HardHat className="h-4 w-4" />
+                )}
+              </Button>
             </div>
 
             {/* Indicador de bots desabilitados */}
