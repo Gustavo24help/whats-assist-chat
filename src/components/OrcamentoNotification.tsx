@@ -22,8 +22,8 @@ interface OrcamentoNotificationProps {
   onSelectFicha: (fichaId: string, telefoneCliente: string) => void;
 }
 
-// Som de notificação suave de sino
-const BUDGET_NOTIFICATION_SOUND = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+// Som de notificação suave de sino (MP3 base64 - som de sino curto)
+const BUDGET_NOTIFICATION_SOUND = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD////////////////////////////////////////////////////////////AAAAAExhdmM1OC4xMzQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
 
 export function OrcamentoNotification({ onSelectFicha }: OrcamentoNotificationProps) {
   const [notifications, setNotifications] = useState<OrcamentoNotificacao[]>([]);
@@ -59,11 +59,12 @@ export function OrcamentoNotification({ onSelectFicha }: OrcamentoNotificationPr
           // Buscar informações da ficha e cliente
           const { data: ficha } = await supabase
             .from('fichas_de_servico')
-            .select('id, nome_ficha, telefone_cliente')
+            .select('id, nome_ficha, telefone_cliente, status')
             .eq('id', novoOrcamento.ficha_nome)
             .single();
 
-          if (ficha) {
+          // Só notificar se a ficha estiver com status "Ficha Criada"
+          if (ficha && ficha.status === 'Ficha Criada') {
             const { data: cliente } = await supabase
               .from('clientes')
               .select('nome')
