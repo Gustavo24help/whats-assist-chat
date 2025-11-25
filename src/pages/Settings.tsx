@@ -171,7 +171,7 @@ const Settings = () => {
   };
 
   const copiarLinkOrcamento = (fichaId: string) => {
-    const link = `${window.location.origin}/orcamento?ficha=${fichaId}`;
+    const link = `https://chat.24help.com.br/orcamento?ficha=${fichaId}`;
     navigator.clipboard.writeText(link);
     toast({
       title: "Link copiado!",
@@ -425,7 +425,7 @@ const Settings = () => {
 
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-xs font-mono break-all text-muted-foreground">
-                    {window.location.origin}/orcamento?ficha=[ID_DA_FICHA]
+                    https://chat.24help.com.br/orcamento?ficha=[ID_DA_FICHA]
                   </p>
                 </div>
               </CardContent>
