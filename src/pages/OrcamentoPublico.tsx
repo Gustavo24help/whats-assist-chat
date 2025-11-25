@@ -463,7 +463,7 @@ const OrcamentoPublico = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pecas" className="text-base touch-action-manipulation">Peças/Materiais (R$)</Label>
+                <Label htmlFor="pecas" className="text-base touch-action-manipulation">Peças/Materiais (R$) <span className="text-muted-foreground text-sm">(opcional)</span></Label>
                 <Input
                   id="pecas"
                   type="text"
@@ -471,7 +471,6 @@ const OrcamentoPublico = () => {
                   placeholder="0.00"
                   value={formData.valor_pecas}
                   onChange={(e) => setFormData({ ...formData, valor_pecas: e.target.value })}
-                  required
                   className="h-12 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
