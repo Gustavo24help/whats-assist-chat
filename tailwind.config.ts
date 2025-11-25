@@ -80,10 +80,31 @@ export default {
             height: "0",
           },
         },
+        "notification-glow": {
+          "0%, 100%": {
+            boxShadow: "0 0 0 0 hsl(var(--destructive) / 0.4)",
+          },
+          "50%": {
+            boxShadow: "0 0 20px 5px hsl(var(--destructive) / 0.4)",
+          },
+        },
+        "notification-ring": {
+          "0%, 100%": {
+            transform: "rotate(0deg)",
+          },
+          "10%, 30%": {
+            transform: "rotate(-15deg)",
+          },
+          "20%": {
+            transform: "rotate(15deg)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "notification-glow": "notification-glow 2s ease-in-out infinite",
+        "notification-ring": "notification-ring 1s ease-in-out infinite",
       },
     },
   },

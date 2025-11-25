@@ -9,6 +9,7 @@ import { Logo } from "@/components/Logo";
 import { LogOut, Settings, PanelLeftOpen } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
+import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { cn } from "@/lib/utils";
 
 const Index = () => {
@@ -79,6 +80,20 @@ const Index = () => {
     setFichaOpen(false);
   };
 
+  const handleOrcamentoNotification = async (fichaId: string, telefoneCliente: string) => {
+    // Buscar o cliente pelo telefone
+    const { data: cliente } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('telefone', telefoneCliente)
+      .single();
+
+    if (cliente) {
+      await handleSelectCliente(cliente);
+      setFichaOpen(true);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <NotificationSystem 
@@ -107,6 +122,7 @@ const Index = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <OrcamentoNotification onSelectFicha={handleOrcamentoNotification} />
           <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
             <Settings className="h-4 w-4 md:mr-2" />
             <span className="hidden md:inline">Configurações</span>
