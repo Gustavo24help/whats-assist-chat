@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Check, X, CalendarIcon } from "lucide-react";
+import { Loader2, Check, X, CalendarIcon, Info } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import logo from "@/assets/logo-24help.png";
 
 const OrcamentoPublico = () => {
   const [searchParams] = useSearchParams();
@@ -27,6 +29,7 @@ const OrcamentoPublico = () => {
   const [validandoCpf, setValidandoCpf] = useState(false);
   const [cpfValido, setCpfValido] = useState<boolean | null>(null);
   const [nomePrestador, setNomePrestador] = useState("");
+  const [fichaData, setFichaData] = useState<any>(null);
   
   const [dataSugerida, setDataSugerida] = useState<Date | undefined>(undefined);
   const [formData, setFormData] = useState({
@@ -52,12 +55,17 @@ const OrcamentoPublico = () => {
   const verificarFicha = async () => {
     const { data } = await supabase
       .from("fichas_de_servico")
-      .select("id, formulario_orcamento_ativo")
+      .select(`
+        *,
+        categoria:categorias(nome),
+        prestador:prestadores(nome)
+      `)
       .eq("id", fichaId)
       .single();
     
     setFichaExists(!!data);
     setFormularioAtivo(data?.formulario_orcamento_ativo ?? true);
+    setFichaData(data);
   };
 
   const fetchCategorias = async () => {
@@ -252,15 +260,79 @@ const OrcamentoPublico = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="text-center pb-4">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-bold text-sm">24</span>
-            </div>
-            <span className="text-lg font-semibold text-primary">Help</span>
+        <CardHeader className="text-center pb-4 space-y-3">
+          <div className="flex items-center justify-center">
+            <img src={logo} alt="24Help" className="h-12 w-auto" />
           </div>
-          <CardTitle className="text-xl">Formulário de Orçamento</CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">
+          
+          {fichaData && (
+            <div className="space-y-2">
+              <CardTitle className="text-lg">{fichaData.nome_ficha || `Ficha #${fichaData.id}`}</CardTitle>
+              {fichaData.descricao && (
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {fichaData.descricao}
+                </p>
+              )}
+              
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs">
+                    <Info className="mr-1 h-3 w-3" />
+                    Ver informações completas
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Informações da Ficha</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <Label className="text-xs font-semibold">Nome da Ficha</Label>
+                      <p className="text-muted-foreground">{fichaData.nome_ficha || `Ficha #${fichaData.id}`}</p>
+                    </div>
+                    {fichaData.descricao && (
+                      <div>
+                        <Label className="text-xs font-semibold">Descrição</Label>
+                        <p className="text-muted-foreground">{fichaData.descricao}</p>
+                      </div>
+                    )}
+                    {fichaData.categoria && (
+                      <div>
+                        <Label className="text-xs font-semibold">Categoria</Label>
+                        <p className="text-muted-foreground">{fichaData.categoria.nome}</p>
+                      </div>
+                    )}
+                    {fichaData.endereco && (
+                      <div>
+                        <Label className="text-xs font-semibold">Endereço</Label>
+                        <p className="text-muted-foreground">{fichaData.endereco}</p>
+                      </div>
+                    )}
+                    {fichaData.horario_agendamento && (
+                      <div>
+                        <Label className="text-xs font-semibold">Horário Solicitado</Label>
+                        <p className="text-muted-foreground">
+                          {format(new Date(fichaData.horario_agendamento), "dd/MM/yyyy 'às' HH:mm")}
+                        </p>
+                      </div>
+                    )}
+                    {fichaData.tempo_servico && (
+                      <div>
+                        <Label className="text-xs font-semibold">Tempo Estimado</Label>
+                        <p className="text-muted-foreground">{fichaData.tempo_servico}</p>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-xs font-semibold">Status</Label>
+                      <p className="text-muted-foreground">{fichaData.status}</p>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+          
+          <p className="text-xs text-muted-foreground">
             Preencha os dados para enviar o orçamento
           </p>
         </CardHeader>
