@@ -467,7 +467,7 @@ const OrcamentoPublico = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pecas" className="text-base touch-action-manipulation">Peças/Materiais (R$) <span className="text-muted-foreground text-sm">(opcional)</span></Label>
+                <Label htmlFor="pecas" className="text-base touch-action-manipulation">Peças/Materiais (R$)</Label>
                 <Input
                   id="pecas"
                   type="text"
@@ -477,23 +477,33 @@ const OrcamentoPublico = () => {
                   onChange={(e) => setFormData({ ...formData, valor_pecas: e.target.value })}
                   className="h-12 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
+                <span className="text-xs text-muted-foreground">(opcional)</span>
               </div>
             </div>
 
             <div className="space-y-2">
               <Label className="text-base touch-action-manipulation">Pode no horário solicitado pelo cliente?</Label>
+              
+              {fichaData?.preferencia_horario_cliente && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    📅 Preferência do cliente: {fichaData.preferencia_horario_cliente}
+                  </p>
+                </div>
+              )}
+              
               <RadioGroup
                 value={formData.pode_horario}
                 onValueChange={(value) => setFormData({ ...formData, pode_horario: value })}
                 className="flex gap-4"
               >
-                <div className="flex items-center space-x-3 min-h-[44px] p-2 rounded-md hover:bg-accent transition-colors">
+                <div className="flex items-center space-x-2 min-h-[44px] cursor-pointer">
                   <RadioGroupItem value="sim" id="sim" className="h-5 w-5" />
-                  <Label htmlFor="sim" className="cursor-pointer font-normal text-base">Sim</Label>
+                  <Label htmlFor="sim" className="cursor-pointer font-normal text-base hover:text-primary transition-colors">Sim</Label>
                 </div>
-                <div className="flex items-center space-x-3 min-h-[44px] p-2 rounded-md hover:bg-accent transition-colors">
+                <div className="flex items-center space-x-2 min-h-[44px] cursor-pointer">
                   <RadioGroupItem value="nao" id="nao" className="h-5 w-5" />
-                  <Label htmlFor="nao" className="cursor-pointer font-normal text-base">Não</Label>
+                  <Label htmlFor="nao" className="cursor-pointer font-normal text-base hover:text-primary transition-colors">Não</Label>
                 </div>
               </RadioGroup>
             </div>
