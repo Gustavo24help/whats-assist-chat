@@ -30,6 +30,7 @@ const OrcamentoPublico = () => {
   const [cpfValido, setCpfValido] = useState<boolean | null>(null);
   const [nomePrestador, setNomePrestador] = useState("");
   const [fichaData, setFichaData] = useState<any>(null);
+  const [orcamentoEnviado, setOrcamentoEnviado] = useState(false);
   
   const [dataSugerida, setDataSugerida] = useState<Date | undefined>(undefined);
   const [formData, setFormData] = useState({
@@ -192,6 +193,9 @@ const OrcamentoPublico = () => {
         description: "Seu orçamento foi enviado com sucesso.",
       });
 
+      // Mostrar tela de sucesso
+      setOrcamentoEnviado(true);
+
       // Limpar formulário
       setFormData({
         prestador_cpf: "",
@@ -251,6 +255,41 @@ const OrcamentoPublico = () => {
           <CardContent className="p-6 text-center space-y-2">
             <p className="text-lg font-semibold text-foreground">Formulário Encerrado</p>
             <p className="text-muted-foreground">Este formulário de orçamento foi encerrado.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (orcamentoEnviado) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="flex items-center justify-center">
+              <img src={logo} alt="24Help" className="h-12 w-auto" />
+            </div>
+            
+            <div className="flex items-center justify-center">
+              <div className="rounded-full bg-green-500/10 p-6">
+                <Check className="h-16 w-16 text-green-500" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-foreground">Orçamento Enviado!</h2>
+              <p className="text-muted-foreground">
+                Seu orçamento foi enviado com sucesso. Aguarde o contato da 24Help.
+              </p>
+            </div>
+
+            <Button 
+              onClick={() => setOrcamentoEnviado(false)} 
+              variant="outline"
+              className="w-full"
+            >
+              Enviar outro orçamento
+            </Button>
           </CardContent>
         </Card>
       </div>
