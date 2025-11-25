@@ -302,7 +302,7 @@ const OrcamentoPublico = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4 py-8">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center pb-4 space-y-3">
           <div className="flex items-center justify-center">
@@ -310,8 +310,8 @@ const OrcamentoPublico = () => {
           </div>
           
           {fichaData && (
-            <div className="space-y-2">
-              <CardTitle className="text-lg">{fichaData.nome_ficha || `Ficha #${fichaData.id}`}</CardTitle>
+            <div className="space-y-3 p-4 border-2 border-primary/20 rounded-lg bg-primary/5 animate-fade-in">
+              <CardTitle className="text-lg font-bold text-primary">{fichaData.nome_ficha || `Ficha #${fichaData.id}`}</CardTitle>
               {fichaData.descricao && (
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {fichaData.descricao}
@@ -320,8 +320,12 @@ const OrcamentoPublico = () => {
               
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 text-xs">
-                    <Info className="mr-1 h-3 w-3" />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-10 text-sm border-2 border-primary/30 bg-background hover:bg-primary hover:text-primary-foreground transition-all hover-scale"
+                  >
+                    <Info className="mr-2 h-4 w-4" />
                     Ver informações completas
                   </Button>
                 </DialogTrigger>
@@ -377,8 +381,8 @@ const OrcamentoPublico = () => {
           </p>
         </CardHeader>
 
-        <CardContent className="p-5 sm:p-6">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <CardContent className="p-5 sm:p-6 pb-8">
+          <form onSubmit={handleSubmit} className="space-y-5 mb-6">
             <div className="space-y-2">
               <Label htmlFor="cpf" className="text-base touch-action-manipulation">CPF do Prestador</Label>
               <div className="relative">
@@ -602,7 +606,7 @@ const OrcamentoPublico = () => {
 
             <Button
               type="submit"
-              className="w-full h-14 text-base"
+              className="w-full h-14 text-base mt-8"
               disabled={loading}
             >
               {loading ? (
