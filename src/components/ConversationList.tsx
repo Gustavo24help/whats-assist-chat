@@ -6,10 +6,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Cliente {
   telefone: string;
@@ -58,9 +59,13 @@ export const ConversationList = ({
   const [archivedCount, setArchivedCount] = useState(0);
   const [showBotDisabledOnly, setShowBotDisabledOnly] = useState(false);
   const [clientesTelefonesPorPrestador, setClientesTelefonesPorPrestador] = useState<string[]>([]);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [tagSearchTerm, setTagSearchTerm] = useState("");
+  const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     fetchClientes();
+    fetchTagsWithColors();
     
     const channel = supabase
       .channel('clientes-changes')
@@ -71,8 +76,18 @@ export const ConversationList = ({
       )
       .subscribe();
 
+    const tagsChannel = supabase
+      .channel('tags-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tags' },
+        () => fetchTagsWithColors()
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(tagsChannel);
     };
   }, []);
 
@@ -170,6 +185,14 @@ export const ConversationList = ({
     return Array.from(tags);
   }, [clientes]);
 
+  // ✅ Filtrar tags por termo de busca
+  const filteredTags = useMemo(() => {
+    if (!tagSearchTerm) return allTags;
+    return allTags.filter(tag => 
+      tag.toLowerCase().includes(tagSearchTerm.toLowerCase())
+    );
+  }, [allTags, tagSearchTerm]);
+
   // Auto-limpar filtro de bot desativado quando não houver mais conversas com aviso
   useEffect(() => {
     if (showBotDisabledOnly) {
@@ -224,6 +247,18 @@ export const ConversationList = ({
 
     buscarClientesPorPrestador();
   }, [searchTerm]);
+
+  const fetchTagsWithColors = async () => {
+    const { data: tagsData } = await supabase
+      .from('tags')
+      .select('nome, cor');
+    
+    if (tagsData) {
+      const tagsMap = new Map<string, string>();
+      tagsData.forEach(tag => tagsMap.set(tag.nome, tag.cor));
+      setTagsWithColors(tagsMap);
+    }
+  };
 
   const fetchClientes = async () => {
     // Buscar clientes arquivados para o contador
@@ -549,21 +584,58 @@ export const ConversationList = ({
             />
 
             {allTags.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">Filtrar por tags:</p>
-                <div className="flex flex-wrap gap-1">
-                  {allTags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant={selectedTags.includes(tag) ? "default" : "outline"}
-                      className="cursor-pointer text-xs h-6"
-                      onClick={() => toggleTag(tag)}
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
+              <Collapsible open={tagsExpanded} onOpenChange={setTagsExpanded}>
+                <CollapsibleTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full justify-between h-8 px-2 hover:bg-muted"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium">🏷️ Tags</span>
+                      <Badge variant="secondary" className="text-xs h-5 px-1.5">
+                        {allTags.length}
+                      </Badge>
+                    </div>
+                    {tagsExpanded ? (
+                      <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 pt-2">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar tags..."
+                      value={tagSearchTerm}
+                      onChange={(e) => setTagSearchTerm(e.target.value)}
+                      className="pl-7 h-7 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                    {filteredTags.map((tag) => {
+                      const tagColor = tagsWithColors.get(tag) || '#6B7280';
+                      return (
+                        <Badge
+                          key={tag}
+                          variant={selectedTags.includes(tag) ? "default" : "outline"}
+                          className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
+                          onClick={() => toggleTag(tag)}
+                          style={{
+                            backgroundColor: selectedTags.includes(tag) ? tagColor : 'transparent',
+                            borderColor: tagColor,
+                            color: selectedTags.includes(tag) ? '#FFFFFF' : tagColor
+                          }}
+                        >
+                          {tag}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             )}
           </>
         )}
@@ -584,6 +656,7 @@ export const ConversationList = ({
                   telefone={cliente.telefone}
                   nome={cliente.nome}
                   tags={cliente.tags || []}
+                  tagsColors={tagsWithColors}
                   fichaId={cliente.nome_ficha}
                   fichaStatus={cliente.status_ficha}
                   statusConversa={cliente.status_conversa}
