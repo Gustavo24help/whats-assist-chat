@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+
 interface TagManagerProps {
   clienteTelefone: string;
   currentTags: string[];
@@ -254,3 +255,4 @@ export const TagManager = ({ clienteTelefone, currentTags, onTagsUpdate, open, o
     </Dialog>
   );
 };
+
