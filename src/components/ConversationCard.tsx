@@ -13,6 +13,7 @@ interface ConversationCardProps {
   telefone: string;
   nome: string;
   tags: string[];
+  tagsColors?: Map<string, string>;
   fichaId?: string | null;
   fichaStatus?: string | null;
   statusConversa: "aberta" | "fechada";
@@ -57,6 +58,7 @@ export const ConversationCard = ({
   telefone,
   nome,
   tags,
+  tagsColors,
   fichaId,
   fichaStatus,
   statusConversa,
@@ -95,11 +97,23 @@ export const ConversationCard = ({
       {/* Linha 1: Tag, Avatar do Atendente e Menu */}
       <div className="flex items-start justify-between mb-1.5 gap-2">
         <div className="flex gap-1 flex-wrap flex-1 min-h-[18px]">
-          {tags.map((tag, idx) => (
-            <Badge key={idx} variant="secondary" className="text-xs px-1.5 py-0 h-4">
-              {tag}
-            </Badge>
-          ))}
+          {tags.map((tag, idx) => {
+            const tagColor = tagsColors?.get(tag) || '#6B7280';
+            return (
+              <Badge 
+                key={idx} 
+                variant="secondary" 
+                className="text-xs px-1.5 py-0 h-4 border"
+                style={{
+                  backgroundColor: tagColor,
+                  borderColor: tagColor,
+                  color: '#FFFFFF'
+                }}
+              >
+                {tag}
+              </Badge>
+            );
+          })}
         </div>
         
         <div className="flex items-center gap-1">
