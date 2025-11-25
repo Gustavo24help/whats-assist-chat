@@ -67,6 +67,11 @@ const OrcamentoPublico = () => {
     setFichaExists(!!data);
     setFormularioAtivo(data?.formulario_orcamento_ativo ?? true);
     setFichaData(data);
+    
+    // Pré-selecionar a categoria da ficha
+    if (data?.categoria?.nome) {
+      setFormData(prev => ({ ...prev, categoria: data.categoria.nome }));
+    }
   };
 
   const fetchCategorias = async () => {
