@@ -423,9 +423,19 @@ const OrcamentoPublico = () => {
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent 
+                  position="popper" 
+                  side="bottom"
+                  align="start"
+                  className="z-50 max-h-[300px] bg-background"
+                  sideOffset={4}
+                >
                   {categorias.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.nome}>
+                    <SelectItem 
+                      key={cat.id} 
+                      value={cat.nome}
+                      className="min-h-[44px] cursor-pointer text-base"
+                    >
                       {cat.nome}
                     </SelectItem>
                   ))}
@@ -541,19 +551,24 @@ const OrcamentoPublico = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="unidade" className="text-base touch-action-manipulation">Unidade de Tempo</Label>
-                <Select
-                  value={formData.unidade_tempo}
-                  onValueChange={(value) => setFormData({ ...formData, unidade_tempo: value })}
+              <Select
+                value={formData.unidade_tempo}
+                onValueChange={(value) => setFormData({ ...formData, unidade_tempo: value })}
+              >
+                <SelectTrigger className="h-12">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent 
+                  position="popper" 
+                  side="bottom"
+                  className="z-50 bg-background"
+                  sideOffset={4}
                 >
-                  <SelectTrigger className="h-12">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Horas">Horas</SelectItem>
-                    <SelectItem value="Dias">Dias</SelectItem>
-                    <SelectItem value="Semanas">Semanas</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <SelectItem value="Horas" className="min-h-[44px] cursor-pointer text-base">Horas</SelectItem>
+                  <SelectItem value="Dias" className="min-h-[44px] cursor-pointer text-base">Dias</SelectItem>
+                  <SelectItem value="Semanas" className="min-h-[44px] cursor-pointer text-base">Semanas</SelectItem>
+                </SelectContent>
+              </Select>
               </div>
             </div>
 
