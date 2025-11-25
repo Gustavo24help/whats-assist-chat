@@ -39,6 +39,7 @@ interface Ficha {
   data_visita_tecnica: string | null;
   horario_visita_tecnica: string | null;
   motivo_perda: string | null;
+  preferencia_horario_cliente: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -401,6 +402,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         data_visita_tecnica: (data as any).data_visita_tecnica || null,
         horario_visita_tecnica: (data as any).horario_visita_tecnica || null,
         motivo_perda: (data as any).motivo_perda || null,
+        preferencia_horario_cliente: (data as any).preferencia_horario_cliente || null,
       };
       
       setFicha(fichaCompleta);
@@ -873,6 +875,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     />
                   </div>
                 </div>
+                
+                {ficha?.preferencia_horario_cliente && (
+                  <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
+                    <Label className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 mb-1 block">
+                      Preferência de horário do cliente:
+                    </Label>
+                    <p className="text-sm text-blue-900 dark:text-blue-100">
+                      {ficha.preferencia_horario_cliente}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="pt-2 border-t">

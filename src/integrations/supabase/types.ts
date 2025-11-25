@@ -174,6 +174,7 @@ export type Database = {
           pagamento_tipo:
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
+          preferencia_horario_cliente: string | null
           prestador_id: string | null
           status: Database["public"]["Enums"]["status_ficha_enum"] | null
           telefone_cliente: string
@@ -205,6 +206,7 @@ export type Database = {
           pagamento_tipo?:
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
+          preferencia_horario_cliente?: string | null
           prestador_id?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           telefone_cliente: string
@@ -236,6 +238,7 @@ export type Database = {
           pagamento_tipo?:
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
+          preferencia_horario_cliente?: string | null
           prestador_id?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           telefone_cliente?: string
