@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
@@ -163,6 +164,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [notasInternas, setNotasInternas] = useState("");
   const [hasNotas, setHasNotas] = useState(false);
   
+  // Estados para busca no chat
+  const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const [chatSearchTerm, setChatSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [currentResultIndex, setCurrentResultIndex] = useState(0);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -311,9 +318,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        console.log('⌨️ ESC pressionado');
-        console.log('🚪 Saindo da conversa');
-        onBack?.();
+        if (chatSearchOpen) {
+          // Se busca estiver aberta, fechar ela primeiro
+          setChatSearchOpen(false);
+          setChatSearchTerm("");
+          setSearchResults([]);
+        } else {
+          console.log('⌨️ ESC pressionado');
+          console.log('🚪 Saindo da conversa');
+          onBack?.();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setChatSearchOpen(true);
       }
     };
 
@@ -322,7 +339,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onBack]);
+  }, [onBack, chatSearchOpen]);
 
   const fetchMensagens = async () => {
     console.log('🔍 Buscando mensagens para:', clienteTelefone);
@@ -495,6 +512,55 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       setNotasDialogOpen(false);
       toast.success('Notas salvas com sucesso');
     }
+  };
+
+  // Busca no chat
+  useEffect(() => {
+    if (!chatSearchTerm.trim()) {
+      setSearchResults([]);
+      setCurrentResultIndex(0);
+      return;
+    }
+
+    const results = mensagens
+      .filter(msg => 
+        msg.texto && 
+        msg.texto.toLowerCase().includes(chatSearchTerm.toLowerCase())
+      )
+      .map(msg => msg.id);
+
+    setSearchResults(results);
+    setCurrentResultIndex(results.length > 0 ? 0 : -1);
+
+    // Scroll para o primeiro resultado
+    if (results.length > 0) {
+      scrollToMessage(results[0]);
+    }
+  }, [chatSearchTerm, mensagens]);
+
+  const navigateSearch = (direction: 'prev' | 'next') => {
+    if (searchResults.length === 0) return;
+
+    let newIndex;
+    if (direction === 'next') {
+      newIndex = (currentResultIndex + 1) % searchResults.length;
+    } else {
+      newIndex = currentResultIndex - 1 < 0 ? searchResults.length - 1 : currentResultIndex - 1;
+    }
+
+    setCurrentResultIndex(newIndex);
+    scrollToMessage(searchResults[newIndex]);
+  };
+
+  const highlightText = (text: string, searchTerm: string) => {
+    if (!searchTerm.trim()) return text;
+    
+    const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === searchTerm.toLowerCase() 
+        ? `<mark class="bg-yellow-300 dark:bg-yellow-600">${part}</mark>`
+        : part
+    ).join('');
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -865,6 +931,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <div className="flex items-center gap-1.5 shrink-0">
           {!fichaOpen && (
             <>
+              {/* Botão de busca no chat */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setChatSearchOpen(!chatSearchOpen)}
+                className={cn(
+                  "h-9 px-2 hover:bg-accent",
+                  chatSearchOpen && "bg-accent"
+                )}
+                title="Buscar mensagens (Ctrl+F)"
+              >
+                <SearchIcon className="h-4 w-4" />
+              </Button>
+
               <AbrirConversaDialog
                 clienteTelefone={clienteTelefone}
                 clienteNome={clienteNome}
@@ -1019,6 +1099,66 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         </div>
       </header>
 
+      {/* Barra de busca no chat */}
+      {chatSearchOpen && (
+        <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2">
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar mensagem..."
+              value={chatSearchTerm}
+              onChange={(e) => setChatSearchTerm(e.target.value)}
+              className="pl-8 h-8 text-sm"
+              autoFocus
+            />
+          </div>
+          
+          {searchResults.length > 0 && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+              <span className="font-medium">
+                {currentResultIndex + 1} de {searchResults.length}
+              </span>
+            </div>
+          )}
+          
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigateSearch('prev')}
+              disabled={searchResults.length === 0}
+              className="h-7 w-7"
+              title="Anterior"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigateSearch('next')}
+              disabled={searchResults.length === 0}
+              className="h-7 w-7"
+              title="Próximo"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setChatSearchOpen(false);
+                setChatSearchTerm("");
+                setSearchResults([]);
+              }}
+              className="h-7 w-7"
+              title="Fechar busca"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <AlertDialog open={assumirDialogOpen} onOpenChange={setAssumirDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1134,7 +1274,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                           : msg.remetente === "bot"
                           ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
                           : "bg-card border rounded-bl-sm",
-                        highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]"
+                        highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]",
+                        searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30"
                       )}
                     >
                       {msg.reply_to_message_id && msg.reply_to && (
@@ -1144,8 +1285,15 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                         />
                       )}
                       {msg.texto && (
-                        <p className="text-sm break-words leading-relaxed whitespace-pre-wrap select-text">
-                          {msg.texto}
+                        <p 
+                          className="text-sm break-words leading-relaxed whitespace-pre-wrap select-text"
+                          dangerouslySetInnerHTML={
+                            chatSearchTerm && searchResults.includes(msg.id)
+                              ? { __html: highlightText(msg.texto, chatSearchTerm) }
+                              : undefined
+                          }
+                        >
+                          {!chatSearchTerm || !searchResults.includes(msg.id) ? msg.texto : undefined}
                         </p>
                       )}
                       {renderMedia(msg)}
