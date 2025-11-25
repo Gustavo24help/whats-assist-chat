@@ -32,6 +32,7 @@ interface ConversationCardProps {
   botDesativadoNotificacaoVista?: boolean;
   orcamentosCount?: number;
   atendenteNome?: string | null;
+  temServicoParaFinalizar?: boolean;
 }
 
 const getStatusColor = (status: string) => {
@@ -76,7 +77,8 @@ export const ConversationCard = ({
   botHabilitado = true,
   botDesativadoNotificacaoVista = true,
   orcamentosCount = 0,
-  atendenteNome
+  atendenteNome,
+  temServicoParaFinalizar = false
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -215,6 +217,11 @@ export const ConversationCard = ({
         </span>
         
         <div className="flex items-center gap-1.5">
+          {temServicoParaFinalizar && (
+            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 shrink-0">
+              <span className="text-white text-xs font-bold">!</span>
+            </div>
+          )}
           {!botHabilitado && !botDesativadoNotificacaoVista && (
             <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 shrink-0">
               <span className="text-white text-xs font-bold">!</span>

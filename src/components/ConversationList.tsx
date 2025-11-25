@@ -63,10 +63,13 @@ export const ConversationList = ({
   const [tagSearchTerm, setTagSearchTerm] = useState("");
   const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
   const [searchMode, setSearchMode] = useState<'ficha' | 'prestador'>('ficha');
+  const [showServicosParaFinalizarOnly, setShowServicosParaFinalizarOnly] = useState(false);
+  const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchClientes();
     fetchTagsWithColors();
+    fetchServicosParaFinalizar();
     
     const channel = supabase
       .channel('clientes-changes')
@@ -86,15 +89,32 @@ export const ConversationList = ({
       )
       .subscribe();
 
+    const fichasChannel = supabase
+      .channel('fichas-para-finalizar-list')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'fichas_de_servico' },
+        () => fetchServicosParaFinalizar()
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(tagsChannel);
+      supabase.removeChannel(fichasChannel);
     };
   }, []);
 
   // ✅ Memoizar filtros pesados para melhor performance
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
+
+    // Filtro de serviços para finalizar (tem prioridade junto com bot desabilitado)
+    if (showServicosParaFinalizarOnly) {
+      filtered = filtered.filter(c => 
+        clientesComServicoParaFinalizar.has(c.telefone)
+      );
+    }
 
     // Filtro de bot desabilitado (tem prioridade)
     if (showBotDisabledOnly) {
@@ -180,7 +200,7 @@ export const ConversationList = ({
     }
 
     return filtered;
-  }, [clientes, searchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly, clientesTelefonesPorPrestador, unreadMessages]);
+  }, [clientes, searchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesComServicoParaFinalizar, unreadMessages]);
 
   // ✅ Extrair tags únicas (memoizado)
   const allTags = useMemo(() => {
@@ -214,6 +234,13 @@ export const ConversationList = ({
       }
     }
   }, [clientes, showBotDisabledOnly]);
+
+  // Auto-limpar filtro de serviços para finalizar quando não houver mais
+  useEffect(() => {
+    if (showServicosParaFinalizarOnly && clientesComServicoParaFinalizar.size === 0) {
+      setShowServicosParaFinalizarOnly(false);
+    }
+  }, [showServicosParaFinalizarOnly, clientesComServicoParaFinalizar]);
 
   // Buscar clientes por nome do prestador (apenas no modo prestador)
   useEffect(() => {
@@ -265,6 +292,23 @@ export const ConversationList = ({
       const tagsMap = new Map<string, string>();
       tagsData.forEach(tag => tagsMap.set(tag.nome, tag.cor));
       setTagsWithColors(tagsMap);
+    }
+  };
+
+  const fetchServicosParaFinalizar = async () => {
+    // Buscar fichas com status "Agendado" e horario_agendamento passou 2 horas
+    const duasHorasAtras = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    
+    const { data, error } = await supabase
+      .from('fichas_de_servico')
+      .select('telefone_cliente')
+      .eq('status', 'Agendado')
+      .not('horario_agendamento', 'is', null)
+      .lt('horario_agendamento', duasHorasAtras);
+
+    if (!error && data) {
+      const telefonesSet = new Set(data.map(f => f.telefone_cliente));
+      setClientesComServicoParaFinalizar(telefonesSet);
     }
   };
 
@@ -593,6 +637,23 @@ export const ConversationList = ({
               </Button>
             )}
 
+            {/* Indicador de serviços para finalizar ou reagendar */}
+            {clientesComServicoParaFinalizar.size > 0 && (
+              <Button
+                variant={showServicosParaFinalizarOnly ? "destructive" : "outline"}
+                size="sm"
+                onClick={() => setShowServicosParaFinalizarOnly(!showServicosParaFinalizarOnly)}
+                className="w-full justify-start gap-2 border-red-300"
+              >
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 shrink-0">
+                  <span className="text-white text-xs font-bold">!</span>
+                </div>
+                <span className="text-sm">
+                  {clientesComServicoParaFinalizar.size} {clientesComServicoParaFinalizar.size === 1 ? 'serviço precisa' : 'serviços precisam'} de atualização
+                </span>
+              </Button>
+            )}
+
             <FilterDropdown
               statusFilter={statusFilter}
               conversaFilter={conversaFilter}
@@ -698,6 +759,7 @@ export const ConversationList = ({
                   botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
                   orcamentosCount={cliente.orcamentos_count}
                   atendenteNome={(cliente as any).atendente?.full_name}
+                  temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
                 />
               ))
             )}
