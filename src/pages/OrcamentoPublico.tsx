@@ -322,10 +322,6 @@ const OrcamentoPublico = () => {
                         <p className="text-muted-foreground">{fichaData.tempo_servico}</p>
                       </div>
                     )}
-                    <div>
-                      <Label className="text-xs font-semibold">Status</Label>
-                      <p className="text-muted-foreground">{fichaData.status}</p>
-                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
