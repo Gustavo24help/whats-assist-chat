@@ -25,6 +25,8 @@ interface Prestador {
 interface Orcamento {
   id: string;
   valor_total: number;
+  valor_mao_obra: number | null;
+  valor_pecas: number | null;
   data_criacao: string;
   prestador_cpf: string;
   ficha_nome: string;
@@ -322,15 +324,26 @@ export default function PrestadorPortal() {
                                 </div>
                                 {getStatusBadge(status)}
                               </div>
-                              <div className="flex flex-wrap gap-4 text-sm">
-                                <span className="font-semibold text-lg text-primary">
-                                  R$ {orc.valor_total?.toFixed(2)}
-                                </span>
-                                <span className="text-muted-foreground">
+                              <div className="grid grid-cols-2 gap-4 mb-2">
+                                <div>
+                                  <span className="text-xs text-muted-foreground">Mão de Obra</span>
+                                  <p className="font-semibold text-lg text-primary">
+                                    R$ {orc.valor_mao_obra?.toFixed(2) || "0,00"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="text-xs text-muted-foreground">Peças e Materiais</span>
+                                  <p className="font-semibold text-lg text-primary">
+                                    R$ {orc.valor_pecas?.toFixed(2) || "0,00"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                                <span>
                                   Enviado em {format(new Date(orc.data_criacao), "dd/MM/yyyy", { locale: ptBR })}
                                 </span>
                                 {orc.tempo_servico && (
-                                  <span className="text-muted-foreground">⏱️ {orc.tempo_servico}</span>
+                                  <span>⏱️ {orc.tempo_servico}</span>
                                 )}
                               </div>
                               {status === "rejeitado" && (
