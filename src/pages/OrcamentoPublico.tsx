@@ -121,6 +121,27 @@ const OrcamentoPublico = () => {
     validarCpf(value);
   };
 
+  // Função para arredondar para o próximo número terminando em 8
+  const arredondarParaProximo8 = (valor: number): number => {
+    const arredondado = Math.ceil(valor);
+    const ultimoDigito = arredondado % 10;
+    
+    if (ultimoDigito === 8) {
+      return arredondado;
+    } else if (ultimoDigito < 8) {
+      return Math.floor(arredondado / 10) * 10 + 8;
+    } else {
+      return Math.floor(arredondado / 10) * 10 + 18;
+    }
+  };
+
+  // Função para calcular valor total com taxa
+  const calcularValorTotalComTaxa = (maoObra: number, pecas: number): number => {
+    const soma = maoObra + pecas;
+    const comTaxa = soma / 0.77;
+    return arredondarParaProximo8(comTaxa);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -156,7 +177,7 @@ const OrcamentoPublico = () => {
     try {
       const valorMaoObra = parseFloat(formData.valor_mao_obra) || 0;
       const valorPecas = parseFloat(formData.valor_pecas) || 0;
-      const valorTotal = valorMaoObra + valorPecas;
+      const valorTotal = calcularValorTotalComTaxa(valorMaoObra, valorPecas);
 
       const cpfLimpo = formData.prestador_cpf.replace(/\D/g, "");
       
