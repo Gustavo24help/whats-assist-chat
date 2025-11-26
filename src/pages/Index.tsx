@@ -10,6 +10,7 @@ import { LogOut, Settings, PanelLeftOpen } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { OrcamentoNotification } from "@/components/OrcamentoNotification";
+import { OrcamentosSemFichaNotification } from "@/components/OrcamentosSemFichaNotification";
 import { cn } from "@/lib/utils";
 
 const Index = () => {
@@ -123,6 +124,7 @@ const Index = () => {
         </div>
         <div className="flex gap-2">
           <OrcamentoNotification onSelectFicha={handleOrcamentoNotification} />
+          <OrcamentosSemFichaNotification />
           <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
             <Settings className="h-4 w-4 md:mr-2" />
             <span className="hidden md:inline">Configurações</span>

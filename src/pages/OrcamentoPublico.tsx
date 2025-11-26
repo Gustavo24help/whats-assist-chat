@@ -144,17 +144,8 @@ const OrcamentoPublico = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!fichaExists) {
-      toast({
-        title: "Erro",
-        description: "Ficha não encontrada",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    if (!formularioAtivo) {
+    if (fichaExists && !formularioAtivo) {
       toast({
         title: "Formulário encerrado",
         description: "Este formulário de orçamento já foi encerrado.",
@@ -262,19 +253,7 @@ const OrcamentoPublico = () => {
     );
   }
 
-  if (!fichaExists) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground">Ficha não encontrada.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!formularioAtivo) {
+  if (fichaExists && !formularioAtivo) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -330,15 +309,22 @@ const OrcamentoPublico = () => {
             <img src={logo} alt="24Help" className="h-12 w-auto" />
           </div>
           
-          {fichaData && (
-            <div className="space-y-3 p-4 border-2 border-primary/20 rounded-lg bg-primary/5 animate-fade-in">
-              <CardTitle className="text-lg font-bold text-primary">{fichaData.nome_ficha || `Ficha #${fichaData.id}`}</CardTitle>
-              {fichaData.descricao && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {fichaData.descricao}
-                </p>
-              )}
-              
+          <div className="space-y-3 p-4 border-2 border-primary/20 rounded-lg bg-primary/5 animate-fade-in">
+            <CardTitle className="text-lg font-bold text-primary">
+              {fichaExists ? (fichaData?.nome_ficha || `Ficha #${fichaData?.id}`) : fichaId}
+            </CardTitle>
+            {!fichaExists && (
+              <p className="text-sm text-amber-600 font-medium">
+                ⚠️ Esta ficha ainda não foi criada no sistema
+              </p>
+            )}
+            {fichaExists && fichaData?.descricao && (
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {fichaData.descricao}
+              </p>
+            )}
+            
+            {fichaExists && fichaData && (
               <Dialog>
                 <DialogTrigger asChild>
                   <Button 
@@ -394,8 +380,8 @@ const OrcamentoPublico = () => {
                   </div>
                 </DialogContent>
               </Dialog>
-            </div>
-          )}
+            )}
+          </div>
           
           <p className="text-xs text-muted-foreground">
             Preencha os dados para enviar o orçamento
@@ -444,11 +430,14 @@ const OrcamentoPublico = () => {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="categoria" className="text-base touch-action-manipulation">Categoria do Serviço</Label>
+              <Label htmlFor="categoria" className="text-base touch-action-manipulation">
+                Categoria do Serviço
+                {!fichaExists && <span className="text-destructive ml-1">*</span>}
+              </Label>
               <Select
                 value={formData.categoria}
                 onValueChange={(value) => setFormData({ ...formData, categoria: value })}
-                required
+                required={!fichaExists}
               >
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Selecione..." />
