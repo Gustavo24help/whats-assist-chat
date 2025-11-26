@@ -926,31 +926,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <div className="flex items-center gap-1 shrink-0">
           {!fichaOpen && (
             <>
-              {/* Botão Assumir */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAssumirDialogOpen(true)}
-                className={cn(
-                  "h-8 px-2 text-xs",
-                  botDesabilitado && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                )}
-              >
-                <UserCheck className="h-3.5 w-3.5 md:mr-1.5" />
-                <span className="hidden md:inline">
-                  {botDesabilitado ? "Assumido" : "Assumir"}
-                </span>
-              </Button>
-
-              {/* Botão Abrir */}
-              <AbrirConversaDialog
-                clienteTelefone={clienteTelefone}
-                clienteNome={clienteNome}
-              />
-
-              {/* Separador visual */}
-              <div className="h-6 w-px bg-border mx-0.5" />
-
               {/* Botão de atribuição de operador (apenas ícone) */}
               <Popover>
                 <PopoverTrigger asChild>
@@ -1071,6 +1046,31 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 title="Buscar mensagens (Ctrl+F)"
               >
                 <SearchIcon className="h-3.5 w-3.5" />
+              </Button>
+
+              {/* Separador visual */}
+              <div className="h-6 w-px bg-border mx-0.5" />
+
+              {/* Botão Abrir */}
+              <AbrirConversaDialog
+                clienteTelefone={clienteTelefone}
+                clienteNome={clienteNome}
+              />
+
+              {/* Botão Assumir */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAssumirDialogOpen(true)}
+                className={cn(
+                  "h-8 px-2 text-xs",
+                  botDesabilitado && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                )}
+              >
+                <UserCheck className="h-3.5 w-3.5 md:mr-1.5" />
+                <span className="hidden md:inline">
+                  {botDesabilitado ? "Assumido" : "Assumir"}
+                </span>
               </Button>
             </>
           )}

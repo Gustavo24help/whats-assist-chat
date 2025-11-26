@@ -188,22 +188,22 @@ export const ConversationCard = ({
 
       {/* Linha 2: Nome e Telefone */}
       <div className="flex items-center justify-between mb-0.5 gap-2 min-w-0 max-w-full">
-        <h3 className="font-semibold text-xs truncate min-w-0 flex-1 overflow-hidden">{nome}</h3>
-        <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">{telefone}</span>
+        <h3 className="font-semibold text-sm truncate min-w-0 flex-1 overflow-hidden">{nome}</h3>
+        <span className="text-[11px] text-muted-foreground shrink-0 whitespace-nowrap">{telefone}</span>
       </div>
 
       {/* Linha 3: Ficha Ativa e Status */}
       {fichaId && (
         <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-          <span className="text-[10px] font-medium text-primary">📋 {fichaId}</span>
+          <span className="text-[11px] font-medium text-primary">📋 {fichaId}</span>
           {fichaStatus && (
             <div className="flex items-center gap-1">
               <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", getStatusColor(fichaStatus))} />
-              <span className="text-[10px] text-muted-foreground truncate">{fichaStatus}</span>
+              <span className="text-[11px] text-muted-foreground truncate">{fichaStatus}</span>
             </div>
           )}
           {orcamentosCount > 0 && (
-            <Badge variant="secondary" className="text-[10px] h-4 px-1 py-0 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700 leading-none">
+            <Badge variant="secondary" className="text-[11px] h-4 px-1 py-0 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700 leading-none">
               💰 {orcamentosCount}
             </Badge>
           )}
@@ -212,7 +212,7 @@ export const ConversationCard = ({
 
       {/* Linha 4: Horário e Badge de Não Lidas */}
       <div className="flex items-center justify-between mt-1 gap-2">
-        <span className="text-[10px] text-muted-foreground truncate">
+        <span className="text-[11px] text-muted-foreground truncate">
           {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
         </span>
         
