@@ -63,11 +63,11 @@ export const FilterDropdown = ({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="w-full h-7 justify-start text-xs">
-          <Filter className="h-3 w-3 mr-1.5" />
+        <Button variant="outline" className="w-full h-9 justify-start text-sm">
+          <Filter className="h-4 w-4 mr-2" />
           Filtros
           {activeCount > 0 && (
-            <Badge variant="default" className="ml-auto h-4 px-1 text-[10px]">
+            <Badge variant="default" className="ml-auto h-5 px-1.5 text-xs">
               {activeCount}
             </Badge>
           )}

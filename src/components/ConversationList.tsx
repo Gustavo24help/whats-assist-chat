@@ -573,10 +573,10 @@ export const ConversationList = ({
 
   return (
     <div className="h-full flex flex-col bg-card border-r relative">
-      <div className="p-2 border-b space-y-1 shrink-0">
-        <div className="flex items-center justify-between mb-0.5">
+      <div className="p-2.5 md:p-3 lg:p-4 border-b space-y-1.5 shrink-0">
+        <div className="flex items-center justify-between mb-1">
           {!isCollapsed && (
-            <h2 className="font-semibold text-sm">
+            <h2 className="font-semibold text-base md:text-lg">
               {showArchived ? "Conversas Arquivadas" : "Conversas"}
             </h2>
           )}
@@ -585,10 +585,10 @@ export const ConversationList = ({
               variant="ghost" 
               size="icon"
               onClick={onToggleCollapse}
-              className="h-7 w-7 shrink-0"
+              className="h-8 w-8 shrink-0"
               title={isCollapsed ? "Expandir menu" : "Recolher menu"}
             >
-              {isCollapsed ? <PanelLeftOpen className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
+              {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </Button>
           )}
         </div>
@@ -597,25 +597,25 @@ export const ConversationList = ({
           <>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder={searchMode === 'ficha' ? "Buscar..." : "Buscar prestador..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-7 h-8 text-xs"
+                  className="pl-8 h-9 text-sm"
                 />
               </div>
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => setSearchMode(searchMode === 'ficha' ? 'prestador' : 'ficha')}
-                className="h-8 w-8 shrink-0"
+                className="h-9 w-9 shrink-0"
                 title={searchMode === 'ficha' ? "Buscar por prestador" : "Buscar por ficha"}
               >
                 {searchMode === 'ficha' ? (
-                  <User className="h-3.5 w-3.5" />
+                  <User className="h-4 w-4" />
                 ) : (
-                  <HardHat className="h-3.5 w-3.5" />
+                  <HardHat className="h-4 w-4" />
                 )}
               </Button>
             </div>
@@ -626,12 +626,12 @@ export const ConversationList = ({
                 variant={showBotDisabledOnly ? "default" : "outline"}
                 size="sm"
                 onClick={() => setShowBotDisabledOnly(!showBotDisabledOnly)}
-                className="w-full justify-start gap-2 h-7 text-xs"
+                className="w-full justify-start gap-2"
               >
-                <div className="flex items-center justify-center w-4 h-4 rounded-full bg-yellow-500 shrink-0">
-                  <AlertTriangle className="h-2.5 w-2.5 text-white" />
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 shrink-0">
+                  <AlertTriangle className="h-3 w-3 text-white" />
                 </div>
-                <span className="text-xs">
+                <span className="text-sm">
                   {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false).length} {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false).length === 1 ? 'conversa precisa' : 'conversas precisam'} de atendimento
                 </span>
               </Button>
@@ -643,12 +643,12 @@ export const ConversationList = ({
                 variant={showServicosParaFinalizarOnly ? "destructive" : "outline"}
                 size="sm"
                 onClick={() => setShowServicosParaFinalizarOnly(!showServicosParaFinalizarOnly)}
-                className="w-full justify-start gap-2 h-7 text-xs border-red-300"
+                className="w-full justify-start gap-2 border-red-300"
               >
-                <div className="flex items-center justify-center w-4 h-4 rounded-full bg-red-500 shrink-0">
-                  <span className="text-white text-[10px] font-bold">!</span>
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 shrink-0">
+                  <span className="text-white text-xs font-bold">!</span>
                 </div>
-                <span className="text-xs">
+                <span className="text-sm">
                   {clientesComServicoParaFinalizar.size} {clientesComServicoParaFinalizar.size === 1 ? 'serviço precisa' : 'serviços precisam'} de atualização
                 </span>
               </Button>
@@ -673,39 +673,39 @@ export const ConversationList = ({
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="w-full justify-between h-7 px-2 hover:bg-muted"
+                    className="w-full justify-between h-8 px-2 hover:bg-muted"
                   >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-medium">🏷️ Tags</span>
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium">🏷️ Tags</span>
+                      <Badge variant="secondary" className="text-xs h-5 px-1.5">
                         {allTags.length}
                       </Badge>
                     </div>
                     {tagsExpanded ? (
-                      <ChevronUp className="h-3 w-3 text-muted-foreground" />
+                      <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
                     ) : (
-                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-1.5 pt-1.5">
+                <CollapsibleContent className="space-y-2 pt-2">
                   <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-2.5 w-2.5 text-muted-foreground" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                     <Input
                       placeholder="Buscar tags..."
                       value={tagSearchTerm}
                       onChange={(e) => setTagSearchTerm(e.target.value)}
-                      className="pl-6 h-6 text-[10px]"
+                      className="pl-7 h-7 text-xs"
                     />
                   </div>
-                  <div className="flex flex-wrap gap-0.5 max-h-32 overflow-y-auto">
+                  <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
                     {filteredTags.map((tag) => {
                       const tagColor = tagsWithColors.get(tag) || '#6B7280';
                       return (
                         <Badge
                           key={tag}
                           variant={selectedTags.includes(tag) ? "default" : "outline"}
-                          className="cursor-pointer text-[10px] h-5 transition-all hover:scale-105"
+                          className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
                           onClick={() => toggleTag(tag)}
                           style={{
                             backgroundColor: selectedTags.includes(tag) ? tagColor : 'transparent',

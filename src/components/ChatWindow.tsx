@@ -895,52 +895,79 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
-      <header className="bg-card border-b h-12 flex items-center justify-between gap-2 px-3 shrink-0">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+      <header className="bg-card border-b h-14 flex items-center justify-between gap-3 px-4 shrink-0">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
           <Button
             variant="ghost"
             size="sm"
             onClick={onBack}
-            className="lg:hidden shrink-0 h-7 w-7 p-0"
+            className="lg:hidden shrink-0 h-8 w-8 p-0"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h2 className="font-semibold text-xs truncate">{clienteNome}</h2>
-              {fichaId && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-[10px] font-medium">
-                  <FileText className="h-2.5 w-2.5" />
-                  Ficha
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] text-muted-foreground truncate">{clienteTelefone}</p>
-              <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
-            </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-semibold text-sm md:text-base truncate">{clienteNome}</h2>
+            {fichaId && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
+                <FileText className="h-3 w-3" />
+                Ficha Ativa
+              </span>
+            )}
+            <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
+          </div>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
+            <span className="text-xs font-medium">
+              Bot: <span className={botDesabilitado ? "text-red-500" : "text-green-600"}>
+                {botDesabilitado ? "Desativado" : "Ativado"}
+              </span>
+            </span>
           </div>
         </div>
+        </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {!fichaOpen && (
             <>
-              {/* Botão de atribuição de operador (apenas ícone) */}
+              {/* Botão de busca no chat */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setChatSearchOpen(!chatSearchOpen)}
+                className={cn(
+                  "h-9 px-2 hover:bg-accent",
+                  chatSearchOpen && "bg-accent"
+                )}
+                title="Buscar mensagens (Ctrl+F)"
+              >
+                <SearchIcon className="h-4 w-4" />
+              </Button>
+
+              <AbrirConversaDialog
+                clienteTelefone={clienteTelefone}
+                clienteNome={clienteNome}
+              />
+              
+              {/* Novo botão de atribuição de operador */}
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
+                    size="sm"
+                    className="h-9 px-2 hover:bg-accent"
                     title={atendenteAtual ? `Atribuído: ${atendenteAtual.nome}` : "Atribuir operador"}
                   >
                     {atendenteAtual ? (
-                      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
-                        {atendenteAtual.nome.charAt(0).toUpperCase()}
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                          {atendenteAtual.nome.charAt(0).toUpperCase()}
+                        </div>
+                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
                       </div>
                     ) : (
-                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Users className="h-4 w-4 text-muted-foreground" />
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -1020,75 +1047,53 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 </PopoverContent>
               </Popover>
 
-              {/* Botão de notas internas (apenas ícone) */}
+              {/* Botão de notas internas */}
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={() => setNotasDialogOpen(true)}
-                className="h-8 w-8 relative"
+                className="h-9 px-2 hover:bg-accent relative"
                 title="Notas Internas"
               >
-                <MessageSquare className="h-3.5 w-3.5" />
+                <MessageSquare className="h-4 w-4" />
                 {hasNotas && (
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full" />
                 )}
               </Button>
-
-              {/* Botão de busca no chat (apenas ícone) */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setChatSearchOpen(!chatSearchOpen)}
-                className={cn(
-                  "h-8 w-8",
-                  chatSearchOpen && "bg-accent"
-                )}
-                title="Buscar mensagens (Ctrl+F)"
-              >
-                <SearchIcon className="h-3.5 w-3.5" />
-              </Button>
-
-              {/* Separador visual */}
-              <div className="h-6 w-px bg-border mx-0.5" />
-
-              {/* Botão Abrir */}
-              <AbrirConversaDialog
-                clienteTelefone={clienteTelefone}
-                clienteNome={clienteNome}
-              />
-
-              {/* Botão Assumir */}
+              
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setAssumirDialogOpen(true)}
                 className={cn(
-                  "h-8 px-2 text-xs",
+                  "h-9 hover:scale-[0.98] active:scale-95 transition-transform",
                   botDesabilitado && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
                 )}
               >
-                <UserCheck className="h-3.5 w-3.5 md:mr-1.5" />
+                <UserCheck className="h-4 w-4 md:mr-2" />
                 <span className="hidden md:inline">
                   {botDesabilitado ? "Assumido" : "Assumir"}
                 </span>
+                {botDesabilitado && (
+                  <Check className="h-4 w-4 ml-1 text-green-600 dark:text-green-400" />
+                )}
               </Button>
             </>
           )}
 
-          {/* Botão Ficha */}
           {onToggleFicha && (
             <Button
               onClick={onToggleFicha}
               size="sm"
               className={cn(
-                "h-8 px-2 text-xs transition-all duration-200",
+                "h-9 transition-all duration-200 hover:scale-[0.98] active:scale-95",
                 fichaOpen 
                   ? "bg-green-700 hover:bg-green-800 text-white shadow-md" 
                   : "bg-green-600 hover:bg-green-700 text-white shadow-sm"
               )}
             >
-              <FileText className="h-3.5 w-3.5" />
-              <span className="ml-1.5 hidden md:inline">Ficha</span>
+              <FileText className="h-4 w-4" />
+              <span className="ml-2 hidden md:inline">Ficha</span>
             </Button>
           )}
         </div>
