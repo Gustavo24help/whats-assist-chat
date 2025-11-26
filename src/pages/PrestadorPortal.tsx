@@ -116,18 +116,29 @@ export default function PrestadorPortal() {
       // Buscar orçamentos
       const { data: orcamentosData, error: orcamentosError } = await supabase
         .from("orcamentos")
-        .select(`
-          *,
-          ficha:fichas_de_servico!orcamentos_ficha_id_fkey(
-            id, descricao, prestador_id, status, 
-            horario_agendamento, endereco, nome_ficha
-          )
-        `)
+        .select("*")
         .eq("prestador_cpf", cpfLimpo)
         .order("data_criacao", { ascending: false });
 
       if (orcamentosError) throw orcamentosError;
-      setOrcamentos(orcamentosData || []);
+      
+      // Buscar fichas relacionadas aos orçamentos
+      const orcamentosComFicha = await Promise.all(
+        (orcamentosData || []).map(async (orc) => {
+          const { data: fichaData } = await supabase
+            .from("fichas_de_servico")
+            .select("id, descricao, prestador_id, status, horario_agendamento, endereco, nome_ficha")
+            .eq("id", orc.ficha_nome)
+            .maybeSingle();
+          
+          return {
+            ...orc,
+            ficha: fichaData || undefined
+          };
+        })
+      );
+      
+      setOrcamentos(orcamentosComFicha);
 
       // Buscar serviços vinculados (incluindo visitas técnicas)
       const { data: servicosData, error: servicosError } = await supabase
