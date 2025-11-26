@@ -172,6 +172,15 @@ const OrcamentoPublico = () => {
 
       const cpfLimpo = formData.prestador_cpf.replace(/\D/g, "");
       
+      // Combinar data e horário sugeridos em timestamp
+      let horarioSugeridoTimestamp = null;
+      if (formData.pode_horario === "nao" && dataSugerida && formData.horario_sugerido) {
+        const [horas, minutos] = formData.horario_sugerido.split(':');
+        const dataCompleta = new Date(dataSugerida);
+        dataCompleta.setHours(parseInt(horas), parseInt(minutos), 0, 0);
+        horarioSugeridoTimestamp = dataCompleta.toISOString();
+      }
+      
       const orcamentoData = {
         ficha_nome: fichaId,
         prestador_cpf: cpfLimpo,
@@ -182,6 +191,8 @@ const OrcamentoPublico = () => {
         tempo_servico: `${formData.tempo_estimado} ${formData.unidade_tempo}`,
         observacoes: formData.observacoes,
         status: "pendente" as const,
+        pode_horario: formData.pode_horario === "sim",
+        horario_sugerido: horarioSugeridoTimestamp,
       };
 
       // Salvar no banco

@@ -36,6 +36,8 @@ interface Orcamento {
   categoria: string | null;
   status: string;
   data_criacao: string;
+  pode_horario: boolean | null;
+  horario_sugerido: string | null;
   prestador_nome?: string;
 }
 
@@ -371,6 +373,24 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
                   <div className="text-sm">
                     <span className="font-medium text-foreground">Observações:</span>
                     <p className="text-muted-foreground mt-1">{orc.observacoes}</p>
+                  </div>
+                )}
+                
+                {orc.pode_horario !== null && (
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">Disponibilidade no Horário:</span>
+                    <span className="text-muted-foreground ml-1">
+                      {orc.pode_horario ? "Sim, pode no horário solicitado" : "Não pode no horário solicitado"}
+                    </span>
+                  </div>
+                )}
+                
+                {!orc.pode_horario && orc.horario_sugerido && (
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">Horário Sugerido:</span>
+                    <span className="text-muted-foreground ml-1">
+                      {format(new Date(orc.horario_sugerido), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </span>
                   </div>
                 )}
                 

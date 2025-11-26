@@ -371,8 +371,10 @@ export type Database = {
           categoria: string | null
           data_criacao: string | null
           ficha_nome: string
+          horario_sugerido: string | null
           id: string
           observacoes: string | null
+          pode_horario: boolean | null
           prestador_cpf: string
           status: Database["public"]["Enums"]["status_orcamento_enum"] | null
           tempo_servico: string | null
@@ -384,8 +386,10 @@ export type Database = {
           categoria?: string | null
           data_criacao?: string | null
           ficha_nome: string
+          horario_sugerido?: string | null
           id?: string
           observacoes?: string | null
+          pode_horario?: boolean | null
           prestador_cpf: string
           status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
           tempo_servico?: string | null
@@ -397,8 +401,10 @@ export type Database = {
           categoria?: string | null
           data_criacao?: string | null
           ficha_nome?: string
+          horario_sugerido?: string | null
           id?: string
           observacoes?: string | null
+          pode_horario?: boolean | null
           prestador_cpf?: string
           status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
           tempo_servico?: string | null
