@@ -139,7 +139,7 @@ const Index = () => {
       <div className="flex-1 flex overflow-hidden bg-muted/30 relative">
         {!sidebarCollapsed && (
           <div className={cn(
-            "border-r bg-background shadow-sm shrink-0 transition-all duration-300 w-full md:w-80 lg:w-96",
+            "border-r bg-background shadow-sm shrink-0 transition-all duration-300 w-full md:w-72 lg:w-80",
             selectedCliente && "max-md:hidden"
           )}>
             <ConversationList
