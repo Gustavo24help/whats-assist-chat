@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
@@ -916,9 +917,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-[10px] text-muted-foreground truncate">{clienteTelefone}</p>
               <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
+              <Badge 
+                variant="secondary" 
+                className={cn(
+                  "h-5 px-1.5 text-[10px] font-medium",
+                  !botDesabilitado 
+                    ? "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700" 
+                    : "bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-700"
+                )}
+              >
+                Bot: {!botDesabilitado ? "Ligado" : "Desligado"}
+              </Badge>
             </div>
           </div>
         </div>
