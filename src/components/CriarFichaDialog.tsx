@@ -219,7 +219,7 @@ export const CriarFichaDialog = ({
                   {categorias.map((cat) => (
                     <SelectItem 
                       key={cat.id} 
-                      value={cat.nome}
+                      value={cat.id.toString()}
                       className="min-h-[44px] cursor-pointer text-base"
                     >
                       {cat.nome}
