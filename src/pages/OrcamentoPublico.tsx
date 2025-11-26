@@ -324,11 +324,6 @@ const OrcamentoPublico = () => {
             <CardTitle className="text-lg font-bold text-primary">
               {fichaExists ? (fichaData?.nome_ficha || `Ficha #${fichaData?.id}`) : fichaId}
             </CardTitle>
-            {!fichaExists && (
-              <p className="text-sm text-amber-600 font-medium">
-                ⚠️ Esta ficha ainda não foi criada no sistema
-              </p>
-            )}
             {fichaExists && fichaData?.descricao && (
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {fichaData.descricao}
