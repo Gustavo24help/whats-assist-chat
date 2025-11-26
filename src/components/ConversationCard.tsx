@@ -91,13 +91,13 @@ export const ConversationCard = ({
     <>
     <div
       className={cn(
-        "p-2.5 border-b cursor-pointer transition-colors relative hover:bg-muted/40",
+        "p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40",
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : ""
       )}
       onClick={onClick}
     >
       {/* Linha 1: Tag, Avatar do Atendente e Menu */}
-      <div className="flex items-start justify-between mb-1.5 gap-2">
+      <div className="flex items-start justify-between mb-1.5 gap-2 min-h-[24px]">
         <div className="flex gap-1 flex-wrap flex-1 min-h-[16px]">
           {tags.map((tag, idx) => {
             const tagColor = tagsColors?.get(tag) || '#6B7280';
@@ -118,7 +118,7 @@ export const ConversationCard = ({
           })}
         </div>
         
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {atendenteNome && (
             <TooltipProvider>
               <Tooltip>
@@ -136,8 +136,8 @@ export const ConversationCard = ({
           
           <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0">
-              <MoreVertical className="h-3.5 w-3.5" />
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 p-0">
+              <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -211,12 +211,12 @@ export const ConversationCard = ({
       )}
 
       {/* Linha 4: Horário e Badge de Não Lidas */}
-      <div className="flex items-center justify-between mt-1 gap-2">
+      <div className="flex items-center justify-between mt-1.5 gap-2">
         <span className="text-[11px] text-muted-foreground truncate">
           {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
         </span>
         
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5 shrink-0">
           {temServicoParaFinalizar && (
             <div className="flex items-center justify-center w-4 h-4 rounded-full bg-red-500 shrink-0">
               <span className="text-white text-[10px] font-bold">!</span>
