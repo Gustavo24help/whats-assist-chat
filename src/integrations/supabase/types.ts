@@ -412,15 +412,7 @@ export type Database = {
           valor_pecas?: number | null
           valor_total?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "orcamentos_ficha_id_fkey"
-            columns: ["ficha_nome"]
-            isOneToOne: false
-            referencedRelation: "fichas_de_servico"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       prestadores: {
         Row: {
