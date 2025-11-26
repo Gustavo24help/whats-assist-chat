@@ -195,7 +195,7 @@ export const ConversationCard = ({
       {/* Linha 3: Ficha Ativa e Status */}
       {fichaId && (
         <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-          <span className="text-[11px] font-medium text-primary">📋 {fichaId}</span>
+          <span className="text-xs font-medium text-primary">📋 {fichaId}</span>
           {fichaStatus && (
             <div className="flex items-center gap-1">
               <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", getStatusColor(fichaStatus))} />
