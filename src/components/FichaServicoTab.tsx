@@ -272,22 +272,22 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         return;
       }
 
-      // Preparar horários ISO com timezone de Brasília (UTC-3)
+      // ✅ SIMPLIFICADO: Salvar exatamente como digitado, sem conversão de timezone
       let agendamentoISO: string | null = null;
       if (dataAgend && dataAgend.trim() && horaAgend && horaAgend.trim()) {
-        agendamentoISO = `${dataAgend}T${horaAgend}:00-03:00`;
+        agendamentoISO = `${dataAgend}T${horaAgend}:00`;
       } else if (dataAgend && dataAgend.trim()) {
-        agendamentoISO = `${dataAgend}T00:00:00-03:00`;
+        agendamentoISO = `${dataAgend}T00:00:00`;
       }
 
       let visitaTecnicaISO: string | null = null;
       if (dataVisita && dataVisita.trim() && horaVisita && horaVisita.trim()) {
-        visitaTecnicaISO = `${dataVisita}T${horaVisita}:00-03:00`;
+        visitaTecnicaISO = `${dataVisita}T${horaVisita}:00`;
       } else if (dataVisita && dataVisita.trim()) {
-        visitaTecnicaISO = `${dataVisita}T00:00:00-03:00`;
+        visitaTecnicaISO = `${dataVisita}T00:00:00`;
       }
 
-      console.log(`💾 Salvando ficha ${targetFichaId}`);
+      console.log(`💾 Salvando ficha ${targetFichaId} - agendamento: ${agendamentoISO}, visita: ${visitaTecnicaISO}`);
 
       const updateData = {
         nome_ficha: fichaData.nome_ficha?.trim() || null,
@@ -310,7 +310,6 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         data_visita_tecnica: fichaData.data_visita_tecnica,
         horario_visita_tecnica: visitaTecnicaISO,
         motivo_perda: fichaData.motivo_perda?.trim()?.substring(0, 500) || null,
-        data_version: 2, // Sempre marcar como versão 2 ao salvar (formato novo com timezone)
       };
 
       const { error } = await supabase
@@ -427,40 +426,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       setDataVisitaTecnica('');
       setHoraVisitaTecnica('');
       
-      // ✅ DEPOIS setar apenas se existirem valores
-      // PROTEÇÃO: Verificar data_version antes de aplicar conversão de timezone
-      const dataVersion = (data as any).data_version || 1;
-      
+      // ✅ SIMPLIFICADO: Carregar exatamente como está no banco, sem conversão de timezone
       // Extrair data/hora do agendamento
       if (fichaCompleta.horario_agendamento) {
         try {
-          if (dataVersion === 2) {
-            // Versão 2: converter UTC -> Brasília (formato novo com timezone)
-            const dataUtc = new Date(fichaCompleta.horario_agendamento);
-            const dataBrasilia = new Date(dataUtc.getTime() - (3 * 60 * 60 * 1000));
-            
-            const ano = dataBrasilia.getUTCFullYear();
-            const mes = String(dataBrasilia.getUTCMonth() + 1).padStart(2, '0');
-            const dia = String(dataBrasilia.getUTCDate()).padStart(2, '0');
-            const hora = String(dataBrasilia.getUTCHours()).padStart(2, '0');
-            const minuto = String(dataBrasilia.getUTCMinutes()).padStart(2, '0');
-            
-            const dataStr = `${ano}-${mes}-${dia}`;
-            const horaStr = `${hora}:${minuto}`;
-            
-            console.log(`📅 [v2] Setando horário de agendamento (UTC->Brasília): ${dataStr} ${horaStr}`);
+          const partes = fichaCompleta.horario_agendamento.split('T');
+          if (partes.length >= 2) {
+            const dataStr = partes[0];
+            const horaStr = partes[1].substring(0, 5);
+            console.log(`📅 Setando horário de agendamento (direto): ${dataStr} ${horaStr}`);
             setDataAgendamento(dataStr);
             setHoraAgendamento(horaStr);
-          } else {
-            // Versão 1: usar diretamente sem conversão (formato antigo já corrigido)
-            const partes = fichaCompleta.horario_agendamento.split('T');
-            if (partes.length >= 2) {
-              const dataStr = partes[0];
-              const horaStr = partes[1].substring(0, 5);
-              console.log(`📅 [v1] Setando horário de agendamento (direto): ${dataStr} ${horaStr}`);
-              setDataAgendamento(dataStr);
-              setHoraAgendamento(horaStr);
-            }
           }
         } catch (e) {
           console.error('Erro ao parsear horario_agendamento:', e);
@@ -472,33 +448,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       // Extrair data/hora da visita técnica
       if (fichaCompleta.horario_visita_tecnica) {
         try {
-          if (dataVersion === 2) {
-            // Versão 2: converter UTC -> Brasília
-            const dataUtc = new Date(fichaCompleta.horario_visita_tecnica);
-            const dataBrasilia = new Date(dataUtc.getTime() - (3 * 60 * 60 * 1000));
-            
-            const ano = dataBrasilia.getUTCFullYear();
-            const mes = String(dataBrasilia.getUTCMonth() + 1).padStart(2, '0');
-            const dia = String(dataBrasilia.getUTCDate()).padStart(2, '0');
-            const hora = String(dataBrasilia.getUTCHours()).padStart(2, '0');
-            const minuto = String(dataBrasilia.getUTCMinutes()).padStart(2, '0');
-            
-            const dataStr = `${ano}-${mes}-${dia}`;
-            const horaStr = `${hora}:${minuto}`;
-            
-            console.log(`🔧 [v2] Setando horário de visita técnica (UTC->Brasília): ${dataStr} ${horaStr}`);
+          const partes = fichaCompleta.horario_visita_tecnica.split('T');
+          if (partes.length >= 2) {
+            const dataStr = partes[0];
+            const horaStr = partes[1].substring(0, 5);
+            console.log(`🔧 Setando horário de visita técnica (direto): ${dataStr} ${horaStr}`);
             setDataVisitaTecnica(dataStr);
             setHoraVisitaTecnica(horaStr);
-          } else {
-            // Versão 1: usar diretamente sem conversão
-            const partes = fichaCompleta.horario_visita_tecnica.split('T');
-            if (partes.length >= 2) {
-              const dataStr = partes[0];
-              const horaStr = partes[1].substring(0, 5);
-              console.log(`🔧 [v1] Setando horário de visita técnica (direto): ${dataStr} ${horaStr}`);
-              setDataVisitaTecnica(dataStr);
-              setHoraVisitaTecnica(horaStr);
-            }
           }
         } catch (e) {
           console.error('Erro ao parsear horario_visita_tecnica:', e);
