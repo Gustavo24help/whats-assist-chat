@@ -271,19 +271,19 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         return;
       }
 
-      // Preparar horários ISO
+      // Preparar horários ISO com timezone de Brasília (UTC-3)
       let agendamentoISO: string | null = null;
       if (dataAgend && dataAgend.trim() && horaAgend && horaAgend.trim()) {
-        agendamentoISO = `${dataAgend}T${horaAgend}:00`;
+        agendamentoISO = `${dataAgend}T${horaAgend}:00-03:00`;
       } else if (dataAgend && dataAgend.trim()) {
-        agendamentoISO = `${dataAgend}T00:00:00`;
+        agendamentoISO = `${dataAgend}T00:00:00-03:00`;
       }
 
       let visitaTecnicaISO: string | null = null;
       if (dataVisita && dataVisita.trim() && horaVisita && horaVisita.trim()) {
-        visitaTecnicaISO = `${dataVisita}T${horaVisita}:00`;
+        visitaTecnicaISO = `${dataVisita}T${horaVisita}:00-03:00`;
       } else if (dataVisita && dataVisita.trim()) {
-        visitaTecnicaISO = `${dataVisita}T00:00:00`;
+        visitaTecnicaISO = `${dataVisita}T00:00:00-03:00`;
       }
 
       console.log(`💾 Salvando ficha ${targetFichaId}`);

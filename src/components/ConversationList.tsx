@@ -297,7 +297,11 @@ export const ConversationList = ({
 
   const fetchServicosParaFinalizar = async () => {
     // Buscar fichas com status "Agendado" e horario_agendamento passou 2 horas
-    const duasHorasAtras = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    // Os horários antigos no banco estão salvos como UTC mas representam horário local (BRT = UTC-3)
+    // Então precisamos compensar: adicionar 3 horas ao cutoff para dados antigos
+    const now = new Date();
+    const offsetBrasilia = 3 * 60 * 60 * 1000; // 3 horas em ms
+    const duasHorasAtras = new Date(now.getTime() - 2 * 60 * 60 * 1000 + offsetBrasilia).toISOString();
     
     const { data, error } = await supabase
       .from('fichas_de_servico')
