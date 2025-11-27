@@ -426,31 +426,53 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       setHoraVisitaTecnica('');
       
       // ✅ DEPOIS setar apenas se existirem valores
-      // Extrair data/hora do agendamento
+      // Extrair data/hora do agendamento - CONVERTENDO UTC PARA BRASÍLIA (UTC-3)
       if (fichaCompleta.horario_agendamento) {
-        const horarioStr = fichaCompleta.horario_agendamento;
-        const partes = horarioStr.split('T');
-        if (partes.length === 2) {
-          const dataStr = partes[0];
-          const horaStr = partes[1].substring(0, 5);
-          console.log(`📅 Setando horário de agendamento: ${dataStr} ${horaStr}`);
+        try {
+          // O banco retorna em UTC, precisamos converter para Brasília
+          const dataUtc = new Date(fichaCompleta.horario_agendamento);
+          // Subtrair 3 horas para converter UTC -> Brasília
+          const dataBrasilia = new Date(dataUtc.getTime() - (3 * 60 * 60 * 1000));
+          
+          const ano = dataBrasilia.getUTCFullYear();
+          const mes = String(dataBrasilia.getUTCMonth() + 1).padStart(2, '0');
+          const dia = String(dataBrasilia.getUTCDate()).padStart(2, '0');
+          const hora = String(dataBrasilia.getUTCHours()).padStart(2, '0');
+          const minuto = String(dataBrasilia.getUTCMinutes()).padStart(2, '0');
+          
+          const dataStr = `${ano}-${mes}-${dia}`;
+          const horaStr = `${hora}:${minuto}`;
+          
+          console.log(`📅 Setando horário de agendamento (UTC->Brasília): ${dataStr} ${horaStr}`);
           setDataAgendamento(dataStr);
           setHoraAgendamento(horaStr);
+        } catch (e) {
+          console.error('Erro ao parsear horario_agendamento:', e);
         }
       } else {
         console.log(`✅ Ficha ${fichaId} não tem horário de agendamento`);
       }
 
-      // Extrair data/hora da visita técnica
+      // Extrair data/hora da visita técnica - CONVERTENDO UTC PARA BRASÍLIA (UTC-3)
       if (fichaCompleta.horario_visita_tecnica) {
-        const horarioStr = fichaCompleta.horario_visita_tecnica;
-        const partes = horarioStr.split('T');
-        if (partes.length === 2) {
-          const dataStr = partes[0];
-          const horaStr = partes[1].substring(0, 5);
-          console.log(`🔧 Setando horário de visita técnica: ${dataStr} ${horaStr}`);
+        try {
+          const dataUtc = new Date(fichaCompleta.horario_visita_tecnica);
+          const dataBrasilia = new Date(dataUtc.getTime() - (3 * 60 * 60 * 1000));
+          
+          const ano = dataBrasilia.getUTCFullYear();
+          const mes = String(dataBrasilia.getUTCMonth() + 1).padStart(2, '0');
+          const dia = String(dataBrasilia.getUTCDate()).padStart(2, '0');
+          const hora = String(dataBrasilia.getUTCHours()).padStart(2, '0');
+          const minuto = String(dataBrasilia.getUTCMinutes()).padStart(2, '0');
+          
+          const dataStr = `${ano}-${mes}-${dia}`;
+          const horaStr = `${hora}:${minuto}`;
+          
+          console.log(`🔧 Setando horário de visita técnica (UTC->Brasília): ${dataStr} ${horaStr}`);
           setDataVisitaTecnica(dataStr);
           setHoraVisitaTecnica(horaStr);
+        } catch (e) {
+          console.error('Erro ao parsear horario_visita_tecnica:', e);
         }
       } else {
         console.log(`✅ Ficha ${fichaId} não tem horário de visita técnica`);

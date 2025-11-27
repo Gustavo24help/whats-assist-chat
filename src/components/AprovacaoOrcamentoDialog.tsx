@@ -36,6 +36,7 @@ export const AprovacaoOrcamentoDialog = ({
   clienteTelefone,
 }: AprovacaoOrcamentoDialogProps) => {
   const [enviarMensagem, setEnviarMensagem] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [mensagem, setMensagem] = useState(
     `Segue abaixo o orçamento referente ao serviço solicitado:
 
@@ -51,37 +52,44 @@ Aguardamos sua confirmação para darmos sequência 😊.`
   );
 
   const handleConfirm = async () => {
-    if (enviarMensagem && mensagem.trim()) {
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              to: clienteTelefone,
-              message: mensagem,
-            }),
+    if (isSubmitting) return; // Proteção contra cliques duplos
+    setIsSubmitting(true);
+    
+    try {
+      if (enviarMensagem && mensagem.trim()) {
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                to: clienteTelefone,
+                message: mensagem,
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+            console.error("Erro ao enviar WhatsApp:", errorData);
+            toast.error("Erro ao enviar mensagem pelo WhatsApp");
+          } else {
+            toast.success("Mensagem enviada ao cliente!");
           }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-          console.error("Erro ao enviar WhatsApp:", errorData);
+        } catch (error) {
+          console.error("Erro ao enviar WhatsApp:", error);
           toast.error("Erro ao enviar mensagem pelo WhatsApp");
-        } else {
-          toast.success("Mensagem enviada ao cliente!");
         }
-      } catch (error) {
-        console.error("Erro ao enviar WhatsApp:", error);
-        toast.error("Erro ao enviar mensagem pelo WhatsApp");
       }
-    }
 
-    onConfirm();
-    onOpenChange(false);
+      onConfirm();
+      onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -123,11 +131,11 @@ Aguardamos sua confirmação para darmos sequência 😊.`
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm}>
-            {enviarMensagem ? "Aprovar e Enviar" : "Aprovar"}
+          <Button onClick={handleConfirm} disabled={isSubmitting}>
+            {isSubmitting ? "Aprovando..." : enviarMensagem ? "Aprovar e Enviar" : "Aprovar"}
           </Button>
         </DialogFooter>
       </DialogContent>
