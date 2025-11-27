@@ -598,8 +598,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     toast.success("Ficha salva com sucesso!");
   };
 
-  const sincronizarOrcamentos = async (prestadorCpf: string) => {
-    if (!ficha || !ficha.valor_total || ficha.valor_total <= 0) return;
+  // Função de sincronização que recebe valores diretamente (não usa estado)
+  const sincronizarOrcamentosInterno = async (
+    prestadorCpf: string, 
+    valorTotal: number,
+    valorMaoObra: number,
+    valorPecas: number
+  ) => {
+    if (valorTotal <= 0) return;
 
     try {
       // Verificar se existe orçamento do prestador
@@ -630,15 +636,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
         toast.success("Orçamento aprovado automaticamente!");
       } else {
-        // Criar e aprovar orçamento automaticamente
+        // Criar e aprovar orçamento automaticamente com valores passados diretamente
         const { error: criarError } = await supabase
           .from('orcamentos')
           .insert({
             ficha_nome: fichaId,
             prestador_cpf: prestadorCpf,
-            valor_total: ficha.valor_total,
-            valor_mao_obra: ficha.valor_mao_obra || 0,
-            valor_pecas: ficha.valor_pecas || 0,
+            valor_total: valorTotal,
+            valor_mao_obra: valorMaoObra,
+            valor_pecas: valorPecas,
             status: 'aprovado',
             categoria: null,
             observacoes: 'Criado automaticamente pela ficha',
@@ -652,6 +658,30 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       console.error('Erro ao sincronizar orçamentos:', error);
       toast.error("Erro ao sincronizar orçamentos");
     }
+  };
+
+  // Versão com debounce para evitar múltiplas chamadas durante digitação (1.5s de delay)
+  const debouncedSincronizarOrcamentos = useMemo(
+    () => debounce((
+      prestadorCpf: string, 
+      valorTotal: number, 
+      valorMaoObra: number, 
+      valorPecas: number
+    ) => {
+      sincronizarOrcamentosInterno(prestadorCpf, valorTotal, valorMaoObra, valorPecas);
+    }, 1500),
+    [fichaId]
+  );
+
+  // Função wrapper para uso imediato (quando seleciona prestador)
+  const sincronizarOrcamentosImediato = (prestadorCpf: string) => {
+    if (!ficha || !ficha.valor_total || ficha.valor_total <= 0) return;
+    sincronizarOrcamentosInterno(
+      prestadorCpf, 
+      ficha.valor_total, 
+      ficha.valor_mao_obra || 0, 
+      ficha.valor_pecas || 0
+    );
   };
 
   if (!ficha) return <div className="p-6">Carregando...</div>;
@@ -950,8 +980,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     const prestadorValue = value === "nulo" ? null : value;
                     updateFicha({ prestador_id: prestadorValue });
                     
+                    // Sincronização imediata ao selecionar prestador
                     if (prestadorValue && ficha?.valor_total && ficha.valor_total > 0) {
-                      sincronizarOrcamentos(prestadorValue);
+                      sincronizarOrcamentosImediato(prestadorValue);
                     }
                   }}
                 >
@@ -998,8 +1029,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     const novoValor = parseFloat(e.target.value) || 0;
                     updateFicha({ valor_total: novoValor });
                     
+                    // Usar debounce para evitar sincronizar com valores parciais durante digitação
                     if (ficha?.prestador_id && novoValor > 0) {
-                      sincronizarOrcamentos(ficha.prestador_id);
+                      debouncedSincronizarOrcamentos(
+                        ficha.prestador_id,
+                        novoValor,
+                        ficha.valor_mao_obra || 0,
+                        ficha.valor_pecas || 0
+                      );
                     }
                   }}
                   placeholder="0.00"
