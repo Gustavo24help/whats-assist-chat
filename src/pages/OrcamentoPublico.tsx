@@ -16,6 +16,19 @@ import { Loader2, Check, X, CalendarIcon, Info } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo-24help.png";
+import ErrorBoundary from "@/components/ErrorBoundary";
+
+// Helper function para formatação segura de datas
+const formatarDataSegura = (dataStr: string | null | undefined, formatStr: string): string => {
+  if (!dataStr) return "Data não disponível";
+  try {
+    const data = new Date(dataStr);
+    if (isNaN(data.getTime())) return "Data inválida";
+    return format(data, formatStr);
+  } catch {
+    return "Data não disponível";
+  }
+};
 
 const OrcamentoPublico = () => {
   const [searchParams] = useSearchParams();
@@ -23,6 +36,7 @@ const OrcamentoPublico = () => {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
+  const [carregandoInicial, setCarregandoInicial] = useState(true);
   const [categorias, setCategorias] = useState<any[]>([]);
   const [fichaExists, setFichaExists] = useState(false);
   const [formularioAtivo, setFormularioAtivo] = useState(true);
@@ -47,10 +61,19 @@ const OrcamentoPublico = () => {
   });
 
   useEffect(() => {
-    if (fichaId) {
-      verificarFicha();
-      fetchCategorias();
-    }
+    const carregarDados = async () => {
+      setCarregandoInicial(true);
+      try {
+        if (fichaId) {
+          await Promise.all([verificarFicha(), fetchCategorias()]);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados iniciais:", error);
+      } finally {
+        setCarregandoInicial(false);
+      }
+    };
+    carregarDados();
   }, [fichaId]);
 
   const verificarFicha = async () => {
@@ -204,17 +227,24 @@ const OrcamentoPublico = () => {
 
       if (error) throw error;
 
-      // Enviar webhook
-      await supabase.functions.invoke("submit-orcamento", {
-        body: {
-          ...orcamentoData,
-          prestador_nome: nomePrestador,
-          pode_horario: formData.pode_horario,
-          data_sugerida: dataSugerida ? format(dataSugerida, "yyyy-MM-dd") : null,
-          horario_sugerido: formData.horario_sugerido || null,
-          porcentagem_desconto: formData.porcentagem_desconto,
-        },
-      });
+      // Orçamento salvo com sucesso - mostrar confirmação independente do webhook
+      console.log("Orçamento salvo com sucesso:", orcamento?.id);
+
+      // Tentar enviar webhook (mas não falhar se der erro)
+      try {
+        await supabase.functions.invoke("submit-orcamento", {
+          body: {
+            ...orcamentoData,
+            prestador_nome: nomePrestador,
+            pode_horario: formData.pode_horario,
+            data_sugerida: dataSugerida ? format(dataSugerida, "yyyy-MM-dd") : null,
+            horario_sugerido: formData.horario_sugerido || null,
+            porcentagem_desconto: formData.porcentagem_desconto,
+          },
+        });
+      } catch (webhookError) {
+        console.error("Erro no webhook (orçamento já foi salvo):", webhookError);
+      }
 
       toast({
         title: "Orçamento enviado!",
@@ -251,6 +281,20 @@ const OrcamentoPublico = () => {
       setLoading(false);
     }
   };
+
+  // Estado de loading inicial
+  if (carregandoInicial) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-8 text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-muted-foreground">Carregando formulário...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!fichaId) {
     return (
@@ -373,7 +417,7 @@ const OrcamentoPublico = () => {
                       <div>
                         <Label className="text-xs font-semibold">Horário Solicitado</Label>
                         <p className="text-muted-foreground">
-                          {format(new Date(fichaData.horario_agendamento), "dd/MM/yyyy 'às' HH:mm")}
+                          {formatarDataSegura(fichaData.horario_agendamento, "dd/MM/yyyy 'às' HH:mm")}
                         </p>
                       </div>
                     )}
@@ -651,4 +695,11 @@ const OrcamentoPublico = () => {
   );
 };
 
-export default OrcamentoPublico;
+// Exportar componente envolvido em ErrorBoundary
+const OrcamentoPublicoComErrorBoundary = () => (
+  <ErrorBoundary fallbackMessage="Ocorreu um erro ao carregar o formulário de orçamento. Por favor, tente novamente.">
+    <OrcamentoPublico />
+  </ErrorBoundary>
+);
+
+export default OrcamentoPublicoComErrorBoundary;
