@@ -48,6 +48,7 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAprovacaoDialogOpen, setIsAprovacaoDialogOpen] = useState(false);
   const [orcamentoParaAprovar, setOrcamentoParaAprovar] = useState<Orcamento | null>(null);
+  const [isAprovando, setIsAprovando] = useState(false);
   const [editFormData, setEditFormData] = useState({
     valor_total: 0,
     valor_mao_obra: 0,
@@ -165,12 +166,14 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
   };
 
   const iniciarAprovacao = (orc: Orcamento) => {
+    if (isAprovando) return; // Já tem aprovação em andamento
     setOrcamentoParaAprovar(orc);
     setIsAprovacaoDialogOpen(true);
   };
 
   const aprovarOrcamento = async () => {
-    if (!orcamentoParaAprovar) return;
+    if (!orcamentoParaAprovar || isAprovando) return;
+    setIsAprovando(true);
 
     const orc = orcamentoParaAprovar;
 
@@ -258,6 +261,9 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
     } catch (error) {
       console.error('Erro ao aprovar orçamento:', error);
       toast.error("Erro ao aprovar orçamento");
+    } finally {
+      setIsAprovando(false);
+      setOrcamentoParaAprovar(null);
     }
   };
 
