@@ -169,3 +169,26 @@ All colors MUST be HSL.
     image-rendering: -webkit-optimize-contrast;
   }
 }
+
+/* Fallbacks CSS para navegadores antigos */
+@supports not (animation-name: animate-in) {
+  [data-state="open"] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  
+  [data-state="closed"] {
+    opacity: 0 !important;
+  }
+}
+
+/* Fallback para animações em dispositivos com prefer-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
