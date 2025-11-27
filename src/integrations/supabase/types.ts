@@ -156,6 +156,7 @@ export type Database = {
           categoria_id: number | null
           cpf: string | null
           created_at: string | null
+          data_version: number | null
           data_visita_tecnica: string | null
           descricao: string | null
           endereco: string | null
@@ -188,6 +189,7 @@ export type Database = {
           categoria_id?: number | null
           cpf?: string | null
           created_at?: string | null
+          data_version?: number | null
           data_visita_tecnica?: string | null
           descricao?: string | null
           endereco?: string | null
@@ -220,6 +222,7 @@ export type Database = {
           categoria_id?: number | null
           cpf?: string | null
           created_at?: string | null
+          data_version?: number | null
           data_visita_tecnica?: string | null
           descricao?: string | null
           endereco?: string | null
