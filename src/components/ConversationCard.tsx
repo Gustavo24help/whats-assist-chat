@@ -187,8 +187,8 @@ export const ConversationCard = ({
       </div>
 
       {/* Linha 2: Nome e Telefone */}
-      <div className="flex items-center justify-between mb-1 gap-2 min-w-0 overflow-hidden">
-        <h3 className="font-semibold text-sm truncate min-w-0 flex-1 overflow-hidden">{nome}</h3>
+      <div className="flex items-center justify-between mb-1 gap-2 w-full overflow-hidden">
+        <h3 className="font-semibold text-sm truncate w-0 flex-1">{nome}</h3>
         <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">{telefone}</span>
       </div>
 
