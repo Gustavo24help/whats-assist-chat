@@ -91,14 +91,14 @@ export const ConversationCard = ({
     <>
     <div
       className={cn(
-        "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40",
+        "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : ""
       )}
       onClick={onClick}
     >
       {/* Linha 1: Tag, Avatar do Atendente e Menu */}
-      <div className="flex items-start justify-between mb-1.5 gap-2">
-        <div className="flex gap-1 flex-wrap flex-1 min-h-[18px]">
+      <div className="flex items-start justify-between mb-1.5 gap-2 overflow-hidden">
+        <div className="flex gap-1 flex-wrap flex-1 min-h-[18px] min-w-0 overflow-hidden">
           {tags.map((tag, idx) => {
             const tagColor = tagsColors?.get(tag) || '#6B7280';
             return (
@@ -187,7 +187,7 @@ export const ConversationCard = ({
       </div>
 
       {/* Linha 2: Nome e Telefone */}
-      <div className="flex items-center justify-between mb-1 gap-2 min-w-0 max-w-full">
+      <div className="flex items-center justify-between mb-1 gap-2 min-w-0 overflow-hidden">
         <h3 className="font-semibold text-sm truncate min-w-0 flex-1 overflow-hidden">{nome}</h3>
         <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">{telefone}</span>
       </div>
@@ -211,7 +211,7 @@ export const ConversationCard = ({
       )}
 
       {/* Linha 4: Horário e Badge de Não Lidas */}
-      <div className="flex items-center justify-between mt-1.5 gap-2">
+      <div className="flex items-center justify-between mt-1.5 gap-2 overflow-hidden">
         <span className="text-xs text-muted-foreground truncate">
           {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
         </span>
