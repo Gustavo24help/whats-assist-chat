@@ -840,6 +840,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                           Sumiu após orçamento
                         </CommandItem>
                         <CommandItem 
+                          onSelect={() => updateFicha({ motivo_perda: "Não chegou orçamento" })}
+                          className="cursor-pointer"
+                        >
+                          Não chegou orçamento
+                        </CommandItem>
+                        <CommandItem 
                           onSelect={() => updateFicha({ motivo_perda: "Outro motivo" })}
                           className="cursor-pointer"
                         >
