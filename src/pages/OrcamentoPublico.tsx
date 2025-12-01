@@ -77,23 +77,36 @@ const OrcamentoPublico = () => {
   }, [fichaId]);
 
   const verificarFicha = async () => {
-    const { data } = await supabase
-      .from("fichas_de_servico")
-      .select(`
-        *,
-        categoria:categorias(nome),
-        prestador:prestadores(nome)
-      `)
-      .eq("id", fichaId)
-      .single();
-    
-    setFichaExists(!!data);
-    setFormularioAtivo(data?.formulario_orcamento_ativo ?? true);
-    setFichaData(data);
-    
-    // Pré-selecionar a categoria da ficha
-    if (data?.categoria?.nome) {
-      setFormData(prev => ({ ...prev, categoria: data.categoria.nome }));
+    console.log("OrcamentoPublico - verificando fichaId:", fichaId);
+    try {
+      const { data, error } = await supabase
+        .from("fichas_de_servico")
+        .select(`
+          *,
+          categoria:categorias(nome),
+          prestador:prestadores(nome)
+        `)
+        .eq("id", fichaId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("OrcamentoPublico - Erro ao buscar ficha:", error);
+        setFichaExists(false);
+        return;
+      }
+
+      console.log("OrcamentoPublico - Ficha encontrada:", !!data);
+      setFichaExists(!!data);
+      setFormularioAtivo(data?.formulario_orcamento_ativo ?? true);
+      setFichaData(data);
+      
+      // Pré-selecionar a categoria da ficha
+      if (data?.categoria?.nome) {
+        setFormData(prev => ({ ...prev, categoria: data.categoria.nome }));
+      }
+    } catch (error) {
+      console.error("OrcamentoPublico - Erro inesperado:", error);
+      setFichaExists(false);
     }
   };
 
@@ -186,6 +199,26 @@ const OrcamentoPublico = () => {
       return;
     }
 
+    // Validar tempo estimado
+    if (!formData.tempo_estimado || formData.tempo_estimado.trim() === "") {
+      toast({
+        title: "Campo obrigatório",
+        description: "Por favor, informe o tempo estimado do serviço.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar categoria
+    if (!formData.categoria || formData.categoria.trim() === "") {
+      toast({
+        title: "Campo obrigatório",
+        description: "Por favor, selecione uma categoria.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -204,6 +237,10 @@ const OrcamentoPublico = () => {
         horarioSugeridoTimestamp = dataCompleta.toISOString();
       }
       
+      const tempoServico = formData.tempo_estimado.trim() 
+        ? `${formData.tempo_estimado.trim()} ${formData.unidade_tempo}`
+        : null;
+
       const orcamentoData = {
         ficha_nome: fichaId,
         prestador_cpf: cpfLimpo,
@@ -211,12 +248,14 @@ const OrcamentoPublico = () => {
         valor_mao_obra: valorMaoObra,
         valor_pecas: valorPecas,
         valor_total: valorTotal,
-        tempo_servico: `${formData.tempo_estimado} ${formData.unidade_tempo}`,
+        tempo_servico: tempoServico,
         observacoes: formData.observacoes,
         status: "pendente" as const,
         pode_horario: formData.pode_horario === "sim",
         horario_sugerido: horarioSugeridoTimestamp,
       };
+
+      console.log("OrcamentoPublico - Dados a enviar:", orcamentoData);
 
       // Salvar no banco
       const { data: orcamento, error } = await supabase
@@ -225,10 +264,23 @@ const OrcamentoPublico = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("OrcamentoPublico - Erro ao inserir:", error);
+        throw error;
+      }
 
       // Orçamento salvo com sucesso - mostrar confirmação independente do webhook
-      console.log("Orçamento salvo com sucesso:", orcamento?.id);
+      console.log("OrcamentoPublico - Orçamento salvo com sucesso:", orcamento?.id);
+
+      // Formatar data de forma segura para o webhook
+      let dataSugeridaFormatada = null;
+      if (dataSugerida && !isNaN(dataSugerida.getTime())) {
+        try {
+          dataSugeridaFormatada = format(dataSugerida, "yyyy-MM-dd");
+        } catch (formatError) {
+          console.error("OrcamentoPublico - Erro ao formatar data:", formatError);
+        }
+      }
 
       // Tentar enviar webhook (mas não falhar se der erro)
       try {
@@ -237,13 +289,13 @@ const OrcamentoPublico = () => {
             ...orcamentoData,
             prestador_nome: nomePrestador,
             pode_horario: formData.pode_horario,
-            data_sugerida: dataSugerida ? format(dataSugerida, "yyyy-MM-dd") : null,
+            data_sugerida: dataSugeridaFormatada,
             horario_sugerido: formData.horario_sugerido || null,
             porcentagem_desconto: formData.porcentagem_desconto,
           },
         });
       } catch (webhookError) {
-        console.error("Erro no webhook (orçamento já foi salvo):", webhookError);
+        console.error("OrcamentoPublico - Erro no webhook (orçamento já foi salvo):", webhookError);
       }
 
       toast({
