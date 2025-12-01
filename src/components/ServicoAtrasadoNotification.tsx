@@ -62,11 +62,10 @@ export function ServicoAtrasadoNotification({ onSelectFicha }: ServicoAtrasadoNo
 
   const fetchServicosParaFinalizar = async () => {
     // Buscar fichas com status "Agendado" e horario_agendamento passou 2 horas
-    // Os horários antigos no banco estão salvos como UTC mas representam horário local (BRT = UTC-3)
-    // Então precisamos compensar: adicionar 3 horas ao cutoff para dados antigos
     const now = new Date();
-    const offsetBrasilia = 3 * 60 * 60 * 1000; // 3 horas em ms
-    const duasHorasAtras = new Date(now.getTime() - 2 * 60 * 60 * 1000 + offsetBrasilia).toISOString();
+    const duasHorasAtras = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
+    
+    console.log("ServicoAtrasadoNotification - Buscando serviços atrasados, cutoff:", duasHorasAtras);
     
     const { data, error } = await supabase
       .from('fichas_de_servico')
@@ -84,9 +83,7 @@ export function ServicoAtrasadoNotification({ onSelectFicha }: ServicoAtrasadoNo
   const calcularTempoDecorrido = (horarioAgendamento: string) => {
     const agendamento = new Date(horarioAgendamento);
     const agora = new Date();
-    // Compensar offset de 3 horas para dados antigos salvos sem timezone
-    const offsetBrasilia = 3 * 60 * 60 * 1000;
-    const diffMs = agora.getTime() - agendamento.getTime() - offsetBrasilia;
+    const diffMs = agora.getTime() - agendamento.getTime();
     const diffHoras = Math.floor(diffMs / (1000 * 60 * 60));
     
     if (diffHoras < 1) return "menos de 1 hora";
