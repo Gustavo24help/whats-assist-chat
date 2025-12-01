@@ -44,6 +44,8 @@ Deno.serve(async (req) => {
     const botHabilitado = bot_status === 'enabled';
     const dataDesabilitado = bot_status === 'disabled' ? new Date().toISOString() : null;
     const notificacaoVista = bot_status === 'disabled' ? false : null;
+    // Marcar como desligado manualmente quando desabilitar, limpar quando habilitar
+    const desligadoManualmente = bot_status === 'disabled' ? true : false;
 
     // Atualizar status do bot no cliente
     const { error: updateError } = await supabase
@@ -51,7 +53,8 @@ Deno.serve(async (req) => {
       .update({
         bot_habilitado: botHabilitado,
         data_bot_desabilitado: dataDesabilitado,
-        bot_desativado_notificacao_vista: notificacaoVista
+        bot_desativado_notificacao_vista: notificacaoVista,
+        bot_desligado_manualmente: desligadoManualmente
       })
       .eq('telefone', telefone);
 

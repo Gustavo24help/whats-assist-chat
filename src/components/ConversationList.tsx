@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, ChevronDown, ChevronUp, User, HardHat } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, ChevronDown, ChevronUp, User, HardHat, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,7 @@ interface Cliente {
   dentroJanela?: boolean;
   bot_habilitado?: boolean;
   bot_desativado_notificacao_vista?: boolean;
+  bot_desligado_manualmente?: boolean;
   marcado_nao_lido?: boolean;
   orcamentos_count?: number;
 }
@@ -62,7 +63,7 @@ export const ConversationList = ({
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState("");
   const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
-  const [searchMode, setSearchMode] = useState<'ficha' | 'prestador'>('ficha');
+  const [searchMode, setSearchMode] = useState<'ficha' | 'prestador' | 'descricao'>('ficha');
   const [showServicosParaFinalizarOnly, setShowServicosParaFinalizarOnly] = useState(false);
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
 
@@ -116,11 +117,12 @@ export const ConversationList = ({
       );
     }
 
-    // Filtro de bot desabilitado (tem prioridade)
+    // Filtro de bot desabilitado (tem prioridade) - só mostra se não foi manual
     if (showBotDisabledOnly) {
       filtered = filtered.filter(c => 
         c.bot_habilitado === false && 
-        c.bot_desativado_notificacao_vista === false
+        c.bot_desativado_notificacao_vista === false &&
+        c.bot_desligado_manualmente === false
       );
     }
 
@@ -134,8 +136,13 @@ export const ConversationList = ({
           (c.nome_ficha && c.nome_ficha.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (c.tags && c.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
         );
-      } else {
+      } else if (searchMode === 'prestador') {
         // Modo prestador: busca apenas por prestadores vinculados
+        filtered = filtered.filter(c => 
+          clientesTelefonesPorPrestador.includes(c.telefone)
+        );
+      } else {
+        // Modo descrição: busca por descrição do serviço (já filtrado via clientesTelefonesPorPrestador reutilizado)
         filtered = filtered.filter(c => 
           clientesTelefonesPorPrestador.includes(c.telefone)
         );
@@ -242,45 +249,61 @@ export const ConversationList = ({
     }
   }, [showServicosParaFinalizarOnly, clientesComServicoParaFinalizar]);
 
-  // Buscar clientes por nome do prestador (apenas no modo prestador)
+  // Buscar clientes por nome do prestador ou descrição do serviço
   useEffect(() => {
-    const buscarClientesPorPrestador = async () => {
-      if (!searchTerm || searchMode !== 'prestador') {
+    const buscarClientesPorPrestadorOuDescricao = async () => {
+      if (!searchTerm || searchMode === 'ficha') {
         setClientesTelefonesPorPrestador([]);
         return;
       }
 
-      // 1. Buscar prestadores cujo nome contenha o termo
-      const { data: prestadores } = await supabase
-        .from('prestadores')
-        .select('cpf')
-        .ilike('nome', `%${searchTerm}%`);
+      if (searchMode === 'prestador') {
+        // 1. Buscar prestadores cujo nome contenha o termo
+        const { data: prestadores } = await supabase
+          .from('prestadores')
+          .select('cpf')
+          .ilike('nome', `%${searchTerm}%`);
 
-      if (!prestadores || prestadores.length === 0) {
-        setClientesTelefonesPorPrestador([]);
-        return;
+        if (!prestadores || prestadores.length === 0) {
+          setClientesTelefonesPorPrestador([]);
+          return;
+        }
+
+        // 2. Pegar os CPFs dos prestadores encontrados
+        const cpfs = prestadores.map(p => p.cpf);
+
+        // 3. Buscar fichas que têm esses prestadores
+        const { data: fichas } = await supabase
+          .from('fichas_de_servico')
+          .select('telefone_cliente')
+          .in('prestador_id', cpfs);
+
+        if (!fichas || fichas.length === 0) {
+          setClientesTelefonesPorPrestador([]);
+          return;
+        }
+
+        // 4. Extrair telefones únicos dos clientes
+        const telefones = [...new Set(fichas.map(f => f.telefone_cliente))];
+        setClientesTelefonesPorPrestador(telefones);
+      } else {
+        // Modo descrição: buscar fichas onde descrição contém o termo
+        const { data: fichas } = await supabase
+          .from('fichas_de_servico')
+          .select('telefone_cliente')
+          .ilike('descricao', `%${searchTerm}%`);
+
+        if (!fichas || fichas.length === 0) {
+          setClientesTelefonesPorPrestador([]);
+          return;
+        }
+
+        const telefones = [...new Set(fichas.map(f => f.telefone_cliente))];
+        setClientesTelefonesPorPrestador(telefones);
       }
-
-      // 2. Pegar os CPFs dos prestadores encontrados
-      const cpfs = prestadores.map(p => p.cpf);
-
-      // 3. Buscar fichas que têm esses prestadores
-      const { data: fichas } = await supabase
-        .from('fichas_de_servico')
-        .select('telefone_cliente')
-        .in('prestador_id', cpfs);
-
-      if (!fichas || fichas.length === 0) {
-        setClientesTelefonesPorPrestador([]);
-        return;
-      }
-
-      // 4. Extrair telefones únicos dos clientes
-      const telefones = [...new Set(fichas.map(f => f.telefone_cliente))];
-      setClientesTelefonesPorPrestador(telefones);
     };
 
-    buscarClientesPorPrestador();
+    buscarClientesPorPrestadorOuDescricao();
   }, [searchTerm, searchMode]);
 
   const fetchTagsWithColors = async () => {
@@ -442,6 +465,7 @@ export const ConversationList = ({
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
+          bot_desligado_manualmente: cliente.bot_desligado_manualmente,
           marcado_nao_lido: cliente.marcado_nao_lido,
           orcamentos_count: orcamentosCount
         };
@@ -603,7 +627,7 @@ export const ConversationList = ({
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder={searchMode === 'ficha' ? "Buscar..." : "Buscar prestador..."}
+                  placeholder={searchMode === 'ficha' ? "Buscar..." : searchMode === 'prestador' ? "Buscar prestador..." : "Buscar descrição..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 h-9 text-sm"
@@ -612,20 +636,22 @@ export const ConversationList = ({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setSearchMode(searchMode === 'ficha' ? 'prestador' : 'ficha')}
+                onClick={() => setSearchMode(searchMode === 'ficha' ? 'prestador' : searchMode === 'prestador' ? 'descricao' : 'ficha')}
                 className="h-9 w-9 shrink-0"
-                title={searchMode === 'ficha' ? "Buscar por prestador" : "Buscar por ficha"}
+                title={searchMode === 'ficha' ? "Buscar por prestador" : searchMode === 'prestador' ? "Buscar por descrição" : "Buscar geral"}
               >
                 {searchMode === 'ficha' ? (
                   <User className="h-4 w-4" />
-                ) : (
+                ) : searchMode === 'prestador' ? (
                   <HardHat className="h-4 w-4" />
+                ) : (
+                  <BookOpen className="h-4 w-4" />
                 )}
               </Button>
             </div>
 
-            {/* Indicador de bots desabilitados */}
-            {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false).length > 0 && (
+            {/* Indicador de bots desabilitados (só mostra se não foi manual) */}
+            {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length > 0 && (
               <Button
                 variant={showBotDisabledOnly ? "default" : "outline"}
                 size="sm"
@@ -636,7 +662,7 @@ export const ConversationList = ({
                   <AlertTriangle className="h-3 w-3 text-white" />
                 </div>
                 <span className="text-sm">
-                  {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false).length} {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false).length === 1 ? 'conversa precisa' : 'conversas precisam'} de atendimento
+                  {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length} {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length === 1 ? 'conversa precisa' : 'conversas precisam'} de atendimento
                 </span>
               </Button>
             )}
@@ -761,6 +787,7 @@ export const ConversationList = ({
                   onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
                   botHabilitado={cliente.bot_habilitado}
                   botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
+                  botDesligadoManualmente={cliente.bot_desligado_manualmente}
                   orcamentosCount={cliente.orcamentos_count}
                   atendenteNome={(cliente as any).atendente?.full_name}
                   temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
