@@ -30,6 +30,7 @@ interface ConversationCardProps {
   onToggleUnread: () => void;
   botHabilitado?: boolean;
   botDesativadoNotificacaoVista?: boolean;
+  botDesligadoManualmente?: boolean;
   orcamentosCount?: number;
   atendenteNome?: string | null;
   temServicoParaFinalizar?: boolean;
@@ -76,6 +77,7 @@ export const ConversationCard = ({
   onToggleUnread,
   botHabilitado = true,
   botDesativadoNotificacaoVista = true,
+  botDesligadoManualmente = false,
   orcamentosCount = 0,
   atendenteNome,
   temServicoParaFinalizar = false
@@ -222,7 +224,7 @@ export const ConversationCard = ({
               <span className="text-white text-xs font-bold">!</span>
             </div>
           )}
-          {!botHabilitado && !botDesativadoNotificacaoVista && (
+          {!botHabilitado && !botDesativadoNotificacaoVista && !botDesligadoManualmente && (
             <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 shrink-0">
               <span className="text-white text-xs font-bold">!</span>
             </div>
