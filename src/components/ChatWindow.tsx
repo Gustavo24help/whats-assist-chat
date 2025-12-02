@@ -170,10 +170,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
   
+  // Estados para arquivo pendente (drag & drop / preview antes de enviar)
+  const [pendingFile, setPendingFile] = useState<{
+    file: File;
+    previewUrl: string;
+    type: 'imagem' | 'video' | 'audio' | 'arquivo';
+  } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const dropZoneRef = useRef<HTMLDivElement>(null);
   const { dentroJanela } = useConversationTimer(clienteTelefone);
 
   // Auto-resize do textarea
@@ -204,6 +213,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     setAtendenteAtual(null);
     setNotasInternas("");
     setHasNotas(false);
+    // Limpar arquivo pendente ao trocar de conversa
+    if (pendingFile) {
+      URL.revokeObjectURL(pendingFile.previewUrl);
+      setPendingFile(null);
+    }
+    setIsDragging(false);
     
     console.log('[ChatWindow] Inicializando canais Realtime para:', clienteTelefone);
     fetchMensagens();
@@ -563,14 +578,97 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     ).join('');
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Função para processar arquivo selecionado (cria preview sem enviar)
+  const handleFileSelect = (file: File) => {
+    if (statusConversa === "fechada") {
+      toast.error("Conversa fechada! Use templates aprovados para enviar mensagens.");
+      return;
+    }
+
+    // Verificar tipo de arquivo
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const isAudio = file.type.startsWith('audio/');
+    const isPDF = file.type === 'application/pdf';
+
+    if (!isImage && !isVideo && !isAudio && !isPDF) {
+      toast.error("Apenas imagens, vídeos, áudios e PDFs são suportados");
+      return;
+    }
+
+    // Determinar tipo
+    let tipo: 'imagem' | 'video' | 'audio' | 'arquivo' = 'imagem';
+    if (isVideo) tipo = 'video';
+    if (isAudio) tipo = 'audio';
+    if (isPDF) tipo = 'arquivo';
+
+    // Criar URL de preview
+    const previewUrl = URL.createObjectURL(file);
+    
+    setPendingFile({ file, previewUrl, type: tipo });
+  };
+
+  // Handler para input de arquivo
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (file) {
+      handleFileSelect(file);
+    }
+    // Reset input para permitir selecionar mesmo arquivo novamente
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remover arquivo pendente
+  const removePendingFile = () => {
+    if (pendingFile) {
+      URL.revokeObjectURL(pendingFile.previewUrl);
+      setPendingFile(null);
+    }
+  };
+
+  // Drag and Drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (statusConversa === "fechada") return;
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Só sair do modo drag se realmente saiu da área
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
 
     if (statusConversa === "fechada") {
       toast.error("Conversa fechada! Use templates aprovados para enviar mensagens.");
       return;
     }
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  // Função para fazer upload e enviar arquivo
+  const uploadAndSendFile = async () => {
+    if (!pendingFile) return;
 
     // Auto-atribuir operador se ainda não atribuído
     if (!atendenteAtual) {
@@ -586,27 +684,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       }
     }
 
-    // Verificar tipo de arquivo
-    const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
-    const isAudio = file.type.startsWith('audio/');
-    const isPDF = file.type === 'application/pdf';
-
-    if (!isImage && !isVideo && !isAudio && !isPDF) {
-      toast.error("Apenas imagens, vídeos, áudios e PDFs são suportados");
-      return;
-    }
-
     setUploading(true);
     try {
       // Upload para Supabase Storage
-      const fileExt = file.name.split('.').pop();
+      const fileExt = pendingFile.file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `chat-media/${clienteTelefone}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('chat-files')
-        .upload(filePath, file);
+        .upload(filePath, pendingFile.file);
 
       if (uploadError) {
         console.error("Erro ao fazer upload:", uploadError);
@@ -619,18 +706,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         .getPublicUrl(filePath);
 
       const mediaUrl = urlData.publicUrl;
-      
-      // Determinar tipo de mensagem
-      let tipoMensagem: "imagem" | "video" | "audio" | "arquivo" = "imagem";
-      if (isVideo) tipoMensagem = "video";
-      if (isAudio) tipoMensagem = "audio";
-      if (isPDF) tipoMensagem = "arquivo";
 
-      // Enviar via Twilio apenas com o arquivo (sem texto na mensagem)
+      // Enviar via Twilio apenas com o arquivo
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
           to: clienteTelefone,
-          message: "", // Mensagem vazia - apenas o arquivo será enviado
+          message: "",
           mediaUrl: mediaUrl,
         },
       });
@@ -648,12 +729,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         throw new Error(data.error || "Erro ao enviar mídia");
       }
 
-      toast.success(`${tipoMensagem} enviada via WhatsApp`);
+      toast.success(`${pendingFile.type === 'imagem' ? 'Imagem' : pendingFile.type === 'video' ? 'Vídeo' : pendingFile.type === 'audio' ? 'Áudio' : 'Arquivo'} enviado via WhatsApp`);
       
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      // Limpar arquivo pendente
+      removePendingFile();
     } catch (error) {
       console.error("Erro ao enviar mídia:", error);
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mídia");
@@ -663,6 +742,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   };
 
   const enviarMensagem = async () => {
+    // Se tem arquivo pendente, enviar o arquivo
+    if (pendingFile) {
+      await uploadAndSendFile();
+      return;
+    }
+
     if (!novaMsg.trim() || isSending) return;
 
     if (statusConversa === "fechada") {
@@ -1231,8 +1316,26 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         </DialogContent>
       </Dialog>
 
-      {/* Messages area - Scrollable */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10">
+      {/* Messages area - Scrollable with Drag & Drop */}
+      <div 
+        ref={dropZoneRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10 relative"
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center z-50 backdrop-blur-sm">
+            <div className="text-center bg-background/90 p-6 rounded-xl shadow-lg">
+              <Paperclip className="h-12 w-12 mx-auto text-primary mb-3" />
+              <p className="text-lg font-medium text-foreground">Solte o arquivo aqui</p>
+              <p className="text-sm text-muted-foreground mt-1">Imagens, vídeos, áudios ou PDFs</p>
+            </div>
+          </div>
+        )}
+
         {mensagens.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground text-sm">Nenhuma mensagem ainda</p>
@@ -1320,63 +1423,105 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
       {/* Input area - Fixed at bottom */}
       <div className="px-3 py-2.5 md:px-4 md:py-3 border-t bg-background shadow-sm shrink-0 flex-none">
-        <div className="flex gap-1.5 md:gap-2 items-center max-w-5xl mx-auto">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*,audio/*"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          
-          <MensagensPadronizadasDropdown
-            onSelectMensagem={(msg) => setNovaMsg(msg)}
-            clienteNome={clienteNome}
-            clienteTelefone={clienteTelefone}
-            fichaId={fichaId}
-          />
-          
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={statusConversa === "fechada" || uploading}
-            className="shrink-0 h-9 w-9 md:h-10 md:w-10"
-            title="Enviar arquivo"
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-          
-          <Textarea
-            ref={textareaRef}
-            placeholder={statusConversa === "aberta" ? "Digite sua mensagem..." : "Conversa fechada"}
-            value={novaMsg}
-            onChange={(e) => setNovaMsg(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                enviarMensagem();
-              }
-            }}
-            disabled={statusConversa === "fechada"}
-            className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
-            rows={1}
-            style={{ height: 'auto', overflowY: 'hidden' }}
-          />
-          
-          <Button 
-            onClick={enviarMensagem} 
-            disabled={statusConversa === "fechada" || !novaMsg.trim() || isSending}
-            className="shrink-0 shadow-md h-9 w-9 md:h-10 md:w-10"
-            size="icon"
-            title="Enviar mensagem"
-          >
-            {isSending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
+        <div className="max-w-5xl mx-auto">
+          {/* Preview de arquivo pendente */}
+          {pendingFile && (
+            <div className="flex items-center gap-3 bg-muted/50 p-2 rounded-lg mb-2 border">
+              {pendingFile.type === 'imagem' ? (
+                <img 
+                  src={pendingFile.previewUrl} 
+                  alt="Preview" 
+                  className="h-16 w-16 object-cover rounded-md"
+                />
+              ) : pendingFile.type === 'video' ? (
+                <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                </div>
+              ) : pendingFile.type === 'audio' ? (
+                <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
+                  <FileIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{pendingFile.file.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(pendingFile.file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={removePendingFile}
+                className="shrink-0 h-8 w-8"
+                title="Remover arquivo"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          <div className="flex gap-1.5 md:gap-2 items-center">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,audio/*,application/pdf"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            
+            <MensagensPadronizadasDropdown
+              onSelectMensagem={(msg) => setNovaMsg(msg)}
+              clienteNome={clienteNome}
+              clienteTelefone={clienteTelefone}
+              fichaId={fichaId}
+            />
+            
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={statusConversa === "fechada" || uploading || !!pendingFile}
+              className="shrink-0 h-9 w-9 md:h-10 md:w-10"
+              title="Anexar arquivo"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            
+            <Textarea
+              ref={textareaRef}
+              placeholder={pendingFile ? "Pressione enviar para enviar o arquivo" : (statusConversa === "aberta" ? "Digite sua mensagem..." : "Conversa fechada")}
+              value={novaMsg}
+              onChange={(e) => setNovaMsg(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  enviarMensagem();
+                }
+              }}
+              disabled={statusConversa === "fechada" || !!pendingFile}
+              className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
+              rows={1}
+              style={{ height: 'auto', overflowY: 'hidden' }}
+            />
+            
+            <Button 
+              onClick={enviarMensagem} 
+              disabled={statusConversa === "fechada" || (!novaMsg.trim() && !pendingFile) || isSending || uploading}
+              className="shrink-0 shadow-md h-9 w-9 md:h-10 md:w-10"
+              size="icon"
+              title={pendingFile ? "Enviar arquivo" : "Enviar mensagem"}
+            >
+              {isSending || uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
