@@ -8,6 +8,7 @@ const corsHeaders = {
 interface RequestBody {
   telefone: string;
   bot_status: 'enabled' | 'disabled';
+  origem?: 'manual' | 'automatico'; // Origem do desligamento
 }
 
 Deno.serve(async (req) => {
@@ -22,7 +23,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { telefone, bot_status }: RequestBody = await req.json();
+    const { telefone, bot_status, origem = 'manual' }: RequestBody = await req.json();
 
     // Validar inputs
     if (!telefone) {
@@ -39,13 +40,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[toggle-bot-status] Alterando status do bot para ${telefone}: ${bot_status}`);
+    console.log(`[toggle-bot-status] Alterando status do bot para ${telefone}: ${bot_status}, origem: ${origem}`);
 
     const botHabilitado = bot_status === 'enabled';
     const dataDesabilitado = bot_status === 'disabled' ? new Date().toISOString() : null;
-    const notificacaoVista = bot_status === 'disabled' ? false : null;
-    // Marcar como desligado manualmente quando desabilitar, limpar quando habilitar
-    const desligadoManualmente = bot_status === 'disabled' ? true : false;
+    
+    // Lógica da exclamação amarela:
+    // - Se desligou MANUALMENTE (botão): NÃO mostrar exclamação (notificacao_vista = true, desligado_manualmente = true)
+    // - Se desligou AUTOMATICAMENTE (fim do fluxo): MOSTRAR exclamação (notificacao_vista = false, desligado_manualmente = false)
+    // - Se habilitou: limpar tudo
+    const isManual = origem === 'manual';
+    const desligadoManualmente = bot_status === 'disabled' ? isManual : false;
+    const notificacaoVista = bot_status === 'disabled' ? isManual : null;
 
     // Atualizar status do bot no cliente
     const { error: updateError } = await supabase
