@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Check, X, CalendarIcon, Info } from "lucide-react";
 import { format } from "date-fns";
@@ -33,7 +33,6 @@ const formatarDataSegura = (dataStr: string | null | undefined, formatStr: strin
 const OrcamentoPublico = () => {
   const [searchParams] = useSearchParams();
   const fichaId = searchParams.get("ficha");
-  const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
   const [carregandoInicial, setCarregandoInicial] = useState(true);
@@ -182,39 +181,31 @@ const OrcamentoPublico = () => {
     e.preventDefault();
 
     if (fichaExists && !formularioAtivo) {
-      toast({
-        title: "Formulário encerrado",
+      toast.error("Formulário encerrado", {
         description: "Este formulário de orçamento já foi encerrado.",
-        variant: "destructive",
       });
       return;
     }
 
     if (!cpfValido) {
-      toast({
-        title: "CPF inválido",
+      toast.error("CPF inválido", {
         description: "Por favor, digite um CPF válido cadastrado no sistema.",
-        variant: "destructive",
       });
       return;
     }
 
     // Validar tempo estimado
     if (!formData.tempo_estimado || formData.tempo_estimado.trim() === "") {
-      toast({
-        title: "Campo obrigatório",
+      toast.error("Campo obrigatório", {
         description: "Por favor, informe o tempo estimado do serviço.",
-        variant: "destructive",
       });
       return;
     }
 
     // Validar categoria
     if (!formData.categoria || formData.categoria.trim() === "") {
-      toast({
-        title: "Campo obrigatório",
+      toast.error("Campo obrigatório", {
         description: "Por favor, selecione uma categoria.",
-        variant: "destructive",
       });
       return;
     }
@@ -296,8 +287,7 @@ const OrcamentoPublico = () => {
         console.error("OrcamentoPublico - Erro no webhook (orçamento já foi salvo):", webhookError);
       }
 
-      toast({
-        title: "Orçamento enviado!",
+      toast.success("Orçamento enviado!", {
         description: "Seu orçamento foi enviado com sucesso.",
       });
 
@@ -322,10 +312,8 @@ const OrcamentoPublico = () => {
       setNomePrestador("");
     } catch (error) {
       console.error("Erro ao enviar orçamento:", error);
-      toast({
-        title: "Erro",
+      toast.error("Erro", {
         description: "Erro ao enviar orçamento. Tente novamente.",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
