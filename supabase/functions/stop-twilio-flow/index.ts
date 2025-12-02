@@ -107,7 +107,9 @@ Deno.serve(async (req) => {
       .from('clientes')
       .update({
         bot_habilitado: false,
-        data_bot_desabilitado: new Date().toISOString()
+        data_bot_desabilitado: new Date().toISOString(),
+        bot_desativado_notificacao_vista: true, // NÃO mostrar exclamação (desligou manualmente)
+        bot_desligado_manualmente: true // Marcar como manual
       })
       .eq('telefone', telefone);
 
