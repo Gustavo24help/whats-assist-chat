@@ -257,12 +257,10 @@ const OrcamentoPublico = () => {
 
       console.log("OrcamentoPublico - Dados a enviar:", orcamentoData);
 
-      // Salvar no banco
-      const { data: orcamento, error } = await supabase
+      // Salvar no banco - usando insert simples sem .single() para maior resiliência em mobile
+      const { error } = await supabase
         .from("orcamentos")
-        .insert([orcamentoData])
-        .select()
-        .single();
+        .insert([orcamentoData]);
 
       if (error) {
         console.error("OrcamentoPublico - Erro ao inserir:", error);
@@ -270,7 +268,7 @@ const OrcamentoPublico = () => {
       }
 
       // Orçamento salvo com sucesso - mostrar confirmação independente do webhook
-      console.log("OrcamentoPublico - Orçamento salvo com sucesso:", orcamento?.id);
+      console.log("OrcamentoPublico - Orçamento salvo com sucesso");
 
       // Formatar data de forma segura para o webhook
       let dataSugeridaFormatada = null;
@@ -636,14 +634,19 @@ const OrcamentoPublico = () => {
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dataSugerida ? format(dataSugerida, "dd/MM/yyyy") : "Selecionar"}
+                          {dataSugerida && !isNaN(dataSugerida.getTime()) ? format(dataSugerida, "dd/MM/yyyy") : "Selecionar"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
                           selected={dataSugerida}
-                          onSelect={setDataSugerida}
+                          onSelect={(date) => {
+                            // Validar data antes de setar para evitar crash em mobile
+                            if (date && !isNaN(date.getTime())) {
+                              setDataSugerida(date);
+                            }
+                          }}
                           disabled={(date) => date < new Date()}
                           initialFocus
                           className="pointer-events-auto"
