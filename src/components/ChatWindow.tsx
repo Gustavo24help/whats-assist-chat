@@ -860,7 +860,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           const { error: toggleError } = await supabase.functions.invoke('toggle-bot-status', {
             body: {
               telefone: clienteTelefone,
-              bot_status: 'disabled'
+              bot_status: 'disabled',
+              origem: 'manual'
             }
           });
 
@@ -874,7 +875,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         const { error } = await supabase.functions.invoke('toggle-bot-status', {
           body: {
             telefone: clienteTelefone,
-            bot_status: 'enabled'
+            bot_status: 'enabled',
+            origem: 'manual'
           }
         });
 
