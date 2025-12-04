@@ -329,6 +329,27 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         throw error;
       }
 
+      // Salvar CPF e Endereço também no cadastro do cliente (para reutilizar em futuras fichas)
+      const cpfTrimmed = fichaData.cpf?.trim() || null;
+      const enderecoTrimmed = fichaData.endereco?.trim() || null;
+      
+      if (cpfTrimmed || enderecoTrimmed) {
+        const clienteUpdate: Record<string, string | null> = {};
+        if (cpfTrimmed) clienteUpdate.cpf = cpfTrimmed;
+        if (enderecoTrimmed) clienteUpdate.endereco = enderecoTrimmed;
+        
+        const { error: clienteError } = await supabase
+          .from('clientes')
+          .update(clienteUpdate)
+          .eq('telefone', fichaData.telefone_cliente);
+        
+        if (clienteError) {
+          console.error('⚠️ Erro ao salvar dados no cliente:', clienteError);
+        } else {
+          console.log('✅ CPF/Endereço salvos no cadastro do cliente');
+        }
+      }
+
       console.log('✅ Ficha salva, enviando webhook...');
       await enviarWebhook(fichaData, agendamentoISO, visitaTecnicaISO);
     } catch (error) {
@@ -398,7 +419,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
     if (!error && data) {
       // Cast para any primeiro e depois para Ficha para incluir novos campos
-      const fichaCompleta: Ficha = {
+      let fichaCompleta: Ficha = {
         ...(data as any),
         data_visita_tecnica: (data as any).data_visita_tecnica || null,
         horario_visita_tecnica: (data as any).horario_visita_tecnica || null,
@@ -406,18 +427,28 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         preferencia_horario_cliente: (data as any).preferencia_horario_cliente || null,
       };
       
-      setFicha(fichaCompleta);
-      
-      // Buscar nome do cliente
+      // Buscar dados do cliente (nome, cpf, endereco)
       const { data: clienteData } = await supabase
         .from('clientes')
-        .select('nome')
+        .select('nome, cpf, endereco')
         .eq('telefone', fichaCompleta.telefone_cliente)
         .single();
       
       if (clienteData) {
         setNomeCliente(clienteData.nome);
+        
+        // Se a ficha não tem CPF/Endereço mas o cliente tem, preencher automaticamente
+        if (!fichaCompleta.cpf && clienteData.cpf) {
+          fichaCompleta = { ...fichaCompleta, cpf: clienteData.cpf };
+          console.log('📋 CPF preenchido do cadastro do cliente:', clienteData.cpf);
+        }
+        if (!fichaCompleta.endereco && clienteData.endereco) {
+          fichaCompleta = { ...fichaCompleta, endereco: clienteData.endereco };
+          console.log('📋 Endereço preenchido do cadastro do cliente:', clienteData.endereco);
+        }
       }
+      
+      setFicha(fichaCompleta);
       
       // ✅ SEMPRE LIMPAR TODOS OS ESTADOS DE HORÁRIO PRIMEIRO
       console.log(`🧹 Limpando estados de horário para ficha ${fichaId}`);
