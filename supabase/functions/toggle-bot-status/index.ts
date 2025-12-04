@@ -60,7 +60,9 @@ Deno.serve(async (req) => {
         bot_habilitado: botHabilitado,
         data_bot_desabilitado: dataDesabilitado,
         bot_desativado_notificacao_vista: notificacaoVista,
-        bot_desligado_manualmente: desligadoManualmente
+        bot_desligado_manualmente: desligadoManualmente,
+        // Marcar que o bot já foi desligado alguma vez (só quando desabilitar)
+        ...(bot_status === 'disabled' && { bot_ja_desligado_alguma_vez: true })
       })
       .eq('telefone', telefone);
 

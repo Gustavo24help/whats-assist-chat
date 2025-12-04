@@ -23,11 +23,21 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
           table: 'mensagens',
           filter: 'remetente=eq.cliente'
         },
-        (payload: any) => {
+        async (payload: any) => {
           const clienteId = payload.new.cliente_id;
           
           if (clienteId !== currentClienteId) {
-            if (audioRef.current) {
+            // Verificar se o bot já foi desligado alguma vez para este cliente
+            const { data: cliente } = await supabase
+              .from('clientes')
+              .select('bot_ja_desligado_alguma_vez')
+              .eq('telefone', clienteId)
+              .single();
+
+            // Só tocar som se o bot já foi desligado alguma vez
+            const deveTocarSom = cliente?.bot_ja_desligado_alguma_vez === true;
+
+            if (deveTocarSom && audioRef.current) {
               audioRef.current.play().catch(e => console.log('Could not play sound:', e));
             }
 
