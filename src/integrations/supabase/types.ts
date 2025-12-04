@@ -67,8 +67,10 @@ export type Database = {
           bot_desligado_manualmente: boolean | null
           bot_habilitado: boolean | null
           bot_ja_desligado_alguma_vez: boolean | null
+          cpf: string | null
           created_at: string | null
           data_bot_desabilitado: string | null
+          endereco: string | null
           ficha_ativa_id: string | null
           marcado_nao_lido: boolean | null
           nome: string
@@ -87,8 +89,10 @@ export type Database = {
           bot_desligado_manualmente?: boolean | null
           bot_habilitado?: boolean | null
           bot_ja_desligado_alguma_vez?: boolean | null
+          cpf?: string | null
           created_at?: string | null
           data_bot_desabilitado?: string | null
+          endereco?: string | null
           ficha_ativa_id?: string | null
           marcado_nao_lido?: boolean | null
           nome?: string
@@ -107,8 +111,10 @@ export type Database = {
           bot_desligado_manualmente?: boolean | null
           bot_habilitado?: boolean | null
           bot_ja_desligado_alguma_vez?: boolean | null
+          cpf?: string | null
           created_at?: string | null
           data_bot_desabilitado?: string | null
+          endereco?: string | null
           ficha_ativa_id?: string | null
           marcado_nao_lido?: boolean | null
           nome?: string
