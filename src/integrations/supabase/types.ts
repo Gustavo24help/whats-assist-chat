@@ -66,6 +66,7 @@ export type Database = {
           bot_desativado_notificacao_vista: boolean | null
           bot_desligado_manualmente: boolean | null
           bot_habilitado: boolean | null
+          bot_ja_desligado_alguma_vez: boolean | null
           created_at: string | null
           data_bot_desabilitado: string | null
           ficha_ativa_id: string | null
@@ -85,6 +86,7 @@ export type Database = {
           bot_desativado_notificacao_vista?: boolean | null
           bot_desligado_manualmente?: boolean | null
           bot_habilitado?: boolean | null
+          bot_ja_desligado_alguma_vez?: boolean | null
           created_at?: string | null
           data_bot_desabilitado?: string | null
           ficha_ativa_id?: string | null
@@ -104,6 +106,7 @@ export type Database = {
           bot_desativado_notificacao_vista?: boolean | null
           bot_desligado_manualmente?: boolean | null
           bot_habilitado?: boolean | null
+          bot_ja_desligado_alguma_vez?: boolean | null
           created_at?: string | null
           data_bot_desabilitado?: string | null
           ficha_ativa_id?: string | null

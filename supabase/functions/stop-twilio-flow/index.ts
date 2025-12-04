@@ -109,7 +109,8 @@ Deno.serve(async (req) => {
         bot_habilitado: false,
         data_bot_desabilitado: new Date().toISOString(),
         bot_desativado_notificacao_vista: true, // NÃO mostrar exclamação (desligou manualmente)
-        bot_desligado_manualmente: true // Marcar como manual
+        bot_desligado_manualmente: true, // Marcar como manual
+        bot_ja_desligado_alguma_vez: true // Marcar que já desligou (para ativar som de notificação)
       })
       .eq('telefone', telefone);
 
