@@ -292,6 +292,7 @@ export type Database = {
           arquivo_url: string | null
           cliente_id: string
           data_hora: string | null
+          enviado_por_id: string | null
           ficha_id: string | null
           id: string
           message_sid: string | null
@@ -306,6 +307,7 @@ export type Database = {
           arquivo_url?: string | null
           cliente_id: string
           data_hora?: string | null
+          enviado_por_id?: string | null
           ficha_id?: string | null
           id?: string
           message_sid?: string | null
@@ -320,6 +322,7 @@ export type Database = {
           arquivo_url?: string | null
           cliente_id?: string
           data_hora?: string | null
+          enviado_por_id?: string | null
           ficha_id?: string | null
           id?: string
           message_sid?: string | null

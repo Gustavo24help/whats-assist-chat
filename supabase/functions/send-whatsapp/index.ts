@@ -12,11 +12,12 @@ serve(async (req) => {
   }
 
   try {
-    const { to, message, mediaUrl } = await req.json();
+    const { to, message, mediaUrl, userId } = await req.json();
     console.log('📤 [send-whatsapp] Iniciando envio:', {
       to,
       message: message?.substring(0, 50),
-      hasMedia: !!mediaUrl
+      hasMedia: !!mediaUrl,
+      userId: userId || 'não informado'
     });
 
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
@@ -120,7 +121,8 @@ serve(async (req) => {
       arquivo_url: mediaUrl || null,
       status: 'enviado',
       data_hora: new Date().toISOString(),
-      message_sid: twilioData.sid
+      message_sid: twilioData.sid,
+      enviado_por_id: userId || null
     });
 
     if (insertError) {

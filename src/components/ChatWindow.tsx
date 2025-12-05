@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -41,6 +42,7 @@ interface Mensagem {
   status_atualizado_em?: string;
   reply_to_message_id?: string | null;
   reply_to?: Mensagem | null;
+  enviado_por?: { full_name: string } | null;
 }
 
 const QuotedMessage = React.memo(({ 
@@ -361,7 +363,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     
     const { data, error } = await supabase
       .from('mensagens')
-      .select('*')
+      .select(`
+        *,
+        enviado_por:profiles!enviado_por_id(full_name)
+      `)
       .eq('cliente_id', clienteTelefone)
       .order('data_hora', { ascending: true });
 
@@ -707,12 +712,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
       const mediaUrl = urlData.publicUrl;
 
+      // Obter usuário atual para registrar quem enviou
+      const { data: { user } } = await supabase.auth.getUser();
+
       // Enviar via Twilio apenas com o arquivo
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
           to: clienteTelefone,
           message: "",
           mediaUrl: mediaUrl,
+          userId: user?.id,
         },
       });
 
@@ -794,16 +803,21 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       
       setMensagens(prev => [...prev, novaMensagemTemp]);
 
+      // Obter usuário atual para registrar quem enviou
+      const { data: { user } } = await supabase.auth.getUser();
+
       console.log('🚀 Invocando send-whatsapp com:', {
         to: clienteTelefone,
-        message: mensagemTexto.substring(0, 50)
+        message: mensagemTexto.substring(0, 50),
+        userId: user?.id
       });
       
       // Enviar via Twilio
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
           to: clienteTelefone,
-          message: mensagemTexto
+          message: mensagemTexto,
+          userId: user?.id
         },
       });
       
@@ -1412,6 +1426,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     )}>
                       {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
                     </p>
+                    {msg.remetente === "atendente" && msg.enviado_por?.full_name && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-semibold ml-0.5 cursor-default">
+                              {msg.enviado_por.full_name.charAt(0).toUpperCase()}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            {msg.enviado_por.full_name}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </div>
                     </div>
                   </div>
