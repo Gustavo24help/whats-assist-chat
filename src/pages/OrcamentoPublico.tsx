@@ -32,7 +32,31 @@ const formatarDataSegura = (dataStr: string | null | undefined, formatStr: strin
 
 const OrcamentoPublico = () => {
   const [searchParams] = useSearchParams();
-  const fichaId = searchParams.get("ficha");
+  
+  // Obter fichaId com fallback robusto para window.location
+  const getFichaId = (): string | null => {
+    // Primeiro tenta pelo React Router
+    const fromRouter = searchParams.get("ficha");
+    if (fromRouter) {
+      console.log("OrcamentoPublico - fichaId do React Router:", fromRouter);
+      return fromRouter;
+    }
+    
+    // Fallback: ler diretamente da URL do navegador
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const fromWindow = urlParams.get("ficha");
+      if (fromWindow) {
+        console.log("OrcamentoPublico - fichaId do window.location (fallback):", fromWindow);
+        return fromWindow;
+      }
+    }
+    
+    return null;
+  };
+  
+  const [fichaId, setFichaId] = useState<string | null>(getFichaId());
+  const [verificandoUrl, setVerificandoUrl] = useState(true);
   
   const [loading, setLoading] = useState(false);
   const [carregandoInicial, setCarregandoInicial] = useState(true);
@@ -59,8 +83,26 @@ const OrcamentoPublico = () => {
     porcentagem_desconto: "",
   });
 
+  // Verificação robusta da URL com delay para garantir que React Router processou
+  useEffect(() => {
+    console.log("OrcamentoPublico - URL completa:", window.location.href);
+    console.log("OrcamentoPublico - search params:", window.location.search);
+    
+    // Aguardar um ciclo de render para garantir que React Router processou a URL
+    const timer = setTimeout(() => {
+      const currentFichaId = getFichaId();
+      console.log("OrcamentoPublico - fichaId após verificação:", currentFichaId);
+      setFichaId(currentFichaId);
+      setVerificandoUrl(false);
+    }, 150);
+    
+    return () => clearTimeout(timer);
+  }, [searchParams]);
+
   useEffect(() => {
     const carregarDados = async () => {
+      if (verificandoUrl) return; // Aguardar verificação da URL
+      
       setCarregandoInicial(true);
       try {
         if (fichaId) {
@@ -73,7 +115,7 @@ const OrcamentoPublico = () => {
       }
     };
     carregarDados();
-  }, [fichaId]);
+  }, [fichaId, verificandoUrl]);
 
   const verificarFicha = async () => {
     console.log("OrcamentoPublico - verificando fichaId:", fichaId);
@@ -320,8 +362,8 @@ const OrcamentoPublico = () => {
     }
   };
 
-  // Estado de loading inicial
-  if (carregandoInicial) {
+  // Estado de verificação da URL e loading inicial
+  if (verificandoUrl || carregandoInicial) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -338,8 +380,36 @@ const OrcamentoPublico = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground">Link inválido. Por favor, use o link fornecido pela 24Help.</p>
+          <CardContent className="p-6 text-center space-y-3">
+            <p className="text-muted-foreground font-medium">Link inválido</p>
+            <p className="text-xs text-muted-foreground">
+              O parâmetro da ficha não foi encontrado na URL.
+            </p>
+            <p className="text-xs text-muted-foreground break-all bg-muted/50 p-2 rounded">
+              URL: {typeof window !== 'undefined' ? window.location.href : 'N/A'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Por favor, use o link completo fornecido pela 24Help.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Ficha não encontrada no banco de dados
+  if (!fichaExists) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center space-y-3">
+            <p className="text-muted-foreground font-medium">Ficha não encontrada</p>
+            <p className="text-xs text-muted-foreground">
+              A ficha "{fichaId}" não foi encontrada no sistema.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Verifique se o link está correto ou entre em contato com a 24Help.
+            </p>
           </CardContent>
         </Card>
       </div>
