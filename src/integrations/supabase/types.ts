@@ -342,6 +342,13 @@ export type Database = {
             referencedColumns: ["telefone"]
           },
           {
+            foreignKeyName: "mensagens_enviado_por_id_fkey"
+            columns: ["enviado_por_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "mensagens_ficha_id_fkey"
             columns: ["ficha_id"]
             isOneToOne: false
