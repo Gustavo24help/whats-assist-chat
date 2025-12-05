@@ -18,14 +18,15 @@ serve(async (req) => {
   try {
     console.log("📤 Iniciando envio de template...");
     
-    const { to, contentSid, contentVariables, templateBody } = await req.json();
+    const { to, contentSid, contentVariables, templateBody, userId } = await req.json();
     
     console.log("📋 Dados recebidos:", { 
       to, 
       contentSid, 
       contentVariables,
       templateBody: templateBody || '[não fornecido]',
-      templateBodyLength: templateBody?.length || 0
+      templateBodyLength: templateBody?.length || 0,
+      userId: userId || '[não informado]'
     });
     
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
@@ -147,6 +148,7 @@ serve(async (req) => {
       data_hora: new Date().toISOString(),
       message_sid: data.sid,
       reply_to_message_id: null,
+      enviado_por_id: userId || null,
     });
 
     if (insertError) {
