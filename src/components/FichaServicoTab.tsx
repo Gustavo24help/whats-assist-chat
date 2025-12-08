@@ -1092,7 +1092,36 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="valor_total" className="text-xs font-medium text-gray-600">Valor Total</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="valor_total" className="text-xs font-medium text-gray-600">Valor Total</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-5 px-2 text-[10px]"
+                    onClick={() => {
+                      const maoObra = ficha?.valor_mao_obra || 0;
+                      const pecas = ficha?.valor_pecas || 0;
+                      const soma = maoObra + pecas;
+                      const dividido = soma / 0.77;
+                      // Arredondar para o próximo número terminado em 8
+                      const resto = dividido % 10;
+                      let arredondado: number;
+                      if (resto <= 8) {
+                        arredondado = Math.floor(dividido / 10) * 10 + 8;
+                      } else {
+                        arredondado = (Math.floor(dividido / 10) + 1) * 10 + 8;
+                      }
+                      updateFicha({ valor_total: arredondado });
+                      
+                      if (ficha?.prestador_id && arredondado > 0) {
+                        sincronizarOrcamentosImediato(ficha.prestador_id);
+                      }
+                    }}
+                  >
+                    Calcular
+                  </Button>
+                </div>
                 <Input
                   id="valor_total"
                   type="number"
