@@ -15,12 +15,10 @@ import { Separator } from "@/components/ui/separator";
 interface FilterDropdownProps {
   statusFilter: string;
   conversaFilter: "todas" | "aberta" | "fechada";
-  unreadFilter: "todas" | "lidas" | "nao_lidas";
   botFilter: "todos" | "ativo" | "desativado";
   fichaFilter: "todas" | "com_ficha" | "sem_ficha";
   onStatusFilterChange: (value: string) => void;
   onConversaFilterChange: (value: "todas" | "aberta" | "fechada") => void;
-  onUnreadFilterChange: (value: "todas" | "lidas" | "nao_lidas") => void;
   onBotFilterChange: (value: "todos" | "ativo" | "desativado") => void;
   onFichaFilterChange: (value: "todas" | "com_ficha" | "sem_ficha") => void;
 }
@@ -28,12 +26,10 @@ interface FilterDropdownProps {
 export const FilterDropdown = ({
   statusFilter,
   conversaFilter,
-  unreadFilter,
   botFilter,
   fichaFilter,
   onStatusFilterChange,
   onConversaFilterChange,
-  onUnreadFilterChange,
   onBotFilterChange,
   onFichaFilterChange,
 }: FilterDropdownProps) => {
@@ -44,7 +40,6 @@ export const FilterDropdown = ({
     let count = 0;
     if (statusFilter !== "all") count++;
     if (conversaFilter !== "todas") count++;
-    if (unreadFilter !== "todas") count++;
     if (botFilter !== "todos") count++;
     if (fichaFilter !== "todas") count++;
     return count;
@@ -55,7 +50,6 @@ export const FilterDropdown = ({
   const handleReset = () => {
     onStatusFilterChange("all");
     onConversaFilterChange("todas");
-    onUnreadFilterChange("todas");
     onBotFilterChange("todos");
     onFichaFilterChange("todas");
   };
@@ -105,24 +99,6 @@ export const FilterDropdown = ({
                   </RadioGroup>
                 </div>
 
-                {/* Mensagens */}
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-xs">Mensagens</h4>
-                  <RadioGroup value={unreadFilter} onValueChange={onUnreadFilterChange}>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="todas" id="msg-todas" />
-                      <Label htmlFor="msg-todas" className="text-sm cursor-pointer">Todas</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="nao_lidas" id="msg-nao-lidas" />
-                      <Label htmlFor="msg-nao-lidas" className="text-sm cursor-pointer">Não lidas</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="lidas" id="msg-lidas" />
-                      <Label htmlFor="msg-lidas" className="text-sm cursor-pointer">Lidas</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
 
                 {/* Status do Bot */}
                 <div className="space-y-2">
