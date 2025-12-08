@@ -775,20 +775,36 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
     setUploading(true);
     try {
-      // Determinar extensão baseado no mimeType
       const mimeType = audioBlob.type;
-      let ext = 'ogg'; // Default para OGG (compatível com WhatsApp)
-      if (mimeType.includes('mp4') || mimeType.includes('m4a')) ext = 'm4a';
-      else if (mimeType.includes('mpeg') || mimeType.includes('mp3')) ext = 'mp3';
-      else if (mimeType.includes('webm')) ext = 'webm';
-      else if (mimeType.includes('ogg') || mimeType.includes('opus')) ext = 'ogg';
+      let finalBlob = audioBlob;
+      let ext = 'mp3';
+      let contentType = 'audio/mpeg';
+
+      // Se for WebM (Chrome) ou formato não compatível, converter para MP3
+      if (mimeType.includes('webm') || (!mimeType.includes('ogg') && !mimeType.includes('mp'))) {
+        toast.info("Convertendo áudio...");
+        const { convertToMp3 } = await import('@/lib/audioConverter');
+        finalBlob = await convertToMp3(audioBlob);
+        ext = 'mp3';
+        contentType = 'audio/mpeg';
+      } 
+      // Se for OGG/Opus (Firefox), usar diretamente
+      else if (mimeType.includes('ogg')) {
+        ext = 'ogg';
+        contentType = 'audio/ogg';
+      }
+      // Se já for MP3/MPEG, usar diretamente
+      else if (mimeType.includes('mpeg') || mimeType.includes('mp3')) {
+        ext = 'mp3';
+        contentType = 'audio/mpeg';
+      }
 
       const fileName = `audio_${Date.now()}.${ext}`;
       const filePath = `chat-media/${clienteTelefone}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('chat-files')
-        .upload(filePath, audioBlob, { contentType: mimeType });
+        .upload(filePath, finalBlob, { contentType });
 
       if (uploadError) {
         console.error("Erro ao fazer upload do áudio:", uploadError);

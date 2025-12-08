@@ -28,18 +28,12 @@ export const AudioRecorder = ({ onRecordingComplete, disabled }: AudioRecorderPr
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      // Priorizar OGG/Opus (compatível com WhatsApp), fallback para outros
-      let mimeType = 'audio/ogg;codecs=opus';
+      // Usar formato padrão do navegador - a conversão será feita no ChatWindow
+      let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/mp4';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'audio/webm;codecs=opus';
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = 'audio/webm';
-          }
-        }
+        mimeType = 'audio/webm';
       }
-      console.log('🎤 Usando formato de áudio:', mimeType);
+      console.log('🎤 Gravando em formato:', mimeType);
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       
