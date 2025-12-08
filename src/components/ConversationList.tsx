@@ -6,11 +6,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, ChevronDown, ChevronUp, User, HardHat, BookOpen } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Cliente {
   telefone: string;
@@ -691,24 +691,94 @@ export const ConversationList = ({
               </Button>
             )}
 
-            <FilterDropdown
-              statusFilter={statusFilter}
-              conversaFilter={conversaFilter}
-              botFilter={botFilter}
-              fichaFilter={fichaFilter}
-              onStatusFilterChange={setStatusFilter}
-              onConversaFilterChange={setConversaFilter}
-              onBotFilterChange={setBotFilter}
-              onFichaFilterChange={setFichaFilter}
-            />
+            {/* Linha 1: Filtros + Tags lado a lado */}
+            <div className="flex gap-1.5">
+              <FilterDropdown
+                statusFilter={statusFilter}
+                conversaFilter={conversaFilter}
+                botFilter={botFilter}
+                fichaFilter={fichaFilter}
+                onStatusFilterChange={setStatusFilter}
+                onConversaFilterChange={setConversaFilter}
+                onBotFilterChange={setBotFilter}
+                onFichaFilterChange={setFichaFilter}
+              />
+              
+              {allTags.length > 0 && (
+                <Popover open={tagsExpanded} onOpenChange={setTagsExpanded}>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 h-8 justify-start text-xs gap-1.5"
+                    >
+                      <span>🏷️</span>
+                      <span>Tags</span>
+                      {selectedTags.length > 0 ? (
+                        <Badge variant="default" className="ml-auto h-4 px-1 text-[10px]">
+                          {selectedTags.length}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="ml-auto h-4 px-1 text-[10px]">
+                          {allTags.length}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-3 bg-popover z-50" align="start">
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar tags..."
+                          value={tagSearchTerm}
+                          onChange={(e) => setTagSearchTerm(e.target.value)}
+                          className="pl-7 h-7 text-xs"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                        {filteredTags.map((tag) => {
+                          const tagColor = tagsWithColors.get(tag) || '#6B7280';
+                          return (
+                            <Badge
+                              key={tag}
+                              variant={selectedTags.includes(tag) ? "default" : "outline"}
+                              className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
+                              onClick={() => toggleTag(tag)}
+                              style={{
+                                backgroundColor: selectedTags.includes(tag) ? tagColor : 'transparent',
+                                borderColor: tagColor,
+                                color: selectedTags.includes(tag) ? '#FFFFFF' : tagColor
+                              }}
+                            >
+                              {tag}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                      {selectedTags.length > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full h-7 text-xs"
+                          onClick={() => setSelectedTags([])}
+                        >
+                          Limpar seleção
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
 
-            {/* Botões Todas / Não Lidas */}
+            {/* Linha 2: Todas / Não Lidas */}
             <div className="flex gap-1">
               <Button
                 variant={unreadFilter === "todas" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setUnreadFilter("todas")}
-                className="flex-1 h-8 text-xs"
+                className="flex-1 h-7 text-xs"
               >
                 Todas
               </Button>
@@ -716,71 +786,16 @@ export const ConversationList = ({
                 variant={unreadFilter === "nao_lidas" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setUnreadFilter("nao_lidas")}
-                className="flex-1 h-8 text-xs gap-1"
+                className="flex-1 h-7 text-xs gap-1"
               >
                 Não Lidas
                 {unreadCount > 0 && (
-                  <Badge variant="secondary" className="h-5 px-1.5 text-xs ml-1">
+                  <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">
                     {unreadCount}
                   </Badge>
                 )}
               </Button>
             </div>
-
-            {allTags.length > 0 && (
-              <Collapsible open={tagsExpanded} onOpenChange={setTagsExpanded}>
-                <CollapsibleTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="w-full justify-between h-8 px-2 hover:bg-muted"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium">🏷️ Tags</span>
-                      <Badge variant="secondary" className="text-xs h-5 px-1.5">
-                        {allTags.length}
-                      </Badge>
-                    </div>
-                    {tagsExpanded ? (
-                      <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-2 pt-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar tags..."
-                      value={tagSearchTerm}
-                      onChange={(e) => setTagSearchTerm(e.target.value)}
-                      className="pl-7 h-7 text-xs"
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
-                    {filteredTags.map((tag) => {
-                      const tagColor = tagsWithColors.get(tag) || '#6B7280';
-                      return (
-                        <Badge
-                          key={tag}
-                          variant={selectedTags.includes(tag) ? "default" : "outline"}
-                          className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
-                          onClick={() => toggleTag(tag)}
-                          style={{
-                            backgroundColor: selectedTags.includes(tag) ? tagColor : 'transparent',
-                            borderColor: tagColor,
-                            color: selectedTags.includes(tag) ? '#FFFFFF' : tagColor
-                          }}
-                        >
-                          {tag}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
           </>
         )}
       </div>
