@@ -209,6 +209,14 @@ export const ConversationList = ({
     return filtered;
   }, [clientes, searchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesComServicoParaFinalizar, unreadMessages]);
 
+  // Contagem de conversas não lidas (para os botões)
+  const unreadCount = useMemo(() => {
+    return clientes.filter(c => {
+      const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
+      return hasUnread && !showArchived;
+    }).length;
+  }, [clientes, unreadMessages, showArchived]);
+
   // ✅ Extrair tags únicas (memoizado)
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -686,15 +694,38 @@ export const ConversationList = ({
             <FilterDropdown
               statusFilter={statusFilter}
               conversaFilter={conversaFilter}
-              unreadFilter={unreadFilter}
               botFilter={botFilter}
               fichaFilter={fichaFilter}
               onStatusFilterChange={setStatusFilter}
               onConversaFilterChange={setConversaFilter}
-              onUnreadFilterChange={setUnreadFilter}
               onBotFilterChange={setBotFilter}
               onFichaFilterChange={setFichaFilter}
             />
+
+            {/* Botões Todas / Não Lidas */}
+            <div className="flex gap-1">
+              <Button
+                variant={unreadFilter === "todas" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUnreadFilter("todas")}
+                className="flex-1 h-8 text-xs"
+              >
+                Todas
+              </Button>
+              <Button
+                variant={unreadFilter === "nao_lidas" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUnreadFilter("nao_lidas")}
+                className="flex-1 h-8 text-xs gap-1"
+              >
+                Não Lidas
+                {unreadCount > 0 && (
+                  <Badge variant="secondary" className="h-5 px-1.5 text-xs ml-1">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </Button>
+            </div>
 
             {allTags.length > 0 && (
               <Collapsible open={tagsExpanded} onOpenChange={setTagsExpanded}>
