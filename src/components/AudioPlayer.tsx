@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+// Evento global para coordenar playback entre múltiplos AudioPlayers
+const STOP_ALL_AUDIO_EVENT = 'stopAllAudio';
+
 interface AudioPlayerProps {
   src: string;
   className?: string;
@@ -35,6 +38,22 @@ export const AudioPlayer = ({ src, className }: AudioPlayerProps) => {
     };
   }, []);
 
+  // Listener para parar quando outro áudio começar a tocar
+  useEffect(() => {
+    const handleStopAll = (e: CustomEvent) => {
+      const audio = audioRef.current;
+      if (audio && e.detail?.except !== audio) {
+        audio.pause();
+        setIsPlaying(false);
+      }
+    };
+
+    window.addEventListener(STOP_ALL_AUDIO_EVENT, handleStopAll as EventListener);
+    return () => {
+      window.removeEventListener(STOP_ALL_AUDIO_EVENT, handleStopAll as EventListener);
+    };
+  }, []);
+
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -42,6 +61,10 @@ export const AudioPlayer = ({ src, className }: AudioPlayerProps) => {
     if (isPlaying) {
       audio.pause();
     } else {
+      // Dispara evento para parar todos os outros áudios
+      window.dispatchEvent(new CustomEvent(STOP_ALL_AUDIO_EVENT, { 
+        detail: { except: audio } 
+      }));
       audio.play();
     }
     setIsPlaying(!isPlaying);
