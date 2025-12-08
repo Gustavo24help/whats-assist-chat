@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
+import { AudioRecorder } from "./AudioRecorder";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -165,6 +166,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [notasDialogOpen, setNotasDialogOpen] = useState(false);
   const [notasInternas, setNotasInternas] = useState("");
   const [hasNotas, setHasNotas] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   
   // Estados para busca no chat
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
@@ -745,6 +747,87 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     } catch (error) {
       console.error("Erro ao enviar mídia:", error);
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mídia");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Handler para áudio gravado
+  const handleAudioRecording = async (audioBlob: Blob) => {
+    if (statusConversa === "fechada") {
+      toast.error("Conversa fechada! Use templates aprovados para enviar mensagens.");
+      return;
+    }
+
+    // Auto-atribuir operador se ainda não atribuído
+    if (!atendenteAtual) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        await atribuirOperador(user.id, profile?.full_name || 'Você');
+      }
+    }
+
+    setUploading(true);
+    try {
+      // Determinar extensão baseado no mimeType
+      const mimeType = audioBlob.type;
+      let ext = 'webm';
+      if (mimeType.includes('ogg')) ext = 'ogg';
+      else if (mimeType.includes('mp4')) ext = 'm4a';
+      else if (mimeType.includes('mpeg')) ext = 'mp3';
+
+      const fileName = `audio_${Date.now()}.${ext}`;
+      const filePath = `chat-media/${clienteTelefone}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-files')
+        .upload(filePath, audioBlob, { contentType: mimeType });
+
+      if (uploadError) {
+        console.error("Erro ao fazer upload do áudio:", uploadError);
+        throw new Error("Erro ao fazer upload do áudio");
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('chat-files')
+        .getPublicUrl(filePath);
+
+      const mediaUrl = urlData.publicUrl;
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: {
+          to: clienteTelefone,
+          message: "",
+          mediaUrl: mediaUrl,
+          userId: user?.id,
+        },
+      });
+
+      if (error) {
+        console.error("Erro ao enviar áudio via Twilio:", error);
+        throw error;
+      }
+
+      if (!data.success) {
+        if (data.error === 'FORA_JANELA_24H') {
+          toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
+          return;
+        }
+        throw new Error(data.error || "Erro ao enviar áudio");
+      }
+
+      toast.success("Áudio enviado!");
+    } catch (error) {
+      console.error("Erro ao enviar áudio:", error);
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o áudio");
     } finally {
       setUploading(false);
     }
@@ -1520,6 +1603,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             >
               <Paperclip className="h-4 w-4" />
             </Button>
+
+            <AudioRecorder
+              onRecordingComplete={handleAudioRecording}
+              disabled={statusConversa === "fechada" || uploading || !!pendingFile}
+            />
             
             <Textarea
               ref={textareaRef}
