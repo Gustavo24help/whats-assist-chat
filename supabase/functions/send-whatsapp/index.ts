@@ -112,12 +112,21 @@ serve(async (req) => {
 
     console.log("Mensagem enviada com sucesso:", twilioData.sid);
 
+    // Detectar tipo de mídia baseado na URL
+    const getMediaType = (url: string): 'audio' | 'imagem' | 'video' | 'arquivo' => {
+      const lower = url.toLowerCase();
+      if (lower.match(/\.(ogg|opus|mp3|m4a|aac|amr|3gp|wav|webm)(\?|$)/)) return 'audio';
+      if (lower.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/)) return 'imagem';
+      if (lower.match(/\.(mp4|mov|avi)(\?|$)/)) return 'video';
+      return 'arquivo';
+    };
+
     // Salvar mensagem no banco (usando telefone como PK de clientes)
     const { error: insertError } = await supabase.from('mensagens').insert({
       cliente_id: to,
       remetente: 'atendente',
       texto: message,
-      tipo: mediaUrl ? 'arquivo' : 'texto',
+      tipo: mediaUrl ? getMediaType(mediaUrl) : 'texto',
       arquivo_url: mediaUrl || null,
       status: 'enviado',
       data_hora: new Date().toISOString(),

@@ -28,17 +28,18 @@ export const AudioRecorder = ({ onRecordingComplete, disabled }: AudioRecorderPr
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      // Tentar usar webm, fallback para outros formatos
-      let mimeType = 'audio/webm;codecs=opus';
+      // Priorizar OGG/Opus (compatível com WhatsApp), fallback para outros
+      let mimeType = 'audio/ogg;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/webm';
+        mimeType = 'audio/mp4';
         if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'audio/ogg;codecs=opus';
+          mimeType = 'audio/webm;codecs=opus';
           if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = 'audio/mp4';
+            mimeType = 'audio/webm';
           }
         }
       }
+      console.log('🎤 Usando formato de áudio:', mimeType);
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       

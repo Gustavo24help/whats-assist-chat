@@ -777,10 +777,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     try {
       // Determinar extensão baseado no mimeType
       const mimeType = audioBlob.type;
-      let ext = 'webm';
-      if (mimeType.includes('ogg')) ext = 'ogg';
-      else if (mimeType.includes('mp4')) ext = 'm4a';
-      else if (mimeType.includes('mpeg')) ext = 'mp3';
+      let ext = 'ogg'; // Default para OGG (compatível com WhatsApp)
+      if (mimeType.includes('mp4') || mimeType.includes('m4a')) ext = 'm4a';
+      else if (mimeType.includes('mpeg') || mimeType.includes('mp3')) ext = 'mp3';
+      else if (mimeType.includes('webm')) ext = 'webm';
+      else if (mimeType.includes('ogg') || mimeType.includes('opus')) ext = 'ogg';
 
       const fileName = `audio_${Date.now()}.${ext}`;
       const filePath = `chat-media/${clienteTelefone}/${fileName}`;
