@@ -1,7 +1,41 @@
-import lamejs from 'lamejs';
+// Carrega lamejs do CDN dinamicamente
+let lamejsLoaded = false;
+let lamejsPromise: Promise<void> | null = null;
+
+const loadLamejs = (): Promise<void> => {
+  if (lamejsLoaded) return Promise.resolve();
+  if (lamejsPromise) return lamejsPromise;
+  
+  lamejsPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js';
+    script.onload = () => {
+      lamejsLoaded = true;
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Falha ao carregar conversor de áudio'));
+    document.head.appendChild(script);
+  });
+  
+  return lamejsPromise;
+};
+
+declare global {
+  interface Window {
+    lamejs: {
+      Mp3Encoder: new (channels: number, sampleRate: number, kbps: number) => {
+        encodeBuffer: (samples: Int16Array) => Int8Array;
+        flush: () => Int8Array;
+      };
+    };
+  }
+}
 
 export const convertToMp3 = async (audioBlob: Blob): Promise<Blob> => {
   console.log('🔄 Iniciando conversão para MP3...');
+  
+  // Carregar lamejs se necessário
+  await loadLamejs();
   
   // Decodificar o áudio original
   const audioContext = new AudioContext();
@@ -13,7 +47,7 @@ export const convertToMp3 = async (audioBlob: Blob): Promise<Blob> => {
   const sampleRate = audioBuffer.sampleRate;
   const kbps = 128;
   
-  const mp3Encoder = new lamejs.Mp3Encoder(channels, sampleRate, kbps);
+  const mp3Encoder = new window.lamejs.Mp3Encoder(channels, sampleRate, kbps);
   
   // Converter samples para Int16
   const samples = audioBuffer.getChannelData(0);
@@ -31,7 +65,6 @@ export const convertToMp3 = async (audioBlob: Blob): Promise<Blob> => {
     
     const mp3buf = mp3Encoder.encodeBuffer(int16Samples);
     if (mp3buf.length > 0) {
-      // Copy to new Uint8Array to avoid SharedArrayBuffer issues
       const copy = new Uint8Array(mp3buf.length);
       copy.set(mp3buf);
       mp3Data.push(copy);
@@ -48,7 +81,7 @@ export const convertToMp3 = async (audioBlob: Blob): Promise<Blob> => {
   
   await audioContext.close();
   
-  // Concatenar todos os chunks em um único Uint8Array
+  // Concatenar todos os chunks
   const totalLength = mp3Data.reduce((acc, arr) => acc + arr.length, 0);
   const result = new Uint8Array(totalLength);
   let offset = 0;
