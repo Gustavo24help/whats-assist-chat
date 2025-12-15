@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.check-orcamento-forms]
 verify_jwt = false
+
+[functions.update-pagamento]
+verify_jwt = false
