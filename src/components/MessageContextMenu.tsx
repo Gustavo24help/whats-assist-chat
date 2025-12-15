@@ -52,13 +52,24 @@ export const MessageContextMenu = ({ children, messageText, fichaId, messageData
     }
   };
 
+  // Remove timestamp patterns from text (e.g., "14:30", "9:05", etc.)
+  const removeTimestamp = (text: string): string => {
+    // Remove patterns like "14:30" at the start or end of the message
+    // Also handles patterns with brackets like "[14:30]" or "(14:30)"
+    return text
+      .replace(/^\s*\[?\d{1,2}:\d{2}\]?\s*/g, '') // Start of message
+      .replace(/\s*\[?\d{1,2}:\d{2}\]?\s*$/g, '') // End of message
+      .trim();
+  };
+
   const handleFillField = async (fieldId: string, fieldLabel: string) => {
     if (!fichaId) {
       toast.error("Nenhuma ficha ativa encontrada");
       return;
     }
 
-    const textToFill = selectedText || messageText;
+    // If text is selected, use it as-is. Otherwise, remove timestamp from full message
+    const textToFill = selectedText || removeTimestamp(messageText);
     
     try {
       const { error } = await supabase
