@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot } from "lucide-react";
+import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot, Check, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,8 @@ interface ConversationCardProps {
   orcamentosCount?: number;
   atendenteNome?: string | null;
   temServicoParaFinalizar?: boolean;
+  pagamentoLink?: string | null;
+  pagamentoRealizado?: boolean;
 }
 
 const getStatusColor = (status: string) => {
@@ -80,7 +82,9 @@ export const ConversationCard = ({
   botDesligadoManualmente = false,
   orcamentosCount = 0,
   atendenteNome,
-  temServicoParaFinalizar = false
+  temServicoParaFinalizar = false,
+  pagamentoLink,
+  pagamentoRealizado = false
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -203,6 +207,14 @@ export const ConversationCard = ({
               <div className={cn("w-2 h-2 rounded-full shrink-0", getStatusColor(fichaStatus))} />
               <span className="text-xs text-muted-foreground truncate">{fichaStatus}</span>
             </div>
+          )}
+          {/* Indicador de pagamento - só mostra se tem link de pagamento */}
+          {pagamentoLink && fichaStatus === "Finalizado" && (
+            pagamentoRealizado ? (
+              <Check className="h-4 w-4 text-green-600 shrink-0" />
+            ) : (
+              <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+            )
           )}
           {orcamentosCount > 0 && (
             <Badge variant="secondary" className="text-xs h-5 px-1.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700">

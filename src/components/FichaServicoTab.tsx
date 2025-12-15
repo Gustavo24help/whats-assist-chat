@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock, X } from "lucide-react";
+import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock, X, Copy, Check, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import debounce from "lodash-es/debounce";
 
@@ -33,6 +33,8 @@ interface Ficha {
   pagamento_tipo: string | null;
   pagamento_parcelas: number;
   pagamento_gerar_link: boolean;
+  pagamento_link: string | null;
+  pagamento_realizado: boolean;
   notas: string | null;
   categoria_id: number | null;
   id_zoho: string | null;
@@ -203,6 +205,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         pagamento_gerar_link: fichaData.pagamento_gerar_link ? "Sim" : "Não",
         pagamento_tipo: fichaData.pagamento_tipo,
         pagamento_parcelas: fichaData.pagamento_parcelas,
+        pagamento_link: fichaData.pagamento_link,
+        pagamento_realizado: fichaData.pagamento_realizado,
         // Outros
         id_zoho: fichaData.id_zoho,
         notas: fichaData.notas,
@@ -304,6 +308,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         pagamento_tipo: fichaData.pagamento_tipo as any,
         pagamento_parcelas: fichaData.pagamento_parcelas,
         pagamento_gerar_link: fichaData.pagamento_gerar_link,
+        pagamento_link: fichaData.pagamento_link?.trim() || null,
+        pagamento_realizado: fichaData.pagamento_realizado,
         notas: fichaData.notas?.trim() || null,
         categoria_id: fichaData.categoria_id,
         id_zoho: fichaData.id_zoho?.trim() || null,
@@ -1191,10 +1197,61 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-primary" />
               <span className="font-medium text-sm text-gray-700">Pagamento</span>
+              {ficha?.pagamento_link && (
+                ficha?.pagamento_realizado ? (
+                  <span className="ml-auto flex items-center gap-1 text-xs font-medium text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+                    <Check className="h-3 w-3" /> Pago
+                  </span>
+                ) : ficha?.status === 'Finalizado' ? (
+                  <span className="ml-auto flex items-center gap-1 text-xs font-medium text-red-600 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded-full">
+                    <XCircle className="h-3 w-3" /> Pendente
+                  </span>
+                ) : null
+              )}
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-2.5 pb-2.5">
             <div className="space-y-2 w-full">
+              <div>
+                <Label htmlFor="pagamento_link" className="text-xs font-medium text-gray-600">Link de Pagamento</Label>
+                <div className="flex gap-1 mt-1">
+                  <Input
+                    id="pagamento_link"
+                    value={ficha?.pagamento_link || ""}
+                    onChange={(e) => updateFicha({ pagamento_link: e.target.value })}
+                    placeholder="https://www.asaas.com/c/..."
+                    className="h-9 text-sm focus:ring-2 focus:ring-primary/20 flex-1"
+                  />
+                  {ficha?.pagamento_link && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 shrink-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(ficha.pagamento_link || '');
+                        toast.success("Link copiado!");
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="pagamento_realizado"
+                  checked={ficha?.pagamento_realizado ?? false}
+                  onCheckedChange={(checked) => updateFicha({ pagamento_realizado: checked as boolean })}
+                />
+                <Label htmlFor="pagamento_realizado" className="cursor-pointer text-xs font-medium text-gray-600">
+                  Pagamento Realizado
+                </Label>
+                {ficha?.pagamento_realizado && (
+                  <Check className="h-4 w-4 text-green-600" />
+                )}
+              </div>
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="pagamento_gerar_link"
