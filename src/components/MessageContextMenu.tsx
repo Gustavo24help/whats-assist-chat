@@ -42,24 +42,23 @@ const FIELD_GROUPS = {
 export const MessageContextMenu = ({ children, messageText, fichaId, messageData }: MessageContextMenuProps) => {
   const [selectedText, setSelectedText] = useState("");
 
-  const handleCopyText = () => {
-    if (selectedText) {
-      navigator.clipboard.writeText(selectedText);
-      toast.success("Texto copiado!");
-    } else {
-      navigator.clipboard.writeText(messageText);
-      toast.success("Mensagem copiada!");
-    }
+  // Clean text by removing all timestamps and normalizing spaces
+  const cleanMultiMessageText = (text: string): string => {
+    return text
+      // Remove timestamps in any position (14:30, 9:05, etc)
+      .replace(/\b\d{1,2}:\d{2}\b/g, '')
+      // Replace newlines with space
+      .replace(/[\r\n]+/g, ' ')
+      // Remove multiple spaces
+      .replace(/\s+/g, ' ')
+      .trim();
   };
 
-  // Remove timestamp patterns from text (e.g., "14:30", "9:05", etc.)
-  const removeTimestamp = (text: string): string => {
-    // Remove patterns like "14:30" at the start or end of the message
-    // Also handles patterns with brackets like "[14:30]" or "(14:30)"
-    return text
-      .replace(/^\s*\[?\d{1,2}:\d{2}\]?\s*/g, '') // Start of message
-      .replace(/\s*\[?\d{1,2}:\d{2}\]?\s*$/g, '') // End of message
-      .trim();
+  const handleCopyText = () => {
+    const textToClean = selectedText || messageText;
+    const cleanedText = cleanMultiMessageText(textToClean);
+    navigator.clipboard.writeText(cleanedText);
+    toast.success(selectedText ? "Texto copiado!" : "Mensagem copiada!");
   };
 
   const handleFillField = async (fieldId: string, fieldLabel: string) => {
@@ -68,8 +67,8 @@ export const MessageContextMenu = ({ children, messageText, fichaId, messageData
       return;
     }
 
-    // If text is selected, use it as-is. Otherwise, remove timestamp from full message
-    const textToFill = selectedText || removeTimestamp(messageText);
+    // Clean text by removing timestamps and normalizing spaces
+    const textToFill = cleanMultiMessageText(selectedText || messageText);
     
     try {
       const { error } = await supabase
