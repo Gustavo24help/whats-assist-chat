@@ -1440,6 +1440,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onCopy={(e) => {
+          const selection = window.getSelection()?.toString();
+          if (selection) {
+            e.preventDefault();
+            // Clean timestamps and normalize spaces
+            const cleanedText = selection
+              .replace(/\b\d{1,2}:\d{2}\b/g, '')
+              .replace(/[\r\n]+/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+            e.clipboardData?.setData('text/plain', cleanedText);
+          }
+        }}
       >
         {/* Drag overlay */}
         {isDragging && (
