@@ -209,8 +209,8 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         await supabase.functions.invoke("toggle-bot-status", {
           body: {
             telefone: clienteTelefone,
-            bot_status: false,
-            origem: "template_enviado"
+            bot_status: 'disabled',
+            origem: 'manual'
           },
         });
         console.log("🤖 Bot desativado automaticamente após envio de template");
