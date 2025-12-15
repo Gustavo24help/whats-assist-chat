@@ -92,12 +92,16 @@ export const MensagensPadronizadasDropdown = ({
       // Substituir nome do prestador
       const prestadorNome = fichaData.prestadores?.nome || "";
       resultado = resultado.replace(/\[prestador_nome\]/g, prestadorNome);
+      
+      // Substituir link de pagamento
+      resultado = resultado.replace(/\[pagamento_link\]/g, fichaData.pagamento_link || "");
     } else {
       // Se não houver ficha, substituir por placeholders
       resultado = resultado.replace(/\[nome_ficha\]/g, "[Nome da ficha não disponível]");
       resultado = resultado.replace(/\[status_ficha\]/g, "[Status não disponível]");
       resultado = resultado.replace(/\[valor_total\]/g, "[Valor não disponível]");
       resultado = resultado.replace(/\[prestador_nome\]/g, "[Prestador não disponível]");
+      resultado = resultado.replace(/\[pagamento_link\]/g, "[Link não disponível]");
     }
 
     return resultado;
@@ -124,7 +128,7 @@ export const MensagensPadronizadasDropdown = ({
           <FileText className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0" align="start">
+      <PopoverContent className="w-96 p-0 z-50 bg-popover" align="start" onWheel={(e) => e.stopPropagation()}>
         <div className="p-3 border-b">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
