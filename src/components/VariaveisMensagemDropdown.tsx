@@ -33,6 +33,7 @@ const variaveis = [
       { nome: "Descrição", variavel: "[descricao]" },
       { nome: "CPF", variavel: "[cpf]" },
       { nome: "Data de Agendamento", variavel: "[horario_agendamento]" },
+      { nome: "Link de Pagamento", variavel: "[pagamento_link]" },
     ],
   },
   {
@@ -61,7 +62,7 @@ export const VariaveisMensagemDropdown = ({
           Inserir Variável
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
+      <PopoverContent className="w-80 p-0 z-50 bg-popover" align="start" onWheel={(e) => e.stopPropagation()}>
         <div className="p-3 border-b">
           <h4 className="font-semibold text-sm">Variáveis Disponíveis</h4>
           <p className="text-xs text-muted-foreground mt-1">
