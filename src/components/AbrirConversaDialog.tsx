@@ -204,8 +204,23 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         throw new Error(data?.error || "Erro ao enviar template");
       }
 
+      // Desativar o bot automaticamente após enviar template
+      try {
+        await supabase.functions.invoke("toggle-bot-status", {
+          body: {
+            telefone: clienteTelefone,
+            bot_status: false,
+            origem: "template_enviado"
+          },
+        });
+        console.log("🤖 Bot desativado automaticamente após envio de template");
+      } catch (botError) {
+        console.error("Erro ao desativar bot:", botError);
+        // Não bloqueia o sucesso do envio do template
+      }
+
       toast.success("✅ Template enviado com sucesso!", {
-        description: `Enviado para ${clienteNome}`
+        description: `Enviado para ${clienteNome} (bot desativado)`
       });
       setOpen(false);
       setSelectedTemplate(null);
