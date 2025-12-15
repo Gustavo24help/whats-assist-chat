@@ -27,6 +27,8 @@ interface Cliente {
   bot_desligado_manualmente?: boolean;
   marcado_nao_lido?: boolean;
   orcamentos_count?: number;
+  pagamento_link?: string | null;
+  pagamento_realizado?: boolean;
 }
 
 interface ConversationListProps {
@@ -53,6 +55,7 @@ export const ConversationList = ({
   const [unreadFilter, setUnreadFilter] = useState<"todas" | "lidas" | "nao_lidas">("todas");
   const [botFilter, setBotFilter] = useState<"todos" | "ativo" | "desativado">("todos");
   const [fichaFilter, setFichaFilter] = useState<"todas" | "com_ficha" | "sem_ficha">("todas");
+  const [pagamentoFilter, setPagamentoFilter] = useState<"todos" | "pago" | "nao_pago" | "pendente_finalizado">("todos");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [currentTagClient, setCurrentTagClient] = useState<string | null>(null);
@@ -206,8 +209,27 @@ export const ConversationList = ({
       });
     }
 
+    // Filtro por pagamento
+    if (pagamentoFilter !== "todos") {
+      filtered = filtered.filter(c => {
+        // Só aplica filtro se tem link de pagamento
+        if (!c.pagamento_link) {
+          return false; // Sem link não aparece em nenhum filtro específico
+        }
+        
+        if (pagamentoFilter === "pago") {
+          return c.pagamento_realizado === true;
+        } else if (pagamentoFilter === "nao_pago") {
+          return c.pagamento_realizado === false;
+        } else if (pagamentoFilter === "pendente_finalizado") {
+          return c.status_ficha === "Finalizado" && c.pagamento_realizado === false;
+        }
+        return true;
+      });
+    }
+
     return filtered;
-  }, [clientes, searchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesComServicoParaFinalizar, unreadMessages]);
+  }, [clientes, searchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesComServicoParaFinalizar, unreadMessages]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -393,7 +415,7 @@ export const ConversationList = ({
       
       const { data: fichasAtivas } = await supabase
         .from('fichas_de_servico')
-        .select('id, nome_ficha, status')
+        .select('id, nome_ficha, status, pagamento_link, pagamento_realizado')
         .in('id', fichasAtivasIds);
 
       const fichasAtivasMap = new Map();
@@ -406,7 +428,7 @@ export const ConversationList = ({
       
       const { data: ultimasFichas } = await supabase
         .from('fichas_de_servico')
-        .select('id, telefone_cliente, nome_ficha, status, created_at')
+        .select('id, telefone_cliente, nome_ficha, status, created_at, pagamento_link, pagamento_realizado')
         .in('telefone_cliente', telefonesSeficha)
         .order('created_at', { ascending: false });
 
@@ -474,7 +496,9 @@ export const ConversationList = ({
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
           bot_desligado_manualmente: cliente.bot_desligado_manualmente,
           marcado_nao_lido: cliente.marcado_nao_lido,
-          orcamentos_count: orcamentosCount
+          orcamentos_count: orcamentosCount,
+          pagamento_link: (fichaData as any)?.pagamento_link || null,
+          pagamento_realizado: (fichaData as any)?.pagamento_realizado || false
         };
       });
 
@@ -698,10 +722,12 @@ export const ConversationList = ({
                 conversaFilter={conversaFilter}
                 botFilter={botFilter}
                 fichaFilter={fichaFilter}
+                pagamentoFilter={pagamentoFilter}
                 onStatusFilterChange={setStatusFilter}
                 onConversaFilterChange={setConversaFilter}
                 onBotFilterChange={setBotFilter}
                 onFichaFilterChange={setFichaFilter}
+                onPagamentoFilterChange={setPagamentoFilter}
               />
               
               {allTags.length > 0 && (
@@ -836,6 +862,8 @@ export const ConversationList = ({
                   orcamentosCount={cliente.orcamentos_count}
                   atendenteNome={(cliente as any).atendente?.full_name}
                   temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
+                  pagamentoLink={cliente.pagamento_link}
+                  pagamentoRealizado={cliente.pagamento_realizado}
                 />
               ))
             )}

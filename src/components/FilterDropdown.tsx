@@ -17,10 +17,12 @@ interface FilterDropdownProps {
   conversaFilter: "todas" | "aberta" | "fechada";
   botFilter: "todos" | "ativo" | "desativado";
   fichaFilter: "todas" | "com_ficha" | "sem_ficha";
+  pagamentoFilter: "todos" | "pago" | "nao_pago" | "pendente_finalizado";
   onStatusFilterChange: (value: string) => void;
   onConversaFilterChange: (value: "todas" | "aberta" | "fechada") => void;
   onBotFilterChange: (value: "todos" | "ativo" | "desativado") => void;
   onFichaFilterChange: (value: "todas" | "com_ficha" | "sem_ficha") => void;
+  onPagamentoFilterChange: (value: "todos" | "pago" | "nao_pago" | "pendente_finalizado") => void;
 }
 
 export const FilterDropdown = ({
@@ -28,10 +30,12 @@ export const FilterDropdown = ({
   conversaFilter,
   botFilter,
   fichaFilter,
+  pagamentoFilter,
   onStatusFilterChange,
   onConversaFilterChange,
   onBotFilterChange,
   onFichaFilterChange,
+  onPagamentoFilterChange,
 }: FilterDropdownProps) => {
   const [open, setOpen] = useState(false);
 
@@ -42,6 +46,7 @@ export const FilterDropdown = ({
     if (conversaFilter !== "todas") count++;
     if (botFilter !== "todos") count++;
     if (fichaFilter !== "todas") count++;
+    if (pagamentoFilter !== "todos") count++;
     return count;
   };
 
@@ -52,6 +57,7 @@ export const FilterDropdown = ({
     onConversaFilterChange("todas");
     onBotFilterChange("todos");
     onFichaFilterChange("todas");
+    onPagamentoFilterChange("todos");
   };
 
   return (
@@ -173,6 +179,29 @@ export const FilterDropdown = ({
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="Finalizado" id="status-finalizado" />
                       <Label htmlFor="status-finalizado" className="text-sm cursor-pointer">Finalizado</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* Status de Pagamento */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-xs">Pagamento</h4>
+                  <RadioGroup value={pagamentoFilter} onValueChange={onPagamentoFilterChange}>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="todos" id="pagamento-todos" />
+                      <Label htmlFor="pagamento-todos" className="text-sm cursor-pointer">Todos</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="pago" id="pagamento-pago" />
+                      <Label htmlFor="pagamento-pago" className="text-sm cursor-pointer">Pago</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="nao_pago" id="pagamento-nao-pago" />
+                      <Label htmlFor="pagamento-nao-pago" className="text-sm cursor-pointer">Não Pago</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="pendente_finalizado" id="pagamento-pendente" />
+                      <Label htmlFor="pagamento-pendente" className="text-sm cursor-pointer">Pendente (Finalizado)</Label>
                     </div>
                   </RadioGroup>
                 </div>

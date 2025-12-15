@@ -183,7 +183,9 @@ export type Database = {
           nome_ficha: string | null
           notas: string | null
           pagamento_gerar_link: boolean | null
+          pagamento_link: string | null
           pagamento_parcelas: number | null
+          pagamento_realizado: boolean | null
           pagamento_tipo:
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
@@ -216,7 +218,9 @@ export type Database = {
           nome_ficha?: string | null
           notas?: string | null
           pagamento_gerar_link?: boolean | null
+          pagamento_link?: string | null
           pagamento_parcelas?: number | null
+          pagamento_realizado?: boolean | null
           pagamento_tipo?:
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
@@ -249,7 +253,9 @@ export type Database = {
           nome_ficha?: string | null
           notas?: string | null
           pagamento_gerar_link?: boolean | null
+          pagamento_link?: string | null
           pagamento_parcelas?: number | null
+          pagamento_realizado?: boolean | null
           pagamento_tipo?:
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
