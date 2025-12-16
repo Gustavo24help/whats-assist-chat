@@ -199,17 +199,25 @@ serve(async (req) => {
     });
     
     // Coletar todas as mídias (até 10 arquivos)
+    // NÃO confiar em NumMedia - verificar diretamente se MediaUrl{i} existe
+    // pois o Twilio às vezes envia NumMedia: "0" mesmo quando há mídia
     const mediaUrls: string[] = [];
     const mediaTypes: string[] = [];
-    const numMediaInt = parseInt(numMedia || '0');
     
-    for (let i = 0; i < numMediaInt; i++) {
-      const mediaUrl = formData.get(`MediaUrl${i}`) as string;
-      const mediaType = formData.get(`MediaContentType${i}`) as string;
-      if (mediaUrl) {
+    for (let i = 0; i < 10; i++) {  // Twilio suporta até 10 mídias por mensagem
+      const mediaUrl = (allFields[`MediaUrl${i}`] || formData.get(`MediaUrl${i}`)) as string;
+      const mediaType = (allFields[`MediaContentType${i}`] || formData.get(`MediaContentType${i}`)) as string;
+      
+      if (mediaUrl && mediaUrl.trim()) {
         mediaUrls.push(mediaUrl);
         mediaTypes.push(mediaType || 'unknown');
+        console.log(`📷 Mídia ${i} encontrada:`, { url: mediaUrl.substring(0, 80), type: mediaType });
       }
+    }
+    
+    // Log para debug
+    if (mediaUrls.length > 0) {
+      console.log(`📷 Total de mídias detectadas: ${mediaUrls.length} (NumMedia informado: ${numMedia})`);
     }
 
     // 📝 Construir texto da mensagem (incluindo botões se houver)
