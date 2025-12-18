@@ -14,9 +14,12 @@ import {
   CheckCircle2, 
   Clock,
   TrendingUp,
-  Settings2
+  Settings2,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
 type FichaDeServico = Database["public"]["Tables"]["fichas_de_servico"]["Row"];
@@ -54,7 +57,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
   "pendente": { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/30" },
 };
 
-const STORAGE_KEY = "fichas-status-visibility";
+const CONFIG_KEY = "fichas_status_ocultos";
 
 export const FichasDashboard = ({ 
   fichas, 
@@ -65,28 +68,74 @@ export const FichasDashboard = ({
   selectedPagamento
 }: FichasDashboardProps) => {
   const [hiddenStatuses, setHiddenStatuses] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Carregar preferências do localStorage
+  // Carregar preferências do banco de dados
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+    const loadSettings = async () => {
       try {
-        setHiddenStatuses(JSON.parse(saved));
-      } catch {
-        setHiddenStatuses([]);
+        const { data, error } = await supabase
+          .from("configuracoes")
+          .select("valor")
+          .eq("chave", CONFIG_KEY)
+          .maybeSingle();
+
+        if (error) throw error;
+        
+        if (data?.valor) {
+          setHiddenStatuses(JSON.parse(data.valor));
+        }
+      } catch (err) {
+        console.error("Erro ao carregar configurações:", err);
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+
+    loadSettings();
   }, []);
 
-  // Salvar preferências no localStorage
+  // Salvar preferências no banco de dados
+  const saveSettings = async (newHidden: string[]) => {
+    setIsSaving(true);
+    try {
+      const { data: existing } = await supabase
+        .from("configuracoes")
+        .select("id")
+        .eq("chave", CONFIG_KEY)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("configuracoes")
+          .update({ valor: JSON.stringify(newHidden), updated_at: new Date().toISOString() })
+          .eq("chave", CONFIG_KEY);
+      } else {
+        await supabase
+          .from("configuracoes")
+          .insert({ 
+            chave: CONFIG_KEY, 
+            valor: JSON.stringify(newHidden),
+            descricao: "Status ocultos na distribuição de fichas"
+          });
+      }
+    } catch (err) {
+      console.error("Erro ao salvar configurações:", err);
+      toast.error("Erro ao salvar configurações");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Toggle status visibility
   const toggleStatusVisibility = (status: string) => {
-    setHiddenStatuses(prev => {
-      const newHidden = prev.includes(status)
-        ? prev.filter(s => s !== status)
-        : [...prev, status];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newHidden));
-      return newHidden;
-    });
+    const newHidden = hiddenStatuses.includes(status)
+      ? hiddenStatuses.filter(s => s !== status)
+      : [...hiddenStatuses, status];
+    
+    setHiddenStatuses(newHidden);
+    saveSettings(newHidden);
   };
 
   // Calcular métricas
@@ -236,37 +285,47 @@ export const FichasDashboard = ({
               <PopoverContent className="w-72 p-3 bg-popover border shadow-lg z-50" align="start">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">Configurar Status Visíveis</h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-semibold">Configurar Status Visíveis</h4>
+                      {isSaving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                    </div>
                     <Badge variant="outline" className="text-[10px]">
                       {visibleStatusEntries.length}/{metrics.statusEntries.length}
                     </Badge>
                   </div>
-                  <div className="max-h-64 overflow-y-auto space-y-1">
-                    {metrics.statusEntries.map(([status, count]) => {
-                      const colors = STATUS_COLORS[status] || STATUS_COLORS["pendente"];
-                      const isVisible = !hiddenStatuses.includes(status);
-                      
-                      return (
-                        <label
-                          key={status}
-                          className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
-                        >
-                          <Checkbox
-                            checked={isVisible}
-                            onCheckedChange={() => toggleStatusVisibility(status)}
-                          />
-                          <div className="flex-1 flex items-center justify-between">
-                            <span className={cn("text-xs font-medium", colors.text)}>
-                              {status}
-                            </span>
-                            <Badge variant="secondary" className="text-[10px] px-1.5">
-                              {count}
-                            </Badge>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="max-h-64 overflow-y-auto space-y-1">
+                      {metrics.statusEntries.map(([status, count]) => {
+                        const colors = STATUS_COLORS[status] || STATUS_COLORS["pendente"];
+                        const isVisible = !hiddenStatuses.includes(status);
+                        
+                        return (
+                          <label
+                            key={status}
+                            className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={isVisible}
+                              onCheckedChange={() => toggleStatusVisibility(status)}
+                              disabled={isSaving}
+                            />
+                            <div className="flex-1 flex items-center justify-between">
+                              <span className={cn("text-xs font-medium", colors.text)}>
+                                {status}
+                              </span>
+                              <Badge variant="secondary" className="text-[10px] px-1.5">
+                                {count}
+                              </Badge>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </PopoverContent>
             </Popover>
