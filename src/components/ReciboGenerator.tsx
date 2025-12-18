@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Send, Eye, RefreshCw, Loader2 } from "lucide-react";
+import { FileText, Send, Eye, RefreshCw, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { jsPDF } from "jspdf";
 import { valorPorExtenso } from "@/lib/valorPorExtenso";
-import logoBase64 from "@/assets/logo-24help.png";
 
 interface ReciboGeneratorProps {
   fichaId: string;
@@ -14,10 +13,16 @@ interface ReciboGeneratorProps {
   valorTotal: number;
   descricao: string | null;
   pagamentoRealizado: boolean;
+  pagamentoTipo: string | null;
   telefoneCliente: string;
   reciboUrl: string | null;
   onReciboGenerated: (url: string) => void;
 }
+
+// Cores
+const VERDE_24HELP = [0, 100, 60]; // RGB verde escuro
+const CINZA_ESCURO = [60, 60, 60];
+const CINZA_CLARO = [120, 120, 120];
 
 export const ReciboGenerator = ({
   fichaId,
@@ -26,6 +31,7 @@ export const ReciboGenerator = ({
   valorTotal,
   descricao,
   pagamentoRealizado,
+  pagamentoTipo,
   telefoneCliente,
   reciboUrl,
   onReciboGenerated,
@@ -55,6 +61,18 @@ export const ReciboGenerator = ({
     return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
+  const formatarTipoPagamento = (tipo: string | null): string => {
+    const tipos: Record<string, string> = {
+      'pix': 'PIX',
+      'cartao_credito': 'Cartão de Crédito',
+      'cartao_debito': 'Cartão de Débito',
+      'dinheiro': 'Dinheiro',
+      'boleto': 'Boleto',
+      'transferencia': 'Transferência'
+    };
+    return tipo ? tipos[tipo] || tipo : 'Não informado';
+  };
+
   const gerarReciboPDF = async (): Promise<Blob> => {
     const doc = new jsPDF({
       orientation: 'portrait',
@@ -64,117 +82,152 @@ export const ReciboGenerator = ({
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
-    let y = 20;
+    let y = 25;
 
-    // Carregar logo como base64
-    try {
-      const img = new Image();
-      img.src = logoBase64;
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve;
-      });
-      
-      // Logo centralizado
-      const logoWidth = 50;
-      const logoHeight = 20;
-      doc.addImage(img, 'PNG', (pageWidth - logoWidth) / 2, y, logoWidth, logoHeight);
-      y += logoHeight + 10;
-    } catch (err) {
-      console.warn('Não foi possível carregar o logo:', err);
-      y += 10;
-    }
-
-    // Linha verde com "RECIBO"
-    doc.setFillColor(34, 139, 34); // Verde
-    doc.rect(margin, y, pageWidth - 2 * margin, 10, 'F');
+    // ========== HEADER ==========
+    
+    // Logo 24help (texto estilizado como fallback)
+    doc.setTextColor(VERDE_24HELP[0], VERDE_24HELP[1], VERDE_24HELP[2]);
+    doc.setFontSize(28);
+    doc.setFont('helvetica', 'bold');
+    doc.text('24help', margin, y);
+    
+    // Barra verde com "RECIBO"
+    const barraY = y - 8;
+    const barraHeight = 12;
+    const barraWidth = 50;
+    doc.setFillColor(VERDE_24HELP[0], VERDE_24HELP[1], VERDE_24HELP[2]);
+    doc.rect(pageWidth - margin - barraWidth, barraY, barraWidth, barraHeight, 'F');
+    
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('RECIBO', pageWidth - margin - 5, y + 7, { align: 'right' });
+    doc.text('RECIBO', pageWidth - margin - barraWidth / 2, barraY + 8, { align: 'center' });
+    
     y += 15;
 
-    // Dados da empresa
-    doc.setTextColor(0, 0, 0);
+    // ========== DADOS DA EMPRESA E VALOR ==========
+    
+    // Empresa (lado esquerdo)
+    doc.setTextColor(CINZA_ESCURO[0], CINZA_ESCURO[1], CINZA_ESCURO[2]);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('24HELP INTERMEDIACAO E GESTAO DE SERVICOS', margin, y);
     y += 5;
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
     doc.text('CNPJ: 85.016.434/0001-32', margin, y);
-    y += 15;
-
-    // Valor em destaque (lado direito)
-    doc.setFontSize(24);
+    
+    // Valor (lado direito, destacado)
+    doc.setTextColor(VERDE_24HELP[0], VERDE_24HELP[1], VERDE_24HELP[2]);
+    doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(34, 139, 34);
-    doc.text(formatarValor(valorTotal), pageWidth - margin, y, { align: 'right' });
-    y += 8;
-
+    doc.text(formatarValor(valorTotal), pageWidth - margin, y - 3, { align: 'right' });
+    
+    y += 12;
+    
     // Valor por extenso
+    doc.setTextColor(CINZA_CLARO[0], CINZA_CLARO[1], CINZA_CLARO[2]);
     doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
     doc.setFont('helvetica', 'italic');
     const extenso = valorPorExtenso(valorTotal);
-    doc.text(`(${extenso})`, pageWidth - margin, y, { align: 'right' });
+    doc.text(extenso, pageWidth - margin, y, { align: 'right' });
+    
+    y += 20;
+
+    // ========== LINHA DIVISÓRIA ==========
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
     y += 15;
 
-    // Selo PAGO se pagamento realizado
-    if (pagamentoRealizado) {
-      doc.setFontSize(20);
-      doc.setTextColor(34, 139, 34);
-      doc.setFont('helvetica', 'bold');
-      doc.text('PAGO', pageWidth - margin - 30, y - 10);
-      // Desenhar círculo ao redor
-      doc.setDrawColor(34, 139, 34);
-      doc.setLineWidth(1);
-      doc.circle(pageWidth - margin - 20, y - 15, 15, 'S');
-    }
-
-    // Recebemos de
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(11);
+    // ========== RECEBEMOS DE ==========
+    doc.setTextColor(CINZA_ESCURO[0], CINZA_ESCURO[1], CINZA_ESCURO[2]);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('Recebemos de:', margin, y);
+    
+    // Selo PAGO (se aplicável)
+    if (pagamentoRealizado) {
+      const seloX = pageWidth - margin - 25;
+      const seloY = y - 5;
+      
+      // Círculo do selo
+      doc.setDrawColor(VERDE_24HELP[0], VERDE_24HELP[1], VERDE_24HELP[2]);
+      doc.setLineWidth(2);
+      doc.circle(seloX, seloY + 5, 12, 'S');
+      
+      // Texto PAGO
+      doc.setTextColor(VERDE_24HELP[0], VERDE_24HELP[1], VERDE_24HELP[2]);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('PAGO', seloX, seloY + 7, { align: 'center' });
+    }
+    
     y += 6;
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
     doc.text(nomeCliente || 'Cliente', margin, y);
-    y += 10;
-
-    // CPF/CNPJ
+    
+    y += 8;
+    
+    // CPF/CNPJ do cliente
     if (cpfCliente) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('CPF/CNPJ:', margin, y);
-      y += 6;
-      doc.setFont('helvetica', 'normal');
-      doc.text(cpfCliente, margin, y);
+      doc.setFontSize(9);
+      doc.setTextColor(CINZA_CLARO[0], CINZA_CLARO[1], CINZA_CLARO[2]);
+      doc.text(`CPF/CNPJ: ${cpfCliente}`, margin, y);
       y += 10;
     }
+    
+    y += 5;
 
-    // Referente a (descrição limpa)
+    // ========== REFERENTE A ==========
+    doc.setTextColor(CINZA_ESCURO[0], CINZA_ESCURO[1], CINZA_ESCURO[2]);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('Referente a:', margin, y);
     y += 6;
-    doc.setFont('helvetica', 'normal');
     
-    // Limpar descrição com IA
+    // Descrição limpa
     const descricaoLimpa = descricao 
       ? await limparDescricaoComIA(descricao)
-      : 'Serviço realizado';
+      : 'Serviço realizado conforme solicitação';
     
-    // Quebrar texto se muito longo
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
     const lines = doc.splitTextToSize(descricaoLimpa, pageWidth - 2 * margin);
     doc.text(lines, margin, y);
-    y += lines.length * 5 + 15;
+    y += lines.length * 5 + 10;
 
-    // Data
-    const dataAtual = new Date().toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
+    // ========== DATA ==========
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+    doc.setFont('helvetica', 'bold');
+    doc.text('Data:', margin, y);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Rio de Janeiro, ${dataAtual}`, margin, y);
+    doc.text(dataAtual, margin + 12, y);
+    
+    y += 8;
+
+    // ========== FORMA DE PAGAMENTO ==========
+    doc.setFont('helvetica', 'bold');
+    doc.text('Forma de pagamento:', margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(formatarTipoPagamento(pagamentoTipo), margin + 42, y);
+    
+    y += 25;
+
+    // ========== RODAPÉ ==========
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+    
+    doc.setTextColor(CINZA_CLARO[0], CINZA_CLARO[1], CINZA_CLARO[2]);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('24HELP INTERMEDIACAO E GESTAO DE SERVIÇOS LTDA', pageWidth / 2, y, { align: 'center' });
+    y += 4;
+    doc.text('CNPJ: 85.016.434/0001-32', pageWidth / 2, y, { align: 'center' });
 
     return doc.output('blob');
   };
@@ -270,9 +323,17 @@ export const ReciboGenerator = ({
     }
   };
 
-  const handleVerRecibo = () => {
+  const handleDownloadRecibo = () => {
     if (reciboUrl) {
-      window.open(reciboUrl, '_blank');
+      // Criar link temporário para download
+      const link = document.createElement('a');
+      link.href = reciboUrl;
+      link.download = `recibo_${fichaId}.pdf`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -305,32 +366,41 @@ export const ReciboGenerator = ({
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <Button
-              onClick={handleVerRecibo}
+              onClick={handleDownloadRecibo}
+              variant="outline"
+              className="flex-1"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Baixar
+            </Button>
+            
+            <Button
+              onClick={() => window.open(reciboUrl, '_blank', 'noopener,noreferrer')}
               variant="outline"
               className="flex-1"
             >
               <Eye className="mr-2 h-4 w-4" />
-              Ver Recibo
-            </Button>
-            
-            <Button
-              onClick={handleEnviarRecibo}
-              disabled={isSending}
-              className="flex-1"
-            >
-              {isSending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Enviar ao Cliente
-                </>
-              )}
+              Ver
             </Button>
           </div>
+          
+          <Button
+            onClick={handleEnviarRecibo}
+            disabled={isSending}
+            className="w-full"
+          >
+            {isSending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Enviando...
+              </>
+            ) : (
+              <>
+                <Send className="mr-2 h-4 w-4" />
+                Enviar ao Cliente
+              </>
+            )}
+          </Button>
           
           <Button
             onClick={handleGerarRecibo}
