@@ -1366,23 +1366,38 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             </div>
           </AccordionContent>
         </AccordionItem>
-      </Accordion>
 
-      {/* Seção de Recibo */}
-      {ficha && (
-        <ReciboGenerator
-          fichaId={fichaId}
-          nomeCliente={nomeCliente}
-          cpfCliente={ficha.cpf}
-          valorTotal={ficha.valor_total}
-          descricao={ficha.descricao}
-          pagamentoRealizado={ficha.pagamento_realizado}
-          statusFicha={ficha.status}
-          telefoneCliente={ficha.telefone_cliente}
-          reciboUrl={ficha.recibo_url}
-          onReciboGenerated={(url) => setFicha(prev => prev ? { ...prev, recibo_url: url } : null)}
-        />
-      )}
+        {/* Sanfona de Recibo */}
+        <AccordionItem value="recibo" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
+          <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
+            <div className="flex items-center gap-2 w-full">
+              <FileText className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm text-gray-700">Recibo</span>
+              {ficha?.recibo_url && (
+                <span className="ml-auto mr-2 text-xs font-medium text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+                  Gerado
+                </span>
+              )}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-2.5 pb-2.5">
+            {ficha && (
+              <ReciboGenerator
+                fichaId={fichaId}
+                nomeCliente={nomeCliente}
+                cpfCliente={ficha.cpf}
+                valorTotal={ficha.valor_total}
+                descricao={ficha.descricao}
+                pagamentoRealizado={ficha.pagamento_realizado}
+                statusFicha={ficha.status}
+                telefoneCliente={ficha.telefone_cliente}
+                reciboUrl={ficha.recibo_url}
+                onReciboGenerated={(url) => setFicha(prev => prev ? { ...prev, recibo_url: url } : null)}
+              />
+            )}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       <Button 
         onClick={salvarManualmente} 

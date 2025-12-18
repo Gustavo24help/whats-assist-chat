@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Send, Eye, RefreshCw, Loader2, Download } from "lucide-react";
+import { Send, Eye, RefreshCw, Loader2, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { jsPDF } from "jspdf";
@@ -38,6 +38,8 @@ export const ReciboGenerator = ({
 }: ReciboGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isViewing, setIsViewing] = useState(false);
 
   const limparDescricaoComIA = async (desc: string): Promise<string> => {
     try {
@@ -305,27 +307,69 @@ export const ReciboGenerator = ({
     }
   };
 
-  const handleDownloadRecibo = () => {
-    if (reciboUrl) {
-      // Criar link temporário para download
+  // Baixar usando fetch + blob para evitar bloqueio do Chrome
+  const handleDownloadRecibo = async () => {
+    if (!reciboUrl) return;
+    
+    setIsDownloading(true);
+    try {
+      const response = await fetch(reciboUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
       const link = document.createElement('a');
-      link.href = reciboUrl;
+      link.href = url;
       link.download = `recibo_${fichaId}.pdf`;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      URL.revokeObjectURL(url);
+      toast.success('Download iniciado!');
+    } catch (error) {
+      console.error('Erro ao baixar:', error);
+      toast.error('Erro ao baixar recibo');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Ver usando fetch + blob para evitar bloqueio do Chrome
+  const handleVerRecibo = async () => {
+    if (!reciboUrl) return;
+    
+    setIsViewing(true);
+    try {
+      const response = await fetch(reciboUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      // Abrir em nova aba
+      const newWindow = window.open(url, '_blank');
+      
+      if (!newWindow) {
+        // Se popup foi bloqueado, fazer download como fallback
+        toast.info('Popup bloqueado. Iniciando download...');
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `recibo_${fichaId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+      // Revogar URL após um tempo para liberar memória
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      console.error('Erro ao visualizar:', error);
+      toast.error('Erro ao visualizar recibo');
+    } finally {
+      setIsViewing(false);
     }
   };
 
   return (
-    <div className="mt-4 p-4 border rounded-lg bg-muted/30">
-      <div className="flex items-center gap-2 mb-3">
-        <FileText className="h-5 w-5 text-primary" />
-        <span className="font-medium text-sm">Recibo de Serviço</span>
-      </div>
-      
+    <div className="space-y-3">
       {!reciboUrl ? (
         <Button
           onClick={handleGerarRecibo}
@@ -345,27 +389,39 @@ export const ReciboGenerator = ({
           )}
         </Button>
       ) : (
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
+        <div className="space-y-2">
+          {/* Grid 2x2 para Ver e Baixar */}
+          <div className="grid grid-cols-2 gap-2">
             <Button
-              onClick={handleDownloadRecibo}
+              onClick={handleVerRecibo}
               variant="outline"
-              className="flex-1"
+              disabled={isViewing}
+              className="w-full"
             >
-              <Download className="mr-2 h-4 w-4" />
-              Baixar
+              {isViewing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Eye className="mr-2 h-4 w-4" />
+              )}
+              Ver
             </Button>
             
             <Button
-              onClick={() => window.open(reciboUrl, '_blank', 'noopener,noreferrer')}
+              onClick={handleDownloadRecibo}
               variant="outline"
-              className="flex-1"
+              disabled={isDownloading}
+              className="w-full"
             >
-              <Eye className="mr-2 h-4 w-4" />
-              Ver
+              {isDownloading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Baixar
             </Button>
           </div>
           
+          {/* Enviar - Botão principal */}
           <Button
             onClick={handleEnviarRecibo}
             disabled={isSending}
@@ -384,12 +440,13 @@ export const ReciboGenerator = ({
             )}
           </Button>
           
+          {/* Regenerar - Menos destaque */}
           <Button
             onClick={handleGerarRecibo}
             disabled={isGenerating}
             variant="ghost"
             size="sm"
-            className="text-muted-foreground"
+            className="w-full text-muted-foreground"
           >
             {isGenerating ? (
               <>
