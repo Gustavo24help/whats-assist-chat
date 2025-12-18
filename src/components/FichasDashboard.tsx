@@ -76,13 +76,13 @@ export const FichasDashboard = ({
   }, [fichas]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Cards de Métricas Principais */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         {/* Fichas Criadas */}
         <Card 
           className={cn(
-            "p-4 cursor-pointer transition-all hover:shadow-lg border-2",
+            "p-3 cursor-pointer transition-all hover:shadow-md border-2",
             selectedStatus === "Todos" && selectedPagamento === "Todos"
               ? "border-primary bg-primary/5" 
               : "border-transparent hover:border-primary/30"
@@ -92,137 +92,134 @@ export const FichasDashboard = ({
             onPagamentoFilter("Todos");
           }}
         >
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Fichas Criadas</p>
-              <p className="text-3xl font-bold text-primary mt-1">{metrics.total}</p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground truncate">Fichas Criadas</p>
+              <p className="text-xl sm:text-2xl font-bold text-primary mt-0.5">{metrics.total}</p>
             </div>
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <FileText className="h-5 w-5 text-primary" />
+            <div className="p-1.5 bg-primary/10 rounded-lg flex-shrink-0">
+              <FileText className="h-4 w-4 text-primary" />
             </div>
           </div>
-          <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-            <TrendingUp className="h-3 w-3" />
-            <span>Total no período</span>
+          <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-muted-foreground">
+            <TrendingUp className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">Total no período</span>
           </div>
         </Card>
 
         {/* Conversas Abertas */}
-        <Card className="p-4 border-2 border-transparent">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Conversas Abertas</p>
-              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+        <Card className="p-3 border-2 border-transparent">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground truncate">Conversas Abertas</p>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                 {conversasAbertas}
               </p>
             </div>
-            <div className="p-2 bg-emerald-500/10 rounded-lg relative">
-              <MessageCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <div className="p-1.5 bg-emerald-500/10 rounded-lg relative flex-shrink-0">
+              <MessageCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               {conversasAbertas > 0 && (
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-emerald-500 rounded-full animate-pulse" />
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            <span>Janela 24h ativa</span>
+          <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-muted-foreground">
+            <Clock className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">Janela 24h ativa</span>
           </div>
         </Card>
 
         {/* Pagos */}
         <Card 
           className={cn(
-            "p-4 cursor-pointer transition-all hover:shadow-lg border-2",
+            "p-3 cursor-pointer transition-all hover:shadow-md border-2",
             selectedPagamento === "pagos" 
               ? "border-green-500 bg-green-500/5" 
               : "border-transparent hover:border-green-500/30"
           )}
           onClick={() => onPagamentoFilter(selectedPagamento === "pagos" ? "Todos" : "pagos")}
         >
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Pagos</p>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground truncate">Pagos</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400 mt-0.5">
                 {metrics.pagos}
               </p>
             </div>
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <div className="p-1.5 bg-green-500/10 rounded-lg flex-shrink-0">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
           </div>
-          <div className="flex items-center gap-1 mt-2 text-xs text-green-600/70 dark:text-green-400/70">
-            <span>{metrics.total > 0 ? ((metrics.pagos / metrics.total) * 100).toFixed(1) : 0}% do total</span>
+          <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-green-600/70 dark:text-green-400/70">
+            <span className="truncate">{metrics.total > 0 ? ((metrics.pagos / metrics.total) * 100).toFixed(1) : 0}% do total</span>
           </div>
         </Card>
 
         {/* Pendentes */}
         <Card 
           className={cn(
-            "p-4 cursor-pointer transition-all hover:shadow-lg border-2",
+            "p-3 cursor-pointer transition-all hover:shadow-md border-2",
             selectedPagamento === "pendentes" 
               ? "border-amber-500 bg-amber-500/5" 
               : "border-transparent hover:border-amber-500/30"
           )}
           onClick={() => onPagamentoFilter(selectedPagamento === "pendentes" ? "Todos" : "pendentes")}
         >
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Pendentes</p>
-              <p className="text-3xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground truncate">Pendentes</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">
                 {metrics.pendentes}
               </p>
             </div>
-            <div className="p-2 bg-amber-500/10 rounded-lg">
-              <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div className="p-1.5 bg-amber-500/10 rounded-lg flex-shrink-0">
+              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </div>
           </div>
-          <div className="flex items-center gap-1 mt-2 text-xs text-amber-600/70 dark:text-amber-400/70">
-            <span>Com link de pagamento</span>
+          <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-amber-600/70 dark:text-amber-400/70">
+            <span className="truncate">Com link de pagamento</span>
           </div>
         </Card>
       </div>
 
-      {/* Régua de Status */}
-      <div className="space-y-3">
+      {/* Distribuição por Status - Grid em duas linhas */}
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">Distribuição por Status</h3>
-          <Badge variant="outline" className="text-xs">
-            {metrics.statusEntries.length} status ativos
+          <h3 className="text-xs font-semibold text-foreground">Distribuição por Status</h3>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+            {metrics.statusEntries.length} ativos
           </Badge>
         </div>
         
-        <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex gap-3 pb-3">
-            {metrics.statusEntries.map(([status, count]) => {
-              const colors = STATUS_COLORS[status] || STATUS_COLORS["pendente"];
-              const percentage = metrics.total > 0 ? ((count / metrics.total) * 100).toFixed(1) : 0;
-              const isSelected = selectedStatus === status;
-              
-              return (
-                <Card
-                  key={status}
-                  className={cn(
-                    "flex-shrink-0 p-3 min-w-[140px] cursor-pointer transition-all hover:shadow-md border-2",
-                    colors.bg,
-                    isSelected ? `${colors.border} shadow-md` : "border-transparent hover:border-border"
-                  )}
-                  onClick={() => onStatusFilter(isSelected ? "Todos" : status)}
-                >
-                  <p className={cn("text-xs font-medium truncate", colors.text)}>
-                    {status}
-                  </p>
-                  <p className={cn("text-2xl font-bold mt-1", colors.text)}>
-                    {count}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {percentage}%
-                  </p>
-                </Card>
-              );
-            })}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+          {metrics.statusEntries.map(([status, count]) => {
+            const colors = STATUS_COLORS[status] || STATUS_COLORS["pendente"];
+            const percentage = metrics.total > 0 ? ((count / metrics.total) * 100).toFixed(1) : 0;
+            const isSelected = selectedStatus === status;
+            
+            return (
+              <Card
+                key={status}
+                className={cn(
+                  "p-2 cursor-pointer transition-all hover:shadow-sm border",
+                  colors.bg,
+                  isSelected ? `${colors.border} shadow-sm` : "border-transparent hover:border-border"
+                )}
+                onClick={() => onStatusFilter(isSelected ? "Todos" : status)}
+              >
+                <p className={cn("text-[10px] font-medium line-clamp-2 leading-tight min-h-[28px]", colors.text)}>
+                  {status}
+                </p>
+                <p className={cn("text-lg font-bold", colors.text)}>
+                  {count}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {percentage}%
+                </p>
+              </Card>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
