@@ -63,6 +63,7 @@ export const ConversationList = ({
   const [archivedCount, setArchivedCount] = useState(0);
   const [showBotDisabledOnly, setShowBotDisabledOnly] = useState(false);
   const [clientesTelefonesPorPrestador, setClientesTelefonesPorPrestador] = useState<string[]>([]);
+  const [clientesTelefonesPorFicha, setClientesTelefonesPorFicha] = useState<string[]>([]);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState("");
   const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
@@ -132,12 +133,13 @@ export const ConversationList = ({
     // Filtro por busca de texto
     if (searchTerm) {
       if (searchMode === 'ficha') {
-        // Modo ficha: busca por nome do cliente, nome da ficha, tags
+        // Modo ficha: busca por nome do cliente, nome da ficha (TODAS as fichas, não só a ativa), tags
         filtered = filtered.filter(c => 
           c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
           c.telefone.includes(searchTerm) ||
           (c.nome_ficha && c.nome_ficha.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (c.tags && c.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
+          (c.tags && c.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+          clientesTelefonesPorFicha.includes(c.telefone) // Inclui clientes que têm QUALQUER ficha com o nome buscado
         );
       } else if (searchMode === 'prestador') {
         // Modo prestador: busca apenas por prestadores vinculados
@@ -229,7 +231,7 @@ export const ConversationList = ({
     }
 
     return filtered;
-  }, [clientes, searchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesComServicoParaFinalizar, unreadMessages]);
+  }, [clientes, searchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesComServicoParaFinalizar, unreadMessages]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -278,6 +280,32 @@ export const ConversationList = ({
       setShowServicosParaFinalizarOnly(false);
     }
   }, [showServicosParaFinalizarOnly, clientesComServicoParaFinalizar]);
+
+  // Buscar clientes por nome da ficha (TODAS as fichas, não só a ativa)
+  useEffect(() => {
+    const buscarClientesPorNomeFicha = async () => {
+      if (!searchTerm || searchMode !== 'ficha') {
+        setClientesTelefonesPorFicha([]);
+        return;
+      }
+
+      // Buscar TODAS as fichas que têm o nome buscado (não só as ativas)
+      const { data: fichas } = await supabase
+        .from('fichas_de_servico')
+        .select('telefone_cliente')
+        .ilike('nome_ficha', `%${searchTerm}%`);
+
+      if (!fichas || fichas.length === 0) {
+        setClientesTelefonesPorFicha([]);
+        return;
+      }
+
+      const telefones = [...new Set(fichas.map(f => f.telefone_cliente))];
+      setClientesTelefonesPorFicha(telefones);
+    };
+
+    buscarClientesPorNomeFicha();
+  }, [searchTerm, searchMode]);
 
   // Buscar clientes por nome do prestador ou descrição do serviço
   useEffect(() => {
