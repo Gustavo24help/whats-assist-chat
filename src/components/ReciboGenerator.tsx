@@ -39,7 +39,7 @@ export const ReciboGenerator = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isViewing, setIsViewing] = useState(false);
+  
 
   const limparDescricaoComIA = async (desc: string): Promise<string> => {
     try {
@@ -334,38 +334,12 @@ export const ReciboGenerator = ({
     }
   };
 
-  // Ver usando fetch + blob para evitar bloqueio do Chrome
-  const handleVerRecibo = async () => {
+  // Ver - abre URL direta em nova aba (sem blob para evitar download)
+  const handleVerRecibo = () => {
     if (!reciboUrl) return;
     
-    setIsViewing(true);
-    try {
-      const response = await fetch(reciboUrl);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      
-      // Abrir em nova aba
-      const newWindow = window.open(url, '_blank');
-      
-      if (!newWindow) {
-        // Se popup foi bloqueado, fazer download como fallback
-        toast.info('Popup bloqueado. Iniciando download...');
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `recibo_${fichaId}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-      
-      // Revogar URL após um tempo para liberar memória
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (error) {
-      console.error('Erro ao visualizar:', error);
-      toast.error('Erro ao visualizar recibo');
-    } finally {
-      setIsViewing(false);
-    }
+    // Abrir URL direta - o Supabase Storage serve com headers corretos para visualização
+    window.open(reciboUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -395,14 +369,9 @@ export const ReciboGenerator = ({
             <Button
               onClick={handleVerRecibo}
               variant="outline"
-              disabled={isViewing}
               className="w-full"
             >
-              {isViewing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Eye className="mr-2 h-4 w-4" />
-              )}
+              <Eye className="mr-2 h-4 w-4" />
               Ver
             </Button>
             
