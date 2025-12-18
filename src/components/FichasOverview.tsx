@@ -6,6 +6,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { CalendarIcon, Search, Check, X, SlidersHorizontal } from "lucide-react";
 import { format, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -204,11 +205,15 @@ export const FichasOverview = () => {
         return false;
       }
 
+      // Pagos: fichas com pagamento_realizado = true
       if (selectedPagamento === "pagos" && ficha.pagamento_realizado !== true) {
         return false;
       }
-      if (selectedPagamento === "pendentes" && ficha.pagamento_realizado === true) {
-        return false;
+      // Pendentes: apenas fichas que TÊM link de pagamento salvo e NÃO foram pagas
+      if (selectedPagamento === "pendentes") {
+        if (!ficha.pagamento_link || ficha.pagamento_realizado === true) {
+          return false;
+        }
       }
 
       return true;
@@ -235,11 +240,12 @@ export const FichasOverview = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-b from-muted/30 to-background">
-      {/* Header com filtro de período */}
-      <div className="bg-background/80 backdrop-blur-sm border-b p-4 md:p-6 space-y-6 shrink-0">
-        {/* Título e Período */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <ScrollArea className="h-full">
+      <div className="bg-gradient-to-b from-muted/30 to-background min-h-full">
+        {/* Header com filtro de período */}
+        <div className="bg-background/80 backdrop-blur-sm border-b p-4 md:p-6 space-y-6">
+          {/* Título e Período */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               Visão Geral
@@ -450,37 +456,38 @@ export const FichasOverview = () => {
         )}
       </div>
 
-      {/* Lista de Fichas */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) => (
-              <Skeleton key={i} className="h-56 rounded-xl" />
-            ))}
-          </div>
-        ) : fichasFiltradas.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="p-4 bg-muted rounded-full mb-4">
-              <Search className="h-8 w-8 text-muted-foreground" />
+        {/* Lista de Fichas */}
+        <div className="p-4 md:p-6">
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {[...Array(8)].map((_, i) => (
+                <Skeleton key={i} className="h-56 rounded-xl" />
+              ))}
             </div>
-            <p className="text-lg font-medium text-foreground">Nenhuma ficha encontrada</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Tente ajustar os filtros ou período selecionado
-            </p>
-            {hasActiveFilters && (
-              <Button variant="outline" size="sm" className="mt-4" onClick={limparFiltros}>
-                Limpar filtros
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {fichasFiltradas.map((ficha) => (
-              <FichaCard key={ficha.id} ficha={ficha} />
-            ))}
-          </div>
-        )}
+          ) : fichasFiltradas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <div className="p-4 bg-muted rounded-full mb-4">
+                <Search className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <p className="text-lg font-medium text-foreground">Nenhuma ficha encontrada</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Tente ajustar os filtros ou período selecionado
+              </p>
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" className="mt-4" onClick={limparFiltros}>
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {fichasFiltradas.map((ficha) => (
+                <FichaCard key={ficha.id} ficha={ficha} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 };

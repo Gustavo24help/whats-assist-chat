@@ -59,7 +59,8 @@ export const FichasDashboard = ({
   const metrics = useMemo(() => {
     const total = fichas.length;
     const pagos = fichas.filter(f => f.pagamento_realizado === true).length;
-    const pendentes = total - pagos;
+    // Pendentes: apenas fichas que TÊM link de pagamento e NÃO foram pagas
+    const pendentes = fichas.filter(f => f.pagamento_link && f.pagamento_realizado !== true).length;
     
     // Agrupar por status
     const statusCount = fichas.reduce((acc, ficha) => {
@@ -176,7 +177,7 @@ export const FichasDashboard = ({
             </div>
           </div>
           <div className="flex items-center gap-1 mt-2 text-xs text-amber-600/70 dark:text-amber-400/70">
-            <span>{metrics.total > 0 ? ((metrics.pendentes / metrics.total) * 100).toFixed(1) : 0}% do total</span>
+            <span>Com link de pagamento</span>
           </div>
         </Card>
       </div>
