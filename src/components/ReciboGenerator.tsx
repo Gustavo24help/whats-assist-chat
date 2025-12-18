@@ -5,6 +5,12 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { jsPDF } from "jspdf";
 import { valorPorExtenso } from "@/lib/valorPorExtenso";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ReciboGeneratorProps {
   fichaId: string;
@@ -39,7 +45,9 @@ export const ReciboGenerator = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   const limparDescricaoComIA = async (desc: string): Promise<string> => {
     try {
@@ -334,12 +342,33 @@ export const ReciboGenerator = ({
     }
   };
 
-  // Ver - abre URL direta em nova aba (sem blob para evitar download)
-  const handleVerRecibo = () => {
+  // Ver - carrega PDF e mostra em modal (contorna bloqueio de extensões)
+  const handleVerRecibo = async () => {
     if (!reciboUrl) return;
     
-    // Abrir URL direta - o Supabase Storage serve com headers corretos para visualização
-    window.open(reciboUrl, '_blank', 'noopener,noreferrer');
+    setIsLoadingPreview(true);
+    try {
+      // Fetch interno não é bloqueado por extensões
+      const response = await fetch(reciboUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      setPreviewUrl(blobUrl);
+      setShowPreview(true);
+    } catch (error) {
+      console.error('Erro ao carregar preview:', error);
+      toast.error('Erro ao visualizar recibo');
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleClosePreview = (open: boolean) => {
+    setShowPreview(open);
+    if (!open && previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
   };
 
   return (
@@ -369,9 +398,14 @@ export const ReciboGenerator = ({
             <Button
               onClick={handleVerRecibo}
               variant="outline"
+              disabled={isLoadingPreview}
               className="w-full"
             >
-              <Eye className="mr-2 h-4 w-4" />
+              {isLoadingPreview ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Eye className="mr-2 h-4 w-4" />
+              )}
               Ver
             </Button>
             
@@ -431,6 +465,24 @@ export const ReciboGenerator = ({
           </Button>
         </div>
       )}
+
+      {/* Modal de Preview do PDF */}
+      <Dialog open={showPreview} onOpenChange={handleClosePreview}>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Recibo - {fichaId}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {previewUrl && (
+              <iframe 
+                src={previewUrl}
+                className="w-full h-full border-0 rounded"
+                title="Preview do Recibo"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
