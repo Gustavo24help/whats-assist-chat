@@ -13,7 +13,7 @@ interface ReciboGeneratorProps {
   valorTotal: number;
   descricao: string | null;
   pagamentoRealizado: boolean;
-  pagamentoTipo: string | null;
+  statusFicha: string;
   telefoneCliente: string;
   reciboUrl: string | null;
   onReciboGenerated: (url: string) => void;
@@ -31,7 +31,7 @@ export const ReciboGenerator = ({
   valorTotal,
   descricao,
   pagamentoRealizado,
-  pagamentoTipo,
+  statusFicha,
   telefoneCliente,
   reciboUrl,
   onReciboGenerated,
@@ -61,17 +61,6 @@ export const ReciboGenerator = ({
     return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  const formatarTipoPagamento = (tipo: string | null): string => {
-    const tipos: Record<string, string> = {
-      'pix': 'PIX',
-      'cartao_credito': 'Cartão de Crédito',
-      'cartao_debito': 'Cartão de Débito',
-      'dinheiro': 'Dinheiro',
-      'boleto': 'Boleto',
-      'transferencia': 'Transferência'
-    };
-    return tipo ? tipos[tipo] || tipo : 'Não informado';
-  };
 
   const gerarReciboPDF = async (): Promise<Blob> => {
     const doc = new jsPDF({
@@ -147,8 +136,8 @@ export const ReciboGenerator = ({
     doc.setFont('helvetica', 'bold');
     doc.text('Recebemos de:', margin, y);
     
-    // Selo PAGO (se aplicável)
-    if (pagamentoRealizado) {
+    // Selo PAGO (somente se ficha finalizada E pagamento realizado)
+    if (statusFicha === 'Finalizado' && pagamentoRealizado) {
       const seloX = pageWidth - margin - 25;
       const seloY = y - 5;
       
@@ -206,15 +195,8 @@ export const ReciboGenerator = ({
     doc.setFont('helvetica', 'normal');
     doc.text(dataAtual, margin + 12, y);
     
-    y += 8;
-
-    // ========== FORMA DE PAGAMENTO ==========
-    doc.setFont('helvetica', 'bold');
-    doc.text('Forma de pagamento:', margin, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(formatarTipoPagamento(pagamentoTipo), margin + 42, y);
     
-    y += 25;
+    y += 15;
 
     // ========== RODAPÉ ==========
     doc.setDrawColor(200, 200, 200);

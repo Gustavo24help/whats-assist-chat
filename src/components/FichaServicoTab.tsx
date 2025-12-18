@@ -1377,7 +1377,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           valorTotal={ficha.valor_total}
           descricao={ficha.descricao}
           pagamentoRealizado={ficha.pagamento_realizado}
-          pagamentoTipo={ficha.pagamento_tipo}
+          statusFicha={ficha.status}
           telefoneCliente={ficha.telefone_cliente}
           reciboUrl={ficha.recibo_url}
           onReciboGenerated={(url) => setFicha(prev => prev ? { ...prev, recibo_url: url } : null)}
