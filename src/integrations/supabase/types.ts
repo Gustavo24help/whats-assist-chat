@@ -191,6 +191,7 @@ export type Database = {
             | null
           preferencia_horario_cliente: string | null
           prestador_id: string | null
+          recibo_url: string | null
           status: Database["public"]["Enums"]["status_ficha_enum"] | null
           telefone_cliente: string
           tempo_servico: string | null
@@ -226,6 +227,7 @@ export type Database = {
             | null
           preferencia_horario_cliente?: string | null
           prestador_id?: string | null
+          recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           telefone_cliente: string
           tempo_servico?: string | null
@@ -261,6 +263,7 @@ export type Database = {
             | null
           preferencia_horario_cliente?: string | null
           prestador_id?: string | null
+          recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           telefone_cliente?: string
           tempo_servico?: string | null

@@ -11,6 +11,7 @@ import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock, X, Copy, Check, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import debounce from "lodash-es/debounce";
+import { ReciboGenerator } from "@/components/ReciboGenerator";
 
 interface FichaServicoTabProps {
   fichaId: string;
@@ -42,6 +43,7 @@ interface Ficha {
   horario_visita_tecnica: string | null;
   motivo_perda: string | null;
   preferencia_horario_cliente: string | null;
+  recibo_url: string | null;
   created_at: string;
   updated_at: string;
   data_version: number | null; // 1=formato antigo, 2=formato novo com timezone
@@ -431,6 +433,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         horario_visita_tecnica: (data as any).horario_visita_tecnica || null,
         motivo_perda: (data as any).motivo_perda || null,
         preferencia_horario_cliente: (data as any).preferencia_horario_cliente || null,
+        recibo_url: (data as any).recibo_url || null,
       };
       
       // Buscar dados do cliente (nome, cpf, endereco)
@@ -1364,6 +1367,21 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      {/* Seção de Recibo - apenas para fichas finalizadas */}
+      {ficha?.status === 'Finalizado' && (
+        <ReciboGenerator
+          fichaId={fichaId}
+          nomeCliente={nomeCliente}
+          cpfCliente={ficha.cpf}
+          valorTotal={ficha.valor_total}
+          descricao={ficha.descricao}
+          pagamentoRealizado={ficha.pagamento_realizado}
+          telefoneCliente={ficha.telefone_cliente}
+          reciboUrl={ficha.recibo_url}
+          onReciboGenerated={(url) => setFicha(prev => prev ? { ...prev, recibo_url: url } : null)}
+        />
+      )}
 
       <Button 
         onClick={salvarManualmente} 
