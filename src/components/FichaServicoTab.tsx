@@ -1368,8 +1368,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         </AccordionItem>
       </Accordion>
 
-      {/* Seção de Recibo - apenas para fichas finalizadas */}
-      {ficha?.status === 'Finalizado' && (
+      {/* Seção de Recibo */}
+      {ficha && (
         <ReciboGenerator
           fichaId={fichaId}
           nomeCliente={nomeCliente}
