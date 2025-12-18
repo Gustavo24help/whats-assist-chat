@@ -1,13 +1,20 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { 
   FileText, 
   MessageCircle, 
   CheckCircle2, 
   Clock,
-  TrendingUp
+  TrendingUp,
+  Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
@@ -47,6 +54,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
   "pendente": { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/30" },
 };
 
+const STORAGE_KEY = "fichas-status-visibility";
+
 export const FichasDashboard = ({ 
   fichas, 
   conversasAbertas, 
@@ -55,11 +64,35 @@ export const FichasDashboard = ({
   selectedStatus,
   selectedPagamento
 }: FichasDashboardProps) => {
+  const [hiddenStatuses, setHiddenStatuses] = useState<string[]>([]);
+
+  // Carregar preferências do localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        setHiddenStatuses(JSON.parse(saved));
+      } catch {
+        setHiddenStatuses([]);
+      }
+    }
+  }, []);
+
+  // Salvar preferências no localStorage
+  const toggleStatusVisibility = (status: string) => {
+    setHiddenStatuses(prev => {
+      const newHidden = prev.includes(status)
+        ? prev.filter(s => s !== status)
+        : [...prev, status];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newHidden));
+      return newHidden;
+    });
+  };
+
   // Calcular métricas
   const metrics = useMemo(() => {
     const total = fichas.length;
     const pagos = fichas.filter(f => f.pagamento_realizado === true).length;
-    // Pendentes: apenas fichas que TÊM link de pagamento e NÃO foram pagas
     const pendentes = fichas.filter(f => f.pagamento_link && f.pagamento_realizado !== true).length;
     
     // Agrupar por status
@@ -74,6 +107,11 @@ export const FichasDashboard = ({
 
     return { total, pagos, pendentes, statusEntries };
   }, [fichas]);
+
+  // Filtrar status visíveis
+  const visibleStatusEntries = metrics.statusEntries.filter(
+    ([status]) => !hiddenStatuses.includes(status)
+  );
 
   return (
     <div className="space-y-4">
@@ -185,14 +223,62 @@ export const FichasDashboard = ({
       {/* Distribuição por Status - Grid em duas linhas */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-foreground">Distribuição por Status</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-foreground">Distribuição por Status</h3>
+            
+            {/* Botão de configuração */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-3 bg-popover border shadow-lg z-50" align="start">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold">Configurar Status Visíveis</h4>
+                    <Badge variant="outline" className="text-[10px]">
+                      {visibleStatusEntries.length}/{metrics.statusEntries.length}
+                    </Badge>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-1">
+                    {metrics.statusEntries.map(([status, count]) => {
+                      const colors = STATUS_COLORS[status] || STATUS_COLORS["pendente"];
+                      const isVisible = !hiddenStatuses.includes(status);
+                      
+                      return (
+                        <label
+                          key={status}
+                          className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={isVisible}
+                            onCheckedChange={() => toggleStatusVisibility(status)}
+                          />
+                          <div className="flex-1 flex items-center justify-between">
+                            <span className={cn("text-xs font-medium", colors.text)}>
+                              {status}
+                            </span>
+                            <Badge variant="secondary" className="text-[10px] px-1.5">
+                              {count}
+                            </Badge>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+          
           <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-            {metrics.statusEntries.length} ativos
+            {visibleStatusEntries.length} ativos
           </Badge>
         </div>
         
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
-          {metrics.statusEntries.map(([status, count]) => {
+          {visibleStatusEntries.map(([status, count]) => {
             const colors = STATUS_COLORS[status] || STATUS_COLORS["pendente"];
             const percentage = metrics.total > 0 ? ((count / metrics.total) * 100).toFixed(1) : 0;
             const isSelected = selectedStatus === status;
