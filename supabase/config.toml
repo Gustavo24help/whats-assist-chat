@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.update-pagamento]
 verify_jwt = false
+
+[functions.clean-description]
+verify_jwt = false
