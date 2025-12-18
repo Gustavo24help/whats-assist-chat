@@ -1,9 +1,22 @@
 import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronDown, ChevronUp, Calendar, User, DollarSign, Briefcase, Copy, RotateCcw, Loader2 } from "lucide-react";
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  Calendar, 
+  User, 
+  DollarSign, 
+  Briefcase, 
+  Copy, 
+  RotateCcw, 
+  Loader2,
+  CheckCircle2,
+  Clock,
+  FileText
+} from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,25 +50,25 @@ interface FichaCardProps {
   ficha: FichaWithData;
 }
 
-const getStatusColor = (status: string | null) => {
-  const statusMap: Record<string, string> = {
-    "Ficha Criada": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-    "Contato Inicial": "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
-    "Dúvida Prestador": "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-    "Orçamento Enviado": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
-    "Negociação": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-    "Visita Técnica": "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
-    "Orçamento Aprovado / Agendamento": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
-    "Orçamento Não Aprovado": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-    "Agendado": "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
-    "Em andamento": "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-    "Finalizado": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-    "Garantia": "bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200",
-    "Perdido": "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
-    "Não foi adiante": "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200",
-  };
+const STATUS_CONFIG: Record<string, { bg: string; text: string; border: string }> = {
+  "Ficha Criada": { bg: "bg-blue-500/10", text: "text-blue-700 dark:text-blue-300", border: "border-blue-500/30" },
+  "Contato Inicial": { bg: "bg-cyan-500/10", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-500/30" },
+  "Dúvida Prestador": { bg: "bg-purple-500/10", text: "text-purple-700 dark:text-purple-300", border: "border-purple-500/30" },
+  "Orçamento Enviado": { bg: "bg-indigo-500/10", text: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-500/30" },
+  "Negociação": { bg: "bg-yellow-500/10", text: "text-yellow-700 dark:text-yellow-300", border: "border-yellow-500/30" },
+  "Visita Técnica": { bg: "bg-pink-500/10", text: "text-pink-700 dark:text-pink-300", border: "border-pink-500/30" },
+  "Orçamento Aprovado / Agendamento": { bg: "bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-500/30" },
+  "Orçamento Não Aprovado": { bg: "bg-red-500/10", text: "text-red-700 dark:text-red-300", border: "border-red-500/30" },
+  "Agendado": { bg: "bg-teal-500/10", text: "text-teal-700 dark:text-teal-300", border: "border-teal-500/30" },
+  "Em andamento": { bg: "bg-orange-500/10", text: "text-orange-700 dark:text-orange-300", border: "border-orange-500/30" },
+  "Finalizado": { bg: "bg-green-500/10", text: "text-green-700 dark:text-green-300", border: "border-green-500/30" },
+  "Garantia": { bg: "bg-lime-500/10", text: "text-lime-700 dark:text-lime-300", border: "border-lime-500/30" },
+  "Perdido": { bg: "bg-gray-500/10", text: "text-gray-700 dark:text-gray-300", border: "border-gray-500/30" },
+  "Não foi adiante": { bg: "bg-slate-500/10", text: "text-slate-700 dark:text-slate-300", border: "border-slate-500/30" },
+};
 
-  return statusMap[status || ""] || "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+const getStatusConfig = (status: string | null) => {
+  return STATUS_CONFIG[status || ""] || { bg: "bg-gray-500/10", text: "text-gray-700 dark:text-gray-300", border: "border-gray-500/30" };
 };
 
 export const FichaCard = ({ ficha }: FichaCardProps) => {
@@ -68,6 +81,8 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
   const [reativando, setReativando] = useState(false);
   const descriptionRef = useRef<HTMLParagraphElement>(null);
 
+  const statusConfig = getStatusConfig(ficha.status);
+
   useEffect(() => {
     if (descriptionRef.current && ficha.descricao) {
       const element = descriptionRef.current;
@@ -76,7 +91,7 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
   }, [ficha.descricao]);
 
   const fetchOrcamentos = async () => {
-    if (orcamentos.length > 0) return; // Já carregou
+    if (orcamentos.length > 0) return;
 
     setLoadingOrcamentos(true);
     try {
@@ -91,7 +106,6 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
         return;
       }
 
-      // Buscar prestadores
       const cpfs = [...new Set(orcamentosData.map((o) => o.prestador_cpf))];
       const { data: prestadoresData } = await supabase
         .from("prestadores")
@@ -140,7 +154,6 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
         description: "O formulário de orçamento foi reativado com sucesso.",
       });
 
-      // Atualizar localmente
       ficha.formulario_orcamento_ativo = true;
     } catch (error) {
       console.error("Erro ao reativar formulário:", error);
@@ -155,35 +168,64 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
   };
 
   return (
-    <Card className="shadow-md hover:shadow-lg transition-all duration-200 border-border hover:border-primary/50">
-      <CardHeader className="pb-2 pt-3 px-3">
+    <Card className={cn(
+      "group relative overflow-hidden transition-all duration-300",
+      "hover:shadow-lg hover:-translate-y-1",
+      "border-l-4",
+      statusConfig.border
+    )}>
+      {/* Header com Status */}
+      <div className={cn("px-4 pt-4 pb-2", statusConfig.bg)}>
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-base font-bold text-foreground line-clamp-1">
-            {ficha.nome_ficha || "Sem nome"}
-          </CardTitle>
-          <Badge className={getStatusColor(ficha.status)}>{ficha.status || "Sem status"}</Badge>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-foreground truncate text-base">
+              {ficha.nome_ficha || "Sem nome"}
+            </h3>
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {ficha.cliente_nome}
+            </p>
+          </div>
+          <Badge 
+            variant="outline" 
+            className={cn("shrink-0 text-xs font-medium", statusConfig.text, statusConfig.border)}
+          >
+            {ficha.status || "Sem status"}
+          </Badge>
         </div>
-        <p className="text-xs text-muted-foreground">Cliente: {ficha.cliente_nome}</p>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-2 pb-3 px-3">
-        {/* Data de criação */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>
-            {ficha.created_at
-              ? format(new Date(ficha.created_at), "dd/MM/yyyy", { locale: ptBR })
-              : "Sem data"}
-          </span>
+      <CardContent className="p-4 pt-3 space-y-3">
+        {/* Info Row */}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>
+              {ficha.created_at
+                ? format(new Date(ficha.created_at), "dd/MM/yyyy", { locale: ptBR })
+                : "Sem data"}
+            </span>
+          </div>
+          
+          {ficha.pagamento_realizado ? (
+            <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Pago</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+              <Clock className="h-3.5 w-3.5" />
+              <span>Pendente</span>
+            </div>
+          )}
         </div>
 
         {/* Descrição */}
         {ficha.descricao && (
           <div className="space-y-1">
-            <p 
+            <p
               ref={descriptionRef}
               className={cn(
-                "text-xs text-muted-foreground",
+                "text-sm text-muted-foreground leading-relaxed",
                 !showFullDescription && "line-clamp-2"
               )}
             >
@@ -202,109 +244,112 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
           </div>
         )}
 
-        {/* Prestador */}
-        {ficha.prestador_nome && (
-          <div className="flex items-center gap-1.5 text-xs">
-            <User className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="font-medium text-foreground">Prestador:</span>
-            <span className="text-muted-foreground truncate">{ficha.prestador_nome}</span>
-          </div>
-        )}
+        {/* Prestador e Agendamento */}
+        <div className="space-y-2">
+          {ficha.prestador_nome && (
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground truncate">{ficha.prestador_nome}</span>
+            </div>
+          )}
 
-        {/* Agendamento */}
-        {ficha.horario_agendamento && (
-          <div className="flex items-center gap-1.5 text-xs">
-            <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="font-medium text-foreground">Agendado:</span>
-            <span className="text-muted-foreground truncate">
-              {format(new Date(ficha.horario_agendamento), "dd/MM/yy HH:mm", { locale: ptBR })}
-            </span>
-          </div>
-        )}
+          {ficha.horario_agendamento && (
+            <div className="flex items-center gap-2 text-sm">
+              <Briefcase className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground">
+                {format(new Date(ficha.horario_agendamento), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+              </span>
+            </div>
+          )}
+        </div>
 
-        {/* Número de orçamentos */}
-        {ficha.orcamentos_count !== undefined && ficha.orcamentos_count > 0 && (
-          <Badge variant="secondary" className="w-fit text-xs px-1.5 py-0.5">
-            <DollarSign className="h-3 w-3 mr-1" />
-            {ficha.orcamentos_count} orçamento{ficha.orcamentos_count > 1 ? "s" : ""}
-          </Badge>
-        )}
+        {/* Badges */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {ficha.orcamentos_count !== undefined && ficha.orcamentos_count > 0 && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              <DollarSign className="h-3 w-3" />
+              {ficha.orcamentos_count} orçamento{ficha.orcamentos_count > 1 ? "s" : ""}
+            </Badge>
+          )}
 
-        {/* Botões de Ação */}
-        <div className="flex gap-2 pt-2">
+          {ficha.formulario_orcamento_ativo === false && (
+            <Badge variant="destructive" className="text-xs gap-1">
+              <FileText className="h-3 w-3" />
+              Encerrado
+            </Badge>
+          )}
+        </div>
+
+        {/* Ações */}
+        <div className="flex gap-2 pt-1">
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 h-8 text-xs"
+            className="flex-1 h-9 text-xs"
             onClick={copiarLinkOrcamento}
           >
-            <Copy className="h-3.5 w-3.5 mr-1" />
+            <Copy className="h-3.5 w-3.5 mr-1.5" />
             Copiar Link
           </Button>
-          
+
           {ficha.formulario_orcamento_ativo === false && (
             <Button
               variant="secondary"
               size="sm"
-              className="flex-1 h-8 text-xs"
+              className="flex-1 h-9 text-xs"
               onClick={reativarFormulario}
               disabled={reativando}
             >
               {reativando ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : (
-                <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               )}
               Reativar
             </Button>
           )}
         </div>
 
-        {/* Status do Formulário */}
-        {ficha.formulario_orcamento_ativo === false && (
-          <Badge variant="destructive" className="w-fit text-xs px-1.5 py-0.5">
-            Formulário Encerrado
-          </Badge>
-        )}
-
         {/* Popover de Orçamentos */}
         {ficha.orcamentos_count !== undefined && ficha.orcamentos_count > 0 && (
           <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full justify-between h-8 text-xs"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-between h-9 text-xs hover:bg-muted"
                 onClick={() => {
                   if (!isOpen) fetchOrcamentos();
                 }}
               >
                 <span>Ver Orçamentos</span>
-                {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
             </PopoverTrigger>
-            
-            <PopoverContent 
+
+            <PopoverContent
               className="w-80 max-h-96 overflow-y-auto p-4 z-50"
               align="start"
               side="bottom"
             >
-              <div className="space-y-2">
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm text-foreground">Orçamentos</h4>
+                
                 {loadingOrcamentos ? (
                   <div className="space-y-2">
                     <Skeleton className="h-20 w-full" />
                     <Skeleton className="h-20 w-full" />
                   </div>
                 ) : orcamentos.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-2">
+                  <p className="text-sm text-muted-foreground text-center py-4">
                     Nenhum orçamento encontrado
                   </p>
                 ) : (
                   orcamentos.map((orc) => (
-                    <Card key={orc.id} className="p-3 bg-muted/30 border-border">
-                      <div className="space-y-1">
+                    <Card key={orc.id} className="p-3 bg-muted/50">
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-foreground">
+                          <span className="text-sm font-medium text-foreground truncate">
                             {orc.prestador_nome}
                           </span>
                           <Badge
@@ -321,13 +366,20 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
                           </Badge>
                         </div>
                         {orc.valor_total !== null && (
-                          <p className="text-sm text-muted-foreground">
-                            Valor: R$ {orc.valor_total.toFixed(2)}
+                          <p className="text-lg font-semibold text-foreground">
+                            R$ {orc.valor_total.toFixed(2)}
                           </p>
                         )}
-                        {orc.tempo_servico && (
-                          <p className="text-xs text-muted-foreground">Tempo: {orc.tempo_servico}</p>
-                        )}
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          {orc.tempo_servico && (
+                            <span>⏱️ {orc.tempo_servico}</span>
+                          )}
+                          {orc.data_criacao && (
+                            <span>
+                              {format(new Date(orc.data_criacao), "dd/MM/yy", { locale: ptBR })}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </Card>
                   ))
