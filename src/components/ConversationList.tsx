@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
+import { debounce } from "lodash-es";
 
 interface Cliente {
   telefone: string;
@@ -50,6 +52,7 @@ export const ConversationList = ({
 }: ConversationListProps) => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [conversaFilter, setConversaFilter] = useState<"todas" | "aberta" | "fechada">("todas");
   const [unreadFilter, setUnreadFilter] = useState<"todas" | "lidas" | "nao_lidas">("todas");
@@ -70,11 +73,35 @@ export const ConversationList = ({
   const [searchMode, setSearchMode] = useState<'ficha' | 'prestador' | 'descricao'>('ficha');
   const [showServicosParaFinalizarOnly, setShowServicosParaFinalizarOnly] = useState(false);
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
+
+  // ✅ Debounce do termo de busca (300ms)
+  const debouncedSetSearch = useMemo(
+    () => debounce((term: string) => {
+      setDebouncedSearchTerm(term);
+    }, 300),
+    []
+  );
+
+  // Atualizar debounced search quando searchTerm mudar
+  useEffect(() => {
+    debouncedSetSearch(searchTerm);
+    return () => debouncedSetSearch.cancel();
+  }, [searchTerm, debouncedSetSearch]);
 
   useEffect(() => {
-    fetchClientes();
-    fetchTagsWithColors();
-    fetchServicosParaFinalizar();
+    // ✅ Carregar dados iniciais em paralelo
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      await Promise.all([
+        fetchClientes(),
+        fetchTagsWithColors(),
+        fetchServicosParaFinalizar()
+      ]);
+      setIsLoading(false);
+    };
+    
+    loadInitialData();
     
     const channel = supabase
       .channel('clientes-changes')
@@ -130,15 +157,15 @@ export const ConversationList = ({
       );
     }
 
-    // Filtro por busca de texto
-    if (searchTerm) {
+    // Filtro por busca de texto (usando debounced term)
+    if (debouncedSearchTerm) {
       if (searchMode === 'ficha') {
         // Modo ficha: busca por nome do cliente, nome da ficha (TODAS as fichas, não só a ativa), tags
         filtered = filtered.filter(c => 
-          c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          c.telefone.includes(searchTerm) ||
-          (c.nome_ficha && c.nome_ficha.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (c.tags && c.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+          c.nome.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          c.telefone.includes(debouncedSearchTerm) ||
+          (c.nome_ficha && c.nome_ficha.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+          (c.tags && c.tags.some(tag => tag.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))) ||
           clientesTelefonesPorFicha.includes(c.telefone) // Inclui clientes que têm QUALQUER ficha com o nome buscado
         );
       } else if (searchMode === 'prestador') {
@@ -231,7 +258,7 @@ export const ConversationList = ({
     }
 
     return filtered;
-  }, [clientes, searchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesComServicoParaFinalizar, unreadMessages]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesComServicoParaFinalizar, unreadMessages]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -281,10 +308,10 @@ export const ConversationList = ({
     }
   }, [showServicosParaFinalizarOnly, clientesComServicoParaFinalizar]);
 
-  // Buscar clientes por nome da ficha (TODAS as fichas, não só a ativa)
+  // Buscar clientes por nome da ficha (TODAS as fichas, não só a ativa) - usando debounced term
   useEffect(() => {
     const buscarClientesPorNomeFicha = async () => {
-      if (!searchTerm || searchMode !== 'ficha') {
+      if (!debouncedSearchTerm || searchMode !== 'ficha') {
         setClientesTelefonesPorFicha([]);
         return;
       }
@@ -293,7 +320,7 @@ export const ConversationList = ({
       const { data: fichas } = await supabase
         .from('fichas_de_servico')
         .select('telefone_cliente')
-        .ilike('nome_ficha', `%${searchTerm}%`);
+        .ilike('nome_ficha', `%${debouncedSearchTerm}%`);
 
       if (!fichas || fichas.length === 0) {
         setClientesTelefonesPorFicha([]);
@@ -305,12 +332,12 @@ export const ConversationList = ({
     };
 
     buscarClientesPorNomeFicha();
-  }, [searchTerm, searchMode]);
+  }, [debouncedSearchTerm, searchMode]);
 
-  // Buscar clientes por nome do prestador ou descrição do serviço
+  // Buscar clientes por nome do prestador ou descrição do serviço - usando debounced term
   useEffect(() => {
     const buscarClientesPorPrestadorOuDescricao = async () => {
-      if (!searchTerm || searchMode === 'ficha') {
+      if (!debouncedSearchTerm || searchMode === 'ficha') {
         setClientesTelefonesPorPrestador([]);
         return;
       }
@@ -320,7 +347,7 @@ export const ConversationList = ({
         const { data: prestadores } = await supabase
           .from('prestadores')
           .select('cpf')
-          .ilike('nome', `%${searchTerm}%`);
+          .ilike('nome', `%${debouncedSearchTerm}%`);
 
         if (!prestadores || prestadores.length === 0) {
           setClientesTelefonesPorPrestador([]);
@@ -349,7 +376,7 @@ export const ConversationList = ({
         const { data: fichas } = await supabase
           .from('fichas_de_servico')
           .select('telefone_cliente')
-          .ilike('descricao', `%${searchTerm}%`);
+          .ilike('descricao', `%${debouncedSearchTerm}%`);
 
         if (!fichas || fichas.length === 0) {
           setClientesTelefonesPorPrestador([]);
@@ -362,7 +389,7 @@ export const ConversationList = ({
     };
 
     buscarClientesPorPrestadorOuDescricao();
-  }, [searchTerm, searchMode]);
+  }, [debouncedSearchTerm, searchMode]);
 
   const fetchTagsWithColors = async () => {
     const { data: tagsData } = await supabase
@@ -858,7 +885,25 @@ export const ConversationList = ({
         {!isCollapsed && (
           // Vista expandida - mostra cards completos
           <>
-            {filteredClientes.length === 0 ? (
+            {isLoading ? (
+              // ✅ Skeleton loading para melhor UX
+              <div className="space-y-1">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="p-2.5 md:p-3 border-b">
+                    <div className="flex gap-1 mb-1.5">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 w-12" />
+                    </div>
+                    <div className="flex justify-between mb-1">
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                    <Skeleton className="h-4 w-40 mb-1" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredClientes.length === 0 ? (
               <div className="flex items-center justify-center p-8 text-center">
                 <p className="text-muted-foreground text-sm">Nenhuma conversa encontrada</p>
               </div>
