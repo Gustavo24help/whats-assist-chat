@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   AlertDialog,
@@ -158,6 +159,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [botDesabilitado, setBotDesabilitado] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   
+  // ✅ Estados para loading e paginação de mensagens
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [oldestMessageDate, setOldestMessageDate] = useState<string | null>(null);
+  const MESSAGES_PER_PAGE = 100;
+  
   // Estados para atribuição de operador
   const [atendenteAtual, setAtendenteAtual] = useState<{ id: string; nome: string } | null>(null);
   const [todosAtendentes, setTodosAtendentes] = useState<Array<{ id: string; nome: string }>>([]);
@@ -183,6 +191,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [isDragging, setIsDragging] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesStartRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -217,6 +226,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     setAtendenteAtual(null);
     setNotasInternas("");
     setHasNotas(false);
+    setIsLoadingMessages(true);
+    setHasMoreMessages(false);
+    setOldestMessageDate(null);
     // Limpar arquivo pendente ao trocar de conversa
     if (pendingFile) {
       URL.revokeObjectURL(pendingFile.previewUrl);
@@ -225,13 +237,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     setIsDragging(false);
     
     console.log('[ChatWindow] Inicializando canais Realtime para:', clienteTelefone);
-    fetchMensagens();
-    fetchFichaId();
-    fetchBotStatus();
+    
+    // ✅ Carregar dados iniciais em paralelo
+    const loadInitialData = async () => {
+      setIsLoadingMessages(true);
+      await Promise.all([
+        fetchMensagens(),
+        fetchClienteData(), // Nova função consolidada
+        fetchAtendentes()
+      ]);
+      setIsLoadingMessages(false);
+    };
+    
+    loadInitialData();
     clearUnreadMark();
-    fetchAtendente();
-    fetchAtendentes();
-    fetchNotas();
 
     const channel = supabase
       .channel(`mensagens-${clienteTelefone}`)
@@ -360,17 +379,26 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     };
   }, [onBack, chatSearchOpen]);
 
-  const fetchMensagens = async () => {
-    console.log('🔍 Buscando mensagens para:', clienteTelefone);
+  // ✅ Função otimizada para buscar mensagens com paginação
+  const fetchMensagens = async (loadMore = false) => {
+    console.log('🔍 Buscando mensagens para:', clienteTelefone, loadMore ? '(carregando mais)' : '');
     
-    const { data, error } = await supabase
+    let query = supabase
       .from('mensagens')
       .select(`
         *,
         enviado_por:profiles!enviado_por_id(full_name)
       `)
       .eq('cliente_id', clienteTelefone)
-      .order('data_hora', { ascending: true });
+      .order('data_hora', { ascending: false })
+      .limit(MESSAGES_PER_PAGE + 1); // +1 para verificar se há mais
+    
+    // Se carregando mais, buscar mensagens anteriores à mais antiga
+    if (loadMore && oldestMessageDate) {
+      query = query.lt('data_hora', oldestMessageDate);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('❌ Erro ao buscar mensagens:', error);
@@ -379,70 +407,107 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
     
     if (data) {
-      console.log('✅ Mensagens carregadas:', data.length);
+      // Verificar se há mais mensagens
+      const hasMore = data.length > MESSAGES_PER_PAGE;
+      const messagesToProcess = hasMore ? data.slice(0, MESSAGES_PER_PAGE) : data;
+      
+      console.log('✅ Mensagens carregadas:', messagesToProcess.length, hasMore ? '(há mais)' : '(fim)');
       
       // ✅ Buscar TODAS as mensagens de reply de uma vez (batch query)
-      const replyIds = data
+      const replyIds = messagesToProcess
         .filter(m => m.reply_to_message_id)
         .map(m => m.reply_to_message_id);
 
-      const { data: replyMessages } = await supabase
-        .from('mensagens')
-        .select('id, texto, tipo, remetente, data_hora, arquivo_url, status')
-        .in('id', replyIds);
+      let repliesMap = new Map();
+      if (replyIds.length > 0) {
+        const { data: replyMessages } = await supabase
+          .from('mensagens')
+          .select('id, texto, tipo, remetente, data_hora, arquivo_url, status')
+          .in('id', replyIds);
 
-      // Criar mapa de replies
-      const repliesMap = new Map();
-      replyMessages?.forEach(r => repliesMap.set(r.id, r));
+        replyMessages?.forEach(r => repliesMap.set(r.id, r));
+      }
 
       // ✅ Combinar SEM QUERIES EXTRAS
-      const mensagensComReply = data.map(msg => ({
+      const mensagensComReply = messagesToProcess.map(msg => ({
         ...msg,
         reply_to: msg.reply_to_message_id ? repliesMap.get(msg.reply_to_message_id) : null
       }));
       
-      const withReplies = mensagensComReply.filter(m => m.reply_to_message_id);
-      console.log('📨 Mensagens com reply:', withReplies.length);
+      // Inverter para ordem cronológica (mais antigas primeiro)
+      const mensagensOrdenadas = mensagensComReply.reverse();
       
-      setMensagens(mensagensComReply as any);
-    }
-  };
-
-  const fetchFichaId = async () => {
-    // Primeiro buscar ficha ativa do cliente
-    const { data: clienteData } = await supabase
-      .from('clientes')
-      .select('ficha_ativa_id')
-      .eq('telefone', clienteTelefone)
-      .maybeSingle();
-
-    if (clienteData?.ficha_ativa_id) {
-      setFichaId(clienteData.ficha_ativa_id);
-    } else {
-      // Fallback: pegar última ficha criada
-      const { data } = await supabase
-        .from('fichas_de_servico')
-        .select('id')
-        .eq('telefone_cliente', clienteTelefone)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (data) {
-        setFichaId(data.id);
+      if (loadMore) {
+        // Adicionar mensagens mais antigas no início
+        setMensagens(prev => [...(mensagensOrdenadas as Mensagem[]), ...prev]);
+      } else {
+        setMensagens(mensagensOrdenadas as Mensagem[]);
+      }
+      
+      // Atualizar estado de paginação
+      setHasMoreMessages(hasMore);
+      if (mensagensOrdenadas.length > 0) {
+        setOldestMessageDate(mensagensOrdenadas[0].data_hora);
       }
     }
   };
 
-  const fetchBotStatus = async () => {
-    const { data, error } = await supabase
+  // ✅ Função para carregar mais mensagens
+  const loadMoreMessages = async () => {
+    setIsLoadingMore(true);
+    await fetchMensagens(true);
+    setIsLoadingMore(false);
+    // Manter scroll na posição após carregar mais
+    messagesStartRef.current?.scrollIntoView({ block: 'start' });
+  };
+
+  // ✅ Função consolidada para buscar dados do cliente (ficha, bot, atendente, notas)
+  const fetchClienteData = async () => {
+    const { data: clienteData } = await supabase
       .from('clientes')
-      .select('bot_habilitado')
+      .select(`
+        ficha_ativa_id,
+        bot_habilitado,
+        notas_internas,
+        atendente_id,
+        atendente:profiles!atendente_id(full_name)
+      `)
       .eq('telefone', clienteTelefone)
       .maybeSingle();
-    
-    if (!error && data) {
-      setBotDesabilitado(data.bot_habilitado === false);
+
+    if (clienteData) {
+      // Bot status
+      setBotDesabilitado(clienteData.bot_habilitado === false);
+      
+      // Notas
+      setNotasInternas(clienteData.notas_internas || "");
+      setHasNotas(!!clienteData.notas_internas && clienteData.notas_internas.trim().length > 0);
+      
+      // Atendente
+      if (clienteData.atendente_id && (clienteData as any).atendente) {
+        setAtendenteAtual({
+          id: clienteData.atendente_id,
+          nome: (clienteData as any).atendente.full_name
+        });
+      }
+      
+      // Ficha
+      if (clienteData.ficha_ativa_id) {
+        setFichaId(clienteData.ficha_ativa_id);
+      } else {
+        // Fallback: pegar última ficha criada
+        const { data: ultimaFicha } = await supabase
+          .from('fichas_de_servico')
+          .select('id')
+          .eq('telefone_cliente', clienteTelefone)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (ultimaFicha) {
+          setFichaId(ultimaFicha.id);
+        }
+      }
     }
   };
 
@@ -453,20 +518,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .eq('telefone', clienteTelefone);
   };
 
-  const fetchAtendente = async () => {
-    const { data } = await supabase
-      .from('clientes')
-      .select('atendente_id, atendente:profiles!atendente_id(full_name)')
-      .eq('telefone', clienteTelefone)
-      .maybeSingle();
-
-    if (data?.atendente_id && (data as any).atendente) {
-      setAtendenteAtual({
-        id: data.atendente_id,
-        nome: (data as any).atendente.full_name
-      });
-    }
-  };
+  // ✅ Removidas funções duplicadas - consolidadas em fetchClienteData()
+  // fetchFichaId, fetchBotStatus, fetchAtendente, fetchNotas foram mescladas
 
   const fetchAtendentes = async () => {
     const { data } = await supabase
@@ -480,17 +533,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         nome: p.full_name || 'Sem nome'
       })));
     }
-  };
-
-  const fetchNotas = async () => {
-    const { data } = await supabase
-      .from('clientes')
-      .select('notas_internas')
-      .eq('telefone', clienteTelefone)
-      .single();
-    
-    setNotasInternas(data?.notas_internas || "");
-    setHasNotas(!!data?.notas_internas && data.notas_internas.trim().length > 0);
   };
 
   const atribuirOperador = async (operadorId: string, operadorNome: string) => {
@@ -1465,12 +1507,47 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           </div>
         )}
 
-        {mensagens.length === 0 ? (
+        {/* ✅ Loading skeleton para mensagens */}
+        {isLoadingMessages ? (
+          <div className="space-y-4 py-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className={cn("flex", i % 2 === 0 ? "justify-start" : "justify-end")}>
+                <div className="space-y-2">
+                  <Skeleton className={cn("h-16 rounded-2xl", i % 2 === 0 ? "w-48" : "w-56")} />
+                  <Skeleton className="h-3 w-12 ml-auto" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : mensagens.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground text-sm">Nenhuma mensagem ainda</p>
           </div>
         ) : (
-          mensagens.map((msg, index) => {
+          <>
+            {/* ✅ Botão para carregar mensagens anteriores */}
+            {hasMoreMessages && (
+              <div className="flex justify-center py-2" ref={messagesStartRef}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadMoreMessages}
+                  disabled={isLoadingMore}
+                  className="text-xs"
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                      Carregando...
+                    </>
+                  ) : (
+                    "Carregar mensagens anteriores"
+                  )}
+                </Button>
+              </div>
+            )}
+            
+            {mensagens.map((msg, index) => {
           const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
           const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
           
@@ -1559,7 +1636,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 </MessageContextMenu>
               </div>
             );
-          })
+          })}
+          </>
         )}
         <div ref={messagesEndRef} />
       </div>

@@ -1,3 +1,4 @@
+import React, { useState, memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -7,7 +8,6 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DeleteContactDialog } from "./DeleteContactDialog";
-import { useState } from "react";
 
 interface ConversationCardProps {
   telefone: string;
@@ -58,7 +58,8 @@ const getStatusColor = (status: string) => {
   return statusMap[status] || "bg-gray-400";
 };
 
-export const ConversationCard = ({
+// ✅ Memoized para evitar re-renders desnecessários
+export const ConversationCard = memo(({
   telefone,
   nome,
   tags,
@@ -256,4 +257,4 @@ export const ConversationCard = ({
     </div>
     </>
   );
-};
+});
