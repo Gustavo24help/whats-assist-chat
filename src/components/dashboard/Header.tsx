@@ -49,6 +49,7 @@ interface HeaderProps {
   notificationCount?: number;
   isRefreshing?: boolean;
   className?: string;
+  children?: React.ReactNode;
 }
 
 export const Header = ({
@@ -60,6 +61,7 @@ export const Header = ({
   notificationCount = 0,
   isRefreshing = false,
   className,
+  children,
 }: HeaderProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('30days');
@@ -191,6 +193,9 @@ export const Header = ({
         >
           <RefreshCw className={cn('h-5 w-5', isRefreshing && 'animate-spin')} />
         </Button>
+
+        {/* Custom children (e.g., VisualModeSelector) */}
+        {children}
       </div>
     </header>
   );
