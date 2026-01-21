@@ -131,6 +131,13 @@ const Chat = () => {
             >
               Geral
             </Button>
+            <Button 
+              variant="ghost"
+              size="sm" 
+              onClick={() => navigate("/dashboard")}
+            >
+              Dashboard
+            </Button>
           </div>
         </div>
         <div className="flex gap-2">
