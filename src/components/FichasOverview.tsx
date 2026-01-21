@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { FichaCard } from "./FichaCard";
 import { FichasDashboard } from "./FichasDashboard";
 import { OrcamentoTempoKPIs } from "./OrcamentoTempoKPIs";
+import { VisitaConversaoKPIs } from "./VisitaConversaoKPIs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import type { Database } from "@/integrations/supabase/types";
@@ -323,6 +324,14 @@ export const FichasOverview = () => {
             {/* KPIs de Tempo de Resposta dos Orçamentos */}
             <div className="mt-6">
               <OrcamentoTempoKPIs
+                periodoFrom={getDateRange().from}
+                periodoTo={getDateRange().to}
+              />
+            </div>
+            
+            {/* KPIs de Conversão de Visitas Técnicas */}
+            <div className="mt-6">
+              <VisitaConversaoKPIs
                 periodoFrom={getDateRange().from}
                 periodoTo={getDateRange().to}
               />
