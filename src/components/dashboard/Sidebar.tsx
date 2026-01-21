@@ -11,6 +11,7 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -25,6 +26,7 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'Chat', icon: MessageCircle, path: '/chat' },
   { label: 'Marketing', icon: Megaphone, path: '/dashboard/marketing' },
   { label: 'Vendas', icon: TrendingUp, path: '/dashboard/vendas' },
   { label: 'Atendimento', icon: Headphones, path: '/dashboard/atendimento' },
