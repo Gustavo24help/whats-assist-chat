@@ -57,6 +57,34 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // 24Help Brand Colors
+        brand: {
+          green: "hsl(160 100% 15%)",
+          red: "hsl(8 87% 54%)",
+          coral: "hsl(0 100% 70%)",
+          yellow: "hsl(45 89% 48%)",
+        },
+        highlight: {
+          green: "hsl(160 100% 15%)",
+          yellow: "hsl(45 89% 48%)",
+          coral: "hsl(0 100% 70%)",
+          red: "hsl(8 87% 54%)",
+        },
+        success: {
+          DEFAULT: "hsl(160 100% 15%)",
+          light: "hsl(160 60% 90%)",
+          foreground: "hsl(0 0% 100%)",
+        },
+        danger: {
+          DEFAULT: "hsl(8 87% 54%)",
+          light: "hsl(8 87% 95%)",
+          foreground: "hsl(0 0% 100%)",
+        },
+        neutral: {
+          DEFAULT: "hsl(220 10% 50%)",
+          light: "hsl(220 10% 95%)",
+          foreground: "hsl(220 10% 20%)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
