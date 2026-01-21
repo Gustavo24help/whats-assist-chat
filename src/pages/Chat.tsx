@@ -6,14 +6,14 @@ import { ChatWindow } from "@/components/ChatWindow";
 import { FichaPanel } from "@/components/FichaPanel";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, Settings, PanelLeftOpen } from "lucide-react";
+import { LogOut, Settings, PanelLeftOpen, Home } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { OrcamentosSemFichaNotification } from "@/components/OrcamentosSemFichaNotification";
 import { cn } from "@/lib/utils";
 
-const Index = () => {
+const Chat = () => {
   const navigate = useNavigate();
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [fichaOpen, setFichaOpen] = useState(false);
@@ -104,17 +104,25 @@ const Index = () => {
       
       <header className="h-14 border-b bg-background flex items-center justify-between px-4 md:px-6 shadow-sm shrink-0">
         <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/")}
+            title="Voltar ao início"
+            className="mr-2"
+          >
+            <Home className="h-5 w-5" />
+          </Button>
           <Logo />
           <div className="flex gap-2">
             <Button 
-              variant={window.location.pathname === "/" ? "default" : "ghost"} 
+              variant="default"
               size="sm" 
-              onClick={() => navigate("/")}
             >
               Conversas
             </Button>
             <Button 
-              variant={window.location.pathname === "/geral" ? "default" : "ghost"} 
+              variant="ghost"
               size="sm" 
               onClick={() => navigate("/geral")}
             >
@@ -212,4 +220,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Chat;
