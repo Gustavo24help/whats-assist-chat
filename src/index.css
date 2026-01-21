@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,6 +10,17 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    /* 24Help Brand Colors */
+    --brand-green: 160 100% 15%;
+    --brand-red: 8 87% 54%;
+    --brand-coral: 0 100% 70%;
+    --brand-yellow: 45 89% 48%;
+    
+    /* Highlight Colors */
+    --highlight-green: 160 100% 15%;
+    --highlight-yellow: 45 89% 48%;
+    --highlight-coral: 0 100% 70%;
+    --highlight-red: 8 87% 54%;
     --background: 0 0% 100%;
     --foreground: 222.2 47% 11%;
 
@@ -119,6 +132,11 @@ All colors MUST be HSL.
   }
 }
 
+/* Font family for dashboard */
+.font-jakarta {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
 /* Scrollbar styling */
 @layer components {
   .overflow-y-auto::-webkit-scrollbar {
@@ -168,6 +186,147 @@ All colors MUST be HSL.
   img {
     image-rendering: -webkit-optimize-contrast;
   }
+
+  /* ========================= */
+  /* Dashboard Design System   */
+  /* ========================= */
+
+  /* SaaS Card - Glassmorphism */
+  .saas-card {
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-xl;
+  }
+
+  /* KPI Card */
+  .kpi-card {
+    @apply bg-white dark:bg-gray-900 rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all duration-300;
+  }
+
+  .kpi-card-tinted {
+    @apply bg-gradient-to-br from-white to-muted/30 dark:from-gray-900 dark:to-gray-800;
+  }
+
+  .kpi-card-vibrant[data-icon-color="brand-green"] {
+    @apply bg-gradient-to-br from-white to-success-light dark:from-gray-900 dark:to-green-950;
+  }
+
+  .kpi-card-vibrant[data-icon-color="yellow"] {
+    @apply bg-gradient-to-br from-white to-amber-50 dark:from-gray-900 dark:to-amber-950;
+  }
+
+  .kpi-card-vibrant[data-icon-color="coral"] {
+    @apply bg-gradient-to-br from-white to-rose-50 dark:from-gray-900 dark:to-rose-950;
+  }
+
+  .kpi-card-vibrant[data-icon-color="red"] {
+    @apply bg-gradient-to-br from-white to-danger-light dark:from-gray-900 dark:to-red-950;
+  }
+
+  /* Variation Badges */
+  .variation-positive {
+    @apply bg-success-light text-success dark:bg-green-900/30 dark:text-green-400;
+  }
+
+  .variation-negative {
+    @apply bg-danger-light text-danger dark:bg-red-900/30 dark:text-red-400;
+  }
+
+  .variation-neutral {
+    @apply bg-neutral-light text-neutral dark:bg-gray-800 dark:text-gray-400;
+  }
+
+  /* Icon Containers */
+  .icon-container {
+    @apply h-12 w-12 rounded-xl flex items-center justify-center text-white shrink-0 transition-transform duration-200;
+  }
+
+  .icon-container.brand-green {
+    @apply bg-gradient-to-br from-brand-green to-emerald-700;
+  }
+
+  .icon-container.brand-yellow {
+    @apply bg-gradient-to-br from-brand-yellow to-amber-600;
+  }
+
+  .icon-container.brand-coral {
+    @apply bg-gradient-to-br from-brand-coral to-rose-600;
+  }
+
+  .icon-container.brand-red {
+    @apply bg-gradient-to-br from-brand-red to-red-700;
+  }
+
+  /* Funnel Bar */
+  .funnel-bar {
+    @apply h-2 rounded-full bg-gradient-to-r from-brand-green via-brand-yellow to-brand-red;
+  }
+
+  /* Glass Panel */
+  .glass-panel {
+    @apply bg-white/60 dark:bg-gray-900/60 backdrop-blur-lg rounded-2xl border border-white/30 dark:border-gray-700/30 shadow-lg;
+  }
+
+  /* Dashboard Animations */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes bounce-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.3);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    70% {
+      transform: scale(0.9);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out forwards;
+  }
+
+  .animate-bounce-in {
+    animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  }
+}
+
+/* Visual Mode Backgrounds */
+[data-background-mode="gradient"] {
+  background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
+}
+
+[data-background-mode="colored"] {
+  background: linear-gradient(135deg, hsl(160 60% 97%) 0%, hsl(45 60% 97%) 50%, hsl(0 60% 97%) 100%);
+}
+
+.dark[data-background-mode="colored"] {
+  background: linear-gradient(135deg, hsl(160 30% 8%) 0%, hsl(45 30% 8%) 50%, hsl(0 30% 8%) 100%);
 }
 
 /* Fallbacks CSS para navegadores antigos */
