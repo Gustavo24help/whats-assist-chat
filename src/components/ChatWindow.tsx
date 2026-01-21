@@ -12,6 +12,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
 import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";
+import { NPSFlowPanel } from "./NPSFlowPanel";
 import { useConversationTimer } from "@/hooks/useConversationTimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
@@ -1303,6 +1304,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full" />
                 )}
               </Button>
+
+              {/* Botão NPS */}
+              <NPSFlowPanel
+                clienteTelefone={clienteTelefone}
+                clienteNome={clienteNome}
+                fichaId={fichaId}
+                onCopyMessage={(msg) => setNovaMsg(msg)}
+              />
               
               <Button
                 variant="outline"

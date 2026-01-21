@@ -15,6 +15,7 @@ import { FichaCard } from "./FichaCard";
 import { FichasDashboard } from "./FichasDashboard";
 import { OrcamentoTempoKPIs } from "./OrcamentoTempoKPIs";
 import { VisitaConversaoKPIs } from "./VisitaConversaoKPIs";
+import { NPSMetricsKPIs } from "./NPSMetricsKPIs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import type { Database } from "@/integrations/supabase/types";
@@ -332,6 +333,14 @@ export const FichasOverview = () => {
             {/* KPIs de Conversão de Visitas Técnicas */}
             <div className="mt-6">
               <VisitaConversaoKPIs
+                periodoFrom={getDateRange().from}
+                periodoTo={getDateRange().to}
+              />
+            </div>
+            
+            {/* Métricas NPS */}
+            <div className="mt-6">
+              <NPSMetricsKPIs
                 periodoFrom={getDateRange().from}
                 periodoTo={getDateRange().to}
               />
