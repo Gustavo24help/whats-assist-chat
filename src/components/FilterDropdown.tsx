@@ -169,6 +169,10 @@ export const FilterDropdown = ({
                       <Label htmlFor="status-orcamento" className="text-sm cursor-pointer">Orçamento Enviado</Label>
                     </div>
                     <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="Visita Técnica" id="status-visita" />
+                      <Label htmlFor="status-visita" className="text-sm cursor-pointer">Visita Técnica</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
                       <RadioGroupItem value="Agendado" id="status-agendado" />
                       <Label htmlFor="status-agendado" className="text-sm cursor-pointer">Agendado</Label>
                     </div>
