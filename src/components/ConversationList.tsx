@@ -6,13 +6,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { debounce } from "lodash-es";
+import { NovaConversaDialog } from "./NovaConversaDialog";
 
 interface Cliente {
   telefone: string;
@@ -694,17 +695,25 @@ export const ConversationList = ({
               {showArchived ? "Conversas Arquivadas" : "Conversas"}
             </h2>
           )}
-          {onToggleCollapse && (
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={onToggleCollapse}
-              className="h-8 w-8 shrink-0"
-              title={isCollapsed ? "Expandir menu" : "Recolher menu"}
-            >
-              {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {!isCollapsed && (
+              <NovaConversaDialog onContactCreated={(cliente) => {
+                // Refresh list after new contact
+                fetchClientes();
+              }} />
+            )}
+            {onToggleCollapse && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={onToggleCollapse}
+                className="h-8 w-8 shrink-0"
+                title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+              >
+                {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </Button>
+            )}
+          </div>
         </div>
 
         {!isCollapsed && (

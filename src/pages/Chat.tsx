@@ -2,16 +2,18 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ConversationList } from "@/components/ConversationList";
+import { ContactsTab } from "@/components/ContactsTab";
 import { ChatWindow } from "@/components/ChatWindow";
 import { FichaPanel } from "@/components/FichaPanel";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, Settings, PanelLeftOpen, Home } from "lucide-react";
+import { LogOut, Settings, PanelLeftOpen, Home, MessageCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { OrcamentosSemFichaNotification } from "@/components/OrcamentosSemFichaNotification";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Chat = () => {
   const navigate = useNavigate();
@@ -20,6 +22,7 @@ const Chat = () => {
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [botDisabledAcknowledged, setBotDisabledAcknowledged] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<"conversas" | "contatos">("conversas");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -150,14 +153,36 @@ const Chat = () => {
             "border-r bg-background shadow-sm shrink-0 transition-all duration-300 w-full md:w-80 lg:w-96",
             selectedCliente && "max-md:hidden"
           )}>
-            <ConversationList
-              selectedClienteTelefone={selectedCliente?.telefone || null}
-              onSelectCliente={handleSelectCliente}
-              unreadMessages={unreadMessages}
-              isCollapsed={sidebarCollapsed}
-              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-              botDisabledAcknowledged={botDisabledAcknowledged}
-            />
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "conversas" | "contatos")} className="h-full flex flex-col">
+              <div className="border-b px-2 pt-2">
+                <TabsList className="w-full grid grid-cols-2">
+                  <TabsTrigger value="conversas" className="gap-1.5">
+                    <MessageCircle className="h-4 w-4" />
+                    Conversas
+                  </TabsTrigger>
+                  <TabsTrigger value="contatos" className="gap-1.5">
+                    <Users className="h-4 w-4" />
+                    Contatos
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="conversas" className="flex-1 m-0 overflow-hidden">
+                <ConversationList
+                  selectedClienteTelefone={selectedCliente?.telefone || null}
+                  onSelectCliente={handleSelectCliente}
+                  unreadMessages={unreadMessages}
+                  isCollapsed={sidebarCollapsed}
+                  onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  botDisabledAcknowledged={botDisabledAcknowledged}
+                />
+              </TabsContent>
+              <TabsContent value="contatos" className="flex-1 m-0 overflow-hidden">
+                <ContactsTab
+                  selectedClienteTelefone={selectedCliente?.telefone || null}
+                  onSelectCliente={handleSelectCliente}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         )}
 
