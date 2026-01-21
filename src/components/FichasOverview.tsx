@@ -13,6 +13,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { FichaCard } from "./FichaCard";
 import { FichasDashboard } from "./FichasDashboard";
+import { OrcamentoTempoKPIs } from "./OrcamentoTempoKPIs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import type { Database } from "@/integrations/supabase/types";
@@ -309,14 +310,24 @@ export const FichasOverview = () => {
             ))}
           </div>
         ) : (
-          <FichasDashboard
-            fichas={fichasPorPeriodo}
-            conversasAbertas={conversasAbertas}
-            onStatusFilter={handleStatusFilter}
-            onPagamentoFilter={handlePagamentoFilter}
-            selectedStatus={selectedStatus}
-            selectedPagamento={selectedPagamento}
-          />
+          <>
+            <FichasDashboard
+              fichas={fichasPorPeriodo}
+              conversasAbertas={conversasAbertas}
+              onStatusFilter={handleStatusFilter}
+              onPagamentoFilter={handlePagamentoFilter}
+              selectedStatus={selectedStatus}
+              selectedPagamento={selectedPagamento}
+            />
+            
+            {/* KPIs de Tempo de Resposta dos Orçamentos */}
+            <div className="mt-6">
+              <OrcamentoTempoKPIs
+                periodoFrom={getDateRange().from}
+                periodoTo={getDateRange().to}
+              />
+            </div>
+          </>
         )}
       </div>
 
