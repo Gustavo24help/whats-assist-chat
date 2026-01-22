@@ -56,6 +56,48 @@ export const NPSFlowPanel = ({
     }
   }, [open, fichaId]);
 
+  // Realtime subscription para atualizar automaticamente quando cliente responder
+  useEffect(() => {
+    if (!fichaId) return;
+
+    const channel = supabase
+      .channel(`nps-updates-${fichaId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'nps_respostas',
+          filter: `ficha_id=eq.${fichaId}`
+        },
+        (payload) => {
+          console.log("📊 [NPS] Atualização recebida via realtime:", payload);
+          const updatedNPS = payload.new as NPSResposta;
+          setCurrentNPS(updatedNPS);
+          
+          // Atualizar step baseado no novo estado
+          if (updatedNPS.feedback_respondido_em) {
+            setStep("completed");
+            toast.success("Feedback do cliente registrado!");
+          } else if (updatedNPS.respondido_em && updatedNPS.nota !== null) {
+            setStep("waiting_feedback");
+            const { classificacao } = getClassificacao(updatedNPS.nota);
+            toast.success(`Cliente respondeu: ${updatedNPS.nota} (${classificacao.toUpperCase()})`);
+            
+            // Se for detrator, mostrar alerta
+            if (classificacao === "detrator") {
+              setShowAlertSupervisor(true);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fichaId]);
+
   const checkExistingNPS = async () => {
     if (!fichaId) return;
 
