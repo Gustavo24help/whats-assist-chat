@@ -75,19 +75,11 @@ export const NPSFlowPanel = ({
           const updatedNPS = payload.new as NPSResposta;
           setCurrentNPS(updatedNPS);
           
-          // Atualizar step baseado no novo estado
+          // Atualizar step baseado no novo estado (sem popups)
           if (updatedNPS.feedback_respondido_em) {
             setStep("completed");
-            toast.success("Feedback do cliente registrado!");
           } else if (updatedNPS.respondido_em && updatedNPS.nota !== null) {
             setStep("waiting_feedback");
-            const { classificacao } = getClassificacao(updatedNPS.nota);
-            toast.success(`Cliente respondeu: ${updatedNPS.nota} (${classificacao.toUpperCase()})`);
-            
-            // Se for detrator, mostrar alerta
-            if (classificacao === "detrator") {
-              setShowAlertSupervisor(true);
-            }
           }
         }
       )
