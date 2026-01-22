@@ -445,6 +445,120 @@ serve(async (req) => {
 
     console.log("Mensagem(ns) salva(s) com sucesso");
 
+    // ========== DETECÇÃO AUTOMÁTICA DE RESPOSTAS NPS ==========
+    // Verificar se há um NPS pendente aguardando resposta para este cliente
+    const textoParaVerificar = body?.trim() || '';
+    const npsScoreMatch = textoParaVerificar.match(/^(10|[0-9])$/);
+    
+    if (npsScoreMatch) {
+      console.log("📊 [NPS] Possível resposta NPS detectada:", textoParaVerificar);
+      
+      // Buscar NPS pendente (enviado mas não respondido) para este cliente
+      const { data: npsPendente, error: npsError } = await supabase
+        .from('nps_respostas')
+        .select('*')
+        .eq('telefone_cliente', from)
+        .is('nota', null)
+        .not('enviado_em', 'is', null)
+        .order('enviado_em', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (npsError) {
+        console.error("📊 [NPS] Erro ao buscar NPS pendente:", npsError);
+      }
+      
+      if (npsPendente) {
+        const nota = parseInt(npsScoreMatch[1], 10);
+        
+        // Classificar a nota
+        let classificacao: string;
+        let tipoFeedback: string;
+        let prioridade = false;
+        
+        if (nota >= 9) {
+          classificacao = 'promotor';
+          tipoFeedback = 'positivo';
+        } else if (nota >= 7) {
+          classificacao = 'neutro';
+          tipoFeedback = 'neutro';
+        } else {
+          classificacao = 'detrator';
+          tipoFeedback = 'negativo';
+          prioridade = true;
+        }
+        
+        console.log("📊 [NPS] Registrando resposta:", {
+          npsId: npsPendente.id,
+          nota,
+          classificacao,
+          prioridade
+        });
+        
+        // Atualizar o registro NPS
+        const { error: updateError } = await supabase
+          .from('nps_respostas')
+          .update({
+            nota,
+            classificacao,
+            tipo_feedback: tipoFeedback,
+            respondido_em: new Date().toISOString(),
+            prioridade
+          })
+          .eq('id', npsPendente.id);
+        
+        if (updateError) {
+          console.error("📊 [NPS] Erro ao atualizar NPS:", updateError);
+        } else {
+          console.log("📊 [NPS] ✅ Resposta NPS registrada com sucesso!");
+          console.log("📊 [NPS] Nota:", nota, "| Classificação:", classificacao);
+        }
+      } else {
+        console.log("📊 [NPS] Nenhum NPS pendente encontrado para este cliente");
+      }
+    }
+    
+    // Verificar se é uma resposta de feedback (texto livre após nota registrada)
+    if (textoParaVerificar && !npsScoreMatch && textoParaVerificar.length > 2) {
+      // Buscar NPS que já tem nota mas ainda não tem feedback
+      const { data: npsAguardandoFeedback } = await supabase
+        .from('nps_respostas')
+        .select('*')
+        .eq('telefone_cliente', from)
+        .not('nota', 'is', null)
+        .is('feedback', null)
+        .not('respondido_em', 'is', null)
+        .order('respondido_em', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (npsAguardandoFeedback) {
+        // Verificar se a resposta foi nos últimos 30 minutos (janela razoável para feedback)
+        const respondidoEm = new Date(npsAguardandoFeedback.respondido_em);
+        const agora = new Date();
+        const diffMinutos = (agora.getTime() - respondidoEm.getTime()) / (1000 * 60);
+        
+        if (diffMinutos <= 30) {
+          console.log("📊 [NPS] Possível feedback detectado:", textoParaVerificar.substring(0, 50));
+          
+          const { error: feedbackError } = await supabase
+            .from('nps_respostas')
+            .update({
+              feedback: textoParaVerificar,
+              feedback_respondido_em: new Date().toISOString()
+            })
+            .eq('id', npsAguardandoFeedback.id);
+          
+          if (feedbackError) {
+            console.error("📊 [NPS] Erro ao salvar feedback:", feedbackError);
+          } else {
+            console.log("📊 [NPS] ✅ Feedback registrado com sucesso!");
+          }
+        }
+      }
+    }
+    // ========== FIM DETECÇÃO NPS ==========
+
     // Resposta TwiML vazia (não responde automaticamente)
     return new Response(
       '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
