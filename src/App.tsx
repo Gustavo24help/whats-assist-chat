@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import FichasGeral from "./pages/FichasGeral";
+import BairrosReport from "./pages/BairrosReport";
 import OrcamentoPublico from "./pages/OrcamentoPublico";
 import PrestadorPortal from "./pages/PrestadorPortal";
 
@@ -64,6 +65,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <FichasGeral />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/bairros"
+                element={
+                  <ProtectedRoute>
+                    <BairrosReport />
                   </ProtectedRoute>
                 }
               />
