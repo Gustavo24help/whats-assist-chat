@@ -55,6 +55,30 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
     fetchData();
   }, [periodoFrom, periodoTo]);
 
+  // Realtime subscription para atualizar KPIs quando novas respostas chegarem
+  useEffect(() => {
+    const channel = supabase
+      .channel('nps-kpis-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'nps_respostas'
+        },
+        (payload) => {
+          console.log("📊 [NPS KPIs] Atualização recebida:", payload);
+          // Refetch data quando houver mudanças
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [periodoFrom, periodoTo]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
