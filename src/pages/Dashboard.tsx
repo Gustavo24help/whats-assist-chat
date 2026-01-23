@@ -9,7 +9,8 @@ import {
   ServicesLineChart,
   AdsPerformanceChart,
   TicketMedioChart,
-  ROIChart
+  ROIChart,
+  PrestadoresReport
 } from "@/components/dashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -292,6 +293,17 @@ const Dashboard = () => {
               <AdsPerformanceChart />
               <TicketMedioChart />
               <ROIChart />
+            </div>
+          </section>
+
+          {/* Relatório de Prestadores */}
+          <section>
+            <SectionHeader 
+              title="Relatório de Prestadores" 
+              subtitle="Performance individual de cada prestador"
+            />
+            <div className="mt-4">
+              <PrestadoresReport />
             </div>
           </section>
         </main>
