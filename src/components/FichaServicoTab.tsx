@@ -31,6 +31,9 @@ interface Ficha {
   horario_agendamento: string | null;
   cpf: string | null;
   endereco: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  nome_cliente: string | null;
   pagamento_tipo: string | null;
   pagamento_parcelas: number;
   pagamento_gerar_link: boolean;
@@ -307,6 +310,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         horario_agendamento: agendamentoISO,
         cpf: fichaData.cpf?.trim() || null,
         endereco: fichaData.endereco?.trim() || null,
+        bairro: fichaData.bairro?.trim() || null,
+        cidade: fichaData.cidade?.trim() || null,
+        nome_cliente: fichaData.nome_cliente?.trim() || null,
         pagamento_tipo: fichaData.pagamento_tipo as any,
         pagamento_parcelas: fichaData.pagamento_parcelas,
         pagamento_gerar_link: fichaData.pagamento_gerar_link,
@@ -1351,6 +1357,29 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   placeholder="Endereço completo"
                   className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="bairro" className="text-xs font-medium text-gray-600">Bairro</Label>
+                  <Input
+                    id="bairro"
+                    value={ficha?.bairro || ""}
+                    onChange={(e) => updateFicha({ bairro: e.target.value })}
+                    placeholder="Bairro"
+                    className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cidade" className="text-xs font-medium text-gray-600">Cidade</Label>
+                  <Input
+                    id="cidade"
+                    value={ficha?.cidade || ""}
+                    onChange={(e) => updateFicha({ cidade: e.target.value })}
+                    placeholder="Cidade"
+                    className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
               </div>
               
               <div>
