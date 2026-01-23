@@ -43,6 +43,7 @@ interface Orcamento {
     horario_agendamento: string | null;
     endereco: string | null;
     nome_ficha: string | null;
+    created_at: string | null;
   };
 }
 
@@ -142,7 +143,7 @@ export default function PrestadorPortal() {
         (orcamentosData || []).map(async (orc) => {
           const { data: fichaData } = await supabase
             .from("fichas_de_servico")
-            .select("id, descricao, prestador_id, status, horario_agendamento, endereco, nome_ficha")
+            .select("id, descricao, prestador_id, status, horario_agendamento, endereco, nome_ficha, created_at")
             .eq("id", orc.ficha_nome)
             .maybeSingle();
           
@@ -207,9 +208,9 @@ export default function PrestadorPortal() {
         );
       case "rejeitado":
         return (
-          <Badge className="bg-red-500 hover:bg-red-600 text-white">
+          <Badge className="bg-muted hover:bg-muted/80 text-muted-foreground">
             <XCircle className="w-3 h-3 mr-1" />
-            Rejeitado
+            Não Aprovado
           </Badge>
         );
       default:
@@ -302,6 +303,31 @@ export default function PrestadorPortal() {
       return `R$ ${(value / 1000).toFixed(1)}k`;
     }
     return formatCurrency(value);
+  };
+
+  // Calcular tempo de resposta do orçamento
+  const calcularTempoResposta = (orcamento: Orcamento) => {
+    if (!orcamento.ficha?.created_at || !orcamento.data_criacao) return null;
+    
+    const fichaCreatedAt = new Date(orcamento.ficha.created_at);
+    const orcamentoCreatedAt = new Date(orcamento.data_criacao);
+    const diffMs = orcamentoCreatedAt.getTime() - fichaCreatedAt.getTime();
+    
+    if (diffMs < 0) return null;
+    
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) {
+      const remainingHours = diffHours % 24;
+      return `${diffDays}d ${remainingHours}h`;
+    } else if (diffHours > 0) {
+      const remainingMinutes = diffMinutes % 60;
+      return `${diffHours}h ${remainingMinutes}min`;
+    } else {
+      return `${diffMinutes}min`;
+    }
   };
 
   const getServicosNaData = (date: Date) => {
@@ -614,6 +640,7 @@ export default function PrestadorPortal() {
                     ) : (
                       orcamentos.map((orc) => {
                         const status = getOrcamentoStatus(orc);
+                        const tempoResposta = calcularTempoResposta(orc);
                         return (
                           <Card key={orc.id} className="border-2">
                             <CardContent className="pt-6">
@@ -640,15 +667,21 @@ export default function PrestadorPortal() {
                               </div>
                               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                                 <span>
-                                  Enviado em {format(new Date(orc.data_criacao), "dd/MM/yyyy", { locale: ptBR })}
+                                  Enviado em {format(new Date(orc.data_criacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                                 </span>
+                                {tempoResposta && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    Respondido em {tempoResposta}
+                                  </span>
+                                )}
                                 {orc.tempo_servico && (
-                                  <span>⏱️ {orc.tempo_servico}</span>
+                                  <span>⏱️ Duração: {orc.tempo_servico}</span>
                                 )}
                               </div>
                               {status === "rejeitado" && (
-                                <div className="mt-3 p-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded text-sm text-red-800 dark:text-red-200">
-                                  ⚠️ Outro prestador foi selecionado para este serviço
+                                <div className="mt-3 p-2 bg-muted/50 border border-border rounded text-sm text-muted-foreground">
+                                  Este orçamento não foi aprovado
                                 </div>
                               )}
                             </CardContent>
