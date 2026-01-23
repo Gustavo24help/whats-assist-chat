@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ChevronDown, LogOut, CheckCircle2, XCircle, Clock, MapPin } from "lucide-react";
-import { format } from "date-fns";
+import { ChevronDown, LogOut, CheckCircle2, XCircle, Clock, MapPin, TrendingUp, Wallet, Wrench, Package } from "lucide-react";
+import { format, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
 
 interface Prestador {
   cpf: string;
@@ -58,6 +61,17 @@ interface Servico {
   updated_at: string;
 }
 
+type PeriodoFiltro = "mes_atual" | "ultimos_3_meses" | "este_ano" | "todo_periodo";
+
+interface DadosMensal {
+  mesAno: string;
+  mesLabel: string;
+  total: number;
+  maoObra: number;
+  pecas: number;
+  quantidade: number;
+}
+
 export default function PrestadorPortal() {
   const [cpf, setCpf] = useState("");
   const [prestador, setPrestador] = useState<Prestador | null>(null);
@@ -65,6 +79,7 @@ export default function PrestadorPortal() {
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>("todo_periodo");
 
   const formatCPF = (value: string) => {
     const numbers = value.replace(/\D/g, "");
@@ -211,6 +226,84 @@ export default function PrestadorPortal() {
   const servicosFinalizados = servicos.filter(s => s.status === "Finalizado");
   const visitasTecnicas = servicos.filter(s => s.status === "Visita Técnica");
 
+  // Filtro de período para o resumo
+  const getDataRangeFiltro = () => {
+    const agora = new Date();
+    switch (periodoFiltro) {
+      case "mes_atual":
+        return { start: startOfMonth(agora), end: endOfMonth(agora) };
+      case "ultimos_3_meses":
+        return { start: startOfMonth(subMonths(agora, 2)), end: endOfMonth(agora) };
+      case "este_ano":
+        return { start: startOfYear(agora), end: endOfYear(agora) };
+      case "todo_periodo":
+      default:
+        return null;
+    }
+  };
+
+  const servicosFiltrados = useMemo(() => {
+    const range = getDataRangeFiltro();
+    if (!range) return servicosFinalizados;
+    
+    return servicosFinalizados.filter(s => {
+      const data = s.horario_agendamento || s.updated_at;
+      if (!data) return false;
+      return isWithinInterval(new Date(data), { start: range.start, end: range.end });
+    });
+  }, [servicosFinalizados, periodoFiltro]);
+
+  // Métricas gerais do período
+  const metricas = useMemo(() => {
+    const total = servicosFiltrados.reduce((acc, s) => acc + (s.valor_total || 0), 0);
+    const maoObra = servicosFiltrados.reduce((acc, s) => acc + (s.valor_mao_obra || 0), 0);
+    const pecas = servicosFiltrados.reduce((acc, s) => acc + (s.valor_pecas || 0), 0);
+    const quantidade = servicosFiltrados.length;
+    const ticketMedio = quantidade > 0 ? total / quantidade : 0;
+
+    return { total, maoObra, pecas, quantidade, ticketMedio };
+  }, [servicosFiltrados]);
+
+  // Dados agrupados por mês para gráfico e tabela
+  const dadosPorMes = useMemo(() => {
+    const agrupado: Record<string, DadosMensal> = {};
+    
+    servicosFiltrados.forEach(servico => {
+      const data = servico.horario_agendamento || servico.updated_at;
+      if (!data) return;
+      
+      const mesAno = format(new Date(data), "yyyy-MM");
+      const mesLabel = format(new Date(data), "MMM/yy", { locale: ptBR });
+      
+      if (!agrupado[mesAno]) {
+        agrupado[mesAno] = { mesAno, mesLabel, total: 0, maoObra: 0, pecas: 0, quantidade: 0 };
+      }
+      
+      agrupado[mesAno].total += servico.valor_total || 0;
+      agrupado[mesAno].maoObra += servico.valor_mao_obra || 0;
+      agrupado[mesAno].pecas += servico.valor_pecas || 0;
+      agrupado[mesAno].quantidade += 1;
+    });
+
+    return Object.values(agrupado).sort((a, b) => a.mesAno.localeCompare(b.mesAno));
+  }, [servicosFiltrados]);
+
+  // Formatação de valores
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      minimumFractionDigits: 2,
+    }).format(value);
+  };
+
+  const formatCurrencyShort = (value: number) => {
+    if (value >= 1000) {
+      return `R$ ${(value / 1000).toFixed(1)}k`;
+    }
+    return formatCurrency(value);
+  };
+
   const getServicosNaData = (date: Date) => {
     return servicos.filter(s => {
       if (!s.horario_agendamento) return false;
@@ -299,12 +392,208 @@ export default function PrestadorPortal() {
         </Card>
 
         {/* Tabs */}
-        <Tabs defaultValue="orcamentos" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="resumo" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="resumo">📊 Resumo</TabsTrigger>
             <TabsTrigger value="orcamentos">Orçamentos</TabsTrigger>
             <TabsTrigger value="calendario">Calendário</TabsTrigger>
-            <TabsTrigger value="lista">Lista de Serviços</TabsTrigger>
+            <TabsTrigger value="lista">Serviços</TabsTrigger>
           </TabsList>
+
+          {/* Aba: Resumo */}
+          <TabsContent value="resumo">
+            <div className="space-y-6">
+              {/* Filtro de Período */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-xl">📊 Resumo de Serviços</CardTitle>
+                      <CardDescription>Relatório de faturamento e serviços realizados</CardDescription>
+                    </div>
+                    <Select value={periodoFiltro} onValueChange={(v) => setPeriodoFiltro(v as PeriodoFiltro)}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Período" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mes_atual">Este mês</SelectItem>
+                        <SelectItem value="ultimos_3_meses">Últimos 3 meses</SelectItem>
+                        <SelectItem value="este_ano">Este ano</SelectItem>
+                        <SelectItem value="todo_periodo">Todo período</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardHeader>
+              </Card>
+
+              {/* KPI Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Serviços</p>
+                        <p className="text-2xl font-bold">{metricas.quantidade}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-brand-green/10 rounded-lg">
+                        <Wallet className="h-5 w-5 text-brand-green" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Faturamento</p>
+                        <p className="text-2xl font-bold">{formatCurrencyShort(metricas.total)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-brand-coral/10 rounded-lg">
+                        <Wrench className="h-5 w-5 text-brand-coral" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Mão de Obra</p>
+                        <p className="text-2xl font-bold">{formatCurrencyShort(metricas.maoObra)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-brand-yellow/10 rounded-lg">
+                        <Package className="h-5 w-5 text-brand-yellow" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Peças</p>
+                        <p className="text-2xl font-bold">{formatCurrencyShort(metricas.pecas)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="col-span-2 md:col-span-1">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Ticket Médio</p>
+                        <p className="text-2xl font-bold">{formatCurrency(metricas.ticketMedio)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Gráfico de Evolução Mensal */}
+              {dadosPorMes.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>📈 Evolução Mensal</CardTitle>
+                    <CardDescription>Faturamento e composição por mês</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dadosPorMes}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis 
+                            dataKey="mesLabel" 
+                            className="text-xs"
+                            tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                          />
+                          <YAxis 
+                            className="text-xs"
+                            tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                            tickFormatter={(value) => `R$ ${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
+                          />
+                          <Tooltip 
+                            formatter={(value: number, name: string) => [
+                              formatCurrency(value), 
+                              name === "maoObra" ? "Mão de Obra" : name === "pecas" ? "Peças" : name
+                            ]}
+                            labelFormatter={(label) => `Mês: ${label}`}
+                            contentStyle={{
+                              backgroundColor: 'hsl(var(--background))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
+                            }}
+                          />
+                          <Legend 
+                            formatter={(value) => value === "maoObra" ? "Mão de Obra" : value === "pecas" ? "Peças" : value}
+                          />
+                          <Bar dataKey="maoObra" name="maoObra" fill="hsl(var(--brand-coral))" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="pecas" name="pecas" fill="hsl(var(--brand-yellow))" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Tabela de Resumo Mensal */}
+              {dadosPorMes.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>📋 Detalhamento por Mês</CardTitle>
+                    <CardDescription>Valores detalhados de cada período</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Mês/Ano</TableHead>
+                          <TableHead className="text-center">Serviços</TableHead>
+                          <TableHead className="text-right">Mão de Obra</TableHead>
+                          <TableHead className="text-right">Peças</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dadosPorMes.slice().reverse().map((mes) => (
+                          <TableRow key={mes.mesAno}>
+                            <TableCell className="font-medium capitalize">{mes.mesLabel}</TableCell>
+                            <TableCell className="text-center">{mes.quantidade}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(mes.maoObra)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(mes.pecas)}</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(mes.total)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/50 font-bold">
+                          <TableCell>Total</TableCell>
+                          <TableCell className="text-center">{metricas.quantidade}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(metricas.maoObra)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(metricas.pecas)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(metricas.total)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Estado vazio */}
+              {dadosPorMes.length === 0 && (
+                <Card>
+                  <CardContent className="py-12">
+                    <p className="text-center text-muted-foreground">
+                      Nenhum serviço finalizado no período selecionado.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
 
           {/* Aba: Orçamentos */}
           <TabsContent value="orcamentos">
