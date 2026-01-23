@@ -63,10 +63,12 @@ export type Database = {
         Row: {
           arquivado: boolean
           atendente_id: string | null
+          bairro: string | null
           bot_desativado_notificacao_vista: boolean | null
           bot_desligado_manualmente: boolean | null
           bot_habilitado: boolean | null
           bot_ja_desligado_alguma_vez: boolean | null
+          cidade: string | null
           cpf: string | null
           created_at: string | null
           data_bot_desabilitado: string | null
@@ -85,10 +87,12 @@ export type Database = {
         Insert: {
           arquivado?: boolean
           atendente_id?: string | null
+          bairro?: string | null
           bot_desativado_notificacao_vista?: boolean | null
           bot_desligado_manualmente?: boolean | null
           bot_habilitado?: boolean | null
           bot_ja_desligado_alguma_vez?: boolean | null
+          cidade?: string | null
           cpf?: string | null
           created_at?: string | null
           data_bot_desabilitado?: string | null
@@ -107,10 +111,12 @@ export type Database = {
         Update: {
           arquivado?: boolean
           atendente_id?: string | null
+          bairro?: string | null
           bot_desativado_notificacao_vista?: boolean | null
           bot_desligado_manualmente?: boolean | null
           bot_habilitado?: boolean | null
           bot_ja_desligado_alguma_vez?: boolean | null
+          cidade?: string | null
           cpf?: string | null
           created_at?: string | null
           data_bot_desabilitado?: string | null
@@ -165,7 +171,9 @@ export type Database = {
       }
       fichas_de_servico: {
         Row: {
+          bairro: string | null
           categoria_id: number | null
+          cidade: string | null
           cpf: string | null
           created_at: string | null
           data_version: number | null
@@ -180,6 +188,7 @@ export type Database = {
           id: string
           id_zoho: string | null
           motivo_perda: string | null
+          nome_cliente: string | null
           nome_ficha: string | null
           notas: string | null
           pagamento_gerar_link: boolean | null
@@ -201,7 +210,9 @@ export type Database = {
           valor_total: number | null
         }
         Insert: {
+          bairro?: string | null
           categoria_id?: number | null
+          cidade?: string | null
           cpf?: string | null
           created_at?: string | null
           data_version?: number | null
@@ -216,6 +227,7 @@ export type Database = {
           id: string
           id_zoho?: string | null
           motivo_perda?: string | null
+          nome_cliente?: string | null
           nome_ficha?: string | null
           notas?: string | null
           pagamento_gerar_link?: boolean | null
@@ -237,7 +249,9 @@ export type Database = {
           valor_total?: number | null
         }
         Update: {
+          bairro?: string | null
           categoria_id?: number | null
+          cidade?: string | null
           cpf?: string | null
           created_at?: string | null
           data_version?: number | null
@@ -252,6 +266,7 @@ export type Database = {
           id?: string
           id_zoho?: string | null
           motivo_perda?: string | null
+          nome_cliente?: string | null
           nome_ficha?: string | null
           notas?: string | null
           pagamento_gerar_link?: boolean | null

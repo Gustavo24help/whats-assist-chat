@@ -50,6 +50,7 @@ interface ClienteComBairro {
   nome: string;
   endereco: string;
   bairro: string;
+  cidade?: string;
   temFichaFechada: boolean;
   fichaStatus?: string;
 }
@@ -131,28 +132,29 @@ const BairrosReport = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Buscar clientes com endereço
+      // Buscar clientes com endereço ou bairro
       const { data: clientesData, error: clientesError } = await supabase
         .from("clientes")
-        .select("telefone, nome, endereco")
-        .not("endereco", "is", null)
-        .neq("endereco", "");
+        .select("telefone, nome, endereco, bairro, cidade")
+        .or("endereco.neq.,bairro.neq.");
 
       if (clientesError) throw clientesError;
 
-      // Buscar fichas para verificar status
+      // Buscar fichas para verificar status e dados de bairro/cidade
       const { data: fichasData, error: fichasError } = await supabase
         .from("fichas_de_servico")
-        .select("telefone_cliente, endereco, status");
+        .select("telefone_cliente, endereco, bairro, cidade, status");
 
       if (fichasError) throw fichasError;
 
       // Criar mapa de fichas por telefone
-      const fichasMap = new Map<string, { endereco: string; status: string; fechada: boolean }[]>();
+      const fichasMap = new Map<string, { endereco: string; bairro: string | null; cidade: string | null; status: string; fechada: boolean }[]>();
       fichasData?.forEach(ficha => {
         const current = fichasMap.get(ficha.telefone_cliente) || [];
         current.push({
           endereco: ficha.endereco || "",
+          bairro: ficha.bairro || null,
+          cidade: ficha.cidade || null,
           status: ficha.status || "",
           fechada: ficha.status === "Finalizado"
         });
@@ -163,34 +165,84 @@ const BairrosReport = () => {
       const clientesProcessados: ClienteComBairro[] = [];
       const telefonesProcessados = new Set<string>();
 
+      // Helper para obter bairro com prioridade: campo dedicado > extração do endereço
+      const getBairro = (
+        bairroDedicado: string | null | undefined,
+        endereco: string | null | undefined,
+        fichasBairro?: string | null
+      ): string => {
+        // Prioridade 1: Campo bairro dedicado do cliente
+        if (bairroDedicado && bairroDedicado.trim()) {
+          return bairroDedicado.trim();
+        }
+        // Prioridade 2: Campo bairro da ficha
+        if (fichasBairro && fichasBairro.trim()) {
+          return fichasBairro.trim();
+        }
+        // Prioridade 3: Extração do endereço (fallback para dados históricos)
+        if (endereco && endereco.trim()) {
+          return extractBairro(endereco);
+        }
+        return "Não informado";
+      };
+
+      // Helper para obter cidade
+      const getCidade = (
+        cidadeDedicada: string | null | undefined,
+        fichasCidade?: string | null
+      ): string | undefined => {
+        if (cidadeDedicada && cidadeDedicada.trim()) {
+          return cidadeDedicada.trim();
+        }
+        if (fichasCidade && fichasCidade.trim()) {
+          return fichasCidade.trim();
+        }
+        return undefined;
+      };
+
       // Primeiro, processar clientes da tabela clientes
       clientesData?.forEach(cliente => {
-        if (!cliente.endereco || telefonesProcessados.has(cliente.telefone)) return;
+        if (telefonesProcessados.has(cliente.telefone)) return;
         
         const fichasCliente = fichasMap.get(cliente.telefone) || [];
         const temFichaFechada = fichasCliente.some(f => f.fechada);
         const ultimaFicha = fichasCliente[fichasCliente.length - 1];
         
+        // Verificar se tem algum dado de localização
+        const temBairroDedicado = cliente.bairro && cliente.bairro.trim();
+        const temEndereco = cliente.endereco && cliente.endereco.trim();
+        const temBairroFicha = ultimaFicha?.bairro;
+        const temEnderecoFicha = ultimaFicha?.endereco;
+        
+        if (!temBairroDedicado && !temEndereco && !temBairroFicha && !temEnderecoFicha) return;
+        
         clientesProcessados.push({
           telefone: cliente.telefone,
           nome: cliente.nome,
-          endereco: cliente.endereco,
-          bairro: extractBairro(cliente.endereco),
+          endereco: cliente.endereco || ultimaFicha?.endereco || "",
+          bairro: getBairro(cliente.bairro, cliente.endereco, ultimaFicha?.bairro),
+          cidade: getCidade(cliente.cidade, ultimaFicha?.cidade),
           temFichaFechada,
           fichaStatus: ultimaFicha?.status
         });
         telefonesProcessados.add(cliente.telefone);
       });
 
-      // Adicionar fichas com endereço que não estão em clientes
+      // Adicionar fichas com dados de localização que não estão em clientes
       fichasData?.forEach(ficha => {
-        if (!ficha.endereco || telefonesProcessados.has(ficha.telefone_cliente)) return;
+        if (telefonesProcessados.has(ficha.telefone_cliente)) return;
+        
+        const temBairro = ficha.bairro && ficha.bairro.trim();
+        const temEndereco = ficha.endereco && ficha.endereco.trim();
+        
+        if (!temBairro && !temEndereco) return;
         
         clientesProcessados.push({
           telefone: ficha.telefone_cliente,
           nome: "Cliente",
-          endereco: ficha.endereco,
-          bairro: extractBairro(ficha.endereco),
+          endereco: ficha.endereco || "",
+          bairro: getBairro(ficha.bairro, ficha.endereco),
+          cidade: getCidade(ficha.cidade),
           temFichaFechada: ficha.status === "Finalizado",
           fichaStatus: ficha.status || undefined
         });
