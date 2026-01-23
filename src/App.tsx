@@ -15,6 +15,7 @@ import FichasGeral from "./pages/FichasGeral";
 import BairrosReport from "./pages/BairrosReport";
 import OrcamentoPublico from "./pages/OrcamentoPublico";
 import PrestadorPortal from "./pages/PrestadorPortal";
+import PrestadoresReport from "./pages/PrestadoresReport";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <BairrosReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/prestadores"
+                element={
+                  <ProtectedRoute>
+                    <PrestadoresReport />
                   </ProtectedRoute>
                 }
               />
