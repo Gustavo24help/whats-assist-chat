@@ -13,6 +13,7 @@ import {
   ChevronRight,
   MessageCircle,
   MapPin,
+  Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,6 +29,7 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { label: 'Chat', icon: MessageCircle, path: '/chat' },
+  { label: 'Prestadores', icon: Users, path: '/prestadores' },
   { label: 'Bairros', icon: MapPin, path: '/bairros' },
   { label: 'Marketing', icon: Megaphone, path: '/dashboard/marketing' },
   { label: 'Vendas', icon: TrendingUp, path: '/dashboard/vendas' },
