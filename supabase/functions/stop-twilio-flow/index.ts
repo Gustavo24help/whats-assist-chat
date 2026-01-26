@@ -7,6 +7,7 @@ const corsHeaders = {
 
 interface RequestBody {
   telefone: string;
+  executado_por_id?: string; // ID do usuário que executou a ação
 }
 
 Deno.serve(async (req) => {
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
     }
 
     // 2. Parsear body
-    const { telefone }: RequestBody = await req.json();
+    const { telefone, executado_por_id }: RequestBody = await req.json();
 
     if (!telefone) {
       return new Response(
@@ -117,6 +118,21 @@ Deno.serve(async (req) => {
     if (updateError) {
       console.error('[stop-twilio-flow] Erro ao desabilitar bot:', updateError);
       throw updateError;
+    }
+
+    // Registrar no histórico
+    const { error: historicoError } = await supabase
+      .from('bot_historico')
+      .insert({
+        telefone_cliente: telefone,
+        acao: 'desligado',
+        origem: 'manual',
+        executado_por_id: executado_por_id || null,
+        observacao: 'Bot desligado via stop-twilio-flow (encerramento de fluxo Twilio)'
+      });
+
+    if (historicoError) {
+      console.error('[stop-twilio-flow] Erro ao registrar histórico:', historicoError);
     }
 
     console.log(`[stop-twilio-flow] ✅ Bot desabilitado para ${telefone}`);

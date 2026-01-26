@@ -14,6 +14,61 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_historico: {
+        Row: {
+          acao: string
+          created_at: string
+          executado_por_id: string | null
+          ficha_id: string | null
+          id: string
+          observacao: string | null
+          origem: string
+          telefone_cliente: string
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          executado_por_id?: string | null
+          ficha_id?: string | null
+          id?: string
+          observacao?: string | null
+          origem: string
+          telefone_cliente: string
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          executado_por_id?: string | null
+          ficha_id?: string | null
+          id?: string
+          observacao?: string | null
+          origem?: string
+          telefone_cliente?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_historico_executado_por_id_fkey"
+            columns: ["executado_por_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_historico_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_historico_telefone_cliente_fkey"
+            columns: ["telefone_cliente"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["telefone"]
+          },
+        ]
+      }
       bot_reactivation_schedule: {
         Row: {
           created_at: string | null

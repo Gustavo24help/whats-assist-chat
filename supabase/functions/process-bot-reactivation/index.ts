@@ -74,6 +74,21 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Registrar no histórico
+        const { error: historicoError } = await supabase
+          .from('bot_historico')
+          .insert({
+            telefone_cliente: schedule.telefone_cliente,
+            acao: 'ligado',
+            origem: 'automatico',
+            ficha_id: schedule.ficha_id,
+            observacao: `Bot reativado automaticamente 10 dias após ficha ${schedule.ficha_id} ser finalizada`
+          });
+
+        if (historicoError) {
+          console.error(`[process-bot-reactivation] Erro ao registrar histórico:`, historicoError);
+        }
+
         // Marcar agendamento como executado
         const { error: markError } = await supabase
           .from('bot_reactivation_schedule')
