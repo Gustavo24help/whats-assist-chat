@@ -159,6 +159,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [fichaId, setFichaId] = useState<string | undefined>();
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
+  const [isTogglingBot, setIsTogglingBot] = useState(false);
+  const [ultimaAcaoBot, setUltimaAcaoBot] = useState<{
+    acao: string;
+    por: string | null;
+    quando: string;
+  } | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   
   // ✅ Estados para loading e paginação de mensagens
@@ -513,6 +519,33 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           setFichaId(ultimaFicha.id);
         }
       }
+    }
+    
+    // Buscar última ação do bot
+    const { data: ultimaAcao } = await supabase
+      .from('bot_historico')
+      .select('acao, created_at, executado_por_id')
+      .eq('telefone_cliente', clienteTelefone)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (ultimaAcao) {
+      let nomeExecutor = null;
+      if (ultimaAcao.executado_por_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', ultimaAcao.executado_por_id)
+          .single();
+        nomeExecutor = profile?.full_name || null;
+      }
+      
+      setUltimaAcaoBot({
+        acao: ultimaAcao.acao,
+        por: nomeExecutor,
+        quando: ultimaAcao.created_at
+      });
     }
   };
 
@@ -998,11 +1031,38 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
+  // Função para verificar estado atual e abrir dialog
+  const handleAssumirClick = async () => {
+    // Buscar estado atual do banco antes de abrir o dialog para garantir sincronização
+    const { data } = await supabase
+      .from('clientes')
+      .select('bot_habilitado')
+      .eq('telefone', clienteTelefone)
+      .single();
+    
+    if (data) {
+      setBotDesabilitado(data.bot_habilitado === false);
+    }
+    setAssumirDialogOpen(true);
+  };
+
   const toggleBot = async () => {
+    // Prevenir clique duplo
+    if (isTogglingBot) return;
+    setIsTogglingBot(true);
+
     try {
-      // Obter ID do usuário logado
+      // Obter ID do usuário logado e nome
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
+      
+      // Obter nome do usuário para feedback
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single();
+      const userName = profile?.full_name || 'Você';
 
       // Se o bot está habilitado (não desabilitado), precisamos encerrar o fluxo ativo
       if (!botDesabilitado) {
@@ -1019,7 +1079,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
         if (data?.success) {
           setBotDesabilitado(true);
-          toast.success("Bot encerrado e desabilitado com sucesso!");
+          toast.success(`Bot desabilitado por ${userName}`);
+          setUltimaAcaoBot({
+            acao: 'desabilitado',
+            por: userName,
+            quando: new Date().toISOString()
+          });
           console.log(`[ChatWindow] ✅ Fluxo encerrado: ${data.executionSid}`);
         } else {
           // Não havia execução ativa, mas ainda desabilita o bot
@@ -1035,7 +1100,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           if (toggleError) throw toggleError;
           
           setBotDesabilitado(true);
-          toast.info("Bot desabilitado (nenhuma execução ativa encontrada)");
+          toast.success(`Bot desabilitado por ${userName}`);
+          setUltimaAcaoBot({
+            acao: 'desabilitado',
+            por: userName,
+            quando: new Date().toISOString()
+          });
         }
       } else {
         // Reativar bot
@@ -1051,13 +1121,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         if (error) throw error;
 
         setBotDesabilitado(false);
-        toast.success("Bot reativado com sucesso!");
+        toast.success(`Bot reativado por ${userName}`);
+        setUltimaAcaoBot({
+          acao: 'habilitado',
+          por: userName,
+          quando: new Date().toISOString()
+        });
       }
       
       setAssumirDialogOpen(false);
     } catch (error) {
       console.error("[ChatWindow] Erro ao alterar status do bot:", error);
       toast.error("Não foi possível alterar o status do bot");
+    } finally {
+      setIsTogglingBot(false);
     }
   };
 
@@ -1172,13 +1249,35 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             )}
             <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
-            <span className="text-xs font-medium">
-              Bot: <span className={botDesabilitado ? "text-red-500" : "text-green-600"}>
-                {botDesabilitado ? "Desativado" : "Ativado"}
-              </span>
-            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xs font-medium cursor-help">
+                    Bot: <span className={botDesabilitado ? "text-destructive" : "text-green-600"}>
+                      {botDesabilitado ? "Desativado" : "Ativado"}
+                    </span>
+                    {ultimaAcaoBot && ultimaAcaoBot.por && (
+                      <span className="text-muted-foreground ml-1">
+                        por {ultimaAcaoBot.por.split(' ')[0]}
+                      </span>
+                    )}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {ultimaAcaoBot ? (
+                    <div className="text-xs">
+                      <p><strong>{ultimaAcaoBot.acao === 'habilitado' ? 'Ativado' : 'Desativado'}</strong></p>
+                      {ultimaAcaoBot.por && <p>Por: {ultimaAcaoBot.por}</p>}
+                      <p>Em: {format(new Date(ultimaAcaoBot.quando), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs">Sem histórico de alterações</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         </div>
@@ -1338,7 +1437,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setAssumirDialogOpen(true)}
+                onClick={handleAssumirClick}
                 className={cn(
                   "h-9 hover:scale-[0.98] active:scale-95 transition-transform",
                   botDesabilitado && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
@@ -1460,12 +1559,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isTogglingBot}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={toggleBot}
+              disabled={isTogglingBot}
               className={botDesabilitado ? "" : "bg-destructive hover:bg-destructive/90"}
             >
-              {botDesabilitado ? "Reativar Bot" : "Assumir Agora"}
+              {isTogglingBot ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                botDesabilitado ? "Reativar Bot" : "Assumir Agora"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
