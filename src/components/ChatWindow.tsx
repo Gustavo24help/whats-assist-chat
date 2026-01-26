@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
@@ -16,6 +16,7 @@ import { NPSFlowPanel } from "./NPSFlowPanel";
 import { useConversationTimer } from "@/hooks/useConversationTimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
+import { BotHistoricoDialog } from "./BotHistoricoDialog";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -176,6 +177,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [notasInternas, setNotasInternas] = useState("");
   const [hasNotas, setHasNotas] = useState(false);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  
+  // Estado para histórico do bot
+  const [botHistoricoOpen, setBotHistoricoOpen] = useState(false);
   
   // Estados para busca no chat
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
@@ -996,13 +1000,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
   const toggleBot = async () => {
     try {
+      // Obter ID do usuário logado
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
       // Se o bot está habilitado (não desabilitado), precisamos encerrar o fluxo ativo
       if (!botDesabilitado) {
         console.log(`[ChatWindow] Encerrando fluxo ativo do bot para ${clienteTelefone}`);
         
         const { data, error } = await supabase.functions.invoke('stop-twilio-flow', {
           body: {
-            telefone: clienteTelefone
+            telefone: clienteTelefone,
+            executado_por_id: userId
           }
         });
 
@@ -1018,7 +1027,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             body: {
               telefone: clienteTelefone,
               bot_status: 'disabled',
-              origem: 'manual'
+              origem: 'manual',
+              executado_por_id: userId
             }
           });
 
@@ -1033,7 +1043,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           body: {
             telefone: clienteTelefone,
             bot_status: 'enabled',
-            origem: 'manual'
+            origem: 'manual',
+            executado_por_id: userId
           }
         });
 
@@ -1303,6 +1314,17 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 {hasNotas && (
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full" />
                 )}
+              </Button>
+
+              {/* Botão de histórico do bot */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBotHistoricoOpen(true)}
+                className="h-9 px-2 hover:bg-accent"
+                title="Histórico do Bot"
+              >
+                <History className="h-4 w-4" />
               </Button>
 
               {/* Botão NPS */}
@@ -1759,6 +1781,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           </div>
         </div>
       </div>
+
+      {/* Dialog de Histórico do Bot */}
+      <BotHistoricoDialog
+        open={botHistoricoOpen}
+        onOpenChange={setBotHistoricoOpen}
+        telefoneCliente={clienteTelefone}
+        nomeCliente={clienteNome}
+      />
     </div>
   );
 };

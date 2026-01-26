@@ -9,6 +9,7 @@ interface RequestBody {
   telefone: string;
   bot_status: 'enabled' | 'disabled';
   origem?: 'manual' | 'automatico'; // Origem do desligamento
+  executado_por_id?: string; // ID do usuário que executou a ação
 }
 
 Deno.serve(async (req) => {
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { telefone, bot_status, origem = 'manual' }: RequestBody = await req.json();
+    const { telefone, bot_status, origem = 'manual', executado_por_id }: RequestBody = await req.json();
 
     // Validar inputs
     if (!telefone) {
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[toggle-bot-status] Alterando status do bot para ${telefone}: ${bot_status}, origem: ${origem}`);
+    console.log(`[toggle-bot-status] Alterando status do bot para ${telefone}: ${bot_status}, origem: ${origem}, executado_por: ${executado_por_id || 'sistema'}`);
 
     const botHabilitado = bot_status === 'enabled';
     const dataDesabilitado = bot_status === 'disabled' ? new Date().toISOString() : null;
@@ -69,6 +70,22 @@ Deno.serve(async (req) => {
     if (updateError) {
       console.error('[toggle-bot-status] Erro ao atualizar cliente:', updateError);
       throw updateError;
+    }
+
+    // Registrar no histórico
+    const { error: historicoError } = await supabase
+      .from('bot_historico')
+      .insert({
+        telefone_cliente: telefone,
+        acao: bot_status === 'enabled' ? 'ligado' : 'desligado',
+        origem: origem,
+        executado_por_id: executado_por_id || null,
+        observacao: `Bot ${bot_status === 'enabled' ? 'ativado' : 'desativado'} via toggle-bot-status`
+      });
+
+    if (historicoError) {
+      console.error('[toggle-bot-status] Erro ao registrar histórico:', historicoError);
+      // Não falha a operação, apenas loga o erro
     }
 
     console.log(`[toggle-bot-status] ✅ Status do bot atualizado para ${telefone}: ${bot_status}`);
