@@ -1,189 +1,249 @@
 
 
-# Plano: Sistema de Tickets, Permissoes e Resumo de Conversa
+# Plano: Etapa 2 - Sistema de Tickets por Usuario
 
-## Visao Geral
+## Objetivo
 
-Implementacao em **3 etapas progressivas** para nao quebrar funcionalidades existentes:
-
-| Etapa | Funcionalidade | Complexidade |
-|-------|---------------|--------------|
-| **1** | Resumo de Conversa com IA | Media |
-| **2** | Filtro "Meus Tickets" e Puxar Tickets | Media |
-| **3** | Delegacao em Massa + KPIs por Usuario | Alta |
+Implementar controle de acesso baseado em roles para que:
+- **Usuarios comuns** vejam apenas seus proprios tickets e possam "puxar" tickets sem dono
+- **Supervisores/Admins** vejam todos os tickets e possam reatribuir qualquer um
 
 ---
 
-## Etapa 1: Resumo de Conversa com IA
+## Analise do Estado Atual
 
-### Objetivo
-Adicionar botao "Gerar Resumo" nas fichas de servico que usa IA para gerar um resumo estruturado.
+### Estrutura Existente
+- Tabela `clientes` ja tem campo `atendente_id` (UUID, nullable)
+- Enum `app_role` possui apenas: `admin`, `user`
+- AuthContext retorna `isAdmin` (true/false)
+- ConversationList busca todos os clientes sem filtro de atendente
 
-### Logica de Captura
-- Buscar mensagens do cliente a partir de **00:00 do dia de criacao da ficha**
-- Delimitar ate a criacao da proxima ficha (se existir) ou data atual
+### O que precisa mudar
 
-### Alteracoes
-
-| Arquivo | Acao |
-|---------|------|
-| `supabase/functions/summarize-conversation/index.ts` | Criar |
-| `src/components/FichaServicoTab.tsx` | Modificar (adicionar botao e dialog) |
-
-### Edge Function
-
-```text
-1. Receber ficha_id
-2. Buscar ficha -> telefone_cliente, created_at
-3. Calcular inicio: DATE_TRUNC('day', created_at)
-4. Buscar proxima ficha do cliente (se existir)
-5. Buscar mensagens no periodo (limite: 150)
-6. Enviar para Gemini 2.5 Flash com prompt estruturado
-7. Retornar resumo formatado
-```
+| Componente | Alteracao |
+|------------|-----------|
+| Banco de dados | Adicionar `supervisor` ao enum `app_role` |
+| AuthContext | Adicionar `isSupervisor` ao contexto |
+| ConversationList | Adicionar toggle "Meus Tickets" e logica de filtro |
+| ChatWindow | Ajustar botao "Assumir" para respeitar permissoes |
+| UserManagement | Permitir atribuir role `supervisor` |
 
 ---
 
-## Etapa 2: Sistema de Tickets por Usuario
+## Alteracoes Detalhadas
 
-### Objetivo
-Permitir que usuarios vejam apenas seus tickets e possam "puxar" tickets nao atribuidos.
+### 1. Migracao SQL
 
-### Nova Role: Supervisor
-
-Adicionar role `supervisor` ao enum `app_role`:
-- **user**: Ve apenas seus proprios tickets
-- **supervisor**: Ve todos os tickets, pode puxar qualquer um
-- **admin**: Tudo de supervisor + gerenciamento de usuarios
-
-### Alteracoes na Interface
-
-#### ConversationList.tsx
-- Adicionar toggle "Meus Tickets" / "Todos"
-- Usuarios comuns: veem so seus tickets por padrao
-- Supervisors/Admins: veem todos por padrao, podem filtrar
-
-#### Logica de Filtro
-
-```text
-SE usuario = 'user':
-  - Mostrar tickets onde atendente_id = user.id OU atendente_id IS NULL
-  - Pode puxar apenas tickets nao atribuidos (NULL)
-
-SE usuario = 'supervisor' ou 'admin':
-  - Mostrar todos os tickets
-  - Pode puxar qualquer ticket (inclusive de outros usuarios)
-```
-
-### Alteracoes
-
-| Arquivo | Acao |
-|---------|------|
-| Nova migracao SQL | Adicionar 'supervisor' ao enum app_role |
-| `src/contexts/AuthContext.tsx` | Atualizar tipo para incluir supervisor |
-| `src/components/ConversationList.tsx` | Adicionar filtro "Meus Tickets" |
-| `src/components/ChatWindow.tsx` | Ajustar logica de atribuicao |
-
----
-
-## Etapa 3: Delegacao em Massa e KPIs
-
-### Objetivo
-Permitir transferencia de tickets quando usuario sair + metricas por atendente.
-
-### Delegacao em Massa
-
-Nova interface em Settings > Gerenciar Usuarios:
-- Ao excluir usuario, exibir dialog para escolher destinatario
-- Transferir todos os tickets (clientes.atendente_id) do usuario excluido
-
-### KPIs por Usuario
-
-Nova tabela para rastrear metricas:
+Adicionar nova role ao enum existente:
 
 ```sql
-CREATE TABLE atendente_metricas (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  atendente_id UUID REFERENCES auth.users(id),
-  data DATE NOT NULL,
-  tickets_atendidos INT DEFAULT 0,
-  mensagens_enviadas INT DEFAULT 0,
-  tempo_medio_resposta INTERVAL,
-  UNIQUE(atendente_id, data)
-);
+ALTER TYPE app_role ADD VALUE 'supervisor';
 ```
 
-Dashboard mostrando:
-- Tickets atendidos por periodo
-- Tempo medio de resposta
-- Taxa de conversao (se aplicavel)
+### 2. AuthContext.tsx
 
-### Alteracoes
+Modificacoes:
+- Adicionar `isSupervisor: boolean` ao contexto
+- Atualizar tipo `UserProfile.role` para incluir `'supervisor'`
+- Logica: supervisor pode ver/puxar todos, mas nao gerenciar usuarios
 
-| Arquivo | Acao |
-|---------|------|
-| Nova migracao SQL | Criar tabela atendente_metricas |
-| `src/components/UserManagement.tsx` | Adicionar dialogo de delegacao ao excluir |
-| Nova pagina ou aba | Dashboard de KPIs por usuario |
-| Trigger SQL | Atualizar metricas automaticamente |
+```typescript
+interface UserProfile {
+  role: 'admin' | 'supervisor' | 'user';
+}
 
----
+// No provider:
+const isSupervisor = userProfile?.role === 'supervisor' || userProfile?.role === 'admin';
+```
 
-## Diagrama de Permissoes
+### 3. ConversationList.tsx
+
+Novo toggle "Meus Tickets" no cabecalho:
 
 ```text
-+---------------+------------------+------------------+-------------------+
-| Acao          | user             | supervisor       | admin             |
-+---------------+------------------+------------------+-------------------+
-| Ver tickets   | Proprios + NULL  | Todos            | Todos             |
-| Puxar ticket  | Apenas NULL      | Qualquer         | Qualquer          |
-| Delegar       | Nao              | Nao              | Sim               |
-| Ver KPIs      | Proprios         | Todos            | Todos             |
-| Gerenciar     | Nao              | Nao              | Sim               |
-+---------------+------------------+------------------+-------------------+
+[Meus Tickets] | [Todos]  (visivel para supervisors/admins)
+```
+
+Logica de filtro:
+
+```text
+SE role = 'user':
+  - Sempre filtra: atendente_id = user.id OU atendente_id IS NULL
+  - Nao mostra toggle (so ve os proprios)
+
+SE role = 'supervisor' ou 'admin':
+  - Mostra toggle
+  - "Meus Tickets": atendente_id = user.id
+  - "Todos": sem filtro
+```
+
+Query modificada:
+
+```typescript
+// Construir query base
+let query = supabase.from('clientes').select('*');
+
+// Aplicar filtro de atendente baseado na role
+if (userRole === 'user') {
+  // User so ve seus tickets ou sem dono
+  query = query.or(`atendente_id.eq.${userId},atendente_id.is.null`);
+} else if (showOnlyMyTickets) {
+  // Supervisor/Admin filtrando por "Meus Tickets"
+  query = query.eq('atendente_id', userId);
+}
+// Senao, supervisor/admin vendo todos (sem filtro adicional)
+```
+
+### 4. ChatWindow.tsx
+
+Ajustar logica do botao "Assumir" / "Atribuir":
+
+```text
+SE ticket.atendente_id IS NULL:
+  - Qualquer um pode "Assumir" (atribui para si mesmo)
+
+SE ticket.atendente_id = outro_usuario:
+  - user: NAO pode reatribuir (botao desabilitado ou oculto)
+  - supervisor/admin: PODE reatribuir (mostra dropdown de atendentes)
+```
+
+### 5. UserManagement.tsx
+
+Adicionar opcao "Supervisor" no dropdown de roles ao criar/editar usuarios.
+
+---
+
+## Interface do Usuario
+
+### ConversationList - Novo Toggle
+
+```text
++----------------------------------------+
+| Conversas           [Meus] [Todos]  ⚙ |
++----------------------------------------+
+| 🔍 Buscar...                           |
+| [Filtros...]                           |
++----------------------------------------+
+| João Silva          14:30    🟢        |
+| Maria Santos        12:15    🟡        |
+| Pedro Oliveira      ontem    🔴        |
++----------------------------------------+
+```
+
+Para usuarios comuns (role = user), o toggle NAO aparece - eles sempre veem apenas seus tickets + nao atribuidos.
+
+### ChatWindow - Indicador de Atendente
+
+No cabecalho da conversa, exibir quem esta atendendo:
+
+```text
++----------------------------------------+
+| ← João Silva                [Assumir]  |
+|   Atendente: Carlos (você)             |
++----------------------------------------+
+```
+
+Se for de outro atendente e o usuario for comum:
+
+```text
++----------------------------------------+
+| ← João Silva           [Atribuído a:   |
+|   Ana Paula                        🔒] |
++----------------------------------------+
 ```
 
 ---
 
-## Ordem de Implementacao Recomendada
+## Matriz de Permissoes Final
 
-Sugiro comecar pela **Etapa 1** (Resumo de Conversa) por ser:
-- Independente das outras funcionalidades
-- Valor imediato para transferencia de atendimento
-- Menor risco de impacto em funcionalidades existentes
+```text
++------------------+----------+-------------+----------+
+| Acao             | user     | supervisor  | admin    |
++------------------+----------+-------------+----------+
+| Ver tickets      | Proprios | Todos       | Todos    |
+|                  | + NULL   |             |          |
++------------------+----------+-------------+----------+
+| Puxar ticket     | So NULL  | Qualquer    | Qualquer |
++------------------+----------+-------------+----------+
+| Toggle "Todos"   | Nao      | Sim         | Sim      |
++------------------+----------+-------------+----------+
+| Gerenciar users  | Nao      | Nao         | Sim      |
++------------------+----------+-------------+----------+
+```
 
-Apos validacao, seguimos para Etapa 2 e depois Etapa 3.
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Tipo | Descricao |
+|---------|------|-----------|
+| Nova migracao SQL | Criar | Adicionar 'supervisor' ao enum |
+| `src/contexts/AuthContext.tsx` | Modificar | Adicionar isSupervisor |
+| `src/components/ConversationList.tsx` | Modificar | Toggle + filtro de tickets |
+| `src/components/ChatWindow.tsx` | Modificar | Logica de atribuicao |
+| `src/components/UserManagement.tsx` | Modificar | Opcao supervisor no form |
+
+---
+
+## Tratamento de Casos Especiais
+
+| Caso | Tratamento |
+|------|------------|
+| Usuario sem tickets atribuidos | Mostra lista vazia com mensagem explicativa |
+| Ticket sendo visualizado por outro | Permitir visualizacao, bloquear edicao (opcional) |
+| Usuario promovido a supervisor | Acesso expandido imediatamente |
+| Usuario rebaixado de supervisor | Perde acesso aos tickets de outros |
 
 ---
 
 ## Secao Tecnica
 
-### Etapa 1 - Detalhes
+### Migracao Segura do Enum
 
-**Edge Function summarize-conversation:**
-- Usa Lovable AI Gateway (Gemini 2.5 Flash)
-- Prompt estruturado para gerar secoes: Problema, Informacoes, Orcamento, Decisoes, Pendencias
-- Limite de 150 mensagens para evitar sobrecarga
+PostgreSQL permite adicionar valores ao enum mas nao remover. A migracao e:
 
-**Modificacao FichaServicoTab:**
-- Botao com icone FileText no cabecalho
-- Dialog com loading state
-- Exibicao do resumo em formato de card
-
-### Etapa 2 - Detalhes
-
-**Migracao SQL:**
 ```sql
-ALTER TYPE app_role ADD VALUE 'supervisor';
+-- Verificar se ja existe antes de adicionar
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum 
+    WHERE enumlabel = 'supervisor' 
+    AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'app_role')
+  ) THEN
+    ALTER TYPE app_role ADD VALUE 'supervisor';
+  END IF;
+END $$;
 ```
 
-**AuthContext atualizado:**
-- Adicionar `isSupervisor` ao contexto
-- Logica: supervisor pode ver/puxar todos, user so os proprios
+### AuthContext - Alteracoes
 
-### Etapa 3 - Detalhes
+```typescript
+interface AuthContextType {
+  // ... existentes
+  isSupervisor: boolean; // NOVO
+}
 
-**Trigger para metricas:**
-- Ao inserir mensagem com `enviado_por = 'operador'`, incrementar contador
-- Calcular tempo entre mensagem cliente e resposta operador
+// Calculo:
+const isSupervisor = userProfile?.role === 'supervisor' || userProfile?.role === 'admin';
+```
+
+### ConversationList - Integracao com AuthContext
+
+```typescript
+import { useAuth } from "@/contexts/AuthContext";
+
+const { user, isAdmin, isSupervisor } = useAuth();
+const [showOnlyMyTickets, setShowOnlyMyTickets] = useState(true);
+
+// No filtro:
+const canSeeAllTickets = isAdmin || isSupervisor;
+```
+
+### Impacto em Dados Existentes
+
+**NENHUM!** 
+- Clientes sem `atendente_id` continuam visiveis para todos
+- Clientes com `atendente_id` ja atribuido continuam visveis pelo atendente
+- Supervisors/Admins podem ver tudo (comportamento atual mantido)
 
