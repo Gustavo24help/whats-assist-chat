@@ -1,249 +1,360 @@
 
+# Plano: Melhorias no Sistema de Tickets e Conversas
 
-# Plano: Etapa 2 - Sistema de Tickets por Usuario
+## Resumo das Funcionalidades Solicitadas
 
-## Objetivo
-
-Implementar controle de acesso baseado em roles para que:
-- **Usuarios comuns** vejam apenas seus proprios tickets e possam "puxar" tickets sem dono
-- **Supervisores/Admins** vejam todos os tickets e possam reatribuir qualquer um
+1. **Leitura sem escrita** - Quando uma conversa nao esta atribuida a ninguem, a pessoa pode ler, mas NAO pode escrever
+2. **Atribuicao em massa** - Permitir selecionar multiplas conversas e atribuir todas a outro operador de uma vez
+3. **Filtro de conversas ativas/inativas** - Ocultar conversas com status "Finalizado" ou "Perdido" por padrao
+4. **Conversas inativas** - Status "Finalizado" ou "Perdido" na ficha marca a conversa como inativa
 
 ---
 
 ## Analise do Estado Atual
 
-### Estrutura Existente
-- Tabela `clientes` ja tem campo `atendente_id` (UUID, nullable)
-- Enum `app_role` possui apenas: `admin`, `user`
-- AuthContext retorna `isAdmin` (true/false)
-- ConversationList busca todos os clientes sem filtro de atendente
+### Campos Relevantes no Banco
+- `clientes.atendente_id` (UUID) - Quem esta atendendo
+- `clientes.status_conversa` - "aberta" ou "fechada"
+- `fichas_de_servico.status` - Status do servico (incluindo "Finalizado" e "Perdido")
 
-### O que precisa mudar
+### Status que tornam conversa inativa
+- "Finalizado"
+- "Perdido"
+- "Nao foi adiante"
 
-| Componente | Alteracao |
-|------------|-----------|
-| Banco de dados | Adicionar `supervisor` ao enum `app_role` |
-| AuthContext | Adicionar `isSupervisor` ao contexto |
-| ConversationList | Adicionar toggle "Meus Tickets" e logica de filtro |
-| ChatWindow | Ajustar botao "Assumir" para respeitar permissoes |
-| UserManagement | Permitir atribuir role `supervisor` |
+### Arquivos a Modificar
+| Arquivo | Alteracao |
+|---------|-----------|
+| `ConversationList.tsx` | Adicionar toggle ativas/inativas + checkbox para selecao em massa |
+| `ChatWindow.tsx` | Bloquear area de input quando `atendente_id` nao pertence ao usuario |
+| `Chat.tsx` | Adicionar painel/modal de atribuicao em massa |
 
 ---
 
 ## Alteracoes Detalhadas
 
-### 1. Migracao SQL
+### 1. Bloqueio de Escrita para Conversas sem Atribuicao
 
-Adicionar nova role ao enum existente:
+**Logica:**
+- Se `atendente_id IS NULL` E usuario nao e supervisor: PODE LER, NAO PODE ESCREVER
+- Se `atendente_id = outro_usuario`: PODE LER, NAO PODE ESCREVER (para usuarios comuns)
+- Se `atendente_id = user.id` OU usuario e supervisor: PODE LER E ESCREVER
 
-```sql
-ALTER TYPE app_role ADD VALUE 'supervisor';
+**Interface em ChatWindow.tsx:**
+
+A area de input (linha 1860-1922) sera desabilitada com uma mensagem explicativa:
+
+```text
++-----------------------------------------------------+
+|  Esta conversa nao esta atribuida a voce.           |
+|  [Assumir para mim] para poder responder.           |
++-----------------------------------------------------+
 ```
 
-### 2. AuthContext.tsx
+Para tickets de outros atendentes (usuarios comuns):
 
-Modificacoes:
-- Adicionar `isSupervisor: boolean` ao contexto
-- Atualizar tipo `UserProfile.role` para incluir `'supervisor'`
-- Logica: supervisor pode ver/puxar todos, mas nao gerenciar usuarios
+```text
++-----------------------------------------------------+
+|  Esta conversa esta atribuida a [Nome].             |
+|  Voce pode ler, mas nao pode responder.       [🔒]  |
++-----------------------------------------------------+
+```
+
+### 2. Filtro de Conversas Ativas/Inativas
+
+**Novo toggle na ConversationList:**
+
+```text
+[Ativas] | [Inativas] | [Todas]
+```
+
+**Logica de filtragem:**
+- **Ativas**: `status_ficha` NAO e "Finalizado", "Perdido", ou "Nao foi adiante"
+- **Inativas**: `status_ficha` e "Finalizado", "Perdido", ou "Nao foi adiante"
+- **Todas**: Sem filtro por status
+
+**Implementacao:**
 
 ```typescript
-interface UserProfile {
-  role: 'admin' | 'supervisor' | 'user';
+// Novo estado
+const [conversaStatusFilter, setConversaStatusFilter] = useState<"ativas" | "inativas" | "todas">("ativas");
+
+// Status que indicam conversa inativa
+const STATUS_INATIVOS = ["Finalizado", "Perdido", "Não foi adiante"];
+
+// No filteredClientes
+if (conversaStatusFilter === "ativas") {
+  filtered = filtered.filter(c => !STATUS_INATIVOS.includes(c.status_ficha || ""));
+} else if (conversaStatusFilter === "inativas") {
+  filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || ""));
 }
-
-// No provider:
-const isSupervisor = userProfile?.role === 'supervisor' || userProfile?.role === 'admin';
 ```
 
-### 3. ConversationList.tsx
+### 3. Atribuicao em Massa
 
-Novo toggle "Meus Tickets" no cabecalho:
+**Novo modo de selecao na ConversationList:**
+
+Adicionar um botao "Selecionar" que ativa o modo de selecao multipla:
 
 ```text
-[Meus Tickets] | [Todos]  (visivel para supervisors/admins)
++----------------------------------------+
+| Conversas [Meus][Todos] [☐ Selecionar] |
++----------------------------------------+
+| ☐ Joao Silva          14:30           |
+| ☐ Maria Santos        12:15           |
+| ☑ Pedro Oliveira      ontem           |
+| ☑ Ana Paula           ontem           |
++----------------------------------------+
+| [2 selecionados] [Atribuir para ▼]    |
++----------------------------------------+
 ```
 
-Logica de filtro:
-
-```text
-SE role = 'user':
-  - Sempre filtra: atendente_id = user.id OU atendente_id IS NULL
-  - Nao mostra toggle (so ve os proprios)
-
-SE role = 'supervisor' ou 'admin':
-  - Mostra toggle
-  - "Meus Tickets": atendente_id = user.id
-  - "Todos": sem filtro
-```
-
-Query modificada:
+**Estados necessarios:**
 
 ```typescript
-// Construir query base
-let query = supabase.from('clientes').select('*');
-
-// Aplicar filtro de atendente baseado na role
-if (userRole === 'user') {
-  // User so ve seus tickets ou sem dono
-  query = query.or(`atendente_id.eq.${userId},atendente_id.is.null`);
-} else if (showOnlyMyTickets) {
-  // Supervisor/Admin filtrando por "Meus Tickets"
-  query = query.eq('atendente_id', userId);
-}
-// Senao, supervisor/admin vendo todos (sem filtro adicional)
+const [selectionMode, setSelectionMode] = useState(false);
+const [selectedClientes, setSelectedClientes] = useState<Set<string>>(new Set());
 ```
 
-### 4. ChatWindow.tsx
+**Componentes:**
+- Checkbox em cada item da lista (visivel apenas no modo selecao)
+- Barra de acoes na parte inferior com:
+  - Contador de selecionados
+  - Dropdown de atendentes
+  - Botao "Atribuir"
+  - Botao "Cancelar"
 
-Ajustar logica do botao "Assumir" / "Atribuir":
+**Funcao de atribuicao em massa:**
 
-```text
-SE ticket.atendente_id IS NULL:
-  - Qualquer um pode "Assumir" (atribui para si mesmo)
+```typescript
+const atribuirEmMassa = async (operadorId: string) => {
+  const telefones = Array.from(selectedClientes);
+  
+  const { error } = await supabase
+    .from('clientes')
+    .update({ atendente_id: operadorId })
+    .in('telefone', telefones);
 
-SE ticket.atendente_id = outro_usuario:
-  - user: NAO pode reatribuir (botao desabilitado ou oculto)
-  - supervisor/admin: PODE reatribuir (mostra dropdown de atendentes)
-```
-
-### 5. UserManagement.tsx
-
-Adicionar opcao "Supervisor" no dropdown de roles ao criar/editar usuarios.
-
----
-
-## Interface do Usuario
-
-### ConversationList - Novo Toggle
-
-```text
-+----------------------------------------+
-| Conversas           [Meus] [Todos]  ⚙ |
-+----------------------------------------+
-| 🔍 Buscar...                           |
-| [Filtros...]                           |
-+----------------------------------------+
-| João Silva          14:30    🟢        |
-| Maria Santos        12:15    🟡        |
-| Pedro Oliveira      ontem    🔴        |
-+----------------------------------------+
-```
-
-Para usuarios comuns (role = user), o toggle NAO aparece - eles sempre veem apenas seus tickets + nao atribuidos.
-
-### ChatWindow - Indicador de Atendente
-
-No cabecalho da conversa, exibir quem esta atendendo:
-
-```text
-+----------------------------------------+
-| ← João Silva                [Assumir]  |
-|   Atendente: Carlos (você)             |
-+----------------------------------------+
-```
-
-Se for de outro atendente e o usuario for comum:
-
-```text
-+----------------------------------------+
-| ← João Silva           [Atribuído a:   |
-|   Ana Paula                        🔒] |
-+----------------------------------------+
+  if (error) {
+    toast.error('Erro ao atribuir conversas');
+  } else {
+    toast.success(`${telefones.length} conversas atribuidas`);
+    setSelectedClientes(new Set());
+    setSelectionMode(false);
+  }
+};
 ```
 
 ---
 
-## Matriz de Permissoes Final
+## Interface Final
+
+### ConversationList - Cabecalho Atualizado
 
 ```text
-+------------------+----------+-------------+----------+
-| Acao             | user     | supervisor  | admin    |
-+------------------+----------+-------------+----------+
-| Ver tickets      | Proprios | Todos       | Todos    |
-|                  | + NULL   |             |          |
-+------------------+----------+-------------+----------+
-| Puxar ticket     | So NULL  | Qualquer    | Qualquer |
-+------------------+----------+-------------+----------+
-| Toggle "Todos"   | Nao      | Sim         | Sim      |
-+------------------+----------+-------------+----------+
-| Gerenciar users  | Nao      | Nao         | Sim      |
-+------------------+----------+-------------+----------+
++--------------------------------------------------+
+| Conversas [Meus][Todos]                          |
++--------------------------------------------------+
+| [Ativas ▼] [☐ Selecionar]                        |
++--------------------------------------------------+
+| 🔍 Buscar...                                     |
++--------------------------------------------------+
+```
+
+### ConversationList - Modo Selecao Ativo
+
+```text
++--------------------------------------------------+
+| Conversas                    [Cancelar Selecao]  |
++--------------------------------------------------+
+| [Ativas ▼]                                       |
++--------------------------------------------------+
+| ☐ Joao Silva          14:30    🟢               |
+| ☑ Maria Santos        12:15    🟡               |
+| ☑ Pedro Oliveira      ontem    🔴               |
++--------------------------------------------------+
+| 2 conversas selecionadas                         |
+| [Atribuir para: Carlos ▼]        [Confirmar]    |
++--------------------------------------------------+
+```
+
+### ChatWindow - Area de Input Bloqueada
+
+Quando o usuario nao pode escrever:
+
+```text
++--------------------------------------------------+
+| ⚠ Esta conversa nao esta atribuida a voce       |
+|                                                  |
+|   Clique em "Assumir para mim" no menu acima    |
+|   para poder responder a esta conversa.         |
+|                                                  |
+|              [Assumir para mim]                  |
++--------------------------------------------------+
 ```
 
 ---
 
-## Arquivos a Modificar
+## Matriz de Permissoes Atualizada
 
-| Arquivo | Tipo | Descricao |
-|---------|------|-----------|
-| Nova migracao SQL | Criar | Adicionar 'supervisor' ao enum |
-| `src/contexts/AuthContext.tsx` | Modificar | Adicionar isSupervisor |
-| `src/components/ConversationList.tsx` | Modificar | Toggle + filtro de tickets |
-| `src/components/ChatWindow.tsx` | Modificar | Logica de atribuicao |
-| `src/components/UserManagement.tsx` | Modificar | Opcao supervisor no form |
+```text
++-----------------------+----------+-------------+----------+
+| Acao                  | user     | supervisor  | admin    |
++-----------------------+----------+-------------+----------+
+| LER conversa sem dono | Sim      | Sim         | Sim      |
++-----------------------+----------+-------------+----------+
+| ESCREVER sem dono     | NAO*     | Sim         | Sim      |
++-----------------------+----------+-------------+----------+
+| ESCREVER meu ticket   | Sim      | Sim         | Sim      |
++-----------------------+----------+-------------+----------+
+| ESCREVER ticket outro | NAO      | Sim         | Sim      |
++-----------------------+----------+-------------+----------+
+| Atribuicao em massa   | Proprios | Qualquer    | Qualquer |
++-----------------------+----------+-------------+----------+
+| Ver todas conversas   | NAO      | Sim         | Sim      |
++-----------------------+----------+-------------+----------+
 
----
-
-## Tratamento de Casos Especiais
-
-| Caso | Tratamento |
-|------|------------|
-| Usuario sem tickets atribuidos | Mostra lista vazia com mensagem explicativa |
-| Ticket sendo visualizado por outro | Permitir visualizacao, bloquear edicao (opcional) |
-| Usuario promovido a supervisor | Acesso expandido imediatamente |
-| Usuario rebaixado de supervisor | Perde acesso aos tickets de outros |
+* Usuario comum precisa "Assumir" primeiro
+```
 
 ---
 
 ## Secao Tecnica
 
-### Migracao Segura do Enum
+### Alteracoes em ChatWindow.tsx
 
-PostgreSQL permite adicionar valores ao enum mas nao remover. A migracao e:
-
-```sql
--- Verificar se ja existe antes de adicionar
-DO $$ 
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_enum 
-    WHERE enumlabel = 'supervisor' 
-    AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'app_role')
-  ) THEN
-    ALTER TYPE app_role ADD VALUE 'supervisor';
-  END IF;
-END $$;
-```
-
-### AuthContext - Alteracoes
+1. Adicionar verificacao de permissao de escrita:
 
 ```typescript
-interface AuthContextType {
-  // ... existentes
-  isSupervisor: boolean; // NOVO
+// Verificar se pode escrever
+const canWrite = 
+  // Meu ticket
+  atendenteAtual?.id === user?.id || 
+  // Supervisor pode escrever em qualquer
+  isSupervisor;
+
+// Verificar se precisa assumir primeiro
+const needsToAssume = !atendenteAtual && !isSupervisor;
+```
+
+2. Modificar a area de input (linhas 1817-1924):
+
+```typescript
+{canWrite ? (
+  // Area de input normal
+  <div className="flex gap-2">...</div>
+) : (
+  // Mensagem de bloqueio
+  <div className="p-4 bg-muted/50 rounded-lg text-center">
+    {needsToAssume ? (
+      <>
+        <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground mb-2">
+          Esta conversa nao esta atribuida a voce
+        </p>
+        <Button onClick={assumirParaMim}>
+          <UserCheck className="h-4 w-4 mr-2" />
+          Assumir para mim
+        </Button>
+      </>
+    ) : (
+      <>
+        <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Atribuido a {atendenteAtual?.nome}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Voce pode ler, mas nao pode responder
+        </p>
+      </>
+    )}
+  </div>
+)}
+```
+
+### Alteracoes em ConversationList.tsx
+
+1. Novos estados:
+
+```typescript
+const [conversaStatusFilter, setConversaStatusFilter] = useState<"ativas" | "inativas" | "todas">("ativas");
+const [selectionMode, setSelectionMode] = useState(false);
+const [selectedClientes, setSelectedClientes] = useState<Set<string>>(new Set());
+```
+
+2. Status inativos:
+
+```typescript
+const STATUS_INATIVOS = ["Finalizado", "Perdido", "Não foi adiante"];
+```
+
+3. Modificar filteredClientes:
+
+```typescript
+// Filtro de conversas ativas/inativas
+if (conversaStatusFilter === "ativas") {
+  filtered = filtered.filter(c => !STATUS_INATIVOS.includes(c.status_ficha || ""));
+} else if (conversaStatusFilter === "inativas") {
+  filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || ""));
 }
-
-// Calculo:
-const isSupervisor = userProfile?.role === 'supervisor' || userProfile?.role === 'admin';
 ```
 
-### ConversationList - Integracao com AuthContext
+4. Componente de selecao em massa no final da lista:
 
 ```typescript
-import { useAuth } from "@/contexts/AuthContext";
-
-const { user, isAdmin, isSupervisor } = useAuth();
-const [showOnlyMyTickets, setShowOnlyMyTickets] = useState(true);
-
-// No filtro:
-const canSeeAllTickets = isAdmin || isSupervisor;
+{selectionMode && selectedClientes.size > 0 && (
+  <div className="p-3 border-t bg-background sticky bottom-0 space-y-2">
+    <div className="flex items-center justify-between">
+      <span className="text-sm font-medium">
+        {selectedClientes.size} conversa(s) selecionada(s)
+      </span>
+      <Button 
+        variant="ghost" 
+        size="sm"
+        onClick={() => {
+          setSelectedClientes(new Set());
+          setSelectionMode(false);
+        }}
+      >
+        Cancelar
+      </Button>
+    </div>
+    <div className="flex gap-2">
+      <Select onValueChange={atribuirEmMassa}>
+        <SelectTrigger className="flex-1">
+          <SelectValue placeholder="Atribuir para..." />
+        </SelectTrigger>
+        <SelectContent>
+          {atendentes.map(a => (
+            <SelectItem key={a.id} value={a.id}>
+              {a.nome}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  </div>
+)}
 ```
 
-### Impacto em Dados Existentes
+---
 
-**NENHUM!** 
-- Clientes sem `atendente_id` continuam visiveis para todos
-- Clientes com `atendente_id` ja atribuido continuam visveis pelo atendente
-- Supervisors/Admins podem ver tudo (comportamento atual mantido)
+## Impacto em Dados Existentes
+
+**NENHUM IMPACTO!**
+
+- Nenhuma alteracao no banco de dados e necessaria
+- Todas as funcionalidades sao implementadas via logica de frontend
+- Conversas existentes continuam funcionando normalmente
+- O filtro padrao "Ativas" apenas oculta visualmente as conversas inativas
+
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/components/ChatWindow.tsx` | Bloquear area de input para usuarios sem permissao |
+| `src/components/ConversationList.tsx` | Toggle ativas/inativas + modo selecao em massa |
+| `src/components/ConversationCard.tsx` | Adicionar checkbox para modo selecao |
 
