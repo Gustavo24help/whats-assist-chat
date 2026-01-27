@@ -1,12 +1,13 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Skeleton } from "@/components/ui/skeleton";
 import { debounce } from "lodash-es";
 import { NovaConversaDialog } from "./NovaConversaDialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface Cliente {
   telefone: string;
@@ -32,6 +34,7 @@ interface Cliente {
   orcamentos_count?: number;
   pagamento_link?: string | null;
   pagamento_realizado?: boolean;
+  atendente_id?: string | null;
 }
 
 interface ConversationListProps {
@@ -51,6 +54,7 @@ export const ConversationList = ({
   onToggleCollapse,
   botDisabledAcknowledged = new Set()
 }: ConversationListProps) => {
+  const { user, isSupervisor } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -75,6 +79,9 @@ export const ConversationList = ({
   const [showServicosParaFinalizarOnly, setShowServicosParaFinalizarOnly] = useState(false);
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Toggle "Meus Tickets" / "Todos" - supervisores/admins começam vendo todos
+  const [ticketView, setTicketView] = useState<"meus" | "todos">(isSupervisor ? "todos" : "meus");
 
   // ✅ Debounce do termo de busca (300ms)
   const debouncedSetSearch = useMemo(
@@ -141,6 +148,20 @@ export const ConversationList = ({
   // ✅ Memoizar filtros pesados para melhor performance
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
+
+    // 🔐 NOVO: Filtro por atendente baseado na role do usuário
+    if (user) {
+      if (!isSupervisor) {
+        // Usuários comuns: só veem seus tickets ou sem dono
+        filtered = filtered.filter(c => 
+          c.atendente_id === user.id || c.atendente_id === null
+        );
+      } else if (ticketView === "meus") {
+        // Supervisor/Admin filtrando "Meus Tickets"
+        filtered = filtered.filter(c => c.atendente_id === user.id);
+      }
+      // Se ticketView === "todos" e isSupervisor, não filtra (vê todos)
+    }
 
     // Filtro de serviços para finalizar (tem prioridade junto com bot desabilitado)
     if (showServicosParaFinalizarOnly) {
@@ -259,7 +280,7 @@ export const ConversationList = ({
     }
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesComServicoParaFinalizar, unreadMessages]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesComServicoParaFinalizar, unreadMessages, user, isSupervisor, ticketView]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -554,7 +575,8 @@ export const ConversationList = ({
           marcado_nao_lido: cliente.marcado_nao_lido,
           orcamentos_count: orcamentosCount,
           pagamento_link: (fichaData as any)?.pagamento_link || null,
-          pagamento_realizado: (fichaData as any)?.pagamento_realizado || false
+          pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
+          atendente_id: cliente.atendente_id || null
         };
       });
 
@@ -691,9 +713,29 @@ export const ConversationList = ({
       <div className="p-2.5 md:p-3 lg:p-4 border-b space-y-1.5 shrink-0">
         <div className="flex items-center justify-between mb-1">
           {!isCollapsed && (
-            <h2 className="font-semibold text-base md:text-lg">
-              {showArchived ? "Conversas Arquivadas" : "Conversas"}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-base md:text-lg">
+                {showArchived ? "Arquivadas" : "Conversas"}
+              </h2>
+              {/* Toggle Meus/Todos - só aparece para supervisores/admins */}
+              {isSupervisor && !showArchived && (
+                <ToggleGroup 
+                  type="single" 
+                  value={ticketView} 
+                  onValueChange={(value) => value && setTicketView(value as "meus" | "todos")}
+                  className="h-7"
+                >
+                  <ToggleGroupItem value="meus" aria-label="Meus tickets" className="h-7 px-2 text-xs">
+                    <User className="h-3 w-3 mr-1" />
+                    Meus
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="todos" aria-label="Todos os tickets" className="h-7 px-2 text-xs">
+                    <Users className="h-3 w-3 mr-1" />
+                    Todos
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              )}
+            </div>
           )}
           <div className="flex items-center gap-1">
             {!isCollapsed && (

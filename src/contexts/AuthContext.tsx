@@ -6,13 +6,14 @@ interface UserProfile {
   id: string;
   email: string;
   fullName: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'supervisor' | 'user';
 }
 
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   isAdmin: boolean;
+  isSupervisor: boolean;
   loading: boolean;
   refreshUserProfile: () => Promise<void>;
 }
@@ -85,8 +86,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       // Normalizar role para lowercase
-      const normalizedRole = roleData?.role?.toLowerCase() as 'admin' | 'user';
-      const finalRole = normalizedRole === 'admin' ? 'admin' : 'user';
+      const normalizedRole = roleData?.role?.toLowerCase() as 'admin' | 'supervisor' | 'user';
+      const finalRole = normalizedRole === 'admin' ? 'admin' : normalizedRole === 'supervisor' ? 'supervisor' : 'user';
 
       const userProfileData: UserProfile = {
         id: userId,
@@ -183,12 +184,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const isAdmin = userProfile?.role === 'admin';
+  const isSupervisor = userProfile?.role === 'supervisor' || userProfile?.role === 'admin';
 
   console.log('📌 AuthContext - Estado atual:', {
     hasUser: !!user,
     hasProfile: !!userProfile,
     role: userProfile?.role,
     isAdmin,
+    isSupervisor,
     loading
   });
 
@@ -198,6 +201,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         user,
         userProfile,
         isAdmin,
+        isSupervisor,
         loading,
         refreshUserProfile
       }}

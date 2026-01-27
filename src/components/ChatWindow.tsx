@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
@@ -152,6 +153,7 @@ interface ChatWindowProps {
 }
 
 export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha }: ChatWindowProps) => {
+  const { user, isSupervisor } = useAuth();
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -208,6 +210,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const { dentroJanela } = useConversationTimer(clienteTelefone);
+  
+  // 🔐 Controle de permissão para reatribuição
+  // - Ticket sem dono: qualquer um pode assumir
+  // - Ticket com dono: só supervisor/admin pode reatribuir
+  const canReassign = !atendenteAtual || isSupervisor;
+  const isMyTicket = atendenteAtual?.id === user?.id;
 
   // Auto-resize do textarea
   useEffect(() => {
@@ -1304,102 +1312,128 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 clienteNome={clienteNome}
               />
               
-              {/* Novo botão de atribuição de operador */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 px-2 hover:bg-accent"
-                    title={atendenteAtual ? `Atribuído: ${atendenteAtual.nome}` : "Atribuir operador"}
-                  >
-                    {atendenteAtual ? (
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
-                          {atendenteAtual.nome.charAt(0).toUpperCase()}
-                        </div>
-                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                      </div>
-                    ) : (
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-2" align="end">
-                  <div className="space-y-1">
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                      Atribuir Operador
-                    </div>
-                    <Separator />
-                    
-                    {/* Opção para assumir automaticamente */}
+              {/* Botão de atribuição de operador - com controle de permissão */}
+              {canReassign ? (
+                <Popover>
+                  <PopoverTrigger asChild>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full justify-start text-xs h-8"
-                      onClick={async () => {
-                        const { data: { user } } = await supabase.auth.getUser();
-                        if (user) {
-                          const { data: profile } = await supabase
-                            .from('profiles')
-                            .select('full_name')
-                            .eq('id', user.id)
-                            .single();
-                          
-                          await atribuirOperador(user.id, profile?.full_name || 'Você');
-                        }
-                      }}
+                      className="h-9 px-2 hover:bg-accent"
+                      title={atendenteAtual ? `Atribuído: ${atendenteAtual.nome}` : "Atribuir operador"}
                     >
-                      <UserCheckIcon className="h-3.5 w-3.5 mr-2" />
-                      Assumir para mim
-                    </Button>
-
-                    <Separator />
-
-                    {/* Lista de operadores */}
-                    <div className="max-h-48 overflow-y-auto">
-                      <div className="px-2 py-1 text-[11px] text-muted-foreground">
-                        Outros operadores:
-                      </div>
-                      {todosAtendentes.map(a => (
-                        <Button
-                          key={a.id}
-                          variant="ghost"
-                          size="sm"
-                          className={cn(
-                            "w-full justify-start text-xs h-8",
-                            atendenteAtual?.id === a.id && "bg-accent"
-                          )}
-                          onClick={() => atribuirOperador(a.id, a.nome)}
-                        >
-                          <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold mr-2">
-                            {a.nome.charAt(0).toUpperCase()}
+                      {atendenteAtual ? (
+                        <div className="flex items-center gap-1.5">
+                          <div className={cn(
+                            "flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-semibold",
+                            isMyTicket ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                          )}>
+                            {atendenteAtual.nome.charAt(0).toUpperCase()}
                           </div>
-                          {a.nome}
-                          {atendenteAtual?.id === a.id && (
-                            <Check className="h-3 w-3 ml-auto text-primary" />
-                          )}
-                        </Button>
-                      ))}
-                    </div>
-
-                    <Separator />
-
-                    {/* Opção para remover atribuição */}
-                    {atendenteAtual && (
+                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                      ) : (
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="end">
+                    <div className="space-y-1">
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        Atribuir Operador
+                      </div>
+                      <Separator />
+                      
+                      {/* Opção para assumir automaticamente */}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="w-full justify-start text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={removerAtribuicao}
+                        className="w-full justify-start text-xs h-8"
+                        onClick={async () => {
+                          if (user) {
+                            const { data: profile } = await supabase
+                              .from('profiles')
+                              .select('full_name')
+                              .eq('id', user.id)
+                              .single();
+                            
+                            await atribuirOperador(user.id, profile?.full_name || 'Você');
+                          }
+                        }}
                       >
-                        <X className="h-3.5 w-3.5 mr-2" />
-                        Remover atribuição
+                        <UserCheckIcon className="h-3.5 w-3.5 mr-2" />
+                        Assumir para mim
                       </Button>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
+
+                      {/* Lista de outros operadores - só para supervisores/admins */}
+                      {isSupervisor && (
+                        <>
+                          <Separator />
+                          <div className="max-h-48 overflow-y-auto">
+                            <div className="px-2 py-1 text-[11px] text-muted-foreground">
+                              Atribuir para outro:
+                            </div>
+                            {todosAtendentes.filter(a => a.id !== user?.id).map(a => (
+                              <Button
+                                key={a.id}
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                  "w-full justify-start text-xs h-8",
+                                  atendenteAtual?.id === a.id && "bg-accent"
+                                )}
+                                onClick={() => atribuirOperador(a.id, a.nome)}
+                              >
+                                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold mr-2">
+                                  {a.nome.charAt(0).toUpperCase()}
+                                </div>
+                                {a.nome}
+                                {atendenteAtual?.id === a.id && (
+                                  <Check className="h-3 w-3 ml-auto text-primary" />
+                                )}
+                              </Button>
+                            ))}
+                          </div>
+
+                          <Separator />
+
+                          {/* Opção para remover atribuição - só supervisores */}
+                          {atendenteAtual && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={removerAtribuicao}
+                            >
+                              <X className="h-3.5 w-3.5 mr-2" />
+                              Remover atribuição
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                /* Ticket de outro atendente - usuário comum não pode reatribuir */
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50">
+                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold">
+                          {atendenteAtual?.nome.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-xs text-muted-foreground">{atendenteAtual?.nome}</span>
+                        <Lock className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Atribuído a {atendenteAtual?.nome}</p>
+                      <p className="text-xs text-muted-foreground">Apenas supervisores podem reatribuir</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
 
               {/* Botão de notas internas */}
               <Button
