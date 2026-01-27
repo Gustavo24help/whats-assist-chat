@@ -8,7 +8,7 @@ const corsHeaders = {
 interface RequestBody {
   telefone: string;
   bot_status: 'enabled' | 'disabled';
-  origem?: 'manual' | 'automatico'; // Origem do desligamento
+  origem?: 'manual' | 'automatico' | 'sistema'; // Origem do desligamento
   executado_por_id?: string; // ID do usuário que executou a ação
 }
 
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { telefone, bot_status, origem = 'manual', executado_por_id }: RequestBody = await req.json();
+    const { telefone, bot_status, origem: origemBody, executado_por_id: executadoPorBody }: RequestBody = await req.json();
 
     // Validar inputs
     if (!telefone) {
@@ -41,7 +41,34 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[toggle-bot-status] Alterando status do bot para ${telefone}: ${bot_status}, origem: ${origem}, executado_por: ${executado_por_id || 'sistema'}`);
+    // ===== Autenticação / auditoria confiável =====
+    // O frontend envia o JWT automaticamente em supabase.functions.invoke.
+    // Se não houver JWT (ou for inválido), NÃO permitir registrar como "manual"
+    // nem aceitar executado_por_id arbitrário.
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+
+    let origem: 'manual' | 'automatico' | 'sistema' = 'sistema';
+    let executado_por_id: string | null = null;
+    if (token) {
+      const { data, error: userError } = await supabase.auth.getUser(token);
+      if (!userError && data?.user) {
+        origem = origemBody === 'automatico' ? 'automatico' : 'manual';
+        executado_por_id = data.user.id;
+
+        if (executadoPorBody && executadoPorBody !== data.user.id) {
+          console.warn(
+            `[toggle-bot-status] executado_por_id divergente (body=${executadoPorBody}, jwt=${data.user.id}) - usando JWT.`
+          );
+        }
+      } else {
+        console.warn('[toggle-bot-status] JWT ausente/inválido - registrando como sistema');
+      }
+    }
+
+    console.log(
+      `[toggle-bot-status] Alterando status do bot para ${telefone}: ${bot_status}, origem: ${origem}, executado_por: ${executado_por_id || 'sistema'}`
+    );
 
     const botHabilitado = bot_status === 'enabled';
     const dataDesabilitado = bot_status === 'disabled' ? new Date().toISOString() : null;
@@ -79,7 +106,7 @@ Deno.serve(async (req) => {
         telefone_cliente: telefone,
         acao: bot_status === 'enabled' ? 'ligado' : 'desligado',
         origem: origem,
-        executado_por_id: executado_por_id || null,
+        executado_por_id,
         observacao: `Bot ${bot_status === 'enabled' ? 'ativado' : 'desativado'} via toggle-bot-status`
       });
 
