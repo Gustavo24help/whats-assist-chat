@@ -99,6 +99,16 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
+    // Capturar dados de auditoria
+    const userAgent = req.headers.get('user-agent') || 'desconhecido';
+    const ipAddress = req.headers.get('x-forwarded-for') 
+      || req.headers.get('cf-connecting-ip') 
+      || req.headers.get('x-real-ip') 
+      || 'desconhecido';
+    const requestId = crypto.randomUUID();
+
+    console.log(`[toggle-bot-status] Auditoria: UA=${userAgent.substring(0, 50)}..., IP=${ipAddress}, RequestID=${requestId}`);
+
     // Registrar no histórico
     const { error: historicoError } = await supabase
       .from('bot_historico')
@@ -107,7 +117,10 @@ Deno.serve(async (req) => {
         acao: bot_status === 'enabled' ? 'ligado' : 'desligado',
         origem: origem,
         executado_por_id,
-        observacao: `Bot ${bot_status === 'enabled' ? 'ativado' : 'desativado'} via toggle-bot-status`
+        observacao: `Bot ${bot_status === 'enabled' ? 'ativado' : 'desativado'} via toggle-bot-status`,
+        user_agent: userAgent,
+        ip_address: ipAddress,
+        request_id: requestId
       });
 
     if (historicoError) {

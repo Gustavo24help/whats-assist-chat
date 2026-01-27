@@ -168,6 +168,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     quando: string;
   } | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [confirmacaoTexto, setConfirmacaoTexto] = useState("");
   
   // ✅ Estados para loading e paginação de mensagens
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
@@ -1588,15 +1589,35 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         </div>
       )}
 
-      <AlertDialog open={assumirDialogOpen} onOpenChange={setAssumirDialogOpen}>
+      <AlertDialog 
+        open={assumirDialogOpen} 
+        onOpenChange={(open) => {
+          setAssumirDialogOpen(open);
+          if (!open) setConfirmacaoTexto("");
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {botDesabilitado ? "Reativar Bot?" : "Assumir Atendimento"}
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               {botDesabilitado ? (
-                "Deseja reativar o bot automático para este cliente?"
+                <div className="space-y-4">
+                  <p>Deseja reativar o bot automático para este cliente?</p>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-destructive">
+                      ⚠️ Para confirmar, digite "LIGAR" abaixo:
+                    </p>
+                    <Input
+                      value={confirmacaoTexto}
+                      onChange={(e) => setConfirmacaoTexto(e.target.value.toUpperCase())}
+                      placeholder="Digite LIGAR"
+                      className="font-mono"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-2">
                   <p>
@@ -1618,7 +1639,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             <AlertDialogCancel disabled={isTogglingBot}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={toggleBot}
-              disabled={isTogglingBot}
+              disabled={isTogglingBot || (botDesabilitado && confirmacaoTexto !== 'LIGAR')}
               className={botDesabilitado ? "" : "bg-destructive hover:bg-destructive/90"}
             >
               {isTogglingBot ? (
