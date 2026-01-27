@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.clean-description]
 verify_jwt = false
+
+[functions.summarize-conversation]
+verify_jwt = false
