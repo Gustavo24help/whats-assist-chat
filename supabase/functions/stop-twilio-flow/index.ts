@@ -104,13 +104,37 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // ===== Autenticação / auditoria confiável =====
+    // Se não houver JWT válido, NÃO registrar como manual nem aceitar executado_por_id do body.
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+
+    let origem: 'manual' | 'sistema' = 'sistema';
+    let executadoPorConfiavel: string | null = null;
+    if (token) {
+      const { data, error: userError } = await supabase.auth.getUser(token);
+      if (!userError && data?.user) {
+        origem = 'manual';
+        executadoPorConfiavel = data.user.id;
+
+        if (executado_por_id && executado_por_id !== data.user.id) {
+          console.warn(
+            `[stop-twilio-flow] executado_por_id divergente (body=${executado_por_id}, jwt=${data.user.id}) - usando JWT.`
+          );
+        }
+      } else {
+        console.warn('[stop-twilio-flow] JWT ausente/inválido - registrando como sistema');
+      }
+    }
+
     const { error: updateError } = await supabase
       .from('clientes')
       .update({
         bot_habilitado: false,
         data_bot_desabilitado: new Date().toISOString(),
-        bot_desativado_notificacao_vista: true, // NÃO mostrar exclamação (desligou manualmente)
-        bot_desligado_manualmente: true, // Marcar como manual
+        // Se não for manual (sem JWT válido), manter comportamento de notificação como "automático/sistema"
+        bot_desativado_notificacao_vista: origem === 'manual' ? true : false,
+        bot_desligado_manualmente: origem === 'manual',
         bot_ja_desligado_alguma_vez: true // Marcar que já desligou (para ativar som de notificação)
       })
       .eq('telefone', telefone);
@@ -126,8 +150,8 @@ Deno.serve(async (req) => {
       .insert({
         telefone_cliente: telefone,
         acao: 'desligado',
-        origem: 'manual',
-        executado_por_id: executado_por_id || null,
+        origem,
+        executado_por_id: executadoPorConfiavel,
         observacao: 'Bot desligado via stop-twilio-flow (encerramento de fluxo Twilio)'
       });
 
