@@ -15,7 +15,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'admin' | 'user';
+  role: 'admin' | 'supervisor' | 'user';
 }
 
 export const UserManagement = () => {
@@ -27,7 +27,7 @@ export const UserManagement = () => {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserName, setNewUserName] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'user'>('user');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'supervisor' | 'user'>('user');
 
   useEffect(() => {
     if (isAdmin && !loading) {
@@ -101,7 +101,7 @@ export const UserManagement = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: 'admin' | 'user') => {
+  const updateUserRole = async (userId: string, newRole: 'admin' | 'supervisor' | 'user') => {
     try {
       const { data, error } = await supabase.functions.invoke('manage-users', {
         body: { action: 'update_role', userId, role: newRole }
@@ -212,12 +212,13 @@ export const UserManagement = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Tipo de Permissão</Label>
-                  <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as 'admin' | 'user')}>
+                  <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as 'admin' | 'supervisor' | 'user')}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="user">Usuário Comum</SelectItem>
+                      <SelectItem value="supervisor">Supervisor</SelectItem>
                       <SelectItem value="admin">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
@@ -248,13 +249,14 @@ export const UserManagement = () => {
                 <TableCell>
                   <Select
                     value={user.role}
-                    onValueChange={(v) => updateUserRole(user.id, v as 'admin' | 'user')}
+                    onValueChange={(v) => updateUserRole(user.id, v as 'admin' | 'supervisor' | 'user')}
                   >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="user">Usuário Comum</SelectItem>
+                      <SelectItem value="supervisor">Supervisor</SelectItem>
                       <SelectItem value="admin">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
