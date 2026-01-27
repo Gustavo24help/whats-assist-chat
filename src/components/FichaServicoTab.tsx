@@ -12,6 +12,7 @@ import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock, X, Copy,
 import { toast } from "sonner";
 import debounce from "lodash-es/debounce";
 import { ReciboGenerator } from "@/components/ReciboGenerator";
+import { ResumoConversaDialog } from "@/components/ResumoConversaDialog";
 
 interface FichaServicoTabProps {
   fichaId: string;
@@ -778,24 +779,34 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   return (
     <div className="space-y-3 pb-20 px-3">
-      {/* Status fora das sanfonas */}
-      <div className="bg-card border rounded-lg shadow-sm p-2.5 hover:bg-muted/20 transition-colors w-full max-w-[380px]">
-        <Label htmlFor="status" className="text-xs font-medium text-gray-600">Status do Serviço</Label>
-        <Select
-          value={ficha?.status || "Ficha Criada"}
-          onValueChange={(value) => updateFicha({ status: value })}
-        >
-          <SelectTrigger id="status" className="mt-1.5 h-9 text-sm focus:ring-2 focus:ring-primary/20">
-            <SelectValue placeholder="Selecione o status" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((status) => (
-              <SelectItem key={status} value={status}>
-                {status}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Header com Status e Botão Resumir */}
+      <div className="flex items-start gap-2 w-full max-w-[380px]">
+        <div className="bg-card border rounded-lg shadow-sm p-2.5 hover:bg-muted/20 transition-colors flex-1">
+          <Label htmlFor="status" className="text-xs font-medium text-gray-600">Status do Serviço</Label>
+          <Select
+            value={ficha?.status || "Ficha Criada"}
+            onValueChange={(value) => updateFicha({ status: value })}
+          >
+            <SelectTrigger id="status" className="mt-1.5 h-9 text-sm focus:ring-2 focus:ring-primary/20">
+              <SelectValue placeholder="Selecione o status" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        {/* Botão Gerar Resumo */}
+        <div className="pt-5">
+          <ResumoConversaDialog 
+            fichaId={fichaId} 
+            fichaName={ficha?.nome_ficha || undefined}
+          />
+        </div>
       </div>
 
       <Accordion type="single" collapsible defaultValue="" className="w-full max-w-[380px] space-y-2">
