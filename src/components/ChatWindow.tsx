@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
@@ -216,6 +216,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   // - Ticket com dono: só supervisor/admin pode reatribuir
   const canReassign = !atendenteAtual || isSupervisor;
   const isMyTicket = atendenteAtual?.id === user?.id;
+  
+  // 🔐 Controle de permissão de ESCRITA
+  // - Meu ticket: pode escrever
+  // - Supervisor/Admin: pode escrever em qualquer ticket
+  // - Ticket sem dono E não é supervisor: NÃO pode escrever (precisa assumir primeiro)
+  // - Ticket de outro: NÃO pode escrever
+  const canWrite = isMyTicket || isSupervisor;
+  const needsToAssume = !atendenteAtual && !isSupervisor;
 
   // Auto-resize do textarea
   useEffect(() => {
@@ -593,6 +601,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       setAtendenteAtual({ id: operadorId, nome: operadorNome });
       toast.success(`Atribuído para ${operadorNome}`);
     }
+  };
+
+  // Função para assumir conversa para si mesmo
+  const assumirParaMim = async () => {
+    if (!user) return;
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+    
+    const nome = profile?.full_name || 'Você';
+    await atribuirOperador(user.id, nome);
   };
 
   const removerAtribuicao = async () => {
@@ -1817,109 +1839,139 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       {/* Input area - Fixed at bottom */}
       <div className="px-3 py-2.5 md:px-4 md:py-3 border-t bg-background shadow-sm shrink-0 flex-none">
         <div className="max-w-5xl mx-auto">
-          {/* Preview de arquivo pendente */}
-          {pendingFile && (
-            <div className="flex items-center gap-3 bg-muted/50 p-2 rounded-lg mb-2 border">
-              {pendingFile.type === 'imagem' ? (
-                <img 
-                  src={pendingFile.previewUrl} 
-                  alt="Preview" 
-                  className="h-16 w-16 object-cover rounded-md"
-                />
-              ) : pendingFile.type === 'video' ? (
-                <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
-                </div>
-              ) : pendingFile.type === 'audio' ? (
-                <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
-                </div>
+          {/* Bloqueio de escrita para conversas não atribuídas ou de outros usuários */}
+          {!canWrite ? (
+            <div className="p-4 bg-muted/50 rounded-lg text-center">
+              {needsToAssume ? (
+                <>
+                  <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Esta conversa não está atribuída a você
+                  </p>
+                  <Button onClick={assumirParaMim} size="sm">
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Assumir para mim
+                  </Button>
+                </>
               ) : (
-                <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
-                  <FileIcon className="h-8 w-8 text-muted-foreground" />
-                </div>
+                <>
+                  <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Atribuído a {atendenteAtual?.nome}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Você pode ler, mas não pode responder
+                  </p>
+                </>
               )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{pendingFile.file.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {(pendingFile.file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={removePendingFile}
-                className="shrink-0 h-8 w-8"
-                title="Remover arquivo"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
-          )}
-
-          <div className="flex gap-1.5 md:gap-2 items-center">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*,audio/*,application/pdf"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            
-            <MensagensPadronizadasDropdown
-              onSelectMensagem={(msg) => setNovaMsg(msg)}
-              clienteNome={clienteNome}
-              clienteTelefone={clienteTelefone}
-              fichaId={fichaId}
-            />
-            
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={statusConversa === "fechada" || uploading || !!pendingFile}
-              className="shrink-0 h-9 w-9 md:h-10 md:w-10"
-              title="Anexar arquivo"
-            >
-              <Paperclip className="h-4 w-4" />
-            </Button>
-
-            <AudioRecorder
-              onRecordingComplete={handleAudioRecording}
-              disabled={statusConversa === "fechada" || uploading || !!pendingFile}
-            />
-            
-            <Textarea
-              ref={textareaRef}
-              placeholder={pendingFile ? "Pressione enviar para enviar o arquivo" : (statusConversa === "aberta" ? "Digite sua mensagem..." : "Conversa fechada")}
-              value={novaMsg}
-              onChange={(e) => setNovaMsg(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  enviarMensagem();
-                }
-              }}
-              disabled={statusConversa === "fechada" || !!pendingFile}
-              className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
-              rows={1}
-              style={{ height: 'auto', overflowY: 'hidden' }}
-            />
-            
-            <Button 
-              onClick={enviarMensagem} 
-              disabled={statusConversa === "fechada" || (!novaMsg.trim() && !pendingFile) || isSending || uploading}
-              className="shrink-0 shadow-md h-9 w-9 md:h-10 md:w-10"
-              size="icon"
-              title={pendingFile ? "Enviar arquivo" : "Enviar mensagem"}
-            >
-              {isSending || uploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
+          ) : (
+            <>
+              {/* Preview de arquivo pendente */}
+              {pendingFile && (
+                <div className="flex items-center gap-3 bg-muted/50 p-2 rounded-lg mb-2 border">
+                  {pendingFile.type === 'imagem' ? (
+                    <img 
+                      src={pendingFile.previewUrl} 
+                      alt="Preview" 
+                      className="h-16 w-16 object-cover rounded-md"
+                    />
+                  ) : pendingFile.type === 'video' ? (
+                    <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  ) : pendingFile.type === 'audio' ? (
+                    <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
+                      <FileIcon className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{pendingFile.file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(pendingFile.file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={removePendingFile}
+                    className="shrink-0 h-8 w-8"
+                    title="Remover arquivo"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
-            </Button>
-          </div>
+
+              <div className="flex gap-1.5 md:gap-2 items-center">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,audio/*,application/pdf"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                
+                <MensagensPadronizadasDropdown
+                  onSelectMensagem={(msg) => setNovaMsg(msg)}
+                  clienteNome={clienteNome}
+                  clienteTelefone={clienteTelefone}
+                  fichaId={fichaId}
+                />
+                
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={statusConversa === "fechada" || uploading || !!pendingFile}
+                  className="shrink-0 h-9 w-9 md:h-10 md:w-10"
+                  title="Anexar arquivo"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+
+                <AudioRecorder
+                  onRecordingComplete={handleAudioRecording}
+                  disabled={statusConversa === "fechada" || uploading || !!pendingFile}
+                />
+                
+                <Textarea
+                  ref={textareaRef}
+                  placeholder={pendingFile ? "Pressione enviar para enviar o arquivo" : (statusConversa === "aberta" ? "Digite sua mensagem..." : "Conversa fechada")}
+                  value={novaMsg}
+                  onChange={(e) => setNovaMsg(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      enviarMensagem();
+                    }
+                  }}
+                  disabled={statusConversa === "fechada" || !!pendingFile}
+                  className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
+                  rows={1}
+                  style={{ height: 'auto', overflowY: 'hidden' }}
+                />
+                
+                <Button 
+                  onClick={enviarMensagem} 
+                  disabled={statusConversa === "fechada" || (!novaMsg.trim() && !pendingFile) || isSending || uploading}
+                  className="shrink-0 shadow-md h-9 w-9 md:h-10 md:w-10"
+                  size="icon"
+                  title={pendingFile ? "Enviar arquivo" : "Enviar mensagem"}
+                >
+                  {isSending || uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

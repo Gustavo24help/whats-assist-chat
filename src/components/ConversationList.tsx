@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { debounce } from "lodash-es";
 import { NovaConversaDialog } from "./NovaConversaDialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Cliente {
   telefone: string;
@@ -82,6 +84,17 @@ export const ConversationList = ({
   
   // Toggle "Meus Tickets" / "Todos" - supervisores/admins começam vendo todos
   const [ticketView, setTicketView] = useState<"meus" | "todos">(isSupervisor ? "todos" : "meus");
+  
+  // 🆕 Filtro de conversas ativas/inativas
+  const [conversaStatusFilter, setConversaStatusFilter] = useState<"ativas" | "inativas" | "todas">("ativas");
+  
+  // 🆕 Modo de seleção em massa
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedClientes, setSelectedClientes] = useState<Set<string>>(new Set());
+  const [todosAtendentes, setTodosAtendentes] = useState<Array<{ id: string; nome: string }>>([]);
+  
+  // Status que indicam conversa inativa
+  const STATUS_INATIVOS = ["Finalizado", "Perdido", "Não foi adiante"];
 
   // ✅ Debounce do termo de busca (300ms)
   const debouncedSetSearch = useMemo(
@@ -104,7 +117,8 @@ export const ConversationList = ({
       await Promise.all([
         fetchClientes(),
         fetchTagsWithColors(),
-        fetchServicosParaFinalizar()
+        fetchServicosParaFinalizar(),
+        fetchAtendentes()
       ]);
       setIsLoading(false);
     };
@@ -162,6 +176,14 @@ export const ConversationList = ({
       }
       // Se ticketView === "todos" e isSupervisor, não filtra (vê todos)
     }
+
+    // 🆕 Filtro de conversas ativas/inativas por status da ficha
+    if (conversaStatusFilter === "ativas") {
+      filtered = filtered.filter(c => !STATUS_INATIVOS.includes(c.status_ficha || ""));
+    } else if (conversaStatusFilter === "inativas") {
+      filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || ""));
+    }
+    // Se "todas", não filtra por status
 
     // Filtro de serviços para finalizar (tem prioridade junto com bot desabilitado)
     if (showServicosParaFinalizarOnly) {
@@ -280,7 +302,7 @@ export const ConversationList = ({
     }
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesComServicoParaFinalizar, unreadMessages, user, isSupervisor, ticketView]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesComServicoParaFinalizar, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -423,6 +445,59 @@ export const ConversationList = ({
       tagsData.forEach(tag => tagsMap.set(tag.nome, tag.cor));
       setTagsWithColors(tagsMap);
     }
+  };
+
+  // 🆕 Buscar lista de atendentes para atribuição em massa
+  const fetchAtendentes = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .order('full_name');
+    
+    if (data) {
+      setTodosAtendentes(data.map(p => ({
+        id: p.id,
+        nome: p.full_name || 'Sem nome'
+      })));
+    }
+  };
+
+  // 🆕 Atribuir múltiplas conversas em massa
+  const atribuirEmMassa = async (operadorId: string) => {
+    const telefones = Array.from(selectedClientes);
+    
+    if (telefones.length === 0) {
+      toast.error('Selecione pelo menos uma conversa');
+      return;
+    }
+    
+    const { error } = await supabase
+      .from('clientes')
+      .update({ atendente_id: operadorId })
+      .in('telefone', telefones);
+
+    if (error) {
+      toast.error('Erro ao atribuir conversas');
+    } else {
+      const operador = todosAtendentes.find(a => a.id === operadorId);
+      toast.success(`${telefones.length} conversa(s) atribuída(s) para ${operador?.nome || 'operador'}`);
+      setSelectedClientes(new Set());
+      setSelectionMode(false);
+      fetchClientes();
+    }
+  };
+
+  // 🆕 Toggle de seleção de cliente
+  const toggleClienteSelection = (telefone: string) => {
+    setSelectedClientes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(telefone)) {
+        newSet.delete(telefone);
+      } else {
+        newSet.add(telefone);
+      }
+      return newSet;
+    });
   };
 
   const fetchServicosParaFinalizar = async () => {
@@ -904,7 +979,49 @@ export const ConversationList = ({
               )}
             </div>
 
-            {/* Linha 2: Todas / Não Lidas */}
+            {/* Linha 2: Ativas / Inativas / Todas + Botão Selecionar */}
+            <div className="flex gap-1">
+              <ToggleGroup 
+                type="single" 
+                value={conversaStatusFilter} 
+                onValueChange={(value) => value && setConversaStatusFilter(value as "ativas" | "inativas" | "todas")}
+                className="flex-1"
+              >
+                <ToggleGroupItem value="ativas" aria-label="Ativas" className="flex-1 h-7 text-xs">
+                  Ativas
+                </ToggleGroupItem>
+                <ToggleGroupItem value="inativas" aria-label="Inativas" className="flex-1 h-7 text-xs">
+                  Inativas
+                </ToggleGroupItem>
+                <ToggleGroupItem value="todas" aria-label="Todas" className="flex-1 h-7 text-xs">
+                  Todas
+                </ToggleGroupItem>
+              </ToggleGroup>
+              
+              {/* Botão de seleção em massa */}
+              <Button
+                variant={selectionMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  if (selectionMode) {
+                    setSelectionMode(false);
+                    setSelectedClientes(new Set());
+                  } else {
+                    setSelectionMode(true);
+                  }
+                }}
+                className="h-7 px-2"
+                title={selectionMode ? "Cancelar seleção" : "Selecionar múltiplos"}
+              >
+                {selectionMode ? (
+                  <X className="h-3.5 w-3.5" />
+                ) : (
+                  <CheckSquare className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </div>
+
+            {/* Linha 3: Todas / Não Lidas */}
             <div className="flex gap-1">
               <Button
                 variant={unreadFilter === "todas" ? "default" : "outline"}
@@ -960,43 +1077,103 @@ export const ConversationList = ({
               </div>
             ) : (
               filteredClientes.map((cliente) => (
-                <ConversationCard
-                  key={cliente.telefone}
-                  telefone={cliente.telefone}
-                  nome={cliente.nome}
-                  tags={cliente.tags || []}
-                  tagsColors={tagsWithColors}
-                  fichaId={cliente.nome_ficha}
-                  fichaStatus={cliente.status_ficha}
-                  statusConversa={cliente.status_conversa}
-                  ultimaInteracao={cliente.ultima_interacao}
-                  isSelected={selectedClienteTelefone === cliente.telefone}
-                  unreadCount={unreadMessages[cliente.telefone] || 0}
-                  onClick={() => onSelectCliente(cliente)}
-                  onOpenTagManager={() => openTagManager(cliente.telefone)}
-                  onArchive={() => archiveContact(cliente.telefone)}
-                  onUnarchive={() => unarchiveContact(cliente.telefone)}
-                  onDelete={() => deleteContact(cliente.telefone)}
-                  isArchived={showArchived}
-                  marcadoNaoLido={cliente.marcado_nao_lido}
-                  onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
-                  botHabilitado={cliente.bot_habilitado}
-                  botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
-                  botDesligadoManualmente={cliente.bot_desligado_manualmente}
-                  orcamentosCount={cliente.orcamentos_count}
-                  atendenteNome={(cliente as any).atendente?.full_name}
-                  temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
-                  pagamentoLink={cliente.pagamento_link}
-                  pagamentoRealizado={cliente.pagamento_realizado}
-                />
+                <div key={cliente.telefone} className="relative">
+                  {/* Checkbox de seleção em massa */}
+                  {selectionMode && (
+                    <div 
+                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleClienteSelection(cliente.telefone);
+                      }}
+                    >
+                      <Checkbox
+                        checked={selectedClientes.has(cliente.telefone)}
+                        onCheckedChange={() => toggleClienteSelection(cliente.telefone)}
+                        className="h-5 w-5"
+                      />
+                    </div>
+                  )}
+                  <div className={cn(selectionMode && "pl-8")}>
+                    <ConversationCard
+                      telefone={cliente.telefone}
+                      nome={cliente.nome}
+                      tags={cliente.tags || []}
+                      tagsColors={tagsWithColors}
+                      fichaId={cliente.nome_ficha}
+                      fichaStatus={cliente.status_ficha}
+                      statusConversa={cliente.status_conversa}
+                      ultimaInteracao={cliente.ultima_interacao}
+                      isSelected={selectedClienteTelefone === cliente.telefone}
+                      unreadCount={unreadMessages[cliente.telefone] || 0}
+                      onClick={() => {
+                        if (selectionMode) {
+                          toggleClienteSelection(cliente.telefone);
+                        } else {
+                          onSelectCliente(cliente);
+                        }
+                      }}
+                      onOpenTagManager={() => openTagManager(cliente.telefone)}
+                      onArchive={() => archiveContact(cliente.telefone)}
+                      onUnarchive={() => unarchiveContact(cliente.telefone)}
+                      onDelete={() => deleteContact(cliente.telefone)}
+                      isArchived={showArchived}
+                      marcadoNaoLido={cliente.marcado_nao_lido}
+                      onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
+                      botHabilitado={cliente.bot_habilitado}
+                      botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
+                      botDesligadoManualmente={cliente.bot_desligado_manualmente}
+                      orcamentosCount={cliente.orcamentos_count}
+                      atendenteNome={(cliente as any).atendente?.full_name}
+                      temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
+                      pagamentoLink={cliente.pagamento_link}
+                      pagamentoRealizado={cliente.pagamento_realizado}
+                    />
+                  </div>
+                </div>
               ))
             )}
           </>
         )}
       </ScrollArea>
 
+      {/* 🆕 Barra de ações de seleção em massa */}
+      {selectionMode && selectedClientes.size > 0 && !isCollapsed && (
+        <div className="p-3 border-t bg-background space-y-2 shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">
+              {selectedClientes.size} conversa(s) selecionada(s)
+            </span>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                setSelectedClientes(new Set());
+                setSelectionMode(false);
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Select onValueChange={(value) => atribuirEmMassa(value)}>
+              <SelectTrigger className="flex-1 h-9">
+                <SelectValue placeholder="Atribuir para..." />
+              </SelectTrigger>
+              <SelectContent>
+                {todosAtendentes.map(a => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
       {/* Botão flutuante de arquivados */}
-      {!isCollapsed && (
+      {!isCollapsed && !selectionMode && (
         <div className="absolute bottom-4 right-4 z-10">
           <Button
             variant="ghost"
