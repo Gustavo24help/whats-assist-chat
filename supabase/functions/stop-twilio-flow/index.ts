@@ -144,6 +144,16 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
+    // Capturar dados de auditoria
+    const userAgent = req.headers.get('user-agent') || 'desconhecido';
+    const ipAddress = req.headers.get('x-forwarded-for') 
+      || req.headers.get('cf-connecting-ip') 
+      || req.headers.get('x-real-ip') 
+      || 'desconhecido';
+    const requestId = crypto.randomUUID();
+
+    console.log(`[stop-twilio-flow] Auditoria: UA=${userAgent.substring(0, 50)}..., IP=${ipAddress}, RequestID=${requestId}`);
+
     // Registrar no histórico
     const { error: historicoError } = await supabase
       .from('bot_historico')
@@ -152,7 +162,10 @@ Deno.serve(async (req) => {
         acao: 'desligado',
         origem,
         executado_por_id: executadoPorConfiavel,
-        observacao: 'Bot desligado via stop-twilio-flow (encerramento de fluxo Twilio)'
+        observacao: 'Bot desligado via stop-twilio-flow (encerramento de fluxo Twilio)',
+        user_agent: userAgent,
+        ip_address: ipAddress,
+        request_id: requestId
       });
 
     if (historicoError) {

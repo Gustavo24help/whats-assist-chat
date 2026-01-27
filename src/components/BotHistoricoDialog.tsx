@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { History, Bot, User, Clock, Power, PowerOff } from "lucide-react";
+import { History, Bot, User, Clock, Power, PowerOff, Globe, Monitor, Hash } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 
 interface BotHistorico {
@@ -22,6 +23,9 @@ interface BotHistorico {
   ficha_id: string | null;
   observacao: string | null;
   created_at: string;
+  user_agent?: string | null;
+  ip_address?: string | null;
+  request_id?: string | null;
   profile?: {
     full_name: string | null;
   } | null;
@@ -158,6 +162,55 @@ export function BotHistoricoDialog({
 
                       {item.ficha_id && (
                         <p className="text-xs mt-1 opacity-75">Ficha: {item.ficha_id}</p>
+                      )}
+
+                      {/* Auditoria avançada */}
+                      {(item.user_agent || item.ip_address || item.request_id) && (
+                        <TooltipProvider>
+                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-current/10">
+                            {item.ip_address && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1 text-xs opacity-60 cursor-help">
+                                    <Globe className="h-3 w-3" />
+                                    <span>{item.ip_address.split(',')[0]}</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>IP de origem: {item.ip_address}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            
+                            {item.user_agent && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1 text-xs opacity-60 cursor-help">
+                                    <Monitor className="h-3 w-3" />
+                                    <span>Dispositivo</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <p className="text-xs break-all">{item.user_agent}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            
+                            {item.request_id && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1 text-xs opacity-60 cursor-help">
+                                    <Hash className="h-3 w-3" />
+                                    <span>{item.request_id.substring(0, 8)}...</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Request ID: {item.request_id}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </TooltipProvider>
                       )}
                     </div>
                   </div>

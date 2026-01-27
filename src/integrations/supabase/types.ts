@@ -21,9 +21,12 @@ export type Database = {
           executado_por_id: string | null
           ficha_id: string | null
           id: string
+          ip_address: string | null
           observacao: string | null
           origem: string
+          request_id: string | null
           telefone_cliente: string
+          user_agent: string | null
         }
         Insert: {
           acao: string
@@ -31,9 +34,12 @@ export type Database = {
           executado_por_id?: string | null
           ficha_id?: string | null
           id?: string
+          ip_address?: string | null
           observacao?: string | null
           origem: string
+          request_id?: string | null
           telefone_cliente: string
+          user_agent?: string | null
         }
         Update: {
           acao?: string
@@ -41,9 +47,12 @@ export type Database = {
           executado_por_id?: string | null
           ficha_id?: string | null
           id?: string
+          ip_address?: string | null
           observacao?: string | null
           origem?: string
+          request_id?: string | null
           telefone_cliente?: string
+          user_agent?: string | null
         }
         Relationships: [
           {
