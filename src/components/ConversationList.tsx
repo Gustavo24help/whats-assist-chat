@@ -179,9 +179,11 @@ export const ConversationList = ({
 
     // 🆕 Filtro de conversas ativas/inativas por status da ficha
     if (conversaStatusFilter === "ativas") {
-      filtered = filtered.filter(c => !STATUS_INATIVOS.includes(c.status_ficha || ""));
+      // Ativas: tem ficha E status não é inativo
+      filtered = filtered.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha));
     } else if (conversaStatusFilter === "inativas") {
-      filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || ""));
+      // Inativas: status inativo OU sem ficha vinculada
+      filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha);
     }
     // Se "todas", não filtra por status
 
