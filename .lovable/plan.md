@@ -1,70 +1,86 @@
 
+Objetivo
+- Fazer a busca por nº da ficha (modo “#”) realmente retornar resultados mesmo quando o usuário atual não tem permissão de leitura direta na tabela de fichas (RLS), sem mexer em dados existentes e sem expor informações além do necessário.
 
-# Correção: Busca por ID de Ficha Ignora Filtro de Atendente
+Diagnóstico (o que está acontecendo agora)
+- O seu ajuste de “ignorar filtros” (atendente/status) está correto e já não deveria esconder o cliente.
+- Porém, o modo “#” depende deste trecho:
+  - ConversationList.tsx → buscarClientesPorIdFicha() faz SELECT direto em `fichas_de_servico` (campo `id`) e salva telefones em `clientesTelefonesPorIdFicha`.
+  - Se esse SELECT volta vazio (por RLS/permissão), `clientesTelefonesPorIdFicha` fica `[]` e o filtro final remove todos.
+- Evidência:
+  - No backend, a ficha existe: `FS2-260112` → `whatsapp:+554198739924` (confirmado via query).
+  - No browser, o `clientes` GET retorna o cliente `whatsapp:+554198739924`, então o problema não é “cliente não está carregando”; é o lookup da ficha no modo “#”.
 
-## Problema Identificado
+Estratégia (mais robusta e com menos risco de segurança)
+- Não relaxar RLS de `fichas_de_servico` (isso pode expor dados sensíveis de fichas para qualquer usuário autenticado).
+- Em vez disso, criar uma “função do backend” (Edge Function) que:
+  - roda com privilégios elevados internamente,
+  - aceita o termo (ex.: `FS2-260112`),
+  - retorna SOMENTE os telefones correspondentes (e opcionalmente os ids encontrados),
+  - e o frontend usa esse retorno para preencher `clientesTelefonesPorIdFicha`.
+- Isso resolve o problema de forma definitiva mesmo com políticas de acesso restritivas.
 
-A ficha **FS2-260112** está sendo encontrada corretamente pela busca e retorna o telefone `whatsapp:+554198739924`. No entanto:
+Mudanças planejadas (código)
+1) Criar uma função de backend: `search-ficha-id`
+   - Local: `supabase/functions/search-ficha-id/index.ts`
+   - Entrada: `{ term: string }`
+   - Saída: `{ phones: string[], matchedIds?: string[] }`
+   - Regras:
+     - Validar `term` (min length, trim)
+     - Consultar `fichas_de_servico` por `id ILIKE %term%` (e opcionalmente também `nome_ficha ILIKE %term%` para redundância)
+     - Retornar lista única de `telefone_cliente`
+     - Não retornar dados de ficha (status, endereço, valores etc.), apenas telefone(s) (mínimo necessário para localizar a conversa)
 
-1. A conversa está atribuída a outro atendente (`cac6e28a-fa91-4c6d-a3c8-5f2804b18304`)
-2. O filtro de permissões por atendente é aplicado **antes** dos resultados da busca serem exibidos
-3. Se você não é supervisor/admin ou não é o dono da conversa, ela é removida
-4. Resultado: a conversa é encontrada pela busca, mas **removida** pelo filtro de permissões
+2) Atualizar `src/components/ConversationList.tsx` para o modo “#” usar a função de backend (em vez de SELECT direto)
+   - Alterar o `useEffect` “Buscar clientes por ID da ficha de serviço” para:
+     - chamar `supabase.functions.invoke('search-ficha-id', { body: { term: debouncedSearchTerm }})`
+     - em sucesso: `setClientesTelefonesPorIdFicha(data.phones)`
+     - em falha: logar erro + `setClientesTelefonesPorIdFicha([])` + opcional toast “Não foi possível buscar ficha agora”
+   - Manter debounce existente (300ms) para evitar chamadas excessivas.
+   - Opcional (recomendado): adicionar um “estado de carregamento” só para a busca por ID (ex.: `isSearchingById`) para evitar flicker e para permitir mostrar “Buscando…” ao invés de “Nenhuma conversa encontrada” durante o request.
 
-## Solução
+3) Instrumentação de debug (para acabar com loop de tentativa)
+   - Adicionar logs controlados (apenas em dev) no fluxo de busca por ID:
+     - `searchMode`, `debouncedSearchTerm`, retorno da função (quantidade de telefones)
+   - Assim, se ainda falhar, a gente confirma em 1 rodada se o problema é:
+     - modo não está “id_ficha”
+     - termo não chegou debounced
+     - função retornou 0
+     - ou o cliente não está em `clientes` por outro motivo
 
-Quando o usuário estiver buscando por **ID de ficha** (`searchMode === 'id_ficha'`), ignorar também o filtro de atendente para garantir que o resultado apareça.
+Validação de “não mexer em dados”
+- Essa mudança não altera nenhum registro existente.
+- Não muda timezone nem campos de data.
+- Apenas altera como o frontend descobre “qual telefone pertence a esta ficha” no modo de busca “#”.
 
-## Arquivo a Modificar
+Critérios de aceite (o que você vai testar)
+1) Em /chat:
+   - Selecionar modo “#”
+   - Digitar `FS2-260112`
+   - A conversa do telefone `whatsapp:+554198739924` deve aparecer mesmo:
+     - estando atribuída a outro atendente
+     - estando com ficha “Finalizado”
+2) Clique no resultado:
+   - Abre a conversa normalmente
+   - Regras de escrita continuam as mesmas (somente leitura / assumir, conforme já existe)
 
-`src/components/ConversationList.tsx`
+Riscos e mitigação
+- Risco: a função retornar telefones de muitas fichas se o termo for curto.
+  - Mitigação: exigir mínimo de caracteres (ex.: 6) ou exigir prefixo (ex.: “FS”/“FGM”) para termos muito genéricos.
+- Risco: expor indevidamente a existência de fichas via busca.
+  - Mitigação: manter resposta mínima (somente telefones) e exigir usuário autenticado (o token já é enviado automaticamente).
+  - Se necessário, restringir por role depois (ex.: apenas supervisor/admin) — mas você pediu “mostrar tudo na busca”, então manteremos aberto para usuários autenticados do sistema.
 
-## Mudanças Específicas
+Arquivos envolvidos
+- Novo: `supabase/functions/search-ficha-id/index.ts`
+- Alterar: `src/components/ConversationList.tsx`
 
-### Mudança 1: Ignorar filtro de atendente quando buscando por ID
+Sequência de implementação
+1) Ler políticas atuais/confirmar comportamento de SELECT em `fichas_de_servico` no client (para validar a hipótese de RLS).
+2) Implementar função `search-ficha-id`.
+3) Trocar o useEffect do modo “id_ficha” para usar a função.
+4) Adicionar loading/UX mínimo e logs.
+5) Teste end-to-end com `FS2-260112` e mais 1 ficha de controle.
 
-Na linha ~166-179, adicionar condição para ignorar o filtro de atendente quando busca por ID de ficha:
-
-```typescript
-// Variável que indica se deve ignorar os filtros para busca por ID
-const ignorarFiltrosBuscaId = searchMode === 'id_ficha' && debouncedSearchTerm;
-
-// Filtro por atendente baseado na role do usuário
-// IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
-if (user && !ignorarFiltrosBuscaId) {
-  if (!isSupervisor) {
-    filtered = filtered.filter(c => 
-      c.atendente_id === user.id || c.atendente_id === null
-    );
-  } else if (ticketView === "meus") {
-    filtered = filtered.filter(c => c.atendente_id === user.id);
-  }
-}
-```
-
-### Mudança 2: Consolidar a variável de ignorar filtros (já existe para status)
-
-Reutilizar a mesma variável `ignorarFiltroStatus` tanto para o filtro de status quanto para o de atendente, renomeando para `ignorarFiltrosBuscaId` para maior clareza:
-
-```typescript
-const ignorarFiltrosBuscaId = searchMode === 'id_ficha' && debouncedSearchTerm;
-```
-
-## Técnico: Sequência de Filtros no Código
-
-1. Filtro de atendente (linhas 166-179) - **será ignorado** na busca por ID
-2. Filtro de status ativa/inativa (linhas 181-192) - **já está sendo ignorado**
-3. Outros filtros (bot, tags, pagamento, etc) - mantidos normalmente
-
-## Resultado Esperado
-
-Ao buscar "FS2-260112" no modo de busca por ID (#), a conversa aparecerá independentemente:
-- De quem é o atendente atual
-- Do status da ficha (Ativa/Inativa/Finalizada)
-
-## Comportamento na Abertura
-
-Quando o usuário clicar na conversa encontrada:
-- A conversa abrirá normalmente
-- As regras de permissão de escrita continuarão funcionando (se não for seu ticket, verá como somente leitura com opção "Assumir")
-
+Observação sobre crédito/tempo
+- Esse caminho evita mais tentativas “às cegas”: ele cria um ponto único e verificável (resposta da função) para sabermos exatamente onde falha, reduzindo o número de iterações necessárias.
