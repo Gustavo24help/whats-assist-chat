@@ -366,10 +366,46 @@ serve(async (req) => {
     };
 
     // Salvar mensagem(ns) no banco
+    
+    // ========== PROTEÇÃO CONTRA DUPLICIDADE ==========
+    // Verificar se já existe mensagem com mesmo message_sid
+    // Isso previne duplicações causadas por retries da Twilio
+    
+    if (messageSid) {
+      const { data: existingBySid } = await supabase
+        .from('mensagens')
+        .select('id')
+        .eq('message_sid', messageSid)
+        .limit(1)
+        .maybeSingle();
+      
+      if (existingBySid) {
+        console.log('⚠️ DUPLICIDADE DETECTADA: Mensagem com message_sid já existe:', messageSid);
+        return new Response(
+          '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+          { headers: { ...corsHeaders, 'Content-Type': 'text/xml' } }
+        );
+      }
+    }
 
     // Se há mídia, criar uma mensagem para cada arquivo
     if (mediaUrls.length > 0) {
+      console.log(`📷 Processando ${mediaUrls.length} mídias para salvar...`);
+      
       for (let i = 0; i < mediaUrls.length; i++) {
+        // Verificar se já existe mensagem com mesmo arquivo_url (proteção extra)
+        const { data: existingByUrl } = await supabase
+          .from('mensagens')
+          .select('id')
+          .eq('arquivo_url', mediaUrls[i])
+          .limit(1)
+          .maybeSingle();
+        
+        if (existingByUrl) {
+          console.log(`⚠️ DUPLICIDADE DETECTADA: Mídia ${i} com URL já existe, pulando:`, mediaUrls[i].substring(0, 80));
+          continue;
+        }
+        
         const textoMidia = i === 0 && finalBody ? finalBody : (body || `Arquivo ${i + 1}`);
         const mensagem = {
           cliente_id: cliente.telefone,
@@ -384,10 +420,11 @@ serve(async (req) => {
           reply_to_message_id: replyToMessageId,
         };
 
-        console.log('💾 Salvando mensagem de mídia:', {
+        console.log(`💾 Salvando mídia ${i + 1}/${mediaUrls.length}:`, {
           tipo: mensagem.tipo,
+          url: mediaUrls[i].substring(0, 80),
           hasText: !!mensagem.texto,
-          hasButton: !!(buttonText || buttonPayload || isButtonResponse)
+          messageSid: messageSid || 'N/A'
         });
 
         const { error: mensagemError } = await supabase
@@ -395,7 +432,9 @@ serve(async (req) => {
           .insert(mensagem);
 
         if (mensagemError) {
-          console.error("Erro ao salvar mensagem de mídia:", mensagemError);
+          console.error(`Erro ao salvar mídia ${i}:`, mensagemError);
+        } else {
+          console.log(`✅ Mídia ${i + 1} salva com sucesso`);
         }
       }
     } else {
