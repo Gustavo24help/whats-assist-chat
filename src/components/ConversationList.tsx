@@ -164,8 +164,13 @@ export const ConversationList = ({
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
 
-    // 🔐 NOVO: Filtro por atendente baseado na role do usuário
-    if (user) {
+    // 🔍 Variável que indica se deve ignorar filtros de atendente e status para busca por ID
+    // Quando buscando por ID de ficha, mostramos o resultado independente do dono ou status
+    const ignorarFiltrosBuscaId = searchMode === 'id_ficha' && debouncedSearchTerm;
+
+    // 🔐 Filtro por atendente baseado na role do usuário
+    // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
+    if (user && !ignorarFiltrosBuscaId) {
       if (!isSupervisor) {
         // Usuários comuns: só veem seus tickets ou sem dono
         filtered = filtered.filter(c => 
@@ -180,12 +185,10 @@ export const ConversationList = ({
 
     // 🆕 Filtro de conversas ativas/inativas por status da ficha
     // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
-    const ignorarFiltroStatus = searchMode === 'id_ficha' && debouncedSearchTerm;
-    
-    if (conversaStatusFilter === "ativas" && !ignorarFiltroStatus) {
+    if (conversaStatusFilter === "ativas" && !ignorarFiltrosBuscaId) {
       // Ativas: tem ficha E status não é inativo
       filtered = filtered.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha));
-    } else if (conversaStatusFilter === "inativas" && !ignorarFiltroStatus) {
+    } else if (conversaStatusFilter === "inativas" && !ignorarFiltrosBuscaId) {
       // Inativas: status inativo OU sem ficha vinculada
       filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha);
     }
