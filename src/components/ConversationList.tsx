@@ -179,14 +179,17 @@ export const ConversationList = ({
     }
 
     // 🆕 Filtro de conversas ativas/inativas por status da ficha
-    if (conversaStatusFilter === "ativas") {
+    // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
+    const ignorarFiltroStatus = searchMode === 'id_ficha' && debouncedSearchTerm;
+    
+    if (conversaStatusFilter === "ativas" && !ignorarFiltroStatus) {
       // Ativas: tem ficha E status não é inativo
       filtered = filtered.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha));
-    } else if (conversaStatusFilter === "inativas") {
+    } else if (conversaStatusFilter === "inativas" && !ignorarFiltroStatus) {
       // Inativas: status inativo OU sem ficha vinculada
       filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha);
     }
-    // Se "todas", não filtra por status
+    // Se "todas" ou buscando por ID, não filtra por status
 
     // Filtro de serviços para finalizar (tem prioridade junto com bot desabilitado)
     if (showServicosParaFinalizarOnly) {
