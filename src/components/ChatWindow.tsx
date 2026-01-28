@@ -169,6 +169,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   } | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [confirmacaoTexto, setConfirmacaoTexto] = useState("");
+  // 🔒 Estado isolado do dialog para prevenir race condition com realtime
+  const [botStatusNoDialog, setBotStatusNoDialog] = useState<boolean | null>(null);
   
   // ✅ Estados para loading e paginação de mensagens
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
@@ -1072,7 +1074,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .single();
     
     if (data) {
-      setBotDesabilitado(data.bot_habilitado === false);
+      const botDesativado = data.bot_habilitado === false;
+      setBotDesabilitado(botDesativado);
+      // 🔒 Capturar estado FIXO para uso durante toda a interação do dialog
+      // Este valor NÃO será atualizado pelo realtime, prevenindo race conditions
+      setBotStatusNoDialog(botDesativado);
     }
     setAssumirDialogOpen(true);
   };
@@ -1080,9 +1086,42 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const toggleBot = async () => {
     // Prevenir clique duplo
     if (isTogglingBot) return;
+    
+    // 🔒 Verificar se estado foi capturado corretamente ao abrir o dialog
+    if (botStatusNoDialog === null) {
+      toast.error("Estado do bot não foi capturado corretamente. Tente novamente.");
+      setAssumirDialogOpen(false);
+      return;
+    }
+    
     setIsTogglingBot(true);
 
     try {
+      // 🔒 VERIFICAÇÃO DE SEGURANÇA: buscar estado ATUAL do banco antes de executar
+      const { data: clienteAtual, error: fetchError } = await supabase
+        .from('clientes')
+        .select('bot_habilitado')
+        .eq('telefone', clienteTelefone)
+        .single();
+      
+      if (fetchError) {
+        throw new Error("Erro ao verificar estado atual do bot");
+      }
+      
+      const botRealmenteDesabilitado = clienteAtual?.bot_habilitado === false;
+      
+      // 🔒 Se o estado mudou desde a abertura do dialog, abortar e notificar
+      if (botRealmenteDesabilitado !== botStatusNoDialog) {
+        toast.warning(
+          "O estado do bot mudou! Por favor, tente novamente.",
+          { description: "Outra pessoa ou o sistema alterou o status enquanto o dialog estava aberto." }
+        );
+        setAssumirDialogOpen(false);
+        setBotDesabilitado(botRealmenteDesabilitado);
+        setBotStatusNoDialog(null);
+        return;
+      }
+      
       // Obter ID do usuário logado e nome
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
@@ -1095,8 +1134,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         .single();
       const userName = profile?.full_name || 'Você';
 
+      // 🔒 Usar botStatusNoDialog (estado capturado) ao invés de botDesabilitado (pode ter mudado via realtime)
       // Se o bot está habilitado (não desabilitado), precisamos encerrar o fluxo ativo
-      if (!botDesabilitado) {
+      if (!botStatusNoDialog) {
         console.log(`[ChatWindow] Encerrando fluxo ativo do bot para ${clienteTelefone}`);
         
         const { data, error } = await supabase.functions.invoke('stop-twilio-flow', {
@@ -1161,6 +1201,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       }
       
       setAssumirDialogOpen(false);
+      setBotStatusNoDialog(null); // Limpar estado capturado após uso
     } catch (error) {
       console.error("[ChatWindow] Erro ao alterar status do bot:", error);
       toast.error("Não foi possível alterar o status do bot");
@@ -1593,16 +1634,21 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         open={assumirDialogOpen} 
         onOpenChange={(open) => {
           setAssumirDialogOpen(open);
-          if (!open) setConfirmacaoTexto("");
+          if (!open) {
+            setConfirmacaoTexto("");
+            setBotStatusNoDialog(null); // 🔒 Limpar estado isolado ao fechar
+          }
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {botDesabilitado ? "Reativar Bot?" : "Assumir Atendimento"}
+              {/* 🔒 Usar botStatusNoDialog (estado capturado) para renderização do dialog */}
+              {botStatusNoDialog ? "Reativar Bot?" : "Assumir Atendimento"}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              {botDesabilitado ? (
+              {/* 🔒 Usar botStatusNoDialog ao invés de botDesabilitado para evitar race condition */}
+              {botStatusNoDialog ? (
                 <div className="space-y-4">
                   <p>Deseja reativar o bot automático para este cliente?</p>
                   <div className="space-y-2">
@@ -1639,8 +1685,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             <AlertDialogCancel disabled={isTogglingBot}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={toggleBot}
-              disabled={isTogglingBot || (botDesabilitado && confirmacaoTexto !== 'LIGAR')}
-              className={botDesabilitado ? "" : "bg-destructive hover:bg-destructive/90"}
+              disabled={isTogglingBot || (botStatusNoDialog && confirmacaoTexto !== 'LIGAR')}
+              className={botStatusNoDialog ? "" : "bg-destructive hover:bg-destructive/90"}
             >
               {isTogglingBot ? (
                 <>
@@ -1648,7 +1694,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   Processando...
                 </>
               ) : (
-                botDesabilitado ? "Reativar Bot" : "Assumir Agora"
+                botStatusNoDialog ? "Reativar Bot" : "Assumir Agora"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
