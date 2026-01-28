@@ -12,12 +12,13 @@ serve(async (req) => {
   }
 
   try {
-    const { to, message, mediaUrl, userId } = await req.json();
+    const { to, message, mediaUrl, userId, remetente } = await req.json();
     console.log('📤 [send-whatsapp] Iniciando envio:', {
       to,
       message: message?.substring(0, 50),
       hasMedia: !!mediaUrl,
-      userId: userId || 'não informado'
+      userId: userId || 'não informado',
+      remetente: remetente || 'não informado'
     });
 
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
@@ -28,11 +29,41 @@ serve(async (req) => {
       throw new Error('Credenciais Twilio não configuradas');
     }
 
-    // Verificar janela de 24h
+    // Inicializar Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // ========== PROTEÇÃO: Bloquear mensagens do bot se estiver desabilitado ==========
+    // Isso impede race conditions onde o Twilio Studio ainda tenta enviar após desligar o bot
+    if (remetente === 'bot') {
+      const { data: clienteBot } = await supabase
+        .from('clientes')
+        .select('bot_habilitado')
+        .eq('telefone', to)
+        .maybeSingle();
+      
+      if (clienteBot?.bot_habilitado === false) {
+        console.log(`⛔ [send-whatsapp] BLOQUEANDO envio - bot está DESABILITADO para ${to}`);
+        console.log(`⛔ [send-whatsapp] Mensagem bloqueada: "${message?.substring(0, 50)}..."`);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'BOT_DESABILITADO',
+            message: 'Bot está desabilitado para este cliente. Mensagem bloqueada.',
+            blocked: true
+          }),
+          {
+            status: 200, // 200 para não causar retry no Twilio
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+      console.log(`✅ [send-whatsapp] Bot habilitado para ${to}, prosseguindo com envio`);
+    }
+    // ========== FIM PROTEÇÃO ==========
+
+    // Verificar janela de 24h
     const { data: cliente } = await supabase
       .from('clientes')
       .select('ultima_interacao')
