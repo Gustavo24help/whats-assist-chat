@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X, Hash } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -74,10 +74,11 @@ export const ConversationList = ({
   const [showBotDisabledOnly, setShowBotDisabledOnly] = useState(false);
   const [clientesTelefonesPorPrestador, setClientesTelefonesPorPrestador] = useState<string[]>([]);
   const [clientesTelefonesPorFicha, setClientesTelefonesPorFicha] = useState<string[]>([]);
+  const [clientesTelefonesPorIdFicha, setClientesTelefonesPorIdFicha] = useState<string[]>([]);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState("");
   const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
-  const [searchMode, setSearchMode] = useState<'ficha' | 'prestador' | 'descricao'>('ficha');
+  const [searchMode, setSearchMode] = useState<'ficha' | 'prestador' | 'descricao' | 'id_ficha'>('ficha');
   const [showServicosParaFinalizarOnly, setShowServicosParaFinalizarOnly] = useState(false);
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -219,10 +220,15 @@ export const ConversationList = ({
         filtered = filtered.filter(c => 
           clientesTelefonesPorPrestador.includes(c.telefone)
         );
-      } else {
-        // Modo descrição: busca por descrição do serviço (já filtrado via clientesTelefonesPorPrestador reutilizado)
+      } else if (searchMode === 'descricao') {
+        // Modo descrição: busca por descrição do serviço
         filtered = filtered.filter(c => 
           clientesTelefonesPorPrestador.includes(c.telefone)
+        );
+      } else if (searchMode === 'id_ficha') {
+        // Modo ID ficha: busca pelo ID/número da ficha de serviço
+        filtered = filtered.filter(c => 
+          clientesTelefonesPorIdFicha.includes(c.telefone)
         );
       }
     }
@@ -304,7 +310,7 @@ export const ConversationList = ({
     }
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesComServicoParaFinalizar, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesComServicoParaFinalizar, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -383,7 +389,7 @@ export const ConversationList = ({
   // Buscar clientes por nome do prestador ou descrição do serviço - usando debounced term
   useEffect(() => {
     const buscarClientesPorPrestadorOuDescricao = async () => {
-      if (!debouncedSearchTerm || searchMode === 'ficha') {
+      if (!debouncedSearchTerm || searchMode === 'ficha' || searchMode === 'id_ficha') {
         setClientesTelefonesPorPrestador([]);
         return;
       }
@@ -435,6 +441,32 @@ export const ConversationList = ({
     };
 
     buscarClientesPorPrestadorOuDescricao();
+  }, [debouncedSearchTerm, searchMode]);
+
+  // Buscar clientes por ID da ficha de serviço
+  useEffect(() => {
+    const buscarClientesPorIdFicha = async () => {
+      if (!debouncedSearchTerm || searchMode !== 'id_ficha') {
+        setClientesTelefonesPorIdFicha([]);
+        return;
+      }
+
+      // Buscar fichas onde o ID contém o termo buscado
+      const { data: fichas } = await supabase
+        .from('fichas_de_servico')
+        .select('telefone_cliente')
+        .ilike('id', `%${debouncedSearchTerm}%`);
+
+      if (!fichas || fichas.length === 0) {
+        setClientesTelefonesPorIdFicha([]);
+        return;
+      }
+
+      const telefones = [...new Set(fichas.map(f => f.telefone_cliente))];
+      setClientesTelefonesPorIdFicha(telefones);
+    };
+
+    buscarClientesPorIdFicha();
   }, [debouncedSearchTerm, searchMode]);
 
   const fetchTagsWithColors = async () => {
@@ -841,7 +873,12 @@ export const ConversationList = ({
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder={searchMode === 'ficha' ? "Buscar..." : searchMode === 'prestador' ? "Buscar prestador..." : "Buscar descrição..."}
+                  placeholder={
+                    searchMode === 'ficha' ? "Buscar..." : 
+                    searchMode === 'prestador' ? "Buscar prestador..." : 
+                    searchMode === 'descricao' ? "Buscar descrição..." :
+                    "Buscar nº ficha..."
+                  }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 h-9 text-sm"
@@ -850,16 +887,28 @@ export const ConversationList = ({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setSearchMode(searchMode === 'ficha' ? 'prestador' : searchMode === 'prestador' ? 'descricao' : 'ficha')}
+                onClick={() => setSearchMode(
+                  searchMode === 'ficha' ? 'prestador' : 
+                  searchMode === 'prestador' ? 'descricao' : 
+                  searchMode === 'descricao' ? 'id_ficha' : 
+                  'ficha'
+                )}
                 className="h-9 w-9 shrink-0"
-                title={searchMode === 'ficha' ? "Buscar por prestador" : searchMode === 'prestador' ? "Buscar por descrição" : "Buscar geral"}
+                title={
+                  searchMode === 'ficha' ? "Clique: Buscar por prestador" : 
+                  searchMode === 'prestador' ? "Clique: Buscar por descrição" : 
+                  searchMode === 'descricao' ? "Clique: Buscar por nº ficha" :
+                  "Clique: Buscar geral"
+                }
               >
                 {searchMode === 'ficha' ? (
                   <User className="h-4 w-4" />
                 ) : searchMode === 'prestador' ? (
                   <HardHat className="h-4 w-4" />
-                ) : (
+                ) : searchMode === 'descricao' ? (
                   <BookOpen className="h-4 w-4" />
+                ) : (
+                  <Hash className="h-4 w-4" />
                 )}
               </Button>
             </div>
