@@ -75,6 +75,7 @@ export const ConversationList = ({
   const [clientesTelefonesPorPrestador, setClientesTelefonesPorPrestador] = useState<string[]>([]);
   const [clientesTelefonesPorFicha, setClientesTelefonesPorFicha] = useState<string[]>([]);
   const [clientesTelefonesPorIdFicha, setClientesTelefonesPorIdFicha] = useState<string[]>([]);
+  const [isSearchingById, setIsSearchingById] = useState(false); // Loading state for ID search
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState("");
   const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
@@ -449,27 +450,62 @@ export const ConversationList = ({
     buscarClientesPorPrestadorOuDescricao();
   }, [debouncedSearchTerm, searchMode]);
 
-  // Buscar clientes por ID da ficha de serviço
+  // Buscar clientes por ID da ficha de serviço - USANDO EDGE FUNCTION (bypassa RLS)
   useEffect(() => {
     const buscarClientesPorIdFicha = async () => {
       if (!debouncedSearchTerm || searchMode !== 'id_ficha') {
         setClientesTelefonesPorIdFicha([]);
+        setIsSearchingById(false);
         return;
       }
 
-      // Buscar fichas onde o ID contém o termo buscado
-      const { data: fichas } = await supabase
-        .from('fichas_de_servico')
-        .select('telefone_cliente')
-        .ilike('id', `%${debouncedSearchTerm}%`);
-
-      if (!fichas || fichas.length === 0) {
+      // Require minimum 3 characters
+      if (debouncedSearchTerm.trim().length < 3) {
         setClientesTelefonesPorIdFicha([]);
+        setIsSearchingById(false);
         return;
       }
 
-      const telefones = [...new Set(fichas.map(f => f.telefone_cliente))];
-      setClientesTelefonesPorIdFicha(telefones);
+      setIsSearchingById(true);
+      
+      // Debug log (dev only)
+      if (import.meta.env.DEV) {
+        console.log('[ConversationList] Buscando ficha por ID via edge function:', {
+          searchMode,
+          term: debouncedSearchTerm
+        });
+      }
+
+      try {
+        const { data, error } = await supabase.functions.invoke('search-ficha-id', {
+          body: { term: debouncedSearchTerm }
+        });
+
+        if (error) {
+          console.error('[ConversationList] Erro ao buscar ficha por ID:', error);
+          setClientesTelefonesPorIdFicha([]);
+          toast.error('Não foi possível buscar ficha');
+          return;
+        }
+
+        const phones = data?.phones || [];
+        
+        // Debug log (dev only)
+        if (import.meta.env.DEV) {
+          console.log('[ConversationList] Resultado da busca por ID:', {
+            term: debouncedSearchTerm,
+            phonesCount: phones.length,
+            matchedIds: data?.matchedIds || []
+          });
+        }
+
+        setClientesTelefonesPorIdFicha(phones);
+      } catch (err) {
+        console.error('[ConversationList] Erro inesperado ao buscar ficha por ID:', err);
+        setClientesTelefonesPorIdFicha([]);
+      } finally {
+        setIsSearchingById(false);
+      }
     };
 
     buscarClientesPorIdFicha();
