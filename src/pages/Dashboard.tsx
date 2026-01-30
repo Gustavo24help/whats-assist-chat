@@ -12,6 +12,7 @@ import {
   ROIChart
 } from "@/components/dashboard";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGoogleAdsMetrics, FALLBACK_METRICS } from "@/hooks/useGoogleAdsMetrics";
 import { 
   DollarSign, 
   FileText, 
@@ -38,19 +39,39 @@ const Dashboard = () => {
   const { userProfile } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('30days');
+  const [customDateRange, setCustomDateRange] = useState<{ from: Date; to: Date } | undefined>();
+
+  // Google Ads metrics
+  const { data: adsMetrics, isLoading: isLoadingAds, refetch: refetchAds } = useGoogleAdsMetrics(selectedPeriod, customDateRange);
+  const metrics = adsMetrics || FALLBACK_METRICS;
 
   const handleRefresh = () => {
     setIsRefreshing(true);
+    refetchAds();
     setTimeout(() => setIsRefreshing(false), 1500);
   };
 
   const handlePeriodChange = (period: PeriodOption, dateRange?: { from: Date; to: Date }) => {
     setSelectedPeriod(period);
+    if (dateRange) {
+      setCustomDateRange(dateRange);
+    }
     console.log('Period changed:', period, dateRange);
   };
 
   const handleSearch = (query: string) => {
     console.log('Search:', query);
+  };
+
+  // Formatar valores para exibição
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(0)}k`;
+    return num.toLocaleString('pt-BR');
+  };
+
+  const formatCurrency = (num: number) => {
+    return `R$ ${num.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
   return (
@@ -135,8 +156,8 @@ const Dashboard = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
               <KPICard
                 label="Impressões"
-                value="125k"
-                variation={5.9}
+                value={formatNumber(metrics.impressoes)}
+                variation={metrics.variations.impressoes}
                 icon={<Eye className="h-5 w-5" />}
                 iconColor="brand-green"
                 size="sm"
@@ -144,8 +165,8 @@ const Dashboard = () => {
               />
               <KPICard
                 label="Cliques"
-                value="4.875"
-                variation={16.1}
+                value={formatNumber(metrics.cliques)}
+                variation={metrics.variations.cliques}
                 icon={<MousePointerClick className="h-5 w-5" />}
                 iconColor="brand-green"
                 size="sm"
@@ -153,8 +174,8 @@ const Dashboard = () => {
               />
               <KPICard
                 label="Conversões"
-                value="157"
-                variation={22.5}
+                value={formatNumber(metrics.conversoes)}
+                variation={metrics.variations.conversoes}
                 icon={<Target className="h-5 w-5" />}
                 iconColor="yellow"
                 size="sm"
@@ -162,17 +183,18 @@ const Dashboard = () => {
               />
               <KPICard
                 label="CTR"
-                value="3.9%"
-                variation={9.7}
+                value={`${metrics.ctr}%`}
+                variation={metrics.variations.ctr}
                 icon={<Percent className="h-5 w-5" />}
                 iconColor="yellow"
                 size="sm"
                 animationDelay={550}
               />
               <KPICard
-                label="Ticket Médio"
-                value="R$ 520"
-                variation={8.3}
+                label="Custo Ads"
+                value={formatCurrency(metrics.custo)}
+                variation={metrics.variations.custo}
+                comparisonLabel="vs período anterior"
                 icon={<Receipt className="h-5 w-5" />}
                 iconColor="coral"
                 size="sm"
@@ -180,8 +202,8 @@ const Dashboard = () => {
               />
               <KPICard
                 label="Cliques/Conv."
-                value="31"
-                variation={-5.2}
+                value={String(metrics.clicksPerConversion)}
+                variation={metrics.variations.clicksPerConversion}
                 icon={<ArrowRightLeft className="h-5 w-5" />}
                 iconColor="coral"
                 size="sm"

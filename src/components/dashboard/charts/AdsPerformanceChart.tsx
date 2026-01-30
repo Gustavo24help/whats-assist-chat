@@ -1,13 +1,8 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useVisualMode } from '@/contexts/VisualModeContext';
+import { useGoogleAdsWeeklyData, FALLBACK_WEEKLY_DATA } from '@/hooks/useGoogleAdsMetrics';
 import { cn } from '@/lib/utils';
-
-const data = [
-  { week: 'Sem 1', cost: 850, conversions: 28 },
-  { week: 'Sem 2', cost: 1200, conversions: 42 },
-  { week: 'Sem 3', cost: 980, conversions: 35 },
-  { week: 'Sem 4', cost: 1450, conversions: 52 },
-];
+import { Skeleton } from '@/components/ui/skeleton';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -17,11 +12,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         {payload.map((entry: any, index: number) => (
           <p key={index} className="text-sm" style={{ color: entry.color }}>
             {entry.name}: <span className="font-semibold">
-              {entry.name === 'Custo' ? `R$ ${entry.value}` : entry.value}
+              {entry.name === 'Custo' ? `R$ ${entry.value.toLocaleString('pt-BR')}` : entry.value}
             </span>
           </p>
         ))}
-        {payload.length === 2 && (
+        {payload.length === 2 && payload[1].value > 0 && (
           <p className="text-sm text-muted-foreground mt-1 pt-1 border-t">
             CPA: R$ {(payload[0].value / payload[1].value).toFixed(2)}
           </p>
@@ -34,6 +29,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export const AdsPerformanceChart = () => {
   const { cardMode } = useVisualMode();
+  const { data: weeklyData, isLoading } = useGoogleAdsWeeklyData();
+  
+  const chartData = weeklyData || FALLBACK_WEEKLY_DATA;
 
   const cardBgClass = cardMode === 'white' 
     ? 'bg-white' 
@@ -41,11 +39,20 @@ export const AdsPerformanceChart = () => {
       ? 'bg-brand-green/5' 
       : 'bg-gradient-to-br from-brand-green/10 to-brand-yellow/5';
 
+  if (isLoading) {
+    return (
+      <div className={cn("saas-card p-4 h-80", cardBgClass)}>
+        <h4 className="text-sm font-medium text-foreground mb-4">Custo vs Conversões (Semanal)</h4>
+        <Skeleton className="w-full h-[85%]" />
+      </div>
+    );
+  }
+
   return (
     <div className={cn("saas-card p-4 h-80", cardBgClass)}>
       <h4 className="text-sm font-medium text-foreground mb-4">Custo vs Conversões (Semanal)</h4>
       <ResponsiveContainer width="100%" height="85%">
-        <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
           <XAxis 
             dataKey="week" 
