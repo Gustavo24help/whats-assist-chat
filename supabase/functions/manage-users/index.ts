@@ -81,6 +81,17 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
 
+      case 'reset_password':
+        const { error: resetError } = await supabase.auth.admin.updateUserById(userId, {
+          password
+        })
+
+        if (resetError) throw resetError
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+
       case 'list':
         // Get all auth users
         const { data: { users }, error: listError } = await supabase.auth.admin.listUsers()

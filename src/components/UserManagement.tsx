@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Users, UserPlus, Trash2 } from "lucide-react";
+import { Users, UserPlus, Trash2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserProfile {
@@ -22,6 +22,9 @@ export const UserManagement = () => {
   const { isAdmin, loading, refreshUserProfile } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+  const [selectedUserForReset, setSelectedUserForReset] = useState<UserProfile | null>(null);
+  const [newPassword, setNewPassword] = useState("");
   
   // Form states
   const [newUserEmail, setNewUserEmail] = useState("");
@@ -120,6 +123,44 @@ export const UserManagement = () => {
       console.error('Erro ao atualizar permissão:', error);
       toast.error(error.message || 'Erro ao atualizar permissão');
     }
+  };
+
+  const resetPassword = async () => {
+    if (!selectedUserForReset || !newPassword) {
+      toast.error('Digite a nova senha');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'reset_password',
+          userId: selectedUserForReset.id,
+          password: newPassword
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Senha de ${selectedUserForReset.full_name || selectedUserForReset.email} alterada com sucesso`);
+      setResetPasswordDialogOpen(false);
+      setSelectedUserForReset(null);
+      setNewPassword('');
+    } catch (error: any) {
+      console.error('Erro ao resetar senha:', error);
+      toast.error(error.message || 'Erro ao resetar senha');
+    }
+  };
+
+  const openResetPasswordDialog = (user: UserProfile) => {
+    setSelectedUserForReset(user);
+    setNewPassword('');
+    setResetPasswordDialogOpen(true);
   };
 
   if (loading) {
@@ -261,11 +302,20 @@ export const UserManagement = () => {
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => openResetPasswordDialog(user)}
+                    title="Resetar senha"
+                  >
+                    <KeyRound className="h-4 w-4 text-amber-600" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => deleteUser(user.id)}
+                    title="Excluir usuário"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
@@ -274,6 +324,34 @@ export const UserManagement = () => {
             ))}
           </TableBody>
         </Table>
+
+        {/* Dialog de Reset de Senha */}
+        <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Resetar Senha</DialogTitle>
+              <DialogDescription>
+                Definir nova senha para {selectedUserForReset?.full_name || selectedUserForReset?.email}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Nova Senha</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  minLength={6}
+                />
+              </div>
+              <Button onClick={resetPassword} className="w-full">
+                Salvar Nova Senha
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
