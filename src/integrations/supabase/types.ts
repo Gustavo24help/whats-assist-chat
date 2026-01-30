@@ -375,6 +375,48 @@ export type Database = {
           },
         ]
       }
+      google_ads_metrics: {
+        Row: {
+          campanha: string | null
+          cliques: number | null
+          conversoes: number | null
+          cpa: number | null
+          created_at: string | null
+          ctr: number | null
+          custo: number | null
+          data_referencia: string
+          id: string
+          impressoes: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          campanha?: string | null
+          cliques?: number | null
+          conversoes?: number | null
+          cpa?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          custo?: number | null
+          data_referencia: string
+          id?: string
+          impressoes?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          campanha?: string | null
+          cliques?: number | null
+          conversoes?: number | null
+          cpa?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          custo?: number | null
+          data_referencia?: string
+          id?: string
+          impressoes?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       mensagens: {
         Row: {
           arquivo_url: string | null

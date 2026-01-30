@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.search-ficha-id]
 verify_jwt = false
+
+[functions.sync-google-ads]
+verify_jwt = false
