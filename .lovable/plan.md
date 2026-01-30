@@ -1,109 +1,207 @@
 
+# Plano de Integração Google Ads com o Dashboard
 
-## Diagnóstico: Bot respondendo após ser desligado
-
-### O que aconteceu com o número 554198751600
-
-Analisei os dados e encontrei a seguinte cronologia:
-
-| Horário | Evento |
-|---------|--------|
-| 19:28:18 | Bot responde (última mensagem antes de desligar) |
-| **19:29:04** | **Bot DESLIGADO automaticamente pelo Twilio (POST_TurnBotOffOnError)** |
-| 19:29:46 | Atendente Paula assume e envia mensagem |
-| **19:30:56** | **Bot envia "Oi, sou a Olívia..." mesmo estando DESLIGADO!** |
-| 19:31:13 | Cliente responde confuso: "Como assim?" |
-
-### Causa Raiz
-
-O cliente enviou uma nova mensagem após a atendente assumir. Essa mensagem disparou um **novo fluxo no Twilio Studio**, que:
-
-1. Verificou o status do bot via `check-bot-status`
-2. Deveria ter recebido "disabled", mas tratou como "enabled"
-3. Enviou uma nova resposta da IA mesmo com o bot desligado
-
-Isso pode acontecer por:
-- **Race condition**: O novo fluxo foi iniciado antes da atualização do banco ser propagada
-- **Caminho incorreto no fluxo**: O widget VERIFICAR_BOT pode não estar no início do fluxo para todas as mensagens
-- **Falta de proteção no webhook**: O `twilio-webhook` não verifica o status do bot antes de salvar mensagens de bot
+## Contexto Atual
+O Dashboard exibe métricas de Google Ads (Impressões, Cliques, Conversões, CTR, Custo) com **valores estáticos hardcoded**. O objetivo é substituí-los por dados reais do Google Ads.
 
 ---
 
-## Solução Proposta
+## Opções de Arquitetura
 
-Implementar uma **verificação de segurança no twilio-webhook** que impede mensagens de bot quando o bot está desativado.
+### Opção 1: Google Ads API Direta (via Edge Function)
+**Complexidade: Alta | Manutenção: Média**
 
-### Mudança 1: Verificar status antes de salvar mensagem de bot
-
-No arquivo `supabase/functions/twilio-webhook/index.ts`, antes de salvar qualquer mensagem do tipo `bot`:
-
-```typescript
-// Se a mensagem é do bot, verificar se o bot está habilitado
-if (remetente === 'bot') {
-  const { data: clienteStatus } = await supabase
-    .from('clientes')
-    .select('bot_habilitado')
-    .eq('telefone', from)
-    .maybeSingle();
-    
-  if (clienteStatus?.bot_habilitado === false) {
-    console.log(`⛔ [twilio-webhook] Ignorando mensagem do bot - bot está DESABILITADO para ${from}`);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        reason: 'Bot desabilitado para este cliente'
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-}
+```text
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Dashboard  │────▶│  Edge Function   │────▶│  Google Ads API │
+│  (Frontend) │     │  fetch-google-   │     │                 │
+│             │◀────│  ads-metrics     │◀────│                 │
+└─────────────┘     └──────────────────┘     └─────────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │  Supabase   │
+                    │  (Cache)    │
+                    └─────────────┘
 ```
 
-### Mudança 2: Adicionar verificação antes do envio via send-whatsapp (opcional)
+**Prós:**
+- Dados em tempo real (ou cache de 15 min)
+- Sem dependências externas além da API Google
 
-No `send-whatsapp`, verificar se o remetente é "bot" e o bot está desabilitado:
+**Contras:**
+- Requer OAuth2 com refresh tokens
+- Complexidade de configuração (Google Cloud Console, credenciais)
+- Custos de API mais altos para consultas frequentes
 
-```typescript
-// Se é mensagem do bot, verificar se está habilitado
-if (remetente === 'bot') {
-  const { data: cliente } = await supabase
-    .from('clientes')
-    .select('bot_habilitado')
-    .eq('telefone', to)
-    .maybeSingle();
-    
-  if (cliente?.bot_habilitado === false) {
-    console.log(`⛔ [send-whatsapp] Bloqueando envio - bot desabilitado para ${to}`);
-    return new Response(
-      JSON.stringify({ error: 'Bot desabilitado', blocked: true }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-}
+---
+
+### Opção 2: Make.com com Atualização Periódica (Recomendada)
+**Complexidade: Baixa | Manutenção: Baixa**
+
+```text
+┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐
+│  Dashboard  │────▶│  Supabase   │◀────│  Make.com Scenario  │
+│  (Frontend) │◀────│  google_ads │     │  (Scheduled Daily)  │
+│             │     │  _metrics   │     │                     │
+└─────────────┘     └─────────────┘     └─────────────────────┘
+                                               │
+                                               ▼
+                                        ┌─────────────────┐
+                                        │  Google Ads API │
+                                        └─────────────────┘
+```
+
+**Prós:**
+- Configuração visual e simples no Make.com
+- Vocês já usam Make.com (integração com bairros/fichas)
+- Sem gerenciar tokens OAuth no código
+- Baixo custo (execução 1x ao dia)
+- Histórico de dados preservado automaticamente
+
+**Contras:**
+- Dados com delay de até 24h
+- Dependência do serviço Make.com
+
+---
+
+## Recomendação: Opção 2 (Make.com)
+
+Considerando que:
+- Vocês já utilizam Make.com para outras integrações
+- Métricas de Ads não precisam ser em tempo real (relatórios diários são suficientes)
+- A configuração é muito mais simples e mantém baixa a complexidade técnica
+
+---
+
+## Implementação Detalhada
+
+### Fase 1: Estrutura de Dados (Supabase)
+
+Criar tabela `google_ads_metrics`:
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| id | uuid | Chave primária |
+| data_referencia | date | Data das métricas |
+| impressoes | integer | Total de impressões |
+| cliques | integer | Total de cliques |
+| conversoes | integer | Total de conversões |
+| custo | decimal | Custo total em R$ |
+| ctr | decimal | Taxa de cliques (%) |
+| cpa | decimal | Custo por aquisição |
+| campanha | text | Nome da campanha (opcional) |
+| created_at | timestamp | Data de inserção |
+| updated_at | timestamp | Última atualização |
+
+**RLS Policy:** Apenas usuários autenticados com role `admin` ou `supervisor` podem visualizar.
+
+---
+
+### Fase 2: Cenário Make.com
+
+Configurar cenário com:
+1. **Trigger:** Schedule (diário às 06:00 ou horário preferido)
+2. **Módulo:** Google Ads - Get Campaign Statistics
+3. **Módulo:** HTTP - POST para webhook do Supabase
+
+O webhook vai chamar uma Edge Function que insere/atualiza os dados.
+
+---
+
+### Fase 3: Edge Function `sync-google-ads`
+
+Criar função que:
+- Recebe dados do Make.com via webhook
+- Valida o payload
+- Insere ou atualiza na tabela `google_ads_metrics`
+- Retorna confirmação
+
+---
+
+### Fase 4: Hook `useGoogleAdsMetrics`
+
+Criar hook React que:
+- Busca métricas do período selecionado
+- Calcula variações vs período anterior
+- Formata valores para exibição
+- Retorna loading/error states
+
+---
+
+### Fase 5: Atualizar Dashboard
+
+Modificar componentes para consumir dados reais:
+- **KPICards** da seção "Marketing - Google Ads"
+- **ConversionFunnel** (Impressões, Cliques)
+- **AdsPerformanceChart** (gráfico semanal)
+
+---
+
+## Fluxo de Dados Final
+
+```text
+Google Ads ──▶ Make.com (diário) ──▶ Edge Function ──▶ Supabase
+                                                          │
+Dashboard ◀── useGoogleAdsMetrics ◀── React Query ◀───────┘
 ```
 
 ---
 
-## Benefícios
+## Proteção de Dados Existentes
 
-- Mensagens de bot nunca serão salvas/enviadas se o bot estiver desligado
-- Proteção contra race conditions entre Twilio e banco de dados
-- Log claro de tentativas bloqueadas para auditoria
-- Não requer mudanças no Twilio Studio
+Como mencionado nas suas instruções, vou garantir que:
+- Nenhum dado existente será modificado
+- Os valores estáticos atuais permanecerão como fallback
+- A migração será não-destrutiva (INSERT apenas, sem UPDATE em dados históricos)
 
 ---
 
-## Detalhes Técnicos
+## Próximos Passos
 
-### Arquivos a modificar:
-1. `supabase/functions/twilio-webhook/index.ts` - Verificação antes de salvar mensagem de bot
-2. `supabase/functions/send-whatsapp/index.ts` (opcional) - Verificação antes de enviar
+Após aprovação:
+1. Criar tabela `google_ads_metrics` no Supabase
+2. Criar Edge Function `sync-google-ads` para receber webhook
+3. Criar hook `useGoogleAdsMetrics`
+4. Atualizar Dashboard.tsx e componentes de gráficos
+5. Fornecer instruções para configurar o cenário no Make.com
 
-### Impacto em dados existentes:
-- **Nenhum** - Apenas mensagens futuras serão afetadas
-- Dados já salvos permanecem inalterados
+---
 
-### Considerações:
-- A verificação adiciona ~1 query extra ao banco por mensagem de bot
-- O overhead é mínimo (< 50ms) e vale a segurança
+## Seção Técnica
 
+### Estrutura de Arquivos a Criar/Modificar
+
+```text
+src/
+├── hooks/
+│   └── useGoogleAdsMetrics.ts (NOVO)
+├── components/dashboard/
+│   └── charts/
+│       └── AdsPerformanceChart.tsx (MODIFICAR)
+├── pages/
+│   └── Dashboard.tsx (MODIFICAR)
+supabase/
+└── functions/
+    └── sync-google-ads/
+        └── index.ts (NOVO)
+```
+
+### Schema SQL
+
+```sql
+CREATE TABLE google_ads_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  data_referencia DATE NOT NULL,
+  impressoes INTEGER DEFAULT 0,
+  cliques INTEGER DEFAULT 0,
+  conversoes INTEGER DEFAULT 0,
+  custo DECIMAL(10,2) DEFAULT 0,
+  ctr DECIMAL(5,2) DEFAULT 0,
+  cpa DECIMAL(10,2) DEFAULT 0,
+  campanha TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(data_referencia, campanha)
+);
+```
