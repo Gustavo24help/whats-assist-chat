@@ -1,198 +1,89 @@
 
-
-# Plano: Corrigir KPI "Conversas Iniciadas"
+# Plano: Corrigir Critério de Data dos KPIs
 
 ## Problema Identificado
 
-O KPI "Conversas Iniciadas" está mostrando **36** quando deveria ser **319**.
+Os KPIs "Finalizado e Pago" e "Valor Total OS" estão usando `updated_at` para filtrar por período, mas o critério correto é usar `created_at` (data de criação da ficha).
 
-**Causa raiz**: A query do Supabase tem limite padrão de 1.000 registros, mas existem 13.506 mensagens de clientes. Isso faz com que a lógica de "primeira mensagem por cliente" não funcione corretamente.
-
-| Componente | Valor atual | Valor correto |
-|------------|-------------|---------------|
-| Primeiras mensagens de clientes (30 dias) | 0 | 283 |
-| Fichas subsequentes (30 dias) | 36 | 36 |
-| **Total** | **36** | **319** |
+**Exemplo**: Uma ficha criada em janeiro mas finalizada/paga em fevereiro deve aparecer nos KPIs de **janeiro**.
 
 ---
 
-## Solucao Proposta
+## Mudança Necessária
 
-Em vez de buscar todas as mensagens no cliente (impossivel com 13.506 registros), vou usar uma abordagem otimizada:
-
-### Estrategia 1: Consulta agregada no banco
-
-Usar queries que fazem a agregacao no servidor, nao no cliente:
-
-```sql
--- Primeiras mensagens por cliente nos ultimos 30 dias
-WITH first_messages AS (
-  SELECT cliente_id, MIN(data_hora) as primeira_msg
-  FROM mensagens
-  WHERE remetente = 'cliente'
-  GROUP BY cliente_id
-)
-SELECT COUNT(*) FROM first_messages
-WHERE primeira_msg >= NOW() - INTERVAL '30 days'
-```
-
-### Estrategia 2: Usar RPC (funcao no banco)
-
-Criar uma funcao no banco que faz o calculo completo e retorna apenas o numero, evitando transferir dados para o cliente.
+| KPI | Data Atual | Data Correta |
+|-----|------------|--------------|
+| FS Criadas | `created_at` | `created_at` (OK) |
+| Visita Agendada | `data_visita_tecnica` | `created_at` |
+| Serviço Agendado | `horario_agendamento` | `created_at` |
+| Finalizado e Pago | `updated_at` | `created_at` |
+| Valor Total OS | `updated_at` | `created_at` |
 
 ---
 
-## Implementacao Escolhida
+## Arquivo a Modificar
 
-Vou usar a **Estrategia 1** com queries otimizadas que:
+**`src/hooks/useOperationalKPIs.ts`**
 
-1. Buscam apenas clientes distintos com sua primeira mensagem (nao todas as mensagens)
-2. Filtram por periodo no servidor
-3. Retornam apenas a contagem
+### Mudanças:
 
-### Mudancas no Hook
+1. **Visita Agendada**: Trocar filtro de `data_visita_tecnica` para `created_at`
+2. **Serviço Agendado**: Trocar filtro de `horario_agendamento` para `created_at`
+3. **Finalizado e Pago**: Trocar filtro de `updated_at` para `created_at`
+4. **Valor Total OS**: Trocar filtro de `updated_at` para `created_at`
 
-**Arquivo**: `src/hooks/useOperationalKPIs.ts`
-
-**Query atual (problema)**:
-```typescript
-supabase
-  .from('mensagens')
-  .select('cliente_id, data_hora')
-  .eq('remetente', 'cliente')
-  .order('data_hora', { ascending: true })
-// Retorna max 1000 registros - INSUFICIENTE
-```
-
-**Nova abordagem**:
-
-1. **Para primeiras mensagens**: Buscar a data da primeira mensagem de cada cliente usando uma query que agrupa no servidor
-2. **Para fichas subsequentes**: Manter a logica atual (616 fichas cabem no limite)
-
-### Codigo da Solucao
+### Código atual (linhas 95-120):
 
 ```typescript
-// 1. Buscar primeira mensagem de cada cliente (agregado no servidor)
-const firstMessagesByClient = await supabase
-  .from('mensagens')
-  .select('cliente_id')
-  .eq('remetente', 'cliente')
-  .order('data_hora', { ascending: true });
+// Visita Agendada - ATUAL
+.gte('data_visita_tecnica', fromDateOnly)
+.lte('data_visita_tecnica', toDateOnly)
 
-// Problema: ainda precisa de todos os registros para agrupar
+// Serviço Agendado - ATUAL
+.gte('horario_agendamento', fromStr)
+.lte('horario_agendamento', toStr)
 
-// SOLUCAO: Criar uma view ou usar RPC
+// Finalizado e Pago - ATUAL
+.gte('updated_at', fromStr)
+.lte('updated_at', toStr)
+
+// Valor Total OS - ATUAL
+.gte('updated_at', fromStr)
+.lte('updated_at', toStr)
 ```
 
-Como o Supabase JavaScript SDK nao suporta GROUP BY diretamente, a melhor solucao e criar uma **funcao RPC** no banco:
-
-```sql
-CREATE OR REPLACE FUNCTION count_conversas_iniciadas(
-  from_date TIMESTAMPTZ,
-  to_date TIMESTAMPTZ,
-  p_categoria_id INTEGER DEFAULT NULL,
-  p_prestador_cpf TEXT DEFAULT NULL,
-  p_cliente_telefone TEXT DEFAULT NULL
-)
-RETURNS INTEGER AS $$
-DECLARE
-  primeiras_msgs INTEGER;
-  fichas_subsequentes INTEGER;
-BEGIN
-  -- Contar primeiras mensagens de clientes no periodo
-  SELECT COUNT(*) INTO primeiras_msgs
-  FROM (
-    SELECT cliente_id, MIN(data_hora) as primeira_msg
-    FROM mensagens
-    WHERE remetente = 'cliente'
-    GROUP BY cliente_id
-  ) fm
-  WHERE fm.primeira_msg >= from_date 
-    AND fm.primeira_msg <= to_date;
-  
-  -- Contar fichas subsequentes no periodo
-  WITH fichas_ordenadas AS (
-    SELECT 
-      telefone_cliente,
-      created_at,
-      categoria_id,
-      prestador_id,
-      ROW_NUMBER() OVER (PARTITION BY telefone_cliente ORDER BY created_at) as ordem
-    FROM fichas_de_servico
-    WHERE (p_categoria_id IS NULL OR categoria_id = p_categoria_id)
-      AND (p_prestador_cpf IS NULL OR prestador_id = p_prestador_cpf)
-      AND (p_cliente_telefone IS NULL OR telefone_cliente = p_cliente_telefone)
-  )
-  SELECT COUNT(*) INTO fichas_subsequentes
-  FROM fichas_ordenadas
-  WHERE ordem > 1 
-    AND created_at >= from_date 
-    AND created_at <= to_date;
-  
-  RETURN primeiras_msgs + fichas_subsequentes;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
----
-
-## Arquivos a Modificar
-
-| Arquivo | Acao | Descricao |
-|---------|------|-----------|
-| **Migracao SQL** | Criar | Funcao RPC `count_conversas_iniciadas` |
-| `src/hooks/useOperationalKPIs.ts` | Atualizar | Usar RPC em vez de queries no cliente |
-
----
-
-## Mudancas Detalhadas
-
-### 1. Migracao SQL
-
-Criar funcao que calcula conversas iniciadas no servidor:
-
-```sql
-CREATE OR REPLACE FUNCTION count_conversas_iniciadas(
-  from_date TIMESTAMPTZ,
-  to_date TIMESTAMPTZ
-) RETURNS INTEGER
-```
-
-### 2. Hook useOperationalKPIs.ts
-
-Substituir a logica atual por chamada RPC:
+### Código corrigido:
 
 ```typescript
-// ANTES (problema)
-const calculateConversasIniciadas = (...) => {
-  // Processa 1000 mensagens no cliente - INCOMPLETO
-}
+// Visita Agendada - CORRIGIDO
+.gte('created_at', fromStr)
+.lte('created_at', toStr)
 
-// DEPOIS (solucao)
-const { data: conversasData } = await supabase
-  .rpc('count_conversas_iniciadas', {
-    from_date: fromStr,
-    to_date: toStr,
-    p_categoria_id: filters.categoriaId || null,
-    p_prestador_cpf: filters.prestadorCpf || null,
-    p_cliente_telefone: filters.clienteTelefone || null
-  });
+// Serviço Agendado - CORRIGIDO
+.gte('created_at', fromStr)
+.lte('created_at', toStr)
 
-const conversasIniciadas = conversasData || 0;
+// Finalizado e Pago - CORRIGIDO
+.gte('created_at', fromStr)
+.lte('created_at', toStr)
+
+// Valor Total OS - CORRIGIDO
+.gte('created_at', fromStr)
+.lte('created_at', toStr)
 ```
 
 ---
 
-## Resultado Esperado
+## Impacto nos Dados Existentes
 
-Apos a correcao:
+**Nenhum dado será alterado** - apenas a forma de filtrar/exibir os KPIs mudará.
 
-| KPI | Valor Atual | Valor Correto |
-|-----|-------------|---------------|
-| Conversas Iniciadas (30 dias) | 36 | 319 |
+Os números podem mudar significativamente porque:
+- Fichas criadas há mais tempo mas finalizadas recentemente sairão dos KPIs recentes
+- Fichas criadas recentemente mas ainda não finalizadas entrarão nos KPIs (se já estiverem pagas)
 
-A logica correta:
-- **283** clientes enviaram sua primeira mensagem nos ultimos 30 dias
-- **36** fichas subsequentes (2a, 3a ficha de um cliente) foram criadas nos ultimos 30 dias
-- **Total: 319** conversas iniciadas
+---
 
+## Resumo
+
+Padronizar todos os KPIs para usar `created_at` como critério de data, garantindo que uma ficha sempre apareça no período em que foi criada, independente de quando foi finalizada ou paga.
