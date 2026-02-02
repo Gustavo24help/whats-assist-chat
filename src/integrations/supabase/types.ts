@@ -763,6 +763,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_conversas_iniciadas: {
+        Args: {
+          p_categoria_id?: number
+          p_cliente_telefone?: string
+          p_from_date: string
+          p_prestador_cpf?: string
+          p_to_date: string
+        }
+        Returns: number
+      }
       check_and_close_orcamento_forms: { Args: never; Returns: undefined }
       has_role: {
         Args: {
