@@ -9,7 +9,8 @@ import {
   ServicesLineChart,
   AdsPerformanceChart,
   TicketMedioChart,
-  ROIChart
+  ROIChart,
+  OperationalKPIsSection
 } from "@/components/dashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGoogleAdsMetrics, FALLBACK_METRICS } from "@/hooks/useGoogleAdsMetrics";
@@ -102,6 +103,12 @@ const Dashboard = () => {
 
         {/* Content */}
         <main className="flex-1 p-6 space-y-8 overflow-auto">
+          {/* Métricas Operacionais - NEW */}
+          <OperationalKPIsSection 
+            period={selectedPeriod} 
+            customDateRange={customDateRange} 
+          />
+
           {/* Resumo do Dia */}
           <section>
             <SectionHeader 
