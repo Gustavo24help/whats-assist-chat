@@ -16,9 +16,13 @@ export interface OperationalKPIs {
   conversasIniciadas: number;
   fsCriadas: number;
   visitaAgendada: number;
-  servicoAgendado: number;
+  servicoAgendado: number; // Apenas com horario_agendamento
+  servicoAgendadoTotal: number; // Agendados + Finalizados/Pagos (para funil)
   finalizadoPago: number;
   valorTotalOS: number;
+  // Taxas de conversão
+  taxaAgendamento: number; // servicoAgendadoTotal / fsCriadas
+  taxaFinalizacao: number; // finalizadoPago / fsCriadas
   variations: {
     conversasIniciadas: number | null;
     fsCriadas: number | null;
@@ -229,6 +233,17 @@ async function fetchKPIs(filters: KPIFilters) {
   const valorTotalOS = (valorTotalResult.data || []).reduce((sum, f) => sum + (f.valor_total || 0), 0);
   const conversasIniciadas = conversasIniciadasResult.data || 0;
 
+  // Serviços Agendados Total = agendados + finalizados/pagos (para o funil)
+  const servicoAgendadoTotal = servicoAgendado + finalizadoPago;
+
+  // Taxas de conversão
+  const taxaAgendamento = fsCriadas > 0 
+    ? Number(((servicoAgendadoTotal / fsCriadas) * 100).toFixed(1)) 
+    : 0;
+  const taxaFinalizacao = fsCriadas > 0 
+    ? Number(((finalizadoPago / fsCriadas) * 100).toFixed(1)) 
+    : 0;
+
   const fsCriadasPrev = fsCriadasPrevResult.count || 0;
   const visitaAgendadaPrev = visitasPrevResult.count || 0;
   const servicoAgendadoPrev = servicosPrevResult.count || 0;
@@ -241,8 +256,11 @@ async function fetchKPIs(filters: KPIFilters) {
     fsCriadas,
     visitaAgendada,
     servicoAgendado,
+    servicoAgendadoTotal,
     finalizadoPago,
     valorTotalOS,
+    taxaAgendamento,
+    taxaFinalizacao,
     variations: {
       conversasIniciadas: calculateVariation(conversasIniciadas, conversasIniciadasPrev),
       fsCriadas: calculateVariation(fsCriadas, fsCriadasPrev),
@@ -259,15 +277,18 @@ export const FALLBACK_OPERATIONAL_KPIS: Omit<OperationalKPIs, 'isLoading'> = {
   fsCriadas: 0,
   visitaAgendada: 0,
   servicoAgendado: 0,
+  servicoAgendadoTotal: 0,
   finalizadoPago: 0,
   valorTotalOS: 0,
+  taxaAgendamento: 0,
+  taxaFinalizacao: 0,
   variations: {
-    conversasIniciadas: 0,
-    fsCriadas: 0,
-    visitaAgendada: 0,
-    servicoAgendado: 0,
-    finalizadoPago: 0,
-    valorTotalOS: 0,
+    conversasIniciadas: null,
+    fsCriadas: null,
+    visitaAgendada: null,
+    servicoAgendado: null,
+    finalizadoPago: null,
+    valorTotalOS: null,
   },
 };
 

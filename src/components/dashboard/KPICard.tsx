@@ -6,9 +6,10 @@ import { useVisualMode } from '@/contexts/VisualModeContext';
 type IconColor = 'brand-green' | 'yellow' | 'coral' | 'red';
 type CardSize = 'sm' | 'md' | 'lg';
 
-interface KPICardProps {
+export interface KPICardProps {
   label: string;
   value: string | number;
+  subValue?: string; // Texto secundário abaixo do valor principal
   variation?: number | null; // null = sem dados para comparar
   comparisonLabel?: string;
   icon?: ReactNode;
@@ -46,6 +47,7 @@ const sizeClasses: Record<CardSize, { wrapper: string; value: string; label: str
 export const KPICard = ({
   label,
   value,
+  subValue,
   variation,
   comparisonLabel = 'vs mês anterior',
   icon,
@@ -138,6 +140,11 @@ export const KPICard = ({
         <div className={cn('font-bold text-foreground font-jakarta', sizes.value)}>
           {value}
         </div>
+        {subValue && (
+          <div className="text-xs text-muted-foreground/80">
+            {subValue}
+          </div>
+        )}
         <div className={cn('text-muted-foreground font-medium', sizes.label)}>
           {label}
         </div>
