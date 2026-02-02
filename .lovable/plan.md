@@ -1,207 +1,190 @@
 
-# Plano de Integração Google Ads com o Dashboard
+# Plano de Correção: Criação de Fichas de Serviço
 
-## Contexto Atual
-O Dashboard exibe métricas de Google Ads (Impressões, Cliques, Conversões, CTR, Custo) com **valores estáticos hardcoded**. O objetivo é substituí-los por dados reais do Google Ads.
+## Diagnóstico do Problema
+
+O problema foi identificado: quando você cria uma ficha via `CriarFichaDialog`, o sistema:
+
+1. Gera o nome da ficha (`FGM1@260202`)
+2. Envia os dados para um webhook externo (Make.com)
+3. Atualiza o `ficha_ativa_id` do cliente para apontar para essa ficha
+4. **Não cria a ficha no banco de dados local**
+
+Resultado: O cliente `whatsapp:+554199276709` tem `ficha_ativa_id = FGM1@260202260202`, mas não existe nenhum registro correspondente na tabela `fichas_de_servico`.
 
 ---
 
-## Opções de Arquitetura
+## Solução Proposta
 
-### Opção 1: Google Ads API Direta (via Edge Function)
-**Complexidade: Alta | Manutenção: Média**
+Implementar criação local primeiro, webhook depois (com controle de pendência):
 
 ```text
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Dashboard  │────▶│  Edge Function   │────▶│  Google Ads API │
-│  (Frontend) │     │  fetch-google-   │     │                 │
-│             │◀────│  ads-metrics     │◀────│                 │
-└─────────────┘     └──────────────────┘     └─────────────────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │  Supabase   │
-                    │  (Cache)    │
-                    └─────────────┘
+┌──────────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│  CriarFichaDialog│────▶│ Inserir ficha   │────▶│  Chamar webhook  │
+│  (usuário clica) │     │ no Supabase     │     │  (assíncrono)    │
+└──────────────────┘     └─────────────────┘     └──────────────────┘
+                                │                        │
+                                ▼                        ▼
+                         Ficha aparece            Se falhar, marca
+                         imediatamente            webhook_pendente=true
 ```
 
-**Prós:**
-- Dados em tempo real (ou cache de 15 min)
-- Sem dependências externas além da API Google
-
-**Contras:**
-- Requer OAuth2 com refresh tokens
-- Complexidade de configuração (Google Cloud Console, credenciais)
-- Custos de API mais altos para consultas frequentes
-
 ---
 
-### Opção 2: Make.com com Atualização Periódica (Recomendada)
-**Complexidade: Baixa | Manutenção: Baixa**
+## Alterações Necessárias
 
-```text
-┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐
-│  Dashboard  │────▶│  Supabase   │◀────│  Make.com Scenario  │
-│  (Frontend) │◀────│  google_ads │     │  (Scheduled Daily)  │
-│             │     │  _metrics   │     │                     │
-└─────────────┘     └─────────────┘     └─────────────────────┘
-                                               │
-                                               ▼
-                                        ┌─────────────────┐
-                                        │  Google Ads API │
-                                        └─────────────────┘
-```
+### 1. Adicionar Coluna de Controle
 
-**Prós:**
-- Configuração visual e simples no Make.com
-- Vocês já usam Make.com (integração com bairros/fichas)
-- Sem gerenciar tokens OAuth no código
-- Baixo custo (execução 1x ao dia)
-- Histórico de dados preservado automaticamente
-
-**Contras:**
-- Dados com delay de até 24h
-- Dependência do serviço Make.com
-
----
-
-## Recomendação: Opção 2 (Make.com)
-
-Considerando que:
-- Vocês já utilizam Make.com para outras integrações
-- Métricas de Ads não precisam ser em tempo real (relatórios diários são suficientes)
-- A configuração é muito mais simples e mantém baixa a complexidade técnica
-
----
-
-## Implementação Detalhada
-
-### Fase 1: Estrutura de Dados (Supabase)
-
-Criar tabela `google_ads_metrics`:
+Nova coluna na tabela `fichas_de_servico`:
 
 | Coluna | Tipo | Descrição |
 |--------|------|-----------|
-| id | uuid | Chave primária |
-| data_referencia | date | Data das métricas |
-| impressoes | integer | Total de impressões |
-| cliques | integer | Total de cliques |
-| conversoes | integer | Total de conversões |
-| custo | decimal | Custo total em R$ |
-| ctr | decimal | Taxa de cliques (%) |
-| cpa | decimal | Custo por aquisição |
-| campanha | text | Nome da campanha (opcional) |
-| created_at | timestamp | Data de inserção |
-| updated_at | timestamp | Última atualização |
-
-**RLS Policy:** Apenas usuários autenticados com role `admin` ou `supervisor` podem visualizar.
+| `webhook_pendente` | boolean | True se webhook ainda não foi enviado/confirmado |
 
 ---
 
-### Fase 2: Cenário Make.com
+### 2. Corrigir Lógica no CriarFichaDialog
 
-Configurar cenário com:
-1. **Trigger:** Schedule (diário às 06:00 ou horário preferido)
-2. **Módulo:** Google Ads - Get Campaign Statistics
-3. **Módulo:** HTTP - POST para webhook do Supabase
+**Fluxo atual (problemático):**
+1. Chamar webhook
+2. Atualizar cliente
 
-O webhook vai chamar uma Edge Function que insere/atualiza os dados.
-
----
-
-### Fase 3: Edge Function `sync-google-ads`
-
-Criar função que:
-- Recebe dados do Make.com via webhook
-- Valida o payload
-- Insere ou atualiza na tabela `google_ads_metrics`
-- Retorna confirmação
+**Novo fluxo (seguro):**
+1. Inserir ficha no Supabase (com `webhook_pendente = true`)
+2. Atualizar `ficha_ativa_id` do cliente
+3. Chamar webhook de forma assíncrona
+4. Se webhook responder OK, atualizar `webhook_pendente = false`
 
 ---
 
-### Fase 4: Hook `useGoogleAdsMetrics`
+### 3. Garantir Nome Único (Anti-Duplicação)
 
-Criar hook React que:
-- Busca métricas do período selecionado
-- Calcula variações vs período anterior
-- Formata valores para exibição
-- Retorna loading/error states
-
----
-
-### Fase 5: Atualizar Dashboard
-
-Modificar componentes para consumir dados reais:
-- **KPICards** da seção "Marketing - Google Ads"
-- **ConversionFunnel** (Impressões, Cliques)
-- **AdsPerformanceChart** (gráfico semanal)
-
----
-
-## Fluxo de Dados Final
+Usar transação com bloqueio para evitar que dois atendentes criem fichas com o mesmo número no mesmo segundo:
 
 ```text
-Google Ads ──▶ Make.com (diário) ──▶ Edge Function ──▶ Supabase
-                                                          │
-Dashboard ◀── useGoogleAdsMetrics ◀── React Query ◀───────┘
+Padrão: FGM{sequencial}-{YYMMDD}
+Exemplo: FGM1-260202, FGM2-260202, etc.
 ```
 
----
-
-## Proteção de Dados Existentes
-
-Como mencionado nas suas instruções, vou garantir que:
-- Nenhum dado existente será modificado
-- Os valores estáticos atuais permanecerão como fallback
-- A migração será não-destrutiva (INSERT apenas, sem UPDATE em dados históricos)
+A query de geração do nome vai usar `FOR UPDATE` para garantir atomicidade.
 
 ---
 
-## Próximos Passos
+### 4. Corrigir Dados Atuais
 
-Após aprovação:
-1. Criar tabela `google_ads_metrics` no Supabase
-2. Criar Edge Function `sync-google-ads` para receber webhook
-3. Criar hook `useGoogleAdsMetrics`
-4. Atualizar Dashboard.tsx e componentes de gráficos
-5. Fornecer instruções para configurar o cenário no Make.com
+Criar a ficha que está faltando para o cliente Amilton (4199276709):
+
+- ID: `FGM1@260202260202` (conforme já está no `ficha_ativa_id`)
+- Telefone: `whatsapp:+554199276709`
+- Status: `Ficha Criada`
+
+---
+
+## Arquivos Afetados
+
+```text
+Banco de dados:
+└── Nova migração para adicionar coluna webhook_pendente
+
+Frontend:
+└── src/components/CriarFichaDialog.tsx (lógica principal)
+
+Correção pontual:
+└── Insert manual da ficha FGM1@260202260202
+```
 
 ---
 
 ## Seção Técnica
 
-### Estrutura de Arquivos a Criar/Modificar
-
-```text
-src/
-├── hooks/
-│   └── useGoogleAdsMetrics.ts (NOVO)
-├── components/dashboard/
-│   └── charts/
-│       └── AdsPerformanceChart.tsx (MODIFICAR)
-├── pages/
-│   └── Dashboard.tsx (MODIFICAR)
-supabase/
-└── functions/
-    └── sync-google-ads/
-        └── index.ts (NOVO)
-```
-
-### Schema SQL
+### Schema da Nova Coluna
 
 ```sql
-CREATE TABLE google_ads_metrics (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  data_referencia DATE NOT NULL,
-  impressoes INTEGER DEFAULT 0,
-  cliques INTEGER DEFAULT 0,
-  conversoes INTEGER DEFAULT 0,
-  custo DECIMAL(10,2) DEFAULT 0,
-  ctr DECIMAL(5,2) DEFAULT 0,
-  cpa DECIMAL(10,2) DEFAULT 0,
-  campanha TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(data_referencia, campanha)
+ALTER TABLE fichas_de_servico 
+ADD COLUMN webhook_pendente BOOLEAN DEFAULT false;
+```
+
+### Lógica de Geração de Nome (Pseudocódigo)
+
+```typescript
+async function gerarNomeFichaUnico() {
+  const hoje = format(new Date(), "yyMMdd");
+  
+  // Buscar último número usado hoje
+  const { data } = await supabase
+    .from('fichas_de_servico')
+    .select('nome_ficha')
+    .ilike('nome_ficha', `FGM%-${hoje}`)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  const ultimoNumero = extrairNumero(data?.[0]?.nome_ficha) || 0;
+  return `FGM${ultimoNumero + 1}-${hoje}`;
+}
+```
+
+### Fluxo no handleSubmit
+
+```typescript
+// 1. Criar ficha localmente PRIMEIRO
+const { data: novaFicha, error } = await supabase
+  .from('fichas_de_servico')
+  .insert({
+    id: nomeFicha,
+    nome_ficha: nomeFicha,
+    telefone_cliente: clienteTelefone,
+    descricao: formData.descricao,
+    categoria_id: formData.categoria ? parseInt(formData.categoria) : null,
+    status: 'Ficha Criada',
+    webhook_pendente: true,
+  })
+  .select()
+  .single();
+
+if (error) {
+  // Se for conflito de nome, regenerar e tentar novamente
+  if (error.code === '23505') {
+    // retry com novo nome
+  }
+  throw error;
+}
+
+// 2. Atualizar ficha ativa do cliente
+await supabase
+  .from('clientes')
+  .update({ ficha_ativa_id: nomeFicha })
+  .eq('telefone', clienteTelefone);
+
+// 3. Chamar webhook de forma assíncrona (não bloqueia)
+fetch(webhookUrl, { ... })
+  .then(() => {
+    // Marcar webhook como enviado
+    supabase
+      .from('fichas_de_servico')
+      .update({ webhook_pendente: false })
+      .eq('id', nomeFicha);
+  })
+  .catch(console.error);
+
+// 4. Fechar dialog e recarregar (não espera webhook)
+toast.success("Ficha criada!");
+onOpenChange(false);
+```
+
+### SQL para Corrigir Ficha do Amilton
+
+```sql
+INSERT INTO fichas_de_servico (
+  id,
+  nome_ficha,
+  telefone_cliente,
+  status,
+  webhook_pendente
+) VALUES (
+  'FGM1@260202260202',
+  'FGM1@260202260202',
+  'whatsapp:+554199276709',
+  'Ficha Criada',
+  true
 );
 ```
