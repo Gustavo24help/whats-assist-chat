@@ -140,35 +140,35 @@ async function fetchKPIs(filters: KPIFilters) {
       .gte('created_at', fromStr)
       .lte('created_at', toStr),
     
-    // 2. Visita Agendada
+    // 2. Visita Agendada (filtrada por created_at da ficha)
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('*', { count: 'exact', head: true })
       .not('data_visita_tecnica', 'is', null)
-      .gte('data_visita_tecnica', fromDateOnly)
-      .lte('data_visita_tecnica', toDateOnly),
+      .gte('created_at', fromStr)
+      .lte('created_at', toStr),
     
-    // 3. Serviço Agendado
+    // 3. Serviço Agendado (filtrada por created_at da ficha)
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('*', { count: 'exact', head: true })
       .not('horario_agendamento', 'is', null)
-      .gte('horario_agendamento', fromStr)
-      .lte('horario_agendamento', toStr),
+      .gte('created_at', fromStr)
+      .lte('created_at', toStr),
     
-    // 4. Finalizado e Pago
+    // 4. Finalizado e Pago (filtrada por created_at da ficha)
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('*', { count: 'exact', head: true })
       .eq('status', 'Finalizado')
       .eq('pagamento_realizado', true)
-      .gte('updated_at', fromStr)
-      .lte('updated_at', toStr),
+      .gte('created_at', fromStr)
+      .lte('created_at', toStr),
     
-    // 5. Valor Total OS
+    // 5. Valor Total OS (filtrada por created_at da ficha)
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('valor_total')
       .eq('status', 'Finalizado')
       .eq('pagamento_realizado', true)
-      .gte('updated_at', fromStr)
-      .lte('updated_at', toStr),
+      .gte('created_at', fromStr)
+      .lte('created_at', toStr),
     
     // 6. All fichas for calculating subsequentes
     supabase
@@ -190,35 +190,35 @@ async function fetchKPIs(filters: KPIFilters) {
       .gte('created_at', prevFromStr)
       .lte('created_at', prevToStr),
     
-    // 2. Visita Agendada prev
+    // 2. Visita Agendada prev (filtrada por created_at da ficha)
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('*', { count: 'exact', head: true })
       .not('data_visita_tecnica', 'is', null)
-      .gte('data_visita_tecnica', prevFromDateOnly)
-      .lte('data_visita_tecnica', prevToDateOnly),
+      .gte('created_at', prevFromStr)
+      .lte('created_at', prevToStr),
     
-    // 3. Serviço Agendado prev
+    // 3. Serviço Agendado prev (filtrada por created_at da ficha)
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('*', { count: 'exact', head: true })
       .not('horario_agendamento', 'is', null)
-      .gte('horario_agendamento', prevFromStr)
-      .lte('horario_agendamento', prevToStr),
+      .gte('created_at', prevFromStr)
+      .lte('created_at', prevToStr),
     
-    // 4. Finalizado e Pago prev
+    // 4. Finalizado e Pago prev (filtrada por created_at da ficha)
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('*', { count: 'exact', head: true })
       .eq('status', 'Finalizado')
       .eq('pagamento_realizado', true)
-      .gte('updated_at', prevFromStr)
-      .lte('updated_at', prevToStr),
+      .gte('created_at', prevFromStr)
+      .lte('created_at', prevToStr),
     
-    // 5. Valor Total OS prev
+    // 5. Valor Total OS prev (filtrada por created_at da ficha)
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('valor_total')
       .eq('status', 'Finalizado')
       .eq('pagamento_realizado', true)
-      .gte('updated_at', prevFromStr)
-      .lte('updated_at', prevToStr),
+      .gte('created_at', prevFromStr)
+      .lte('created_at', prevToStr),
     
     // First messages prev (same query, we filter by date in calculation)
     supabase
