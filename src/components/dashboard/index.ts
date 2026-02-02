@@ -6,4 +6,5 @@ export { VisualModeSelector } from './VisualModeSelector';
 export { ConversionFunnel } from './ConversionFunnel';
 export { OperationalKPIsSection } from './OperationalKPIsSection';
 export { KPIFilters } from './KPIFilters';
+export { ExportReportSection } from './ExportReportSection';
 export * from './charts';
