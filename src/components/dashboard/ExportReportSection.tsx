@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Download, FileSpreadsheet, Loader2 } from "lucide-react";
+import { CalendarIcon, Download, FileSpreadsheet, Loader2, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -58,32 +58,24 @@ const PERIODO_OPTIONS = [
   { value: "30dias", label: "Últimos 30 dias" },
   { value: "mes", label: "Este mês" },
   { value: "mes_passado", label: "Mês passado" },
+  { value: "janeiro", label: "Janeiro 2025" },
   { value: "personalizado", label: "Personalizado" },
 ];
 
-interface FichaExportData {
-  id: string;
-  nome_ficha: string | null;
-  telefone_cliente: string;
-  nome_cliente: string | null;
-  cpf: string | null;
-  endereco: string | null;
-  bairro: string | null;
-  cidade: string | null;
-  descricao: string | null;
-  status: string | null;
-  categoria_id: number | null;
-  prestador_id: string | null;
-  created_at: string | null;
-  horario_agendamento: string | null;
-  data_visita_tecnica: string | null;
-  tempo_servico: string | null;
-  valor_total: number | null;
-  valor_mao_obra: number | null;
-  valor_pecas: number | null;
-  pagamento_realizado: boolean | null;
-  pagamento_tipo: string | null;
-}
+const PAGAMENTO_OPTIONS = [
+  { value: "todos", label: "Todos" },
+  { value: "pagos", label: "Apenas Pagos" },
+  { value: "pendentes", label: "Apenas Pendentes" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "todos", label: "Todos os Status" },
+  { value: "Finalizado", label: "Finalizado" },
+  { value: "Agendado", label: "Agendado" },
+  { value: "Em andamento", label: "Em andamento" },
+  { value: "Orçamento Aprovado / Agendamento", label: "Orçamento Aprovado" },
+  { value: "Perdido", label: "Perdido" },
+];
 
 interface StatusHistorico {
   status_anterior: string | null;
@@ -97,7 +89,9 @@ export const ExportReportSection = () => {
     "nome_ficha", "cliente_nome", "telefone_cliente", "categoria_nome", 
     "prestador_nome", "status", "valor_total", "pagamento_realizado"
   ]);
-  const [selectedPeriodo, setSelectedPeriodo] = useState("30dias");
+  const [selectedPeriodo, setSelectedPeriodo] = useState("mes_passado");
+  const [selectedPagamento, setSelectedPagamento] = useState("todos");
+  const [selectedStatus, setSelectedStatus] = useState("todos");
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
@@ -119,6 +113,8 @@ export const ExportReportSection = () => {
       case "mes_passado":
         const mesPassado = subMonths(hoje, 1);
         return { from: startOfMonth(mesPassado), to: endOfMonth(mesPassado) };
+      case "janeiro":
+        return { from: new Date(2025, 0, 1), to: new Date(2025, 0, 31, 23, 59, 59) };
       case "personalizado":
         return dateRange;
       default:
@@ -153,13 +149,16 @@ export const ExportReportSection = () => {
     setSelectedColumns([]);
   };
 
+  // Usar ponto-e-vírgula como separador para Excel BR
+  const CSV_SEPARATOR = ";";
+
   const formatCsvValue = (value: unknown): string => {
     if (value === null || value === undefined) return "";
     if (typeof value === "boolean") return value ? "Sim" : "Não";
-    if (typeof value === "number") return String(value);
+    if (typeof value === "number") return String(value).replace(".", ","); // Formato BR para números
     const str = String(value);
-    // Escape quotes and wrap in quotes if contains comma, quote, or newline
-    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    // Escape quotes and wrap in quotes if contains separator, quote, or newline
+    if (str.includes(CSV_SEPARATOR) || str.includes('"') || str.includes("\n") || str.includes("\r")) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
@@ -195,12 +194,13 @@ export const ExportReportSection = () => {
     try {
       const range = getDateRange();
       
-      // Buscar fichas
+      // Buscar fichas com filtros
       let query = supabase
         .from("fichas_de_servico")
         .select("*")
         .order("created_at", { ascending: false });
 
+      // Filtro de período
       if (range.from) {
         query = query.gte("created_at", range.from.toISOString());
       }
@@ -208,11 +208,23 @@ export const ExportReportSection = () => {
         query = query.lte("created_at", range.to.toISOString());
       }
 
+      // Filtro de pagamento
+      if (selectedPagamento === "pagos") {
+        query = query.eq("pagamento_realizado", true);
+      } else if (selectedPagamento === "pendentes") {
+        query = query.eq("pagamento_realizado", false);
+      }
+
+      // Filtro de status
+      if (selectedStatus !== "todos") {
+        query = query.eq("status", selectedStatus as any);
+      }
+
       const { data: fichas, error: fichasError } = await query;
 
       if (fichasError) throw fichasError;
       if (!fichas || fichas.length === 0) {
-        toast.warning("Nenhuma ficha encontrada no período selecionado");
+        toast.warning("Nenhuma ficha encontrada com os filtros selecionados");
         setIsExporting(false);
         return;
       }
@@ -292,8 +304,8 @@ export const ExportReportSection = () => {
         rows.push(row);
       });
 
-      // Gerar CSV
-      const csvContent = rows.map(row => row.join(",")).join("\n");
+      // Gerar CSV com ponto-e-vírgula como separador
+      const csvContent = rows.map(row => row.join(CSV_SEPARATOR)).join("\n");
       
       // BOM para Excel reconhecer UTF-8
       const bom = "\uFEFF";
@@ -321,14 +333,24 @@ export const ExportReportSection = () => {
   return (
     <Card>
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <FileSpreadsheet className="h-5 w-5 text-brand-green" />
-            Exportar Relatório
-          </CardTitle>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileSpreadsheet className="h-5 w-5 text-brand-green" />
+              Exportar Relatório
+            </CardTitle>
+          </div>
+
+          {/* Filtros */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Filter className="h-4 w-4" />
+              Filtros:
+            </div>
+            
+            {/* Período */}
             <Select value={selectedPeriodo} onValueChange={setSelectedPeriodo}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[160px] h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -349,7 +371,7 @@ export const ExportReportSection = () => {
                     }
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
+                <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="range"
                     selected={{ from: dateRange.from, to: dateRange.to }}
@@ -360,6 +382,30 @@ export const ExportReportSection = () => {
                 </PopoverContent>
               </Popover>
             )}
+
+            {/* Pagamento */}
+            <Select value={selectedPagamento} onValueChange={setSelectedPagamento}>
+              <SelectTrigger className="w-[150px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGAMENTO_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Status */}
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-[170px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </CardHeader>
@@ -380,7 +426,7 @@ export const ExportReportSection = () => {
           </div>
 
           {/* Grid de colunas por grupo */}
-          <ScrollArea className="h-[300px] pr-4">
+          <ScrollArea className="h-[280px] pr-4">
             <div className="space-y-6">
               {COLUMN_GROUPS.map(group => {
                 const groupColumns = AVAILABLE_COLUMNS.filter(c => c.group === group);
