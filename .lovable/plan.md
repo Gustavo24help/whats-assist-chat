@@ -1,89 +1,129 @@
 
-# Plano: Corrigir Critério de Data dos KPIs
+# Plano: Corrigir KPI "Conversas Iniciadas"
 
 ## Problema Identificado
 
-Os KPIs "Finalizado e Pago" e "Valor Total OS" estão usando `updated_at` para filtrar por período, mas o critério correto é usar `created_at` (data de criação da ficha).
+O KPI "Conversas Iniciadas" está mostrando **22** quando deveria mostrar **~320** (nos últimos 30 dias).
 
-**Exemplo**: Uma ficha criada em janeiro mas finalizada/paga em fevereiro deve aparecer nos KPIs de **janeiro**.
-
----
-
-## Mudança Necessária
-
-| KPI | Data Atual | Data Correta |
-|-----|------------|--------------|
-| FS Criadas | `created_at` | `created_at` (OK) |
-| Visita Agendada | `data_visita_tecnica` | `created_at` |
-| Serviço Agendado | `horario_agendamento` | `created_at` |
-| Finalizado e Pago | `updated_at` | `created_at` |
-| Valor Total OS | `updated_at` | `created_at` |
+**Causa raiz**: O código atual busca todas as mensagens da tabela (13.530) para calcular a primeira mensagem de cada cliente, mas o Supabase tem um **limite padrão de 1000 linhas** por query. Isso corrompe completamente o cálculo.
 
 ---
 
-## Arquivo a Modificar
+## Lógica de Negócio (conforme memória do projeto)
 
-**`src/hooks/useOperationalKPIs.ts`**
+"Conversas Iniciadas" = Soma de:
+1. **Primeira mensagem de cada cliente** no período (cliente novo)
+2. **Fichas subsequentes** (não a primeira) criadas no período
 
-### Mudanças:
+---
 
-1. **Visita Agendada**: Trocar filtro de `data_visita_tecnica` para `created_at`
-2. **Serviço Agendado**: Trocar filtro de `horario_agendamento` para `created_at`
-3. **Finalizado e Pago**: Trocar filtro de `updated_at` para `created_at`
-4. **Valor Total OS**: Trocar filtro de `updated_at` para `created_at`
+## Solução: Usar RPC/Database Function
 
-### Código atual (linhas 95-120):
+Em vez de buscar todos os dados e processar no frontend, vamos criar uma **função no banco de dados** que faz o cálculo corretamente.
 
-```typescript
-// Visita Agendada - ATUAL
-.gte('data_visita_tecnica', fromDateOnly)
-.lte('data_visita_tecnica', toDateOnly)
+### Passo 1: Criar função SQL no banco
 
-// Serviço Agendado - ATUAL
-.gte('horario_agendamento', fromStr)
-.lte('horario_agendamento', toStr)
+```sql
+CREATE OR REPLACE FUNCTION calculate_conversas_iniciadas(
+  p_from_date TIMESTAMPTZ,
+  p_to_date TIMESTAMPTZ,
+  p_categoria_id INTEGER DEFAULT NULL,
+  p_prestador_cpf TEXT DEFAULT NULL,
+  p_cliente_telefone TEXT DEFAULT NULL
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_novos_clientes INTEGER;
+  v_fichas_subsequentes INTEGER;
+BEGIN
+  -- 1. Contar clientes cuja primeira mensagem foi no período
+  SELECT COUNT(*) INTO v_novos_clientes
+  FROM (
+    SELECT cliente_id, MIN(data_hora) as primeira_msg
+    FROM mensagens
+    WHERE remetente = 'cliente'
+    GROUP BY cliente_id
+  ) sub
+  WHERE primeira_msg >= p_from_date
+    AND primeira_msg <= p_to_date;
 
-// Finalizado e Pago - ATUAL
-.gte('updated_at', fromStr)
-.lte('updated_at', toStr)
+  -- 2. Contar fichas subsequentes no período (aplicando filtros)
+  WITH ranked_fichas AS (
+    SELECT 
+      id,
+      telefone_cliente,
+      created_at,
+      categoria_id,
+      prestador_id,
+      ROW_NUMBER() OVER (
+        PARTITION BY telefone_cliente 
+        ORDER BY created_at
+      ) as ficha_num
+    FROM fichas_de_servico
+  )
+  SELECT COUNT(*) INTO v_fichas_subsequentes
+  FROM ranked_fichas
+  WHERE ficha_num > 1
+    AND created_at >= p_from_date
+    AND created_at <= p_to_date
+    AND (p_categoria_id IS NULL OR categoria_id = p_categoria_id)
+    AND (p_prestador_cpf IS NULL OR prestador_id = p_prestador_cpf)
+    AND (p_cliente_telefone IS NULL OR telefone_cliente = p_cliente_telefone);
 
-// Valor Total OS - ATUAL
-.gte('updated_at', fromStr)
-.lte('updated_at', toStr)
+  RETURN v_novos_clientes + v_fichas_subsequentes;
+END;
+$$;
 ```
 
-### Código corrigido:
+### Passo 2: Atualizar useOperationalKPIs.ts
+
+Substituir o cálculo manual por uma chamada RPC:
 
 ```typescript
-// Visita Agendada - CORRIGIDO
-.gte('created_at', fromStr)
-.lte('created_at', toStr)
+// Em vez de buscar todas as mensagens e fichas:
+const conversasResult = await supabase.rpc('calculate_conversas_iniciadas', {
+  p_from_date: fromStr,
+  p_to_date: toStr,
+  p_categoria_id: filters.categoriaId || null,
+  p_prestador_cpf: filters.prestadorCpf || null,
+  p_cliente_telefone: filters.clienteTelefone || null
+});
 
-// Serviço Agendado - CORRIGIDO
-.gte('created_at', fromStr)
-.lte('created_at', toStr)
-
-// Finalizado e Pago - CORRIGIDO
-.gte('created_at', fromStr)
-.lte('created_at', toStr)
-
-// Valor Total OS - CORRIGIDO
-.gte('created_at', fromStr)
-.lte('created_at', toStr)
+const conversasIniciadas = conversasResult.data || 0;
 ```
 
----
+### Passo 3: Remover queries desnecessárias
 
-## Impacto nos Dados Existentes
-
-**Nenhum dado será alterado** - apenas a forma de filtrar/exibir os KPIs mudará.
-
-Os números podem mudar significativamente porque:
-- Fichas criadas há mais tempo mas finalizadas recentemente sairão dos KPIs recentes
-- Fichas criadas recentemente mas ainda não finalizadas entrarão nos KPIs (se já estiverem pagas)
+- Remover query 6 (allFichasResult)
+- Remover query 7 (firstMessagesResult)
+- Remover queries duplicadas do período anterior
+- Remover a função `calculateConversasIniciadas`
 
 ---
 
-## Resumo
+## Arquivos a Modificar
 
-Padronizar todos os KPIs para usar `created_at` como critério de data, garantindo que uma ficha sempre apareça no período em que foi criada, independente de quando foi finalizada ou paga.
+| Arquivo | Mudança |
+|---------|---------|
+| **Migração SQL** | Criar função `calculate_conversas_iniciadas` |
+| `src/hooks/useOperationalKPIs.ts` | Usar RPC em vez de cálculo manual |
+
+---
+
+## Benefícios
+
+1. **Correção do bug**: Sem limite de 1000 linhas
+2. **Performance**: Cálculo feito no banco (mais rápido)
+3. **Precisão**: Lógica SQL correta e testável
+4. **Manutenibilidade**: Lógica centralizada no banco
+
+---
+
+## Impacto nos Dados
+
+Nenhum dado será alterado. Apenas o cálculo será corrigido:
+- **Antes**: ~22 (incorreto por limite de query)
+- **Depois**: ~320 (valor real)
