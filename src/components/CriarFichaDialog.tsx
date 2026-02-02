@@ -109,53 +109,80 @@ export const CriarFichaDialog = ({
     try {
       setLoading(true);
 
+      const nomeFicha = formData.nome_ficha;
+
+      // 1. CRIAR FICHA LOCALMENTE PRIMEIRO (com webhook_pendente = true)
+      const { error: insertError } = await supabase
+        .from('fichas_de_servico')
+        .insert({
+          id: nomeFicha,
+          nome_ficha: nomeFicha,
+          telefone_cliente: clienteTelefone,
+          nome_cliente: clienteNome,
+          descricao: formData.descricao,
+          categoria_id: formData.categoria ? parseInt(formData.categoria) : null,
+          status: 'Ficha Criada',
+          webhook_pendente: true,
+        });
+
+      if (insertError) {
+        // Se for conflito de nome (duplicidade), gerar novo nome e tentar novamente
+        if (insertError.code === '23505') {
+          const novoNome = await generateDefaultFichaName();
+          setFormData(prev => ({ ...prev, nome_ficha: novoNome }));
+          toast.error("Nome de ficha duplicado. Por favor, tente novamente com o novo nome gerado.");
+          setLoading(false);
+          return;
+        }
+        throw insertError;
+      }
+
+      // 2. ATUALIZAR FICHA ATIVA DO CLIENTE
+      await supabase
+        .from('clientes')
+        .update({ ficha_ativa_id: nomeFicha })
+        .eq('telefone', clienteTelefone);
+
+      toast.success("Ficha criada com sucesso!");
+      onOpenChange(false);
+
+      // 3. CHAMAR WEBHOOK DE FORMA ASSÍNCRONA (não bloqueia)
       const payload = {
         telefone_cliente: clienteTelefone,
         nome_cliente: clienteNome,
-        nome_ficha: formData.nome_ficha,
+        nome_ficha: nomeFicha,
         descricao: formData.descricao,
         categoria: formData.categoria,
       };
 
-      const response = await fetch(webhookUrl, {
+      fetch(webhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-      });
+      })
+        .then(async (response) => {
+          if (response.ok) {
+            // Marcar webhook como enviado com sucesso
+            await supabase
+              .from('fichas_de_servico')
+              .update({ webhook_pendente: false })
+              .eq('id', nomeFicha);
+            console.log(`Webhook enviado com sucesso para ficha ${nomeFicha}`);
+          } else {
+            console.error(`Webhook falhou para ficha ${nomeFicha}: ${response.status}`);
+          }
+        })
+        .catch((err) => {
+          console.error(`Erro ao chamar webhook para ficha ${nomeFicha}:`, err);
+        });
 
-      if (!response.ok) {
-        throw new Error("Erro ao criar ficha via webhook");
-      }
-
-      let fichaId = formData.nome_ficha;
-      
-      // Tentar fazer parse JSON apenas se a resposta for JSON
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        try {
-          const result = await response.json();
-          fichaId = result.fichaId || formData.nome_ficha;
-        } catch (e) {
-          console.log("Resposta não é JSON válido, usando nome_ficha do formulário");
-        }
-      }
-
-      // Marcar a nova ficha como ativa
-      await supabase
-        .from('clientes')
-        .update({ ficha_ativa_id: fichaId })
-        .eq('telefone', clienteTelefone);
-
-      toast.success("Ficha criada com sucesso!");
-      
-      // Aguardar 5 segundos antes de recarregar
+      // 4. Aguardar 3 segundos antes de recarregar
       setTimeout(() => {
         window.location.reload();
-      }, 5000);
+      }, 3000);
 
-      onOpenChange(false);
     } catch (error: any) {
       console.error("Erro ao criar ficha:", error);
       toast.error(error.message || "Erro ao criar ficha");
