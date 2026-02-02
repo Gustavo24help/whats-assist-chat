@@ -24,6 +24,30 @@ serve(async (req) => {
   }
 
   try {
+    // Verificar método - DEVE ser POST
+    if (req.method !== 'POST') {
+      console.log('[sync-google-ads] Método incorreto:', req.method);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Method not allowed. Use POST with JSON body.',
+          expected_format: {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: {
+              data_referencia: '2025-01-15',
+              impressoes: 1000,
+              cliques: 50,
+              conversoes: 5,
+              custo: 100.50,
+              campanha: 'Nome da Campanha (opcional)'
+            }
+          }
+        }),
+        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -33,7 +57,42 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const body = await req.json();
+    // Verificar se há body
+    const contentType = req.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Content-Type must be application/json' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    let body;
+    try {
+      const text = await req.text();
+      if (!text || text.trim() === '') {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Request body is empty. Send JSON with metrics data.' 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      body = JSON.parse(text);
+    } catch (parseError) {
+      console.error('[sync-google-ads] JSON parse error:', parseError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid JSON in request body' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('[sync-google-ads] Received payload:', JSON.stringify(body, null, 2));
 
     // Suporta tanto um único objeto quanto um array de métricas
