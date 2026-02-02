@@ -31,15 +31,16 @@ const mainNavItems: NavItem[] = [
   { label: 'Chat', icon: MessageCircle, path: '/chat' },
   { label: 'Prestadores', icon: Users, path: '/prestadores' },
   { label: 'Bairros', icon: MapPin, path: '/bairros' },
-  { label: 'Marketing', icon: Megaphone, path: '/dashboard/marketing' },
-  { label: 'Vendas', icon: TrendingUp, path: '/dashboard/vendas' },
-  { label: 'Atendimento', icon: Headphones, path: '/dashboard/atendimento' },
-  { label: 'Relatórios', icon: FileBarChart, path: '/dashboard/relatorios' },
+  // Estas rotas ainda não existem como páginas separadas; manter como acesso ao dashboard principal
+  { label: 'Marketing', icon: Megaphone, path: '/dashboard' },
+  { label: 'Vendas', icon: TrendingUp, path: '/dashboard' },
+  { label: 'Atendimento', icon: Headphones, path: '/dashboard' },
+  { label: 'Relatórios', icon: FileBarChart, path: '/dashboard' },
 ];
 
 const footerNavItems: NavItem[] = [
-  { label: 'Configurações', icon: Settings, path: '/dashboard/configuracoes' },
-  { label: 'Ajuda', icon: HelpCircle, path: '/dashboard/ajuda' },
+  { label: 'Configurações', icon: Settings, path: '/settings' },
+  { label: 'Ajuda', icon: HelpCircle, path: '/settings' },
 ];
 
 interface SidebarProps {
