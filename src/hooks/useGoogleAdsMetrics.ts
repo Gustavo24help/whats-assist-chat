@@ -27,14 +27,14 @@ interface AggregatedMetrics {
 
 interface MetricsWithVariation extends AggregatedMetrics {
   variations: {
-    impressoes: number;
-    cliques: number;
-    conversoes: number;
-    custo: number;
-    ctr: number;
-    cpa: number;
-    ticketMedio: number;
-    clicksPerConversion: number;
+    impressoes: number | null;
+    cliques: number | null;
+    conversoes: number | null;
+    custo: number | null;
+    ctr: number | null;
+    cpa: number | null;
+    ticketMedio: number | null;
+    clicksPerConversion: number | null;
   };
 }
 
@@ -88,8 +88,10 @@ const aggregateMetrics = (metrics: GoogleAdsMetric[]): AggregatedMetrics => {
   };
 };
 
-const calculateVariation = (current: number, previous: number): number => {
-  if (previous === 0) return current > 0 ? 100 : 0;
+const calculateVariation = (current: number, previous: number): number | null => {
+  // Se não há dados no período anterior, não podemos calcular variação significativa
+  if (previous === 0 && current === 0) return null;
+  if (previous === 0) return null; // Evita mostrar +100% quando não há base de comparação
   return Number((((current - previous) / previous) * 100).toFixed(1));
 };
 
@@ -195,25 +197,25 @@ export const useGoogleAdsWeeklyData = () => {
   });
 };
 
-// Fallback para quando não há dados
+// Fallback para quando não há dados - valores zerados para não mostrar dados falsos
 export const FALLBACK_METRICS: MetricsWithVariation = {
-  impressoes: 125000,
-  cliques: 4875,
-  conversoes: 157,
-  custo: 4480,
-  ctr: 3.9,
-  cpa: 28.54,
-  ticketMedio: 520,
-  clicksPerConversion: 31,
+  impressoes: 0,
+  cliques: 0,
+  conversoes: 0,
+  custo: 0,
+  ctr: 0,
+  cpa: 0,
+  ticketMedio: 0,
+  clicksPerConversion: 0,
   variations: {
-    impressoes: 5.9,
-    cliques: 16.1,
-    conversoes: 22.5,
-    custo: -5.2,
-    ctr: 9.7,
-    cpa: -8.3,
-    ticketMedio: 8.3,
-    clicksPerConversion: -5.2,
+    impressoes: null,
+    cliques: null,
+    conversoes: null,
+    custo: null,
+    ctr: null,
+    cpa: null,
+    ticketMedio: null,
+    clicksPerConversion: null,
   },
 };
 
