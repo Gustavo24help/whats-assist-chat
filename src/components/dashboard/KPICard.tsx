@@ -9,7 +9,7 @@ type CardSize = 'sm' | 'md' | 'lg';
 interface KPICardProps {
   label: string;
   value: string | number;
-  variation?: number;
+  variation?: number | null; // null = sem dados para comparar
   comparisonLabel?: string;
   icon?: ReactNode;
   iconColor?: IconColor;
@@ -57,7 +57,11 @@ export const KPICard = ({
   const { cardMode, accentIntensity } = useVisualMode();
   
   const getVariationStyles = () => {
-    if (variation === undefined || variation === 0) {
+    // Se variation é null ou undefined, não mostramos nada
+    if (variation === undefined || variation === null) {
+      return null;
+    }
+    if (variation === 0) {
       return {
         className: 'variation-neutral',
         Icon: Minus,
@@ -122,10 +126,10 @@ export const KPICard = ({
             {icon}
           </div>
         )}
-        {variation !== undefined && (
+        {variationData && (
           <div className={cn('flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium', variationData.className)}>
             <variationData.Icon className="h-3 w-3" />
-            <span>{variationData.prefix}{Math.abs(variation).toFixed(1)}%</span>
+            <span>{variationData.prefix}{Math.abs(variation!).toFixed(1)}%</span>
           </div>
         )}
       </div>
@@ -139,7 +143,7 @@ export const KPICard = ({
         </div>
       </div>
 
-      {variation !== undefined && (
+      {variationData && (
         <div className="mt-3 pt-3 border-t border-border/50">
           <span className="text-xs text-muted-foreground">
             {comparisonLabel}

@@ -19,19 +19,19 @@ interface DashboardSummary {
   fichasAbertas: number;
   servicosFinalizados: number;
   pendencias: number;
-  // Variações
+  // Variações (null = sem dados para comparar)
   variations: {
-    lucroLiquido: number;
-    valorOSGeradas: number;
-    servicosFechados: number;
-    custoAds: number;
-    conversasAtivas: number;
-    tempoMedioResposta: number;
-    clientesUnicos: number;
-    taxaConversao: number;
-    fichasAbertas: number;
-    servicosFinalizados: number;
-    pendencias: number;
+    lucroLiquido: number | null;
+    valorOSGeradas: number | null;
+    servicosFechados: number | null;
+    custoAds: number | null;
+    conversasAtivas: number | null;
+    tempoMedioResposta: number | null;
+    clientesUnicos: number | null;
+    taxaConversao: number | null;
+    fichasAbertas: number | null;
+    servicosFinalizados: number | null;
+    pendencias: number | null;
   };
 }
 
@@ -55,8 +55,10 @@ const getDateRange = (period: PeriodOption, customRange?: { from: Date; to: Date
   }
 };
 
-const calculateVariation = (current: number, previous: number): number => {
-  if (previous === 0) return current > 0 ? 100 : 0;
+const calculateVariation = (current: number, previous: number): number | null => {
+  // Se não há dados no período anterior, não podemos calcular variação significativa
+  if (previous === 0 && current === 0) return null;
+  if (previous === 0) return null; // Evita mostrar +100% quando não há base de comparação
   return Number((((current - previous) / previous) * 100).toFixed(1));
 };
 
@@ -301,17 +303,17 @@ export const FALLBACK_SUMMARY: DashboardSummary = {
   servicosFinalizados: 0,
   pendencias: 0,
   variations: {
-    lucroLiquido: 0,
-    valorOSGeradas: 0,
-    servicosFechados: 0,
-    custoAds: 0,
-    conversasAtivas: 0,
-    tempoMedioResposta: 0,
-    clientesUnicos: 0,
-    taxaConversao: 0,
-    fichasAbertas: 0,
-    servicosFinalizados: 0,
-    pendencias: 0,
+    lucroLiquido: null,
+    valorOSGeradas: null,
+    servicosFechados: null,
+    custoAds: null,
+    conversasAtivas: null,
+    tempoMedioResposta: null,
+    clientesUnicos: null,
+    taxaConversao: null,
+    fichasAbertas: null,
+    servicosFinalizados: null,
+    pendencias: null,
   },
 };
 
