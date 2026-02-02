@@ -272,6 +272,7 @@ export type Database = {
           valor_mao_obra: number | null
           valor_pecas: number | null
           valor_total: number | null
+          webhook_pendente: boolean | null
         }
         Insert: {
           bairro?: string | null
@@ -311,6 +312,7 @@ export type Database = {
           valor_mao_obra?: number | null
           valor_pecas?: number | null
           valor_total?: number | null
+          webhook_pendente?: boolean | null
         }
         Update: {
           bairro?: string | null
@@ -350,6 +352,7 @@ export type Database = {
           valor_mao_obra?: number | null
           valor_pecas?: number | null
           valor_total?: number | null
+          webhook_pendente?: boolean | null
         }
         Relationships: [
           {

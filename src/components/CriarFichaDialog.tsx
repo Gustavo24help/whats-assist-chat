@@ -36,31 +36,33 @@ export const CriarFichaDialog = ({
   const [categorias, setCategorias] = useState<any[]>([]);
   
   // Gerar nome padrão da ficha baseado no banco de dados
-  const generateDefaultFichaName = async () => {
+  // Novo padrão: FGM{n}-YYMMDD (anti-duplicação)
+  const generateDefaultFichaName = async (): Promise<string> => {
     const today = new Date();
     const dateStr = format(today, "yyMMdd");
-    const pattern = `FGM%@${dateStr}`;
+    const pattern = `FGM%-${dateStr}`;
     
-    // Buscar todas as fichas que seguem o padrão FGMx@YYMMDD para hoje
+    // Buscar todas as fichas que seguem o padrão FGMx-YYMMDD para hoje
     const { data, error } = await supabase
       .from('fichas_de_servico')
       .select('nome_ficha')
-      .ilike('nome_ficha', pattern);
+      .ilike('nome_ficha', pattern)
+      .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Erro ao buscar fichas:', error);
-      return `FGM1@${dateStr}`;
+      return `FGM1-${dateStr}`;
     }
     
-    // Se não houver fichas para hoje, começar com FGM1@YYMMDD
+    // Se não houver fichas para hoje, começar com FGM1-YYMMDD
     if (!data || data.length === 0) {
-      return `FGM1@${dateStr}`;
+      return `FGM1-${dateStr}`;
     }
     
     // Extrair os números das fichas encontradas e pegar o maior
     const numeros = data
       .map(ficha => {
-        const match = ficha.nome_ficha?.match(/^FGM(\d+)@/);
+        const match = ficha.nome_ficha?.match(/^FGM(\d+)-/);
         return match ? parseInt(match[1], 10) : 0;
       })
       .filter(num => !isNaN(num));
@@ -68,7 +70,7 @@ export const CriarFichaDialog = ({
     const maxNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
     const proximoNumero = maxNumero + 1;
     
-    return `FGM${proximoNumero}@${dateStr}`;
+    return `FGM${proximoNumero}-${dateStr}`;
   };
 
   const [formData, setFormData] = useState({
