@@ -233,6 +233,44 @@ export type Database = {
         }
         Relationships: []
       }
+      ficha_status_historico: {
+        Row: {
+          created_at: string
+          data_fim: string | null
+          data_inicio: string
+          ficha_id: string
+          id: string
+          status_anterior: string | null
+          status_novo: string
+        }
+        Insert: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          ficha_id: string
+          id?: string
+          status_anterior?: string | null
+          status_novo: string
+        }
+        Update: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          ficha_id?: string
+          id?: string
+          status_anterior?: string | null
+          status_novo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ficha_status_historico_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fichas_de_servico: {
         Row: {
           bairro: string | null

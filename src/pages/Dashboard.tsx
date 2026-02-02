@@ -10,7 +10,8 @@ import {
   AdsPerformanceChart,
   TicketMedioChart,
   ROIChart,
-  OperationalKPIsSection
+  OperationalKPIsSection,
+  ExportReportSection
 } from "@/components/dashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGoogleAdsMetrics, FALLBACK_METRICS } from "@/hooks/useGoogleAdsMetrics";
@@ -30,8 +31,7 @@ import {
   Users,
   CheckCircle,
   TrendingUp,
-  AlertTriangle,
-  ShoppingCart
+  AlertTriangle
 } from "lucide-react";
 
 type PeriodOption = 'today' | '7days' | '30days' | 'month' | 'custom';
@@ -295,6 +295,17 @@ const Dashboard = () => {
                 iconColor="coral"
                 animationDelay={1000}
               />
+            </div>
+          </section>
+
+          {/* Exportação de Relatórios */}
+          <section>
+            <SectionHeader 
+              title="Relatórios" 
+              subtitle="Exporte dados personalizados para análise"
+            />
+            <div className="mt-4">
+              <ExportReportSection />
             </div>
           </section>
 
