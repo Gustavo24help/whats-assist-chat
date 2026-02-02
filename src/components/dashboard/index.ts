@@ -4,4 +4,6 @@ export { Sidebar } from './Sidebar';
 export { Header } from './Header';
 export { VisualModeSelector } from './VisualModeSelector';
 export { ConversionFunnel } from './ConversionFunnel';
+export { OperationalKPIsSection } from './OperationalKPIsSection';
+export { KPIFilters } from './KPIFilters';
 export * from './charts';
