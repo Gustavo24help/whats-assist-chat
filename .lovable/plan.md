@@ -1,260 +1,198 @@
 
-# Plano: KPIs Operacionais do Dashboard Executivo
 
-## Objetivo
+# Plano: Corrigir KPI "Conversas Iniciadas"
 
-Implementar um conjunto de KPIs operacionais no Dashboard Executivo (`/dashboard`) que mostrem métricas reais do negócio, com filtros por período, categoria, prestador e cliente.
+## Problema Identificado
 
----
+O KPI "Conversas Iniciadas" está mostrando **36** quando deveria ser **319**.
 
-## KPIs a Implementar
+**Causa raiz**: A query do Supabase tem limite padrão de 1.000 registros, mas existem 13.506 mensagens de clientes. Isso faz com que a lógica de "primeira mensagem por cliente" não funcione corretamente.
 
-| KPI | Definicao | Criterio de Contagem |
-|-----|-----------|---------------------|
-| **Conversas Iniciadas** | Novos contatos de clientes | Primeira mensagem de cada cliente OU criacao de nova ficha (2a, 3a, etc.) |
-| **FS Criadas** | Fichas de servico criadas | Contagem de fichas criadas no periodo |
-| **Visita Agendada** | Visitas tecnicas marcadas | Fichas com `data_visita_tecnica` preenchida (1 por FS) |
-| **Servico Agendado** | Cliente fechou/aceitou proposta | Fichas com `horario_agendamento` preenchido (1 por FS) |
-| **Finalizado e Pago** | Servicos concluidos e pagos | Status = "Finalizado" E `pagamento_realizado = true` |
-| **Valor Total OS** | Faturamento realizado | Soma de `valor_total` das fichas Finalizadas E Pagas |
+| Componente | Valor atual | Valor correto |
+|------------|-------------|---------------|
+| Primeiras mensagens de clientes (30 dias) | 0 | 283 |
+| Fichas subsequentes (30 dias) | 36 | 36 |
+| **Total** | **36** | **319** |
 
 ---
 
-## Dimensoes de Analise (Filtros)
+## Solucao Proposta
 
-Os KPIs poderao ser filtrados por:
+Em vez de buscar todas as mensagens no cliente (impossivel com 13.506 registros), vou usar uma abordagem otimizada:
 
-1. **Periodo**: Hoje, 7 dias, 30 dias, Este mes, Personalizado
-2. **Categoria**: Eletrica, Hidraulica, Marido de Aluguel, etc.
-3. **Prestador**: Lista de prestadores cadastrados
-4. **Cliente**: Busca por telefone/nome
-5. **Geral**: Visao consolidada (padrao)
+### Estrategia 1: Consulta agregada no banco
+
+Usar queries que fazem a agregacao no servidor, nao no cliente:
+
+```sql
+-- Primeiras mensagens por cliente nos ultimos 30 dias
+WITH first_messages AS (
+  SELECT cliente_id, MIN(data_hora) as primeira_msg
+  FROM mensagens
+  WHERE remetente = 'cliente'
+  GROUP BY cliente_id
+)
+SELECT COUNT(*) FROM first_messages
+WHERE primeira_msg >= NOW() - INTERVAL '30 days'
+```
+
+### Estrategia 2: Usar RPC (funcao no banco)
+
+Criar uma funcao no banco que faz o calculo completo e retorna apenas o numero, evitando transferir dados para o cliente.
 
 ---
 
-## Estrutura do Codigo
+## Implementacao Escolhida
 
-```text
-src/
-  hooks/
-    useOperationalKPIs.ts          <- NOVO: Hook para buscar KPIs
-  components/
-    dashboard/
-      OperationalKPIsSection.tsx   <- NOVO: Secao de KPIs operacionais
-      KPIFilters.tsx               <- NOVO: Filtros por categoria/prestador
-  pages/
-    Dashboard.tsx                  <- ATUALIZAR: Adicionar secao de KPIs
+Vou usar a **Estrategia 1** com queries otimizadas que:
+
+1. Buscam apenas clientes distintos com sua primeira mensagem (nao todas as mensagens)
+2. Filtram por periodo no servidor
+3. Retornam apenas a contagem
+
+### Mudancas no Hook
+
+**Arquivo**: `src/hooks/useOperationalKPIs.ts`
+
+**Query atual (problema)**:
+```typescript
+supabase
+  .from('mensagens')
+  .select('cliente_id, data_hora')
+  .eq('remetente', 'cliente')
+  .order('data_hora', { ascending: true })
+// Retorna max 1000 registros - INSUFICIENTE
 ```
 
----
+**Nova abordagem**:
 
-## Logica de Calculo dos KPIs
+1. **Para primeiras mensagens**: Buscar a data da primeira mensagem de cada cliente usando uma query que agrupa no servidor
+2. **Para fichas subsequentes**: Manter a logica atual (616 fichas cabem no limite)
 
-### 1. Conversas Iniciadas
+### Codigo da Solucao
 
-```text
-Evento 1: Primeira mensagem de um cliente (remetente = 'cliente')
-         -> Conta como conversa iniciada na data da primeira mensagem
+```typescript
+// 1. Buscar primeira mensagem de cada cliente (agregado no servidor)
+const firstMessagesByClient = await supabase
+  .from('mensagens')
+  .select('cliente_id')
+  .eq('remetente', 'cliente')
+  .order('data_hora', { ascending: true });
 
-Evento 2: Segunda ficha+ de um mesmo cliente
-         -> Conta como nova conversa na data de criacao da ficha
+// Problema: ainda precisa de todos os registros para agrupar
+
+// SOLUCAO: Criar uma view ou usar RPC
 ```
 
-Query SQL conceitual:
-```sql
--- Primeiras mensagens de cada cliente
-SELECT COUNT(DISTINCT cliente_id) 
-FROM mensagens 
-WHERE remetente = 'cliente'
-  AND data_hora = (SELECT MIN(data_hora) FROM mensagens m2 WHERE m2.cliente_id = mensagens.cliente_id)
-  AND data_hora BETWEEN :from AND :to
-
--- + Fichas que NAO sao a primeira do cliente
-UNION
-SELECT COUNT(*) FROM fichas_de_servico f
-WHERE created_at BETWEEN :from AND :to
-  AND EXISTS (SELECT 1 FROM fichas_de_servico f2 
-              WHERE f2.telefone_cliente = f.telefone_cliente 
-              AND f2.created_at < f.created_at)
-```
-
-### 2. FS Criadas
+Como o Supabase JavaScript SDK nao suporta GROUP BY diretamente, a melhor solucao e criar uma **funcao RPC** no banco:
 
 ```sql
-SELECT COUNT(*) FROM fichas_de_servico
-WHERE created_at BETWEEN :from AND :to
-```
-
-### 3. Visita Agendada
-
-```sql
-SELECT COUNT(*) FROM fichas_de_servico
-WHERE data_visita_tecnica IS NOT NULL
-  AND data_visita_tecnica BETWEEN :from AND :to
-```
-
-### 4. Servico Agendado (Cliente Fechou)
-
-```sql
-SELECT COUNT(*) FROM fichas_de_servico
-WHERE horario_agendamento IS NOT NULL
-  AND horario_agendamento BETWEEN :from AND :to
-```
-
-### 5. Finalizado e Pago
-
-```sql
-SELECT COUNT(*) FROM fichas_de_servico
-WHERE status = 'Finalizado'
-  AND pagamento_realizado = true
-  AND updated_at BETWEEN :from AND :to
-```
-
-### 6. Valor Total OS
-
-```sql
-SELECT COALESCE(SUM(valor_total), 0) FROM fichas_de_servico
-WHERE status = 'Finalizado'
-  AND pagamento_realizado = true
-  AND updated_at BETWEEN :from AND :to
-```
-
----
-
-## Layout Visual
-
-Nova secao "Metricas Operacionais" no Dashboard:
-
-```text
-+------------------------------------------------------------------+
-|  Metricas Operacionais                                           |
-|  Filtros: [Categoria v] [Prestador v] [Cliente: _____]          |
-+------------------------------------------------------------------+
-|                                                                  |
-|  +------------+  +------------+  +---------------+               |
-|  | Conversas  |  | FS Criadas |  | Visita        |               |
-|  | Iniciadas  |  |            |  | Agendada      |               |
-|  |    142     |  |    127     |  |     45        |               |
-|  |  +12.5%    |  |  +8.3%     |  |   +15.2%      |               |
-|  +------------+  +------------+  +---------------+               |
-|                                                                  |
-|  +------------+  +------------+  +---------------+               |
-|  | Servico    |  | Finalizado |  | Valor Total   |               |
-|  | Agendado   |  | e Pago     |  | OS            |               |
-|  |    89      |  |    73      |  |  R$ 52.225    |               |
-|  |  +18.7%    |  |  +22.1%    |  |   +25.4%      |               |
-|  +------------+  +------------+  +---------------+               |
-|                                                                  |
-+------------------------------------------------------------------+
+CREATE OR REPLACE FUNCTION count_conversas_iniciadas(
+  from_date TIMESTAMPTZ,
+  to_date TIMESTAMPTZ,
+  p_categoria_id INTEGER DEFAULT NULL,
+  p_prestador_cpf TEXT DEFAULT NULL,
+  p_cliente_telefone TEXT DEFAULT NULL
+)
+RETURNS INTEGER AS $$
+DECLARE
+  primeiras_msgs INTEGER;
+  fichas_subsequentes INTEGER;
+BEGIN
+  -- Contar primeiras mensagens de clientes no periodo
+  SELECT COUNT(*) INTO primeiras_msgs
+  FROM (
+    SELECT cliente_id, MIN(data_hora) as primeira_msg
+    FROM mensagens
+    WHERE remetente = 'cliente'
+    GROUP BY cliente_id
+  ) fm
+  WHERE fm.primeira_msg >= from_date 
+    AND fm.primeira_msg <= to_date;
+  
+  -- Contar fichas subsequentes no periodo
+  WITH fichas_ordenadas AS (
+    SELECT 
+      telefone_cliente,
+      created_at,
+      categoria_id,
+      prestador_id,
+      ROW_NUMBER() OVER (PARTITION BY telefone_cliente ORDER BY created_at) as ordem
+    FROM fichas_de_servico
+    WHERE (p_categoria_id IS NULL OR categoria_id = p_categoria_id)
+      AND (p_prestador_cpf IS NULL OR prestador_id = p_prestador_cpf)
+      AND (p_cliente_telefone IS NULL OR telefone_cliente = p_cliente_telefone)
+  )
+  SELECT COUNT(*) INTO fichas_subsequentes
+  FROM fichas_ordenadas
+  WHERE ordem > 1 
+    AND created_at >= from_date 
+    AND created_at <= to_date;
+  
+  RETURN primeiras_msgs + fichas_subsequentes;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 ---
 
-## Arquivos a Criar/Modificar
+## Arquivos a Modificar
 
 | Arquivo | Acao | Descricao |
 |---------|------|-----------|
-| `src/hooks/useOperationalKPIs.ts` | Criar | Hook com queries para todos os KPIs |
-| `src/components/dashboard/OperationalKPIsSection.tsx` | Criar | Componente da secao com filtros e cards |
-| `src/components/dashboard/KPIFilters.tsx` | Criar | Componente de filtros (categoria, prestador, cliente) |
-| `src/components/dashboard/index.ts` | Atualizar | Exportar novos componentes |
-| `src/pages/Dashboard.tsx` | Atualizar | Adicionar secao de KPIs operacionais |
+| **Migracao SQL** | Criar | Funcao RPC `count_conversas_iniciadas` |
+| `src/hooks/useOperationalKPIs.ts` | Atualizar | Usar RPC em vez de queries no cliente |
 
 ---
 
-## Secao Tecnica
+## Mudancas Detalhadas
 
-### Hook useOperationalKPIs
+### 1. Migracao SQL
 
-```typescript
-interface OperationalKPIs {
-  conversasIniciadas: number;
-  fsCriadas: number;
-  visitaAgendada: number;
-  servicoAgendado: number;
-  finalizadoPago: number;
-  valorTotalOS: number;
-  variations: {
-    conversasIniciadas: number;
-    fsCriadas: number;
-    visitaAgendada: number;
-    servicoAgendado: number;
-    finalizadoPago: number;
-    valorTotalOS: number;
-  };
-}
+Criar funcao que calcula conversas iniciadas no servidor:
 
-interface KPIFilters {
-  period: 'today' | '7days' | '30days' | 'month' | 'custom';
-  customRange?: { from: Date; to: Date };
-  categoriaId?: number;
-  prestadorCpf?: string;
-  clienteTelefone?: string;
-}
+```sql
+CREATE OR REPLACE FUNCTION count_conversas_iniciadas(
+  from_date TIMESTAMPTZ,
+  to_date TIMESTAMPTZ
+) RETURNS INTEGER
 ```
 
-### Queries Paralelas
+### 2. Hook useOperationalKPIs.ts
 
-O hook fara multiplas queries em paralelo usando `Promise.all` para performance:
-
-```typescript
-const [
-  fsCriadas,
-  visitasAgendadas,
-  servicosAgendados,
-  finalizadosPagos,
-  conversasPrimeiras,
-  conversasNovasFichas
-] = await Promise.all([
-  // Query 1: Fichas criadas
-  supabase.from('fichas_de_servico').select('*', { count: 'exact' })...
-  // Query 2: Visitas agendadas
-  // Query 3: Servicos agendados
-  // Query 4: Finalizados e pagos
-  // Query 5: Primeiras mensagens de clientes
-  // Query 6: Fichas subsequentes (2a, 3a...)
-]);
-```
-
-### Calculo de Variacao
-
-Mesma logica do `useGoogleAdsMetrics`:
-- Buscar periodo atual
-- Buscar periodo anterior (mesmo tamanho)
-- Calcular variacao percentual
-
-### Filtros Dinamicos
-
-Os filtros serao aplicados nas queries quando presentes:
+Substituir a logica atual por chamada RPC:
 
 ```typescript
-let query = supabase.from('fichas_de_servico').select('*', { count: 'exact' });
+// ANTES (problema)
+const calculateConversasIniciadas = (...) => {
+  // Processa 1000 mensagens no cliente - INCOMPLETO
+}
 
-if (filters.categoriaId) {
-  query = query.eq('categoria_id', filters.categoriaId);
-}
-if (filters.prestadorCpf) {
-  query = query.eq('prestador_id', filters.prestadorCpf);
-}
-if (filters.clienteTelefone) {
-  query = query.eq('telefone_cliente', filters.clienteTelefone);
-}
+// DEPOIS (solucao)
+const { data: conversasData } = await supabase
+  .rpc('count_conversas_iniciadas', {
+    from_date: fromStr,
+    to_date: toStr,
+    p_categoria_id: filters.categoriaId || null,
+    p_prestador_cpf: filters.prestadorCpf || null,
+    p_cliente_telefone: filters.clienteTelefone || null
+  });
+
+const conversasIniciadas = conversasData || 0;
 ```
 
 ---
 
-## Consideracoes de Performance
+## Resultado Esperado
 
-1. **Cache**: Usar `staleTime` de 5 minutos no React Query
-2. **Queries otimizadas**: Usar `count: 'exact'` em vez de trazer todos os dados
-3. **Filtros no servidor**: Aplicar filtros na query SQL, nao no cliente
-4. **Carregamento**: Mostrar skeletons enquanto carrega
+Apos a correcao:
 
----
+| KPI | Valor Atual | Valor Correto |
+|-----|-------------|---------------|
+| Conversas Iniciadas (30 dias) | 36 | 319 |
 
-## Proximos Passos (Apos Implementacao)
+A logica correta:
+- **283** clientes enviaram sua primeira mensagem nos ultimos 30 dias
+- **36** fichas subsequentes (2a, 3a ficha de um cliente) foram criadas nos ultimos 30 dias
+- **Total: 319** conversas iniciadas
 
-1. Testar com dados reais do periodo atual
-2. Validar se as metricas batem com os dados da aba Geral
-3. Adicionar graficos de evolucao temporal (opcional)
-4. Exportar dados para CSV/Excel (futuro)
