@@ -111,7 +111,8 @@ export const OperationalKPIsSection = ({
         />
         <KPICard
           label="Serviço Agendado"
-          value={String(kpis.servicoAgendado)}
+          value={String(kpis.servicoAgendadoTotal)}
+          subValue={`${kpis.servicoAgendado} agendados + ${kpis.finalizadoPago} finalizados`}
           variation={kpis.variations.servicoAgendado}
           icon={<Wrench className="h-5 w-5" />}
           iconColor="yellow"
