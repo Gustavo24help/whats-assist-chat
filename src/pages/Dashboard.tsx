@@ -15,6 +15,7 @@ import {
 } from "@/components/dashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGoogleAdsMetrics, FALLBACK_METRICS } from "@/hooks/useGoogleAdsMetrics";
+import { useDashboardSummary, FALLBACK_SUMMARY } from "@/hooks/useDashboardSummary";
 import { 
   DollarSign, 
   FileText, 
@@ -46,9 +47,14 @@ const Dashboard = () => {
   const { data: adsMetrics, isLoading: isLoadingAds, refetch: refetchAds } = useGoogleAdsMetrics(selectedPeriod, customDateRange);
   const metrics = adsMetrics || FALLBACK_METRICS;
 
+  // Dashboard summary (dados reais)
+  const { data: summaryData, refetch: refetchSummary } = useDashboardSummary(selectedPeriod, customDateRange);
+  const summary = summaryData || FALLBACK_SUMMARY;
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     refetchAds();
+    refetchSummary();
     setTimeout(() => setIsRefreshing(false), 1500);
   };
 
@@ -67,7 +73,7 @@ const Dashboard = () => {
   // Formatar valores para exibição
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(0)}k`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
     return num.toLocaleString('pt-BR');
   };
 
@@ -119,33 +125,33 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
               <KPICard
                 label="Lucro Líquido"
-                value="R$ 41.340"
-                variation={18.5}
+                value={formatCurrency(summary.lucroLiquido)}
+                variation={summary.variations.lucroLiquido}
                 icon={<DollarSign className="h-5 w-5" />}
                 iconColor="brand-green"
                 animationDelay={0}
               />
               <KPICard
                 label="Valor OS Geradas"
-                value="R$ 52.180"
-                variation={12.3}
+                value={formatCurrency(summary.valorOSGeradas)}
+                variation={summary.variations.valorOSGeradas}
                 icon={<FileText className="h-5 w-5" />}
                 iconColor="yellow"
                 animationDelay={100}
               />
               <KPICard
                 label="Serviços Fechados"
-                value="127"
-                variation={13.4}
+                value={String(summary.servicosFechados)}
+                variation={summary.variations.servicosFechados}
                 icon={<Wrench className="h-5 w-5" />}
                 iconColor="coral"
                 animationDelay={200}
               />
               <KPICard
                 label="Custo Ads"
-                value="R$ 4.480"
-                variation={-5.2}
-                comparisonLabel="vs semana anterior"
+                value={formatCurrency(summary.custoAds)}
+                variation={summary.variations.custoAds}
+                comparisonLabel="vs período anterior"
                 icon={<CreditCard className="h-5 w-5" />}
                 iconColor="red"
                 animationDelay={300}
@@ -229,16 +235,16 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
               <KPICard
                 label="Conversas Ativas"
-                value="47"
-                variation={-3.2}
+                value={String(summary.conversasAtivas)}
+                variation={summary.variations.conversasAtivas}
                 icon={<MessageCircle className="h-5 w-5" />}
                 iconColor="brand-green"
                 animationDelay={700}
               />
               <KPICard
                 label="Tempo Médio Resposta"
-                value="4min"
-                variation={-12.0}
+                value={`${summary.tempoMedioResposta}min`}
+                variation={summary.variations.tempoMedioResposta}
                 comparisonLabel="menor é melhor"
                 icon={<Clock className="h-5 w-5" />}
                 iconColor="yellow"
@@ -246,8 +252,8 @@ const Dashboard = () => {
               />
               <KPICard
                 label="Clientes Únicos"
-                value="892"
-                variation={18.0}
+                value={formatNumber(summary.clientesUnicos)}
+                variation={summary.variations.clientesUnicos}
                 icon={<Users className="h-5 w-5" />}
                 iconColor="coral"
                 animationDelay={800}
@@ -265,32 +271,32 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
               <KPICard
                 label="Taxa de Conversão"
-                value="68%"
-                variation={5.2}
+                value={`${summary.taxaConversao}%`}
+                variation={summary.variations.taxaConversao}
                 icon={<TrendingUp className="h-5 w-5" />}
                 iconColor="brand-green"
                 animationDelay={850}
               />
               <KPICard
                 label="Fichas Abertas"
-                value="423"
-                variation={6.3}
+                value={String(summary.fichasAbertas)}
+                variation={summary.variations.fichasAbertas}
                 icon={<FileText className="h-5 w-5" />}
                 iconColor="yellow"
                 animationDelay={900}
               />
               <KPICard
                 label="Serviços Finalizados"
-                value="127"
-                variation={13.4}
+                value={String(summary.servicosFinalizados)}
+                variation={summary.variations.servicosFinalizados}
                 icon={<CheckCircle className="h-5 w-5" />}
                 iconColor="brand-green"
                 animationDelay={950}
               />
               <KPICard
                 label="Pendências"
-                value="12"
-                variation={-8.5}
+                value={String(summary.pendencias)}
+                variation={summary.variations.pendencias}
                 icon={<AlertTriangle className="h-5 w-5" />}
                 iconColor="coral"
                 animationDelay={1000}
