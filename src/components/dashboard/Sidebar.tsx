@@ -125,14 +125,14 @@ export const Sidebar = ({
       {/* Main Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
         {mainNavItems.map((item) => (
-          <NavButton key={item.path} item={item} />
+          <NavButton key={`${item.label}-${item.path}`} item={item} />
         ))}
       </nav>
 
       {/* Footer Navigation */}
       <div className="border-t py-4 px-2 space-y-1">
         {footerNavItems.map((item) => (
-          <NavButton key={item.path} item={item} />
+          <NavButton key={`${item.label}-${item.path}`} item={item} />
         ))}
       </div>
 
