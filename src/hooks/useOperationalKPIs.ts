@@ -20,12 +20,12 @@ export interface OperationalKPIs {
   finalizadoPago: number;
   valorTotalOS: number;
   variations: {
-    conversasIniciadas: number;
-    fsCriadas: number;
-    visitaAgendada: number;
-    servicoAgendado: number;
-    finalizadoPago: number;
-    valorTotalOS: number;
+    conversasIniciadas: number | null;
+    fsCriadas: number | null;
+    visitaAgendada: number | null;
+    servicoAgendado: number | null;
+    finalizadoPago: number | null;
+    valorTotalOS: number | null;
   };
   isLoading: boolean;
 }
@@ -81,8 +81,10 @@ const getPreviousPeriodRange = (from: Date, to: Date) => {
   };
 };
 
-const calculateVariation = (current: number, previous: number): number => {
-  if (previous === 0) return current > 0 ? 100 : 0;
+const calculateVariation = (current: number, previous: number): number | null => {
+  // Se não há dados no período anterior, não podemos calcular variação significativa
+  if (previous === 0 && current === 0) return null;
+  if (previous === 0) return null; // Evita mostrar +100% quando não há base de comparação
   return Number((((current - previous) / previous) * 100).toFixed(1));
 };
 
