@@ -147,10 +147,10 @@ async function fetchKPIs(filters: KPIFilters) {
       .gte('created_at', fromStr)
       .lte('created_at', toStr),
     
-    // 3. Serviço Agendado (filtrada por created_at da ficha)
+    // 3. Serviço Agendado - apenas status 'Agendado' (não todos com horario_agendamento)
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('*', { count: 'exact', head: true })
-      .not('horario_agendamento', 'is', null)
+      .eq('status', 'Agendado')
       .gte('created_at', fromStr)
       .lte('created_at', toStr),
     
@@ -193,10 +193,10 @@ async function fetchKPIs(filters: KPIFilters) {
       .gte('created_at', prevFromStr)
       .lte('created_at', prevToStr),
     
-    // 3. Serviço Agendado prev (filtrada por created_at da ficha)
+    // 3. Serviço Agendado prev - apenas status 'Agendado'
     buildFichaQuery(supabase.from('fichas_de_servico'))
       .select('*', { count: 'exact', head: true })
-      .not('horario_agendamento', 'is', null)
+      .eq('status', 'Agendado')
       .gte('created_at', prevFromStr)
       .lte('created_at', prevToStr),
     
