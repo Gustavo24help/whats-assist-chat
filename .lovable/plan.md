@@ -1,129 +1,90 @@
 
-# Plano: Corrigir KPI "Conversas Iniciadas"
+# Plano: Correção da Lógica de KPIs de Agendamento
 
 ## Problema Identificado
 
-O KPI "Conversas Iniciadas" está mostrando **22** quando deveria mostrar **~320** (nos últimos 30 dias).
+A query atual para "Serviço Agendado" usa `horario_agendamento IS NOT NULL`, o que inclui todas as fichas que já tiveram agendamento - inclusive as que já foram finalizadas e pagas. Isso causa **contagem dupla** no cálculo do total.
 
-**Causa raiz**: O código atual busca todas as mensagens da tabela (13.530) para calcular a primeira mensagem de cada cliente, mas o Supabase tem um **limite padrão de 1000 linhas** por query. Isso corrompe completamente o cálculo.
+**Dados atuais do banco:**
+- Fichas com status "Agendado" (atualmente agendadas): 7
+- Fichas Finalizadas e Pagas: 48
+- Query atual retorna: ~66 (todos com horario_agendamento preenchido)
 
----
+## Solução Proposta
 
-## Lógica de Negócio (conforme memória do projeto)
+### 1. Corrigir a Query de "Serviço Agendado"
 
-"Conversas Iniciadas" = Soma de:
-1. **Primeira mensagem de cada cliente** no período (cliente novo)
-2. **Fichas subsequentes** (não a primeira) criadas no período
-
----
-
-## Solução: Usar RPC/Database Function
-
-Em vez de buscar todos os dados e processar no frontend, vamos criar uma **função no banco de dados** que faz o cálculo corretamente.
-
-### Passo 1: Criar função SQL no banco
-
-```sql
-CREATE OR REPLACE FUNCTION calculate_conversas_iniciadas(
-  p_from_date TIMESTAMPTZ,
-  p_to_date TIMESTAMPTZ,
-  p_categoria_id INTEGER DEFAULT NULL,
-  p_prestador_cpf TEXT DEFAULT NULL,
-  p_cliente_telefone TEXT DEFAULT NULL
-)
-RETURNS INTEGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_novos_clientes INTEGER;
-  v_fichas_subsequentes INTEGER;
-BEGIN
-  -- 1. Contar clientes cuja primeira mensagem foi no período
-  SELECT COUNT(*) INTO v_novos_clientes
-  FROM (
-    SELECT cliente_id, MIN(data_hora) as primeira_msg
-    FROM mensagens
-    WHERE remetente = 'cliente'
-    GROUP BY cliente_id
-  ) sub
-  WHERE primeira_msg >= p_from_date
-    AND primeira_msg <= p_to_date;
-
-  -- 2. Contar fichas subsequentes no período (aplicando filtros)
-  WITH ranked_fichas AS (
-    SELECT 
-      id,
-      telefone_cliente,
-      created_at,
-      categoria_id,
-      prestador_id,
-      ROW_NUMBER() OVER (
-        PARTITION BY telefone_cliente 
-        ORDER BY created_at
-      ) as ficha_num
-    FROM fichas_de_servico
-  )
-  SELECT COUNT(*) INTO v_fichas_subsequentes
-  FROM ranked_fichas
-  WHERE ficha_num > 1
-    AND created_at >= p_from_date
-    AND created_at <= p_to_date
-    AND (p_categoria_id IS NULL OR categoria_id = p_categoria_id)
-    AND (p_prestador_cpf IS NULL OR prestador_id = p_prestador_cpf)
-    AND (p_cliente_telefone IS NULL OR telefone_cliente = p_cliente_telefone);
-
-  RETURN v_novos_clientes + v_fichas_subsequentes;
-END;
-$$;
+Alterar de:
+```
+horario_agendamento IS NOT NULL
 ```
 
-### Passo 2: Atualizar useOperationalKPIs.ts
+Para:
+```
+status = 'Agendado'
+```
 
-Substituir o cálculo manual por uma chamada RPC:
+Isso garante que contamos apenas as fichas que estão **atualmente** no status "Agendado", excluindo as que já avançaram para "Finalizado".
+
+### 2. Recálculo do Total para Funil
+
+O `servicoAgendadoTotal` continuará sendo:
+```
+servicoAgendadoTotal = servicoAgendado + finalizadoPago
+```
+
+Mas agora com valores corretos:
+- servicoAgendado = 7 (status Agendado)
+- finalizadoPago = 48 (Finalizado + pago)
+- Total = 55 (sem duplicação)
+
+### 3. Arquivos a Modificar
+
+**src/hooks/useOperationalKPIs.ts**
+- Linha 150-155: Alterar query de "Serviço Agendado"
+  - De: `.not('horario_agendamento', 'is', null)`
+  - Para: `.eq('status', 'Agendado')`
+- Linha 196-201: Mesma alteração para o período anterior
+
+### 4. Atualização do Subtexto no Card
+
+**src/components/dashboard/OperationalKPIsSection.tsx**
+- Linha 115: Ajustar texto para refletir a lógica correta
+  - De: `"${kpis.servicoAgendado} agendados + ${kpis.finalizadoPago} finalizados"`
+  - Para: `"${kpis.servicoAgendado} em andamento + ${kpis.finalizadoPago} concluídos"`
+
+---
+
+## Detalhes Técnicos
+
+### Query Corrigida (useOperationalKPIs.ts)
 
 ```typescript
-// Em vez de buscar todas as mensagens e fichas:
-const conversasResult = await supabase.rpc('calculate_conversas_iniciadas', {
-  p_from_date: fromStr,
-  p_to_date: toStr,
-  p_categoria_id: filters.categoriaId || null,
-  p_prestador_cpf: filters.prestadorCpf || null,
-  p_cliente_telefone: filters.clienteTelefone || null
-});
-
-const conversasIniciadas = conversasResult.data || 0;
+// 3. Serviço Agendado - apenas status 'Agendado' (não todos com horario_agendamento)
+buildFichaQuery(supabase.from('fichas_de_servico'))
+  .select('*', { count: 'exact', head: true })
+  .eq('status', 'Agendado')  // MUDANÇA: era .not('horario_agendamento', 'is', null)
+  .gte('created_at', fromStr)
+  .lte('created_at', toStr),
 ```
 
-### Passo 3: Remover queries desnecessárias
+### Fluxo do Funil Corrigido
 
-- Remover query 6 (allFichasResult)
-- Remover query 7 (firstMessagesResult)
-- Remover queries duplicadas do período anterior
-- Remover a função `calculateConversasIniciadas`
+```text
+FS Criadas (ex: 100)
+    ↓
+Serviço Agendado (status='Agendado'): 7
+    +
+Finalizado e Pago: 48
+    =
+Total Conversões: 55
+    
+Taxa Agendamento = 55/100 = 55%
+Taxa Finalização = 48/100 = 48%
+```
 
----
+### Impacto nos Dados Existentes
 
-## Arquivos a Modificar
-
-| Arquivo | Mudança |
-|---------|---------|
-| **Migração SQL** | Criar função `calculate_conversas_iniciadas` |
-| `src/hooks/useOperationalKPIs.ts` | Usar RPC em vez de cálculo manual |
-
----
-
-## Benefícios
-
-1. **Correção do bug**: Sem limite de 1000 linhas
-2. **Performance**: Cálculo feito no banco (mais rápido)
-3. **Precisão**: Lógica SQL correta e testável
-4. **Manutenibilidade**: Lógica centralizada no banco
-
----
-
-## Impacto nos Dados
-
-Nenhum dado será alterado. Apenas o cálculo será corrigido:
-- **Antes**: ~22 (incorreto por limite de query)
-- **Depois**: ~320 (valor real)
+- **Nenhum dado será alterado** - apenas a forma de consultar
+- Os valores exibidos serão menores e mais precisos
+- As taxas de conversão refletirão a realidade do funil
