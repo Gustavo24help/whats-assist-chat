@@ -1,10 +1,92 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Função de sleep para backoff
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Salvar na fila de backup quando falhar
+async function saveToBackupQueue(
+  supabase: SupabaseClient,
+  data: Record<string, unknown>,
+  messageSid: string | null,
+  clienteId: string,
+  erro: string
+) {
+  try {
+    console.log('💾 [BACKUP] Salvando mensagem na fila de backup...');
+    
+    const { error } = await supabase
+      .from('mensagens_backup_queue')
+      .insert({
+        message_sid: messageSid,
+        cliente_id: clienteId,
+        payload: data,
+        erro_ultimo: erro
+      });
+    
+    if (error) {
+      console.error('❌ [BACKUP] Falha ao salvar na fila de backup:', error);
+    } else {
+      console.log('✅ [BACKUP] Mensagem salva na fila de backup para reprocessamento');
+    }
+  } catch (err) {
+    console.error('❌ [BACKUP] Exceção ao salvar na fila:', err);
+  }
+}
+
+// Função de save com retry e fallback para backup
+async function saveMessageWithRetry(
+  supabase: SupabaseClient,
+  data: Record<string, unknown>,
+  messageSid: string | null,
+  clienteId: string,
+  retries = 3
+): Promise<boolean> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const { error } = await supabase
+        .from('mensagens')
+        .insert(data);
+      
+      if (!error) {
+        console.log(`✅ Mensagem salva com sucesso (tentativa ${i + 1})`);
+        return true;
+      }
+      
+      console.error(`❌ Erro tentativa ${i + 1}:`, error);
+      
+      // Se for erro de duplicidade, considerar sucesso
+      if (error.code === '23505') {
+        console.log('⚠️ Mensagem já existe (duplicidade), considerando sucesso');
+        return true;
+      }
+      
+      // Backoff exponencial
+      if (i < retries - 1) {
+        const waitTime = 500 * Math.pow(2, i);
+        console.log(`⏳ Aguardando ${waitTime}ms antes da próxima tentativa...`);
+        await sleep(waitTime);
+      }
+    } catch (err) {
+      console.error(`⚠️ Exceção tentativa ${i + 1}:`, err);
+      
+      if (i < retries - 1) {
+        const waitTime = 500 * Math.pow(2, i);
+        await sleep(waitTime);
+      }
+    }
+  }
+  
+  // CRÍTICO: Salvar em tabela de backup se todas as tentativas falharam
+  const erroMsg = 'Falha após 3 tentativas de salvamento';
+  await saveToBackupQueue(supabase, data, messageSid, clienteId, erroMsg);
+  return false;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -427,14 +509,18 @@ serve(async (req) => {
           messageSid: messageSid || 'N/A'
         });
 
-        const { error: mensagemError } = await supabase
-          .from('mensagens')
-          .insert(mensagem);
+        // Usar função com retry
+        const sucesso = await saveMessageWithRetry(
+          supabase,
+          mensagem,
+          messageSid,
+          cliente.telefone
+        );
 
-        if (mensagemError) {
-          console.error(`Erro ao salvar mídia ${i}:`, mensagemError);
-        } else {
+        if (sucesso) {
           console.log(`✅ Mídia ${i + 1} salva com sucesso`);
+        } else {
+          console.error(`❌ Mídia ${i + 1} enviada para fila de backup`);
         }
       }
     } else {
@@ -462,23 +548,17 @@ serve(async (req) => {
         }
       });
 
-      const { error: mensagemError } = await supabase
-        .from('mensagens')
-        .insert(mensagem);
+      // Usar função com retry
+      const sucesso = await saveMessageWithRetry(
+        supabase,
+        mensagem,
+        messageSid,
+        cliente.telefone
+      );
 
-      if (mensagemError) {
-        console.error("Erro ao salvar mensagem:", mensagemError);
-        console.error("Dados da mensagem:", JSON.stringify(mensagem));
-        // Return 200 to prevent Twilio retries
-        return new Response(
-          '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-          {
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'text/xml',
-            },
-          }
-        );
+      if (!sucesso) {
+        console.error("❌ Mensagem enviada para fila de backup após falhas");
+        // Continuar mesmo com falha - a fila de backup vai reprocessar
       }
     }
 

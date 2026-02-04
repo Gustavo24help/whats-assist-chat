@@ -535,6 +535,42 @@ export type Database = {
           },
         ]
       }
+      mensagens_backup_queue: {
+        Row: {
+          cliente_id: string
+          created_at: string | null
+          erro_ultimo: string | null
+          id: string
+          message_sid: string | null
+          payload: Json
+          processado: boolean | null
+          tentativas: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string | null
+          erro_ultimo?: string | null
+          id?: string
+          message_sid?: string | null
+          payload: Json
+          processado?: boolean | null
+          tentativas?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string | null
+          erro_ultimo?: string | null
+          id?: string
+          message_sid?: string | null
+          payload?: Json
+          processado?: boolean | null
+          tentativas?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       mensagens_padronizadas: {
         Row: {
           created_at: string | null
