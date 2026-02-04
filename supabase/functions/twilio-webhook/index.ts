@@ -509,14 +509,18 @@ serve(async (req) => {
           messageSid: messageSid || 'N/A'
         });
 
-        const { error: mensagemError } = await supabase
-          .from('mensagens')
-          .insert(mensagem);
+        // Usar função com retry
+        const sucesso = await saveMessageWithRetry(
+          supabase,
+          mensagem,
+          messageSid,
+          cliente.telefone
+        );
 
-        if (mensagemError) {
-          console.error(`Erro ao salvar mídia ${i}:`, mensagemError);
-        } else {
+        if (sucesso) {
           console.log(`✅ Mídia ${i + 1} salva com sucesso`);
+        } else {
+          console.error(`❌ Mídia ${i + 1} enviada para fila de backup`);
         }
       }
     } else {
@@ -544,23 +548,17 @@ serve(async (req) => {
         }
       });
 
-      const { error: mensagemError } = await supabase
-        .from('mensagens')
-        .insert(mensagem);
+      // Usar função com retry
+      const sucesso = await saveMessageWithRetry(
+        supabase,
+        mensagem,
+        messageSid,
+        cliente.telefone
+      );
 
-      if (mensagemError) {
-        console.error("Erro ao salvar mensagem:", mensagemError);
-        console.error("Dados da mensagem:", JSON.stringify(mensagem));
-        // Return 200 to prevent Twilio retries
-        return new Response(
-          '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-          {
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'text/xml',
-            },
-          }
-        );
+      if (!sucesso) {
+        console.error("❌ Mensagem enviada para fila de backup após falhas");
+        // Continuar mesmo com falha - a fila de backup vai reprocessar
       }
     }
 
