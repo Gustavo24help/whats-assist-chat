@@ -1,55 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MAX_FIELD_LENGTH = 5000;
-const MAX_NAME_LENGTH = 200;
-
-// Truncate string to max length
-function truncate(str: string | null | undefined, maxLen: number): string {
-  if (!str) return '';
-  return str.length > maxLen ? str.substring(0, maxLen) : str;
+// ========== LOGGING DE DEBUG ==========
+interface DebugLog {
+  timestamp: string;
+  source: string;
+  event_type: string;
+  raw_payload: any;
+  processed_data: any;
+  message_sid: string | null;
+  client_phone: string | null;
+  success: boolean;
+  error_message: string | null;
+  step: string;
 }
 
-// Validate Twilio signature using Web Crypto API
-async function validateTwilioSignature(
-  signature: string | null,
-  url: string,
-  params: Record<string, string>,
-  authToken: string
-): Promise<boolean> {
-  if (!signature || !authToken) return false;
-  
+async function logDebug(supabase: SupabaseClient, log: DebugLog) {
   try {
-    const sortedKeys = Object.keys(params).sort();
-    let dataString = url;
-    for (const key of sortedKeys) {
-      dataString += key + params[key];
-    }
-    
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(authToken),
-      { name: 'HMAC', hash: 'SHA-1' },
-      false,
-      ['sign']
-    );
-    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(dataString));
-    const expectedSignature = base64Encode(new Uint8Array(sig));
-    return signature === expectedSignature;
-  } catch {
-    return false;
+    await supabase.from("webhook_debug_logs").insert(log);
+  } catch (e) {
+    console.error("⚠️ Erro ao salvar debug log (não crítico):", e);
   }
 }
 
 // Função de sleep para backoff
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Salvar na fila de backup quando falhar
 async function saveToBackupQueue(
@@ -57,27 +37,25 @@ async function saveToBackupQueue(
   data: Record<string, unknown>,
   messageSid: string | null,
   clienteId: string,
-  erro: string
+  erro: string,
 ) {
   try {
-    console.log('💾 [BACKUP] Salvando mensagem na fila de backup...');
-    
-    const { error } = await supabase
-      .from('mensagens_backup_queue')
-      .insert({
-        message_sid: messageSid,
-        cliente_id: clienteId,
-        payload: data,
-        erro_ultimo: erro
-      });
-    
+    console.log("💾 [BACKUP] Salvando mensagem na fila de backup...");
+
+    const { error } = await supabase.from("mensagens_backup_queue").insert({
+      message_sid: messageSid,
+      cliente_id: clienteId,
+      payload: data,
+      erro_ultimo: erro,
+    });
+
     if (error) {
-      console.error('❌ [BACKUP] Falha ao salvar na fila de backup:', error);
+      console.error("❌ [BACKUP] Falha ao salvar na fila de backup:", error);
     } else {
-      console.log('✅ [BACKUP] Mensagem salva na fila de backup para reprocessamento');
+      console.log("✅ [BACKUP] Mensagem salva na fila de backup para reprocessamento");
     }
   } catch (err) {
-    console.error('❌ [BACKUP] Exceção ao salvar na fila:', err);
+    console.error("❌ [BACKUP] Exceção ao salvar na fila:", err);
   }
 }
 
@@ -87,27 +65,25 @@ async function saveMessageWithRetry(
   data: Record<string, unknown>,
   messageSid: string | null,
   clienteId: string,
-  retries = 3
+  retries = 3,
 ): Promise<boolean> {
   for (let i = 0; i < retries; i++) {
     try {
-      const { error } = await supabase
-        .from('mensagens')
-        .insert(data);
-      
+      const { error } = await supabase.from("mensagens").insert(data);
+
       if (!error) {
         console.log(`✅ Mensagem salva com sucesso (tentativa ${i + 1})`);
         return true;
       }
-      
+
       console.error(`❌ Erro tentativa ${i + 1}:`, error);
-      
+
       // Se for erro de duplicidade, considerar sucesso
-      if (error.code === '23505') {
-        console.log('⚠️ Mensagem já existe (duplicidade), considerando sucesso');
+      if (error.code === "23505") {
+        console.log("⚠️ Mensagem já existe (duplicidade), considerando sucesso");
         return true;
       }
-      
+
       // Backoff exponencial
       if (i < retries - 1) {
         const waitTime = 500 * Math.pow(2, i);
@@ -116,304 +92,216 @@ async function saveMessageWithRetry(
       }
     } catch (err) {
       console.error(`⚠️ Exceção tentativa ${i + 1}:`, err);
-      
+
       if (i < retries - 1) {
         const waitTime = 500 * Math.pow(2, i);
         await sleep(waitTime);
       }
     }
   }
-  
+
   // CRÍTICO: Salvar em tabela de backup se todas as tentativas falharam
-  const erroMsg = 'Falha após 3 tentativas de salvamento';
+  const erroMsg = "Falha após 3 tentativas de salvamento";
   await saveToBackupQueue(supabase, data, messageSid, clienteId, erroMsg);
   return false;
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  const requestId = crypto.randomUUID().substring(0, 8);
+  const startTime = Date.now();
+
+  console.log(`\n${"=".repeat(80)}`);
+  console.log(`🔔 [${requestId}] WEBHOOK INICIADO - ${new Date().toISOString()}`);
+  console.log(`${"=".repeat(80)}\n`);
+
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
   try {
-    console.log("🔔 Webhook recebido do Twilio");
+    // ========== PASSO 1: CAPTURAR RAW REQUEST ==========
+    console.log(`[${requestId}] 📥 PASSO 1: Capturando raw request...`);
 
-    const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+    const contentType = req.headers.get("content-type") || "";
+    const rawBody = await req.text();
 
-    // Detectar o Content-Type
-    const contentType = req.headers.get('content-type') || '';
+    console.log(`[${requestId}] Content-Type: ${contentType}`);
+    console.log(`[${requestId}] Raw Body (primeiros 500 chars):`);
+    console.log(rawBody.substring(0, 500));
+
+    await logDebug(supabase, {
+      timestamp: new Date().toISOString(),
+      source: "twilio_webhook",
+      event_type: "raw_request",
+      raw_payload: { contentType, body: rawBody.substring(0, 1000) },
+      processed_data: null,
+      message_sid: null,
+      client_phone: null,
+      success: true,
+      error_message: null,
+      step: "STEP_1_RAW_REQUEST",
+    });
+
+    // ========== PASSO 2: PARSEAR DADOS ==========
+    console.log(`\n[${requestId}] 🔧 PASSO 2: Parseando dados...`);
 
     let allFields: Record<string, string> = {};
     let formData: FormData;
 
+    const reqClone = new Request(req.url, {
+      method: req.method,
+      headers: req.headers,
+      body: rawBody,
+    });
+
     try {
-      if (contentType.includes('application/json')) {
-        // Tentar como JSON
-        console.log("📦 Tentando processar como JSON...");
-        const jsonData = await req.json();
-        console.log("📦 Dados JSON recebidos:", JSON.stringify(jsonData, null, 2));
-        
-        // Converter JSON para o formato esperado
+      formData = await reqClone.formData();
+      for (const [key, value] of formData.entries()) {
+        allFields[key] = String(value);
+      }
+      console.log(`[${requestId}] ✅ Parseado como FormData`);
+    } catch (e) {
+      console.log(`[${requestId}] ⚠️ Não foi FormData, tentando JSON...`);
+      try {
+        const jsonData = JSON.parse(rawBody);
         allFields = jsonData;
-        
-        // Criar um FormData mock para compatibilidade com o código existente
         formData = new FormData();
         for (const [key, value] of Object.entries(jsonData)) {
           formData.append(key, String(value));
         }
-        
-        console.log("✅ Dados processados como JSON com sucesso");
-      } else {
-        // Tentar como FormData (padrão)
-        console.log("📦 Tentando processar como FormData...");
-        formData = await req.formData();
-        
-        // Coletar todos os campos
-        for (const [key, value] of formData.entries()) {
-          allFields[key] = String(value);
-        }
-        
-        console.log("✅ Dados processados como FormData com sucesso");
-      }
-    } catch (parseError) {
-      console.error("❌ Erro ao processar webhook:", parseError);
-      console.error("💡 Content-Type:", contentType);
-      console.error("💡 Tente verificar o formato de envio no Twilio Studio");
-      
-      const errorMessage = parseError instanceof Error ? parseError.message : 'Erro desconhecido';
-      
-      return new Response(
-        JSON.stringify({ 
-          error: "Formato de dados inválido", 
-          contentType,
-          message: errorMessage 
-        }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // ===== Twilio Signature Verification =====
-    if (twilioAuthToken) {
-      const twilioSignature = req.headers.get('X-Twilio-Signature');
-      const requestUrl = new URL(req.url).toString();
-      
-      if (!(await validateTwilioSignature(twilioSignature, requestUrl, allFields, twilioAuthToken))) {
-        console.warn('⚠️ Twilio signature verification failed - proceeding with caution');
-        // Log but don't block (URL might differ in edge function proxying)
+        console.log(`[${requestId}] ✅ Parseado como JSON`);
+      } catch (jsonErr) {
+        console.error(`[${requestId}] ❌ ERRO: Não foi possível parsear`);
+        throw new Error(`Formato não reconhecido`);
       }
     }
 
-    // ===== Input sanitization: truncate all fields =====
-    for (const key of Object.keys(allFields)) {
-      allFields[key] = truncate(allFields[key], MAX_FIELD_LENGTH);
+    console.log(`[${requestId}] 📊 Total de campos: ${Object.keys(allFields).length}`);
+    console.log(`[${requestId}] 📋 Campos recebidos:`);
+    for (const [key, value] of Object.entries(allFields)) {
+      console.log(`  • ${key}: ${String(value).substring(0, 100)}`);
     }
 
-    console.log("📦 Total de campos:", Object.keys(allFields).length);
-    
-    // 🔍 Extrair campos básicos com truncation
-    const from = truncate(formData.get('From') as string, 50);
-    const body = truncate(formData.get('Body') as string, MAX_FIELD_LENGTH);
-    const numMedia = formData.get('NumMedia') as string;
-    const profileName = truncate(formData.get('ProfileName') as string, MAX_NAME_LENGTH);
+    await logDebug(supabase, {
+      timestamp: new Date().toISOString(),
+      source: "twilio_webhook",
+      event_type: "parsed_data",
+      raw_payload: null,
+      processed_data: allFields,
+      message_sid: allFields["MessageSid"] || allFields["SmsMessageSid"] || null,
+      client_phone: allFields["From"] || null,
+      success: true,
+      error_message: null,
+      step: "STEP_2_PARSED_DATA",
+    });
 
-    // Validate 'from' is a valid phone format
-    if (!from || (!from.startsWith('whatsapp:+') && !from.startsWith('+'))) {
-      console.error('❌ Invalid From field:', from);
-      return new Response(
-        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-        { headers: { ...corsHeaders, 'Content-Type': 'text/xml' } }
-      );
+    // ========== PASSO 3: EXTRAIR CAMPOS CRÍTICOS ==========
+    console.log(`\n[${requestId}] 🎯 PASSO 3: Extraindo campos críticos...`);
+
+    const from = allFields["From"];
+    const to = allFields["To"];
+    const body = allFields["Body"] || "";
+    const numMedia = allFields["NumMedia"] || "0";
+    const profileName = allFields["ProfileName"] || "";
+
+    // CRÍTICO: MessageSid
+    const possibleSidFields = ["MessageSid", "SmsMessageSid", "SmsSid", "message_sid"];
+    let messageSid = null;
+    for (const field of possibleSidFields) {
+      if (allFields[field]) {
+        messageSid = allFields[field];
+        console.log(`[${requestId}] ✅ MessageSid encontrado: ${field} = ${messageSid}`);
+        break;
+      }
     }
-    
-    // 🆔 Extrair MessageSid - tentar TODAS as variações possíveis
-    console.log('🆔 [DEBUG] Tentando capturar MessageSid de várias formas:');
-    console.log('  - allFields["MessageSid"]:', allFields['MessageSid'] || '❌');
-    console.log('  - allFields["SmsMessageSid"]:', allFields['SmsMessageSid'] || '❌');
-    console.log('  - allFields["SmsSid"]:', allFields['SmsSid'] || '❌');
-    console.log('  - allFields["message_sid"]:', allFields['message_sid'] || '❌');
-    console.log('  - formData.get("MessageSid"):', formData.get('MessageSid') || '❌');
-    console.log('  - formData.get("SmsMessageSid"):', formData.get('SmsMessageSid') || '❌');
-    console.log('  - formData.get("SmsSid"):', formData.get('SmsSid') || '❌');
-    
-    const messageSid = (
-      allFields['MessageSid'] ||
-      allFields['SmsMessageSid'] ||
-      allFields['SmsSid'] ||
-      allFields['message_sid'] ||
-      formData.get('MessageSid') ||
-      formData.get('SmsMessageSid') ||
-      formData.get('SmsSid') ||
-      formData.get('message_sid')
-    ) as string;
-    
-    if (messageSid) {
-      console.log('✅ MessageSid capturado com sucesso:', messageSid);
-    } else {
-      console.error('❌ CRÍTICO: MessageSid NÃO CAPTURADO!');
-      console.error('💡 Isso significa que REPLIES NÃO FUNCIONARÃO!');
-      console.error('💡 Verifique se a Twilio está enviando o MessageSid no webhook');
+
+    if (!messageSid) {
+      console.error(`[${requestId}] ❌ CRÍTICO: MessageSid NÃO ENCONTRADO!`);
     }
-    
-    // 🔗 Extrair OriginalRepliedMessageSid para replies
-    const originalRepliedMessageSid = (
-      allFields['OriginalRepliedMessageSid'] ||
-      formData.get('OriginalRepliedMessageSid')
-    ) as string;
-    
-    console.log('🔗 [DEBUG] OriginalRepliedMessageSid - tentativas:', {
-      fromAllFields: allFields['OriginalRepliedMessageSid'] || '❌',
-      fromFormData: formData.get('OriginalRepliedMessageSid') || '❌',
-      final: originalRepliedMessageSid || '❌ NENHUM MÉTODO FUNCIONOU',
-      isReply: !!originalRepliedMessageSid
+
+    const originalRepliedMessageSid = allFields["OriginalRepliedMessageSid"] || null;
+    const buttonPayload = allFields["ButtonPayload"] || allFields["buttonPayload"] || null;
+    const buttonText = allFields["ButtonText"] || allFields["buttonText"] || null;
+
+    console.log(`[${requestId}] 📞 From: ${from}`);
+    console.log(`[${requestId}] 📞 To: ${to}`);
+    console.log(`[${requestId}] 💬 Body: ${body?.substring(0, 100)}`);
+    console.log(`[${requestId}] 📎 NumMedia: ${numMedia}`);
+    console.log(`[${requestId}] 🆔 MessageSid: ${messageSid || "❌ NULL"}`);
+    console.log(`[${requestId}] 🔗 Reply: ${originalRepliedMessageSid || "Não"}`);
+
+    await logDebug(supabase, {
+      timestamp: new Date().toISOString(),
+      source: "twilio_webhook",
+      event_type: "extracted_fields",
+      raw_payload: null,
+      processed_data: { from, to, body: body?.substring(0, 200), numMedia, messageSid, originalRepliedMessageSid },
+      message_sid: messageSid,
+      client_phone: from,
+      success: true,
+      error_message: null,
+      step: "STEP_3_EXTRACTED_FIELDS",
     });
-    
-    // 🔘 Campos para templates com botões - tentar múltiplas variações
-    const buttonPayload = (
-      allFields['ButtonPayload'] ||
-      allFields['buttonPayload'] ||
-      allFields['button_payload'] ||
-      formData.get('ButtonPayload') ||
-      formData.get('buttonPayload') ||
-      formData.get('button_payload')
-    ) as string;
-    
-    const buttonText = (
-      allFields['ButtonText'] ||
-      allFields['buttonText'] ||
-      allFields['button_text'] ||
-      allFields['Button'] ||
-      formData.get('ButtonText') ||
-      formData.get('buttonText') ||
-      formData.get('button_text') ||
-      formData.get('Button')
-    ) as string;
-    
-    // Também verificar se o Body contém indicação de botão
-    const isButtonResponse = body && (
-      body.startsWith('button:') || 
-      body.startsWith('btn:') ||
-      allFields['EventType'] === 'BUTTON'
-    );
-    
-    console.log('🔘 [DEBUG] Tentativa de captura de botão:', {
-      buttonPayload_variations: {
-        ButtonPayload: allFields['ButtonPayload'] || '❌',
-        buttonPayload: allFields['buttonPayload'] || '❌',
-        button_payload: allFields['button_payload'] || '❌'
-      },
-      buttonText_variations: {
-        ButtonText: allFields['ButtonText'] || '❌',
-        buttonText: allFields['buttonText'] || '❌',
-        button_text: allFields['button_text'] || '❌',
-        Button: allFields['Button'] || '❌'
-      },
-      body: body || '❌',
-      isButtonResponse,
-      finalButtonPayload: buttonPayload || 'N/A',
-      finalButtonText: buttonText || 'N/A'
-    });
-    
-    if (buttonPayload || buttonText || isButtonResponse) {
-      console.log('🔘 TEMPLATE BUTTON DETECTADO:', {
-        buttonText: buttonText || body || 'N/A',
-        buttonPayload: buttonPayload || 'N/A',
-        isButtonResponse,
-        willSaveAsSpecialMessage: true,
-        messageWillInclude: '🔘 Botão clicado'
-      });
-    }
-    
-    console.log("📨 Campos extraídos e processados:", {
-      from,
-      bodyPreview: body?.substring(0, 50),
-      numMedia,
-      profileName,
-      messageSid: messageSid || '❌ NULL',
-      originalRepliedMessageSid: originalRepliedMessageSid || '❌ NULL',
-      buttonPayload: buttonPayload || 'N/A',
-      buttonText: buttonText || 'N/A',
-      hasMessageSid: !!messageSid,
-      hasReply: !!originalRepliedMessageSid,
-      hasButton: !!(buttonPayload || buttonText)
-    });
-    
-    // Coletar todas as mídias (até 10 arquivos)
-    // NÃO confiar em NumMedia - verificar diretamente se MediaUrl{i} existe
-    // pois o Twilio às vezes envia NumMedia: "0" mesmo quando há mídia
+
+    // ========== PASSO 4: PROCESSAR MÍDIAS ==========
+    console.log(`\n[${requestId}] 📷 PASSO 4: Processando mídias...`);
+
     const mediaUrls: string[] = [];
     const mediaTypes: string[] = [];
-    
-    for (let i = 0; i < 10; i++) {  // Twilio suporta até 10 mídias por mensagem
-      const mediaUrl = (allFields[`MediaUrl${i}`] || formData.get(`MediaUrl${i}`)) as string;
-      const mediaType = (allFields[`MediaContentType${i}`] || formData.get(`MediaContentType${i}`)) as string;
-      
+
+    for (let i = 0; i < 10; i++) {
+      const mediaUrl = allFields[`MediaUrl${i}`];
+      const mediaType = allFields[`MediaContentType${i}`];
+
       if (mediaUrl && mediaUrl.trim()) {
         mediaUrls.push(mediaUrl);
-        mediaTypes.push(mediaType || 'unknown');
-        console.log(`📷 Mídia ${i} encontrada:`, { url: mediaUrl.substring(0, 80), type: mediaType });
+        mediaTypes.push(mediaType || "unknown");
+        console.log(`[${requestId}] 📎 Mídia ${i}: ${mediaType} - ${mediaUrl.substring(0, 80)}`);
       }
     }
-    
-    // Log para debug
-    if (mediaUrls.length > 0) {
-      console.log(`📷 Total de mídias detectadas: ${mediaUrls.length} (NumMedia informado: ${numMedia})`);
+
+    console.log(`[${requestId}] 📊 Mídias detectadas: ${mediaUrls.length} (NumMedia: ${numMedia})`);
+
+    if (mediaUrls.length !== parseInt(numMedia)) {
+      console.warn(`[${requestId}] ⚠️ DISCREPÂNCIA: NumMedia=${numMedia} mas encontramos ${mediaUrls.length}`);
     }
 
-    // 📝 Construir texto da mensagem (incluindo botões se houver)
-    let finalBody = body || '';
-    
-    // Se detectamos um botão, formatar a mensagem adequadamente
-    if (buttonText || buttonPayload || isButtonResponse) {
-      const displayText = buttonText || body || 'Botão';
-      const payloadInfo = buttonPayload ? `\n[Payload: ${buttonPayload}]` : '';
-      
-      finalBody = `🔘 Botão clicado: ${displayText}${payloadInfo}`;
-      
-      console.log('🔘 Mensagem de botão formatada:', {
-        original: body,
-        formatted: finalBody
-      });
-    }
-    
-    console.log("✉️ Mensagem processada:", { 
-      from, 
-      originalBody: body?.substring(0, 50),
-      finalBody: finalBody?.substring(0, 100),
-      numMedia, 
-      mediaCount: mediaUrls.length,
-      profileName, 
-      messageSid: messageSid || '❌ NULL',
-      originalRepliedMessageSid: originalRepliedMessageSid || '❌ NULL',
-      buttonPayload: buttonPayload || 'N/A',
-      buttonText: buttonText || 'N/A',
-      hasMessageSid: !!messageSid,
-      hasReply: !!originalRepliedMessageSid,
-      hasButton: !!(buttonText || buttonPayload)
+    await logDebug(supabase, {
+      timestamp: new Date().toISOString(),
+      source: "twilio_webhook",
+      event_type: "media_processing",
+      raw_payload: null,
+      processed_data: { mediaUrls, mediaTypes, numMediaReported: numMedia, numMediaFound: mediaUrls.length },
+      message_sid: messageSid,
+      client_phone: from,
+      success: true,
+      error_message: null,
+      step: "STEP_4_MEDIA_PROCESSING",
     });
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // ========== PASSO 5: VERIFICAR/CRIAR CLIENTE ==========
+    console.log(`\n[${requestId}] 👤 PASSO 5: Verificando cliente...`);
 
-    // Buscar ou criar contato (telefone é a PK)
     let { data: cliente, error: clienteError } = await supabase
-      .from('clientes')
-      .select('*')
-      .eq('telefone', from)
+      .from("clientes")
+      .select("*")
+      .eq("telefone", from)
       .maybeSingle();
 
     if (!cliente) {
-      console.log("Criando novo cliente:", from);
-      const nomeCliente = profileName || from.replace('whatsapp:', '').replace('+', '') || 'Desconhecido';
+      console.log(`[${requestId}] 🆕 Criando cliente...`);
+      const nomeCliente = profileName || from.replace("whatsapp:", "").replace("+", "") || "Desconhecido";
+
       const { data: novoCliente, error: createError } = await supabase
-        .from('clientes')
+        .from("clientes")
         .insert({
           telefone: from,
           nome: nomeCliente,
-          status_conversa: 'aberta',
+          status_conversa: "aberta",
           ultima_interacao: new Date().toISOString(),
           tags: [],
         })
@@ -421,345 +309,344 @@ serve(async (req) => {
         .single();
 
       if (createError) {
-        console.error("Erro ao criar cliente:", createError);
-        // Return 200 to prevent Twilio retries
-        return new Response(
-          '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-          {
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'text/xml',
-            },
-          }
-        );
+        console.error(`[${requestId}] ❌ Erro ao criar cliente:`, createError);
+
+        await logDebug(supabase, {
+          timestamp: new Date().toISOString(),
+          source: "twilio_webhook",
+          event_type: "client_creation_error",
+          raw_payload: null,
+          processed_data: { error: createError },
+          message_sid: messageSid,
+          client_phone: from,
+          success: false,
+          error_message: createError.message,
+          step: "STEP_5_CLIENT_ERROR",
+        });
+
+        return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+          headers: { ...corsHeaders, "Content-Type": "text/xml" },
+        });
       }
+
       cliente = novoCliente;
+      console.log(`[${requestId}] ✅ Cliente criado: ${cliente.telefone}`);
     } else {
-      // Atualizar última interação e nome se disponível
+      console.log(`[${requestId}] ✅ Cliente encontrado: ${cliente.telefone}`);
+
       const updateData: any = { ultima_interacao: new Date().toISOString() };
-      if (profileName && (cliente.nome === 'Desconhecido' || cliente.nome === from)) {
+      if (profileName && (cliente.nome === "Desconhecido" || cliente.nome === from)) {
         updateData.nome = profileName;
       }
-      
-      const { error: updateError } = await supabase
-        .from('clientes')
-        .update(updateData)
-        .eq('telefone', cliente.telefone);
 
-      if (updateError) {
-        console.error("Erro ao atualizar última interação:", updateError);
-      }
+      await supabase.from("clientes").update(updateData).eq("telefone", cliente.telefone);
     }
 
-    console.log("Cliente identificado:", cliente.telefone);
+    await logDebug(supabase, {
+      timestamp: new Date().toISOString(),
+      source: "twilio_webhook",
+      event_type: "client_check",
+      raw_payload: null,
+      processed_data: { cliente_id: cliente.telefone },
+      message_sid: messageSid,
+      client_phone: from,
+      success: true,
+      error_message: null,
+      step: "STEP_5_CLIENT_OK",
+    });
 
-    // Buscar ficha ativa do cliente
+    // ========== PASSO 6: BUSCAR FICHA ATIVA ==========
     const { data: fichaAtiva } = await supabase
-      .from('fichas_de_servico')
-      .select('id')
-      .eq('telefone_cliente', cliente.telefone)
-      .eq('status', 'Agendado')
-      .order('created_at', { ascending: false })
+      .from("fichas_de_servico")
+      .select("id")
+      .eq("telefone_cliente", cliente.telefone)
+      .eq("status", "Agendado")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // Buscar mensagem original se houver reply (OriginalRepliedMessageSid)
+    console.log(`[${requestId}] 📋 Ficha ativa: ${fichaAtiva?.id || "Nenhuma"}`);
+
+    // ========== PASSO 7: BUSCAR REPLY ==========
+    console.log(`\n[${requestId}] 🔗 PASSO 7: Verificando reply...`);
+
     let replyToMessageId = null;
     if (originalRepliedMessageSid) {
-      console.log('🔗 REPLY DETECTADO! Buscando mensagem original:', {
-        originalRepliedMessageSid,
-        allPossibleFields: {
-          OriginalRepliedMessageSid: allFields['OriginalRepliedMessageSid'],
-          Context: allFields['Context'],
-          ReferredMessage: allFields['ReferredMessage']
-        }
-      });
-      
+      console.log(`[${requestId}] 🔍 Reply detectado: ${originalRepliedMessageSid}`);
+
       const { data: originalMsg, error: originalError } = await supabase
-        .from('mensagens')
-        .select('id, texto, remetente, message_sid')
-        .eq('message_sid', originalRepliedMessageSid)
-        .single();
-      
-      if (originalError) {
-        console.error('❌ Erro ao buscar mensagem original:', originalError);
-      }
-      
+        .from("mensagens")
+        .select("id, texto, remetente")
+        .eq("message_sid", originalRepliedMessageSid)
+        .maybeSingle();
+
       if (originalMsg) {
         replyToMessageId = originalMsg.id;
-        console.log('✅ Mensagem original encontrada:', {
-          id: replyToMessageId,
-          message_sid: originalMsg.message_sid,
-          texto: originalMsg.texto?.substring(0, 30),
-          remetente: originalMsg.remetente
-        });
+        console.log(`[${requestId}] ✅ Mensagem original encontrada: ${replyToMessageId}`);
       } else {
-        console.warn('⚠️ Mensagem original NÃO encontrada com SID:', originalRepliedMessageSid);
-        console.warn('💡 Possíveis causas: MessageSid não foi salvo corretamente na mensagem original');
+        console.warn(`[${requestId}] ⚠️ Mensagem original NÃO encontrada`);
       }
     }
 
-    // Determinar tipo de mensagem baseado na mídia
-    const getTipoMensagem = (contentType: string): string => {
-      if (contentType.startsWith('image/')) return 'imagem';
-      if (contentType.startsWith('video/')) return 'video';
-      if (contentType.startsWith('audio/')) return 'audio';
-      return 'arquivo';
-    };
+    // ========== PASSO 8: VERIFICAR DUPLICIDADE ==========
+    console.log(`\n[${requestId}] 🔍 PASSO 8: Verificando duplicidade...`);
 
-    // Salvar mensagem(ns) no banco
-    
-    // ========== PROTEÇÃO CONTRA DUPLICIDADE ==========
-    // Verificar se já existe mensagem com mesmo message_sid
-    // Isso previne duplicações causadas por retries da Twilio
-    
     if (messageSid) {
       const { data: existingBySid } = await supabase
-        .from('mensagens')
-        .select('id')
-        .eq('message_sid', messageSid)
-        .limit(1)
+        .from("mensagens")
+        .select("id, texto, data_hora")
+        .eq("message_sid", messageSid)
         .maybeSingle();
-      
+
       if (existingBySid) {
-        console.log('⚠️ DUPLICIDADE DETECTADA: Mensagem com message_sid já existe:', messageSid);
-        return new Response(
-          '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-          { headers: { ...corsHeaders, 'Content-Type': 'text/xml' } }
-        );
+        console.warn(`[${requestId}] ⚠️ DUPLICIDADE! Mensagem já existe: ${existingBySid.id}`);
+
+        await logDebug(supabase, {
+          timestamp: new Date().toISOString(),
+          source: "twilio_webhook",
+          event_type: "duplicate_detected",
+          raw_payload: null,
+          processed_data: { existingMessage: existingBySid },
+          message_sid: messageSid,
+          client_phone: from,
+          success: true,
+          error_message: "Duplicidade",
+          step: "STEP_8_DUPLICATE",
+        });
+
+        return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+          headers: { ...corsHeaders, "Content-Type": "text/xml" },
+        });
       }
     }
 
-    // Se há mídia, criar uma mensagem para cada arquivo
+    console.log(`[${requestId}] ✅ Não é duplicidade`);
+
+    // ========== PASSO 9: SALVAR MENSAGEM(NS) ==========
+    console.log(`\n[${requestId}] 💾 PASSO 9: Salvando mensagem(ns)...`);
+
+    const getTipoMensagem = (contentType: string): string => {
+      if (contentType.startsWith("image/")) return "imagem";
+      if (contentType.startsWith("video/")) return "video";
+      if (contentType.startsWith("audio/")) return "audio";
+      return "arquivo";
+    };
+
+    // Formatar body se for botão
+    let finalBody = body || "";
+    if (buttonText || buttonPayload) {
+      finalBody = `🔘 Botão: ${buttonText || body}${buttonPayload ? ` [${buttonPayload}]` : ""}`;
+    }
+
+    let mensagensSalvas = 0;
+    let errosSalvamento = 0;
+
     if (mediaUrls.length > 0) {
-      console.log(`📷 Processando ${mediaUrls.length} mídias para salvar...`);
-      
+      console.log(`[${requestId}] 📷 Salvando ${mediaUrls.length} mídias...`);
+
       for (let i = 0; i < mediaUrls.length; i++) {
-        // Verificar se já existe mensagem com mesmo arquivo_url (proteção extra)
         const { data: existingByUrl } = await supabase
-          .from('mensagens')
-          .select('id')
-          .eq('arquivo_url', mediaUrls[i])
-          .limit(1)
+          .from("mensagens")
+          .select("id")
+          .eq("arquivo_url", mediaUrls[i])
           .maybeSingle();
-        
+
         if (existingByUrl) {
-          console.log(`⚠️ DUPLICIDADE DETECTADA: Mídia ${i} com URL já existe, pulando:`, mediaUrls[i].substring(0, 80));
+          console.warn(`[${requestId}] ⚠️ Mídia ${i} já existe, pulando`);
           continue;
         }
-        
-        const textoMidia = i === 0 && finalBody ? finalBody : (body || `Arquivo ${i + 1}`);
+
+        const textoMidia = i === 0 && finalBody ? finalBody : `Arquivo ${i + 1}`;
         const mensagem = {
           cliente_id: cliente.telefone,
-          remetente: 'cliente',
+          remetente: "cliente",
           texto: textoMidia,
           tipo: getTipoMensagem(mediaTypes[i]),
           arquivo_url: mediaUrls[i],
-          status: 'recebido',
+          status: "recebido",
           data_hora: new Date().toISOString(),
           ficha_id: fichaAtiva?.id || null,
           message_sid: messageSid,
           reply_to_message_id: replyToMessageId,
         };
 
-        console.log(`💾 Salvando mídia ${i + 1}/${mediaUrls.length}:`, {
-          tipo: mensagem.tipo,
-          url: mediaUrls[i].substring(0, 80),
-          hasText: !!mensagem.texto,
-          messageSid: messageSid || 'N/A'
-        });
+        console.log(`[${requestId}] 💾 Salvando mídia ${i + 1}...`);
 
-        // Usar função com retry
-        const sucesso = await saveMessageWithRetry(
-          supabase,
-          mensagem,
-          messageSid,
-          cliente.telefone
-        );
+        const sucesso = await saveMessageWithRetry(supabase, mensagem, messageSid, cliente.telefone);
 
         if (sucesso) {
-          console.log(`✅ Mídia ${i + 1} salva com sucesso`);
+          mensagensSalvas++;
+
+          await logDebug(supabase, {
+            timestamp: new Date().toISOString(),
+            source: "twilio_webhook",
+            event_type: "message_saved",
+            raw_payload: null,
+            processed_data: { tipo: "midia", index: i },
+            message_sid: messageSid,
+            client_phone: from,
+            success: true,
+            error_message: null,
+            step: `STEP_9_SAVE_MEDIA_${i}_OK`,
+          });
         } else {
-          console.error(`❌ Mídia ${i + 1} enviada para fila de backup`);
+          errosSalvamento++;
+
+          await logDebug(supabase, {
+            timestamp: new Date().toISOString(),
+            source: "twilio_webhook",
+            event_type: "save_error",
+            raw_payload: null,
+            processed_data: { tipo: "midia", index: i },
+            message_sid: messageSid,
+            client_phone: from,
+            success: false,
+            error_message: "Falha após retries",
+            step: `STEP_9_SAVE_MEDIA_${i}_ERROR`,
+          });
         }
       }
     } else {
-      // Mensagem de texto apenas
+      // Mensagem de texto
+      console.log(`[${requestId}] 💬 Salvando texto...`);
+
       const mensagem = {
         cliente_id: cliente.telefone,
-        remetente: 'cliente',
-        texto: finalBody || body || '',
-        tipo: 'texto',
+        remetente: "cliente",
+        texto: finalBody,
+        tipo: "texto",
         arquivo_url: null,
-        status: 'recebido',
+        status: "recebido",
         data_hora: new Date().toISOString(),
         ficha_id: fichaAtiva?.id || null,
         message_sid: messageSid,
         reply_to_message_id: replyToMessageId,
       };
 
-      console.log('💾 Salvando mensagem de texto:', {
-        texto: mensagem.texto?.substring(0, 50),
-        hasButton: !!(buttonText || buttonPayload || isButtonResponse),
-        buttonDetected: {
-          buttonText: !!buttonText,
-          buttonPayload: !!buttonPayload,
-          isButtonResponse
-        }
-      });
+      const sucesso = await saveMessageWithRetry(supabase, mensagem, messageSid, cliente.telefone);
 
-      // Usar função com retry
-      const sucesso = await saveMessageWithRetry(
-        supabase,
-        mensagem,
-        messageSid,
-        cliente.telefone
-      );
+      if (sucesso) {
+        mensagensSalvas++;
 
-      if (!sucesso) {
-        console.error("❌ Mensagem enviada para fila de backup após falhas");
-        // Continuar mesmo com falha - a fila de backup vai reprocessar
+        await logDebug(supabase, {
+          timestamp: new Date().toISOString(),
+          source: "twilio_webhook",
+          event_type: "message_saved",
+          raw_payload: null,
+          processed_data: { tipo: "texto", texto: finalBody?.substring(0, 50) },
+          message_sid: messageSid,
+          client_phone: from,
+          success: true,
+          error_message: null,
+          step: "STEP_9_SAVE_TEXT_OK",
+        });
+      } else {
+        errosSalvamento++;
+
+        await logDebug(supabase, {
+          timestamp: new Date().toISOString(),
+          source: "twilio_webhook",
+          event_type: "save_error",
+          raw_payload: null,
+          processed_data: { tipo: "texto" },
+          message_sid: messageSid,
+          client_phone: from,
+          success: false,
+          error_message: "Falha após retries",
+          step: "STEP_9_SAVE_TEXT_ERROR",
+        });
       }
     }
 
-    console.log("Mensagem(ns) salva(s) com sucesso");
-
-    // ========== DETECÇÃO AUTOMÁTICA DE RESPOSTAS NPS ==========
-    // Verificar se há um NPS pendente aguardando resposta para este cliente
-    const textoParaVerificar = body?.trim() || '';
+    // ========== NPS ==========
+    const textoParaVerificar = body?.trim() || "";
     const npsScoreMatch = textoParaVerificar.match(/^(10|[0-9])$/);
-    
+
     if (npsScoreMatch) {
-      console.log("📊 [NPS] Possível resposta NPS detectada:", textoParaVerificar);
-      
-      // Buscar NPS pendente (enviado mas não respondido) para este cliente
-      const { data: npsPendente, error: npsError } = await supabase
-        .from('nps_respostas')
-        .select('*')
-        .eq('telefone_cliente', from)
-        .is('nota', null)
-        .not('enviado_em', 'is', null)
-        .order('enviado_em', { ascending: false })
+      const { data: npsPendente } = await supabase
+        .from("nps_respostas")
+        .select("*")
+        .eq("telefone_cliente", from)
+        .is("nota", null)
+        .not("enviado_em", "is", null)
+        .order("enviado_em", { ascending: false })
         .limit(1)
         .maybeSingle();
-      
-      if (npsError) {
-        console.error("📊 [NPS] Erro ao buscar NPS pendente:", npsError);
-      }
-      
+
       if (npsPendente) {
         const nota = parseInt(npsScoreMatch[1], 10);
-        
-        // Classificar a nota
-        let classificacao: string;
-        let tipoFeedback: string;
-        let prioridade = false;
-        
-        if (nota >= 9) {
-          classificacao = 'promotor';
-          tipoFeedback = 'positivo';
-        } else if (nota >= 7) {
-          classificacao = 'neutro';
-          tipoFeedback = 'neutro';
-        } else {
-          classificacao = 'detrator';
-          tipoFeedback = 'negativo';
-          prioridade = true;
-        }
-        
-        console.log("📊 [NPS] Registrando resposta:", {
-          npsId: npsPendente.id,
-          nota,
-          classificacao,
-          prioridade
-        });
-        
-        // Atualizar o registro NPS
-        const { error: updateError } = await supabase
-          .from('nps_respostas')
+        let classificacao = nota >= 9 ? "promotor" : nota >= 7 ? "neutro" : "detrator";
+
+        await supabase
+          .from("nps_respostas")
           .update({
             nota,
             classificacao,
-            tipo_feedback: tipoFeedback,
+            tipo_feedback: nota >= 9 ? "positivo" : nota >= 7 ? "neutro" : "negativo",
             respondido_em: new Date().toISOString(),
-            prioridade
+            prioridade: nota < 7,
           })
-          .eq('id', npsPendente.id);
-        
-        if (updateError) {
-          console.error("📊 [NPS] Erro ao atualizar NPS:", updateError);
-        } else {
-          console.log("📊 [NPS] ✅ Resposta NPS registrada com sucesso!");
-          console.log("📊 [NPS] Nota:", nota, "| Classificação:", classificacao);
-        }
-      } else {
-        console.log("📊 [NPS] Nenhum NPS pendente encontrado para este cliente");
-      }
-    }
-    
-    // Verificar se é uma resposta de feedback (texto livre após nota registrada)
-    if (textoParaVerificar && !npsScoreMatch && textoParaVerificar.length > 2) {
-      // Buscar NPS que já tem nota mas ainda não tem feedback
-      const { data: npsAguardandoFeedback } = await supabase
-        .from('nps_respostas')
-        .select('*')
-        .eq('telefone_cliente', from)
-        .not('nota', 'is', null)
-        .is('feedback', null)
-        .not('respondido_em', 'is', null)
-        .order('respondido_em', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (npsAguardandoFeedback) {
-        // Verificar se a resposta foi nos últimos 30 minutos (janela razoável para feedback)
-        const respondidoEm = new Date(npsAguardandoFeedback.respondido_em);
-        const agora = new Date();
-        const diffMinutos = (agora.getTime() - respondidoEm.getTime()) / (1000 * 60);
-        
-        if (diffMinutos <= 30) {
-          console.log("📊 [NPS] Possível feedback detectado:", textoParaVerificar.substring(0, 50));
-          
-          const { error: feedbackError } = await supabase
-            .from('nps_respostas')
-            .update({
-              feedback: textoParaVerificar,
-              feedback_respondido_em: new Date().toISOString()
-            })
-            .eq('id', npsAguardandoFeedback.id);
-          
-          if (feedbackError) {
-            console.error("📊 [NPS] Erro ao salvar feedback:", feedbackError);
-          } else {
-            console.log("📊 [NPS] ✅ Feedback registrado com sucesso!");
-          }
-        }
-      }
-    }
-    // ========== FIM DETECÇÃO NPS ==========
+          .eq("id", npsPendente.id);
 
-    // Resposta TwiML vazia (não responde automaticamente)
-    return new Response(
-      '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/xml',
-        },
+        console.log(`[${requestId}] 📊 NPS registrado: ${nota} (${classificacao})`);
       }
-    );
+    }
+
+    // ========== RESUMO FINAL ==========
+    const duration = Date.now() - startTime;
+
+    console.log(`\n${"=".repeat(80)}`);
+    console.log(`✅ [${requestId}] WEBHOOK CONCLUÍDO`);
+    console.log(`${"=".repeat(80)}`);
+    console.log(`⏱️  Duração: ${duration}ms`);
+    console.log(`📊 Salvas: ${mensagensSalvas} | Erros: ${errosSalvamento}`);
+    console.log(`${"=".repeat(80)}\n`);
+
+    await logDebug(supabase, {
+      timestamp: new Date().toISOString(),
+      source: "twilio_webhook",
+      event_type: "webhook_complete",
+      raw_payload: null,
+      processed_data: { duration_ms: duration, messages_saved: mensagensSalvas, errors: errosSalvamento },
+      message_sid: messageSid,
+      client_phone: from,
+      success: errosSalvamento === 0,
+      error_message: errosSalvamento > 0 ? `${errosSalvamento} erros` : null,
+      step: "STEP_10_COMPLETE",
+    });
+
+    return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+      headers: { ...corsHeaders, "Content-Type": "text/xml" },
+    });
   } catch (error) {
-    console.error("Erro no webhook:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    // Always return 200 to Twilio to prevent retries
-    return new Response(
-      '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/xml',
-        },
-      }
-    );
+    const duration = Date.now() - startTime;
+
+    console.error(`\n${"=".repeat(80)}`);
+    console.error(`💥 [${requestId}] ERRO FATAL`);
+    console.error(`${"=".repeat(80)}`);
+    console.error(`⏱️  Duração até erro: ${duration}ms`);
+    console.error(`❌ Erro:`, error);
+    console.error(`${"=".repeat(80)}\n`);
+
+    try {
+      await logDebug(supabase, {
+        timestamp: new Date().toISOString(),
+        source: "twilio_webhook",
+        event_type: "fatal_error",
+        raw_payload: null,
+        processed_data: { error: error instanceof Error ? error.message : String(error) },
+        message_sid: null,
+        client_phone: null,
+        success: false,
+        error_message: error instanceof Error ? error.stack : String(error),
+        step: "ERROR_FATAL",
+      });
+    } catch (e) {
+      console.error("Erro ao salvar log:", e);
+    }
+
+    return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+      headers: { ...corsHeaders, "Content-Type": "text/xml" },
+    });
   }
 });
