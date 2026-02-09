@@ -778,6 +778,39 @@ export type Database = {
         }
         Relationships: []
       }
+      twilio_sync_control: {
+        Row: {
+          errors: number | null
+          id: string
+          last_message_sid: string | null
+          last_sync_timestamp: string
+          messages_already_exist: number | null
+          messages_found: number | null
+          messages_new: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          errors?: number | null
+          id?: string
+          last_message_sid?: string | null
+          last_sync_timestamp?: string
+          messages_already_exist?: number | null
+          messages_found?: number | null
+          messages_new?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          errors?: number | null
+          id?: string
+          last_message_sid?: string | null
+          last_sync_timestamp?: string
+          messages_already_exist?: number | null
+          messages_found?: number | null
+          messages_new?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
