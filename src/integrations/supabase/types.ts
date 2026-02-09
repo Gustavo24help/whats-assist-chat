@@ -799,6 +799,51 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_debug_logs: {
+        Row: {
+          client_phone: string | null
+          created_at: string | null
+          error_message: string | null
+          event_type: string
+          id: string
+          message_sid: string | null
+          processed_data: Json | null
+          raw_payload: Json | null
+          source: string
+          step: string
+          success: boolean
+          timestamp: string
+        }
+        Insert: {
+          client_phone?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          event_type: string
+          id?: string
+          message_sid?: string | null
+          processed_data?: Json | null
+          raw_payload?: Json | null
+          source: string
+          step: string
+          success?: boolean
+          timestamp?: string
+        }
+        Update: {
+          client_phone?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          message_sid?: string | null
+          processed_data?: Json | null
+          raw_payload?: Json | null
+          source?: string
+          step?: string
+          success?: boolean
+          timestamp?: string
+        }
+        Relationships: []
+      }
       whatsapp_templates: {
         Row: {
           body: string
