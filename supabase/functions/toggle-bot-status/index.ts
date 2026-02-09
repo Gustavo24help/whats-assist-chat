@@ -41,30 +41,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ===== Autenticação / auditoria confiável =====
-    // O frontend envia o JWT automaticamente em supabase.functions.invoke.
-    // Se não houver JWT (ou for inválido), NÃO permitir registrar como "manual"
-    // nem aceitar executado_por_id arbitrário.
+    // ===== Autenticação obrigatória =====
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
-
-    let origem: 'manual' | 'automatico' | 'sistema' = 'sistema';
-    let executado_por_id: string | null = null;
-    if (token) {
-      const { data, error: userError } = await supabase.auth.getUser(token);
-      if (!userError && data?.user) {
-        origem = origemBody === 'automatico' ? 'automatico' : 'manual';
-        executado_por_id = data.user.id;
-
-        if (executadoPorBody && executadoPorBody !== data.user.id) {
-          console.warn(
-            `[toggle-bot-status] executado_por_id divergente (body=${executadoPorBody}, jwt=${data.user.id}) - usando JWT.`
-          );
-        }
-      } else {
-        console.warn('[toggle-bot-status] JWT ausente/inválido - registrando como sistema');
-      }
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+    const token = authHeader.slice('Bearer '.length);
+    const { data: authData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !authData?.user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const origem: 'manual' | 'automatico' | 'sistema' = origemBody === 'automatico' ? 'automatico' : 'manual';
+    const executado_por_id: string = authData.user.id;
 
     console.log(
       `[toggle-bot-status] Alterando status do bot para ${telefone}: ${bot_status}, origem: ${origem}, executado_por: ${executado_por_id || 'sistema'}`

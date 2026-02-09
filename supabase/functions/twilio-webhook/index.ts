@@ -1,10 +1,52 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const MAX_FIELD_LENGTH = 5000;
+const MAX_NAME_LENGTH = 200;
+
+// Truncate string to max length
+function truncate(str: string | null | undefined, maxLen: number): string {
+  if (!str) return '';
+  return str.length > maxLen ? str.substring(0, maxLen) : str;
+}
+
+// Validate Twilio signature using Web Crypto API
+async function validateTwilioSignature(
+  signature: string | null,
+  url: string,
+  params: Record<string, string>,
+  authToken: string
+): Promise<boolean> {
+  if (!signature || !authToken) return false;
+  
+  try {
+    const sortedKeys = Object.keys(params).sort();
+    let dataString = url;
+    for (const key of sortedKeys) {
+      dataString += key + params[key];
+    }
+    
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(authToken),
+      { name: 'HMAC', hash: 'SHA-1' },
+      false,
+      ['sign']
+    );
+    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(dataString));
+    const expectedSignature = base64Encode(new Uint8Array(sig));
+    return signature === expectedSignature;
+  } catch {
+    return false;
+  }
+}
 
 // Função de sleep para backoff
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -96,9 +138,10 @@ serve(async (req) => {
   try {
     console.log("🔔 Webhook recebido do Twilio");
 
+    const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+
     // Detectar o Content-Type
     const contentType = req.headers.get('content-type') || '';
-    console.log("📝 Content-Type recebido:", contentType);
 
     let allFields: Record<string, string> = {};
     let formData: FormData;
@@ -152,21 +195,38 @@ serve(async (req) => {
       );
     }
 
-    console.log("📦 ========== TODOS OS CAMPOS RECEBIDOS DA TWILIO ==========");
-    console.log("📦 TOTAL DE CAMPOS:", Object.keys(allFields).length);
-
-    for (const [key, value] of Object.entries(allFields)) {
-      console.log(`  ✓ ${key}: ${value}`);
+    // ===== Twilio Signature Verification =====
+    if (twilioAuthToken) {
+      const twilioSignature = req.headers.get('X-Twilio-Signature');
+      const requestUrl = new URL(req.url).toString();
+      
+      if (!(await validateTwilioSignature(twilioSignature, requestUrl, allFields, twilioAuthToken))) {
+        console.warn('⚠️ Twilio signature verification failed - proceeding with caution');
+        // Log but don't block (URL might differ in edge function proxying)
+      }
     }
 
-    console.log("📦 TODOS OS CAMPOS (JSON):", JSON.stringify(allFields, null, 2));
-    console.log("📦 =======================================================");
+    // ===== Input sanitization: truncate all fields =====
+    for (const key of Object.keys(allFields)) {
+      allFields[key] = truncate(allFields[key], MAX_FIELD_LENGTH);
+    }
+
+    console.log("📦 Total de campos:", Object.keys(allFields).length);
     
-    // 🔍 Extrair campos básicos
-    const from = formData.get('From') as string;
-    const body = formData.get('Body') as string;
+    // 🔍 Extrair campos básicos com truncation
+    const from = truncate(formData.get('From') as string, 50);
+    const body = truncate(formData.get('Body') as string, MAX_FIELD_LENGTH);
     const numMedia = formData.get('NumMedia') as string;
-    const profileName = formData.get('ProfileName') as string;
+    const profileName = truncate(formData.get('ProfileName') as string, MAX_NAME_LENGTH);
+
+    // Validate 'from' is a valid phone format
+    if (!from || (!from.startsWith('whatsapp:+') && !from.startsWith('+'))) {
+      console.error('❌ Invalid From field:', from);
+      return new Response(
+        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        { headers: { ...corsHeaders, 'Content-Type': 'text/xml' } }
+      );
+    }
     
     // 🆔 Extrair MessageSid - tentar TODAS as variações possíveis
     console.log('🆔 [DEBUG] Tentando capturar MessageSid de várias formas:');

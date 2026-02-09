@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
-// Declare EdgeRuntime for Supabase Edge Functions
 declare const EdgeRuntime: {
   waitUntil: (promise: Promise<unknown>) => void;
 };
@@ -11,13 +10,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Função para enviar webhook de forma assíncrona (não bloqueia a resposta)
 async function sendWebhookAsync(webhookUrl: string, payload: Record<string, unknown>) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 segundos
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
   
   try {
-    console.log('📤 Enviando webhook para:', webhookUrl);
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -29,8 +26,6 @@ async function sendWebhookAsync(webhookUrl: string, payload: Record<string, unkn
     
     if (!response.ok) {
       console.error('❌ Erro ao enviar webhook:', await response.text());
-    } else {
-      console.log('✅ Webhook enviado com sucesso');
     }
   } catch (error: unknown) {
     clearTimeout(timeoutId);
@@ -54,7 +49,78 @@ serve(async (req) => {
     );
 
     const orcamentoData = await req.json();
-    console.log('📝 Orçamento recebido:', orcamentoData);
+
+    // ===== Input Validation =====
+    if (!orcamentoData.ficha_nome || typeof orcamentoData.ficha_nome !== 'string' || orcamentoData.ficha_nome.length > 200) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'ficha_nome inválido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!orcamentoData.prestador_cpf || typeof orcamentoData.prestador_cpf !== 'string' || orcamentoData.prestador_cpf.length > 20) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'prestador_cpf inválido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate numeric fields
+    const numericFields = ['valor_mao_obra', 'valor_pecas', 'valor_total', 'porcentagem_desconto'];
+    for (const field of numericFields) {
+      if (orcamentoData[field] !== undefined && orcamentoData[field] !== null) {
+        const val = Number(orcamentoData[field]);
+        if (isNaN(val) || val < 0 || val > 99999999) {
+          return new Response(
+            JSON.stringify({ success: false, error: `${field} inválido` }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+
+    // Validate string length limits
+    if (orcamentoData.observacoes && (typeof orcamentoData.observacoes !== 'string' || orcamentoData.observacoes.length > 2000)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Observações excede limite' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (orcamentoData.prestador_nome && (typeof orcamentoData.prestador_nome !== 'string' || orcamentoData.prestador_nome.length > 200)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'prestador_nome inválido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate ficha exists
+    const { data: fichaExists } = await supabaseClient
+      .from('fichas_de_servico')
+      .select('id')
+      .eq('id', orcamentoData.ficha_nome)
+      .maybeSingle();
+
+    if (!fichaExists) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Ficha não encontrada' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate prestador exists
+    const { data: prestadorExists } = await supabaseClient
+      .from('prestadores')
+      .select('cpf')
+      .eq('cpf', orcamentoData.prestador_cpf)
+      .maybeSingle();
+
+    if (!prestadorExists) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Prestador não encontrado' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('📝 Orçamento válido, processando');
 
     // Buscar webhook configurado
     const { data: config } = await supabaseClient
@@ -63,14 +129,11 @@ serve(async (req) => {
       .eq('chave', 'webhook_orcamento')
       .single();
 
-    // Retornar sucesso IMEDIATAMENTE para o cliente
-    // O webhook será enviado em background
     const response = new Response(
       JSON.stringify({ success: true, message: 'Orçamento processado com sucesso' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-    // Enviar webhook de forma assíncrona (não bloqueia a resposta)
     if (config?.valor) {
       const webhookPayload = {
         ficha_id: orcamentoData.ficha_nome,
@@ -88,17 +151,14 @@ serve(async (req) => {
         data_criacao: new Date().toISOString(),
       };
 
-      // Usar EdgeRuntime.waitUntil para processar em background
       EdgeRuntime.waitUntil(sendWebhookAsync(config.valor, webhookPayload));
-    } else {
-      console.log('⚠️ Webhook não configurado');
     }
 
     return response;
   } catch (error) {
-    console.error('❌ Erro ao processar orçamento:', error);
+    console.error('❌ Erro ao processar orçamento');
     return new Response(
-      JSON.stringify({ success: false, error: String(error) }),
+      JSON.stringify({ success: false, error: 'Erro interno ao processar orçamento' }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

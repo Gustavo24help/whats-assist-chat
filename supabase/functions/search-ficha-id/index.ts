@@ -6,16 +6,30 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Validate authorization
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('[search-ficha-id] Missing authorization header');
+    // ===== Authentication: Validate JWT token =====
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized', phones: [] }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser(token);
+    if (userError || !userData?.user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized', phones: [] }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -23,43 +37,42 @@ Deno.serve(async (req) => {
     }
 
     const { term } = await req.json();
-    
-    console.log('[search-ficha-id] Searching for term:', term);
 
-    // Validate term
     if (!term || typeof term !== 'string') {
-      console.log('[search-ficha-id] Invalid term provided');
       return new Response(
         JSON.stringify({ error: 'Term is required', phones: [] }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const trimmedTerm = term.trim();
-    
-    // Require minimum length for security (avoid too broad searches)
+    const trimmedTerm = term.trim().substring(0, 100); // Limit length
+
     if (trimmedTerm.length < 3) {
-      console.log('[search-ficha-id] Term too short:', trimmedTerm.length);
       return new Response(
         JSON.stringify({ error: 'Term must be at least 3 characters', phones: [] }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create Supabase client with SERVICE ROLE to bypass RLS
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+    // Sanitize: only allow alphanumeric, spaces, hyphens
+    const sanitized = trimmedTerm.replace(/[^a-zA-Z0-9\s\-_àáâãéêíóôõúüçÀÁÂÃÉÊÍÓÔÕÚÜÇ]/g, '');
+    if (sanitized.length < 3) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid search term', phones: [] }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Search by ID (primary) and optionally nome_ficha for redundancy
     const { data: fichas, error } = await supabase
       .from('fichas_de_servico')
       .select('id, telefone_cliente')
-      .or(`id.ilike.%${trimmedTerm}%,nome_ficha.ilike.%${trimmedTerm}%`);
+      .or(`id.ilike.%${sanitized}%,nome_ficha.ilike.%${sanitized}%`)
+      .limit(50);
 
     if (error) {
-      console.error('[search-ficha-id] Database error:', error);
+      console.error('[search-ficha-id] Database error');
       return new Response(
         JSON.stringify({ error: 'Database error', phones: [] }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -67,18 +80,14 @@ Deno.serve(async (req) => {
     }
 
     if (!fichas || fichas.length === 0) {
-      console.log('[search-ficha-id] No fichas found for term:', trimmedTerm);
       return new Response(
         JSON.stringify({ phones: [], matchedIds: [] }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Extract unique phone numbers and matched IDs
     const phones = [...new Set(fichas.map(f => f.telefone_cliente))];
     const matchedIds = [...new Set(fichas.map(f => f.id))];
-
-    console.log('[search-ficha-id] Found', phones.length, 'unique phones from', matchedIds.length, 'fichas');
 
     return new Response(
       JSON.stringify({ phones, matchedIds }),
@@ -86,7 +95,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[search-ficha-id] Unexpected error:', error);
+    console.error('[search-ficha-id] Unexpected error');
     return new Response(
       JSON.stringify({ error: 'Internal server error', phones: [] }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

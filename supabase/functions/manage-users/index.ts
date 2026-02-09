@@ -5,6 +5,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+async function getAuthenticatedUser(req: Request, supabaseUrl: string, supabaseAnonKey: string) {
+  const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { user: null, error: 'Missing or invalid Authorization header' };
+  }
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } }
+  });
+  const { data, error } = await supabaseAuth.auth.getUser(token);
+  if (error || !data?.user) {
+    return { user: null, error: 'Invalid or expired token' };
+  }
+  return { user: data.user, error: null };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -13,18 +29,63 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+
+    // ===== Authentication: Require valid JWT =====
+    const { user: authUser, error: authError } = await getAuthenticatedUser(req, supabaseUrl, supabaseAnonKey);
+    if (authError || !authUser) {
+      console.warn('[manage-users] Unauthorized access attempt');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== Authorization: Require admin role =====
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    const { data: adminCheck } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', authUser.id)
+      .eq('role', 'admin')
+      .single();
 
     const { action, userId, email, password, fullName, role } = await req.json()
 
-    console.log('Manage users action:', action, { userId, email, role })
+    // Only check_admin and list don't require admin role
+    const requiresAdmin = !['check_admin'].includes(action);
+    if (requiresAdmin && !adminCheck) {
+      console.warn(`[manage-users] Non-admin user ${authUser.id} attempted action: ${action}`);
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: Admin role required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Manage users action:', action, { userId, email, role, executedBy: authUser.id })
+
+    // Input validation
+    if (action === 'create') {
+      if (!email || typeof email !== 'string' || email.length > 255) {
+        return new Response(JSON.stringify({ error: 'Invalid email' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      if (!password || typeof password !== 'string' || password.length < 6 || password.length > 128) {
+        return new Response(JSON.stringify({ error: 'Password must be 6-128 characters' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      if (fullName && (typeof fullName !== 'string' || fullName.length > 200)) {
+        return new Response(JSON.stringify({ error: 'Invalid name' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
 
     switch (action) {
       case 'check_admin':
+        // Users can check their own admin status
+        const checkUserId = userId || authUser.id;
         const { data: roleData, error: roleError } = await supabase
           .from('user_roles')
           .select('role')
-          .eq('user_id', userId)
+          .eq('user_id', checkUserId)
           .eq('role', 'admin')
           .single()
 
@@ -45,7 +106,6 @@ Deno.serve(async (req) => {
 
         if (createError) throw createError
 
-        // Add role
         if (newUser.user) {
           await supabase.from('user_roles').insert({
             user_id: newUser.user.id,
@@ -58,6 +118,7 @@ Deno.serve(async (req) => {
         })
 
       case 'delete':
+        if (!userId) throw new Error('userId is required');
         const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
         if (deleteError) throw deleteError
 
@@ -66,10 +127,9 @@ Deno.serve(async (req) => {
         })
 
       case 'update_role':
-        // Delete old roles
+        if (!userId || !role) throw new Error('userId and role are required');
         await supabase.from('user_roles').delete().eq('user_id', userId)
         
-        // Add new role
         const { error: updateRoleError } = await supabase.from('user_roles').insert({
           user_id: userId,
           role
@@ -82,6 +142,7 @@ Deno.serve(async (req) => {
         })
 
       case 'reset_password':
+        if (!userId || !password) throw new Error('userId and password are required');
         const { error: resetError } = await supabase.auth.admin.updateUserById(userId, {
           password
         })
@@ -93,11 +154,9 @@ Deno.serve(async (req) => {
         })
 
       case 'list':
-        // Get all auth users
         const { data: { users }, error: listError } = await supabase.auth.admin.listUsers()
         if (listError) throw listError
 
-        // Get profiles and roles for each user
         const usersWithData = await Promise.all(
           users.map(async (user) => {
             const { data: profile } = await supabase
