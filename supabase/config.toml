@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.reprocess-backup-queue]
 verify_jwt = false
+
+[functions.sync-twilio-messages]
+verify_jwt = false
