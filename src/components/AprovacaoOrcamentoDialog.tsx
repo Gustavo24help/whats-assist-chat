@@ -58,12 +58,14 @@ Aguardamos sua confirmação para darmos sequência 😊.`
     try {
       if (enviarMensagem && mensagem.trim()) {
         try {
+          const { data: { session } } = await supabase.auth.getSession();
           const response = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`,
             {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session?.access_token}`,
               },
               body: JSON.stringify({
                 to: clienteTelefone,
