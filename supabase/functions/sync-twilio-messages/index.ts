@@ -19,9 +19,17 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Credenciais da Twilio
-    const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID') || 'AC13e7e780450a855f503451bca7114c07';
+    const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-    const twilioWhatsappNumber = Deno.env.get('TWILIO_WHATSAPP_NUMBER') || 'whatsapp:+554138911555';
+    const twilioWhatsappNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
+
+    if (!twilioAccountSid) {
+      throw new Error('TWILIO_ACCOUNT_SID não configurado');
+    }
+
+    if (!twilioWhatsappNumber) {
+      throw new Error('TWILIO_PHONE_NUMBER não configurado');
+    }
 
     if (!twilioAuthToken) {
       throw new Error('TWILIO_AUTH_TOKEN não configurado');
