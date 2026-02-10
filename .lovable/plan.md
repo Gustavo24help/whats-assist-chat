@@ -1,40 +1,29 @@
 
-## Bug Fix: WhatsApp message fails on budget approval
 
-### Root Cause
+## Atualizar a Edge Function `update-pagamento`
 
-The `send-whatsapp` edge function validates a Bearer token (JWT) on every request. However, the `AprovacaoOrcamentoDialog` component calls this function without including the user's authentication token in the request headers. This causes a **401 Unauthorized** response, silently failing to send the WhatsApp message.
+### O que muda
 
-The ficha data updates correctly because those operations use the Supabase client (which automatically includes auth). Only the direct `fetch()` call to `send-whatsapp` is missing the auth header.
+O arquivo enviado (`update-pagamento-CORRIGIDO.ts`) traz uma versão melhorada da função com:
 
-### Fix
+1. **Autenticação flexível** - Além do JWT de usuário, aceita um header `x-make-secret` para chamadas do Make.com
+2. **Logs mais detalhados** - Inclui timestamps, tempo de execução, e informações detalhadas de erro para facilitar depuração
+3. **Melhor tratamento de erros** - Mensagens de erro mais descritivas com detalhes técnicos
 
-**File: `src/components/AprovacaoOrcamentoDialog.tsx`**
+### Pré-requisito: Configurar Secret
 
-1. Get the current user's session token from Supabase before making the fetch call
-2. Include the `Authorization: Bearer <token>` header in the request to `send-whatsapp`
+O novo código usa uma variável `MAKE_SECRET_KEY` que **ainda não existe** no projeto. Será necessário adicioná-la antes de fazer o deploy.
 
-```text
-Before (broken):
-  fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    body: ...
-  })
+### Passos de implementação
 
-After (fixed):
-  const { data: { session } } = await supabase.auth.getSession();
-  fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session?.access_token}`,
-    },
-    body: ...
-  })
-```
+1. **Solicitar a secret `MAKE_SECRET_KEY`** ao usuário para autenticação do Make.com
+2. **Substituir o conteúdo** de `supabase/functions/update-pagamento/index.ts` pelo código do arquivo enviado
+3. **Deploy automático** da função atualizada
 
-### Technical Details
+### Detalhes técnicos
 
-- Only one file needs to change: `AprovacaoOrcamentoDialog.tsx`
-- The `supabase` client is already imported in this file (line 14)
-- No database or schema changes needed
-- No impact on existing data
+- **Arquivo alterado:** `supabase/functions/update-pagamento/index.ts` (substituição completa)
+- **Nova secret necessária:** `MAKE_SECRET_KEY`
+- **Sem alterações no banco de dados** - a função continua atualizando os mesmos campos (`pagamento_link`, `pagamento_realizado`) na tabela `fichas_de_servico`
+- **Sem impacto em dados existentes** - apenas muda a lógica de autenticação e logging da função
+- A configuração `verify_jwt = false` no `config.toml` já está correta e permanece inalterada
