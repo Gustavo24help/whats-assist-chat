@@ -18,10 +18,15 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Credenciais da Twilio (com valores padrão)
+    // Credenciais da Twilio
     const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID") || "AC13e7e780450a855f503451bca7114c07";
     const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const twilioWhatsappNumber = Deno.env.get("TWILIO_WHATSAPP_NUMBER") || "whatsapp:+554138911555";
+    let twilioWhatsappNumber = Deno.env.get("TWILIO_PHONE_NUMBER") || "whatsapp:+554138911555";
+
+    // Garantir que tem o prefixo whatsapp:
+    if (!twilioWhatsappNumber.startsWith("whatsapp:")) {
+      twilioWhatsappNumber = "whatsapp:" + twilioWhatsappNumber;
+    }
 
     console.log(`📞 Configuração Twilio:`);
     console.log(`   Account SID: ${twilioAccountSid}`);
@@ -29,7 +34,7 @@ Deno.serve(async (req) => {
     console.log(`   Auth Token: ${twilioAuthToken ? "✅ Configurado" : "❌ FALTANDO"}`);
 
     if (!twilioAuthToken) {
-      throw new Error("TWILIO_AUTH_TOKEN não configurado - adicione nas variáveis de ambiente do Supabase");
+      throw new Error("TWILIO_AUTH_TOKEN não configurado");
     }
 
     // Buscar último sync
@@ -55,7 +60,8 @@ Deno.serve(async (req) => {
     // Buscar mensagens RECEBIDAS (To = nosso número)
     const url = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json?To=${encodeURIComponent(twilioWhatsappNumber)}&DateSent>=${dateSentAfter}&PageSize=100`;
 
-    console.log(`📡 URL da API: ${url.substring(0, 100)}...`);
+    console.log(`📡 Chamando Twilio API...`);
+    console.log(`   URL: ${url.substring(0, 120)}...`);
 
     const response = await fetch(url, {
       headers: {
@@ -65,7 +71,8 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ Erro da Twilio API: ${response.status} - ${errorText}`);
+      console.error(`❌ Erro da Twilio API: ${response.status}`);
+      console.error(`   Resposta: ${errorText.substring(0, 200)}`);
       throw new Error(`Twilio API error ${response.status}: ${errorText}`);
     }
 
@@ -90,10 +97,11 @@ Deno.serve(async (req) => {
 
         if (existente) {
           mensagensJaExistem++;
+          console.log(`⏭️  Já existe: ${msgTwilio.sid}`);
           continue;
         }
 
-        console.log(`📥 Nova mensagem: ${msgTwilio.sid}`);
+        console.log(`📥 Processando nova: ${msgTwilio.sid}`);
 
         // Buscar ou criar cliente
         const telefoneCliente = msgTwilio.from;
@@ -105,6 +113,7 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!cliente) {
+          console.log(`   Criando novo cliente: ${telefoneCliente}`);
           const nomeCliente = telefoneCliente.replace("whatsapp:", "").replace("+", "");
           const { data: novoCliente, error: createClienteError } = await supabase
             .from("clientes")
@@ -119,7 +128,7 @@ Deno.serve(async (req) => {
             .single();
 
           if (createClienteError) {
-            console.error(`❌ Erro ao criar cliente ${telefoneCliente}:`, createClienteError);
+            console.error(`❌ Erro ao criar cliente:`, createClienteError);
             erros++;
             errosDetalhados.push(`Cliente ${telefoneCliente}: ${createClienteError.message}`);
             continue;
@@ -134,6 +143,7 @@ Deno.serve(async (req) => {
         let texto = msgTwilio.body || "";
 
         if (msgTwilio.num_media && parseInt(msgTwilio.num_media) > 0) {
+          console.log(`   Tem ${msgTwilio.num_media} mídia(s)`);
           // Buscar detalhes da mídia
           const mediaUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages/${msgTwilio.sid}/Media.json`;
 
@@ -154,6 +164,7 @@ Deno.serve(async (req) => {
               else tipo = "arquivo";
 
               if (!texto) texto = `Arquivo 1`;
+              console.log(`   Tipo: ${tipo}, URL: ${arquivoUrl.substring(0, 50)}...`);
             }
           }
         }
@@ -187,15 +198,15 @@ Deno.serve(async (req) => {
         const { error } = await supabase.from("mensagens").insert(mensagem);
 
         if (error) {
-          console.error(`❌ Erro ao salvar mensagem ${msgTwilio.sid}:`, error);
+          console.error(`❌ Erro ao salvar:`, error);
           erros++;
           errosDetalhados.push(`${msgTwilio.sid}: ${error.message}`);
         } else {
-          console.log(`✅ Salva: ${msgTwilio.sid} - ${texto.substring(0, 30)}`);
+          console.log(`✅ Salva: ${texto.substring(0, 30)}...`);
           mensagensNovas++;
         }
       } catch (err) {
-        console.error(`💥 Erro ao processar mensagem:`, err);
+        console.error(`💥 Erro ao processar:`, err);
         erros++;
         errosDetalhados.push(`Erro: ${err instanceof Error ? err.message : "Desconhecido"}`);
       }
@@ -230,7 +241,7 @@ Deno.serve(async (req) => {
     console.log(`${"=".repeat(60)}\n`);
 
     if (errosDetalhados.length > 0) {
-      console.log("📋 Detalhes dos erros:");
+      console.log("📋 Erros:");
       errosDetalhados.forEach((erro, i) => console.log(`  ${i + 1}. ${erro}`));
     }
 
@@ -247,7 +258,7 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
-    console.error("💥 Erro geral na sincronização:", error);
+    console.error("💥 Erro geral:", error);
     return new Response(
       JSON.stringify({
         success: false,
