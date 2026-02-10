@@ -1,28 +1,40 @@
 
+## Bug Fix: WhatsApp message fails on budget approval
 
-## Criar Edge Function sync-twilio-messages
+### Root Cause
 
-### O que sera feito
+The `send-whatsapp` edge function validates a Bearer token (JWT) on every request. However, the `AprovacaoOrcamentoDialog` component calls this function without including the user's authentication token in the request headers. This causes a **401 Unauthorized** response, silently failing to send the WhatsApp message.
 
-1. **Criar o arquivo** `supabase/functions/sync-twilio-messages/index.ts` com o codigo completo que voce enviou
-2. **Adicionar configuracao** no `supabase/config.toml` com `verify_jwt = false` (ja que sera chamada externamente via POST simples)
-3. **Deploy automatico** da funcao
+The ficha data updates correctly because those operations use the Supabase client (which automatically includes auth). Only the direct `fetch()` call to `send-whatsapp` is missing the auth header.
 
-### Pre-requisitos ja atendidos
+### Fix
 
-- A tabela `twilio_sync_control` ja existe no banco de dados
-- O secret `TWILIO_AUTH_TOKEN` ja esta configurado
-- O secret `TWILIO_ACCOUNT_SID` ja esta configurado
+**File: `src/components/AprovacaoOrcamentoDialog.tsx`**
 
-### Observacao importante
+1. Get the current user's session token from Supabase before making the fetch call
+2. Include the `Authorization: Bearer <token>` header in the request to `send-whatsapp`
 
-O conteudo do arquivo enviado foi truncado na linha 72 (de 260 linhas totais). Vou precisar que voce envie o restante do codigo (linhas 73-260) ou o arquivo completo novamente para que eu possa criar a funcao com o codigo completo.
-
-### Apos criacao
-
-- A funcao sera deployada automaticamente
-- Podera ser testada com o comando PowerShell que voce indicou:
 ```text
-Invoke-WebRequest -Uri "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/sync-twilio-messages" -Method POST
+Before (broken):
+  fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    body: ...
+  })
+
+After (fixed):
+  const { data: { session } } = await supabase.auth.getSession();
+  fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session?.access_token}`,
+    },
+    body: ...
+  })
 ```
 
+### Technical Details
+
+- Only one file needs to change: `AprovacaoOrcamentoDialog.tsx`
+- The `supabase` client is already imported in this file (line 14)
+- No database or schema changes needed
+- No impact on existing data
