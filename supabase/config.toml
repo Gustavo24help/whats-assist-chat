@@ -60,5 +60,5 @@ verify_jwt = false
 [functions.sync-twilio-messages]
 verify_jwt = false
 
-[functions."sync-messages"]
+[functions.sync-messages]
 verify_jwt = false
