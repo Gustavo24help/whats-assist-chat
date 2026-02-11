@@ -447,6 +447,12 @@ const Settings = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="ferramentas" className="space-y-4">
+              <FerramentasManutencao />
+            </TabsContent>
+          )}
           </Tabs>
         )}
       </main>
