@@ -787,6 +787,8 @@ export type Database = {
           messages_already_exist: number | null
           messages_found: number | null
           messages_new: number | null
+          sync_in_progress: boolean | null
+          sync_started_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -797,6 +799,8 @@ export type Database = {
           messages_already_exist?: number | null
           messages_found?: number | null
           messages_new?: number | null
+          sync_in_progress?: boolean | null
+          sync_started_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -807,6 +811,8 @@ export type Database = {
           messages_already_exist?: number | null
           messages_found?: number | null
           messages_new?: number | null
+          sync_in_progress?: boolean | null
+          sync_started_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
