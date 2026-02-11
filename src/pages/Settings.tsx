@@ -14,6 +14,7 @@ import { AccountInfo } from "@/components/AccountInfo";
 import { PrestadorManagement } from "@/components/PrestadorManagement";
 import { MensagensPadronizadas } from "@/components/MensagensPadronizadas";
 import { TemplateManagement } from "@/components/TemplateManagement";
+import { FerramentasManutencao } from "@/components/FerramentasManutencao";
 
 const Settings = () => {
   const navigate = useNavigate();
