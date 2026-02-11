@@ -217,6 +217,7 @@ const Settings = () => {
               <TabsTrigger value="templates">Templates WhatsApp</TabsTrigger>
               <TabsTrigger value="twilio">Twilio API</TabsTrigger>
               <TabsTrigger value="geral">Geral</TabsTrigger>
+              {isAdmin && <TabsTrigger value="ferramentas">Ferramentas</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="account" className="space-y-4">
