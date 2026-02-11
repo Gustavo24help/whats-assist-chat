@@ -131,23 +131,22 @@ export const FerramentasManutencao = () => {
               </Button>
             </div>
 
-            {results[tool.id] && (
               <div
                 className={`rounded-md p-3 text-xs font-mono overflow-auto max-h-48 ${
                   results[tool.id].success
-                    ? "bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800"
+                    ? "bg-muted/50 border border-primary/20"
                     : results[tool.id].error
-                    ? "bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-800"
+                    ? "bg-destructive/10 border border-destructive/20"
                     : ""
                 }`}
               >
                 <div className="flex items-center gap-1 mb-2">
                   {results[tool.id].success ? (
-                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    <CheckCircle className="h-3 w-3 text-primary" />
                   ) : (
-                    <XCircle className="h-3 w-3 text-red-600" />
+                    <XCircle className="h-3 w-3 text-destructive" />
                   )}
-                  <span className={results[tool.id].success ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>
+                  <span className={results[tool.id].success ? "text-primary" : "text-destructive"}>
                     {results[tool.id].success ? "Sucesso" : "Erro"}
                   </span>
                 </div>
