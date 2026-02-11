@@ -1,24 +1,49 @@
 
 
-## Corrigir e fazer deploy do `update-pagamento`
+## Corrigir erro de autenticação no envio de WhatsApp ao aprovar orçamento
 
-### Problema
+### Problema identificado
 
-O arquivo `supabase/functions/update-pagamento/index.ts` contém texto de documentação/instruções (Markdown) colado acidentalmente após o código da função (linhas 181 a 199). Isso causa um erro de parsing no deploy:
+Quando a Valentina aprovou um orçamento, o status foi atualizado com sucesso na ficha, mas o envio da mensagem WhatsApp falhou com erro 401 (não autorizado). Os logs confirmam duas chamadas `send-whatsapp` com retorno 401 no horário em que ela usou o sistema.
 
-```
-Identifier cannot follow number at index.ts:191:19
-MAKE_SECRET_KEY=24help_make_secret_2026
-```
+**Causa raiz:** O componente `AprovacaoOrcamentoDialog.tsx` usa `supabase.auth.getSession()` para obter o token, mas esse método pode retornar um token expirado sem fazer o refresh automático. O correto é usar `supabase.auth.getUser()` que sempre valida e renova o token, ou usar `supabase.functions.invoke()` que já lida com autenticação automaticamente.
 
 ### Correção
 
-**Arquivo:** `supabase/functions/update-pagamento/index.ts`
+**Arquivo:** `src/components/AprovacaoOrcamentoDialog.tsx`
 
-- Remover as linhas 181 a 199 que contêm instruções em Markdown (texto sobre como configurar variáveis de ambiente e o Make.com)
-- O código válido termina na linha 180 com `});`
+Substituir o `fetch` manual com token por `supabase.functions.invoke("send-whatsapp", ...)`, que:
+- Gerencia automaticamente o token de autenticação
+- Faz refresh do token se necessário
+- Simplifica o código
 
-### Resultado
+**De (atual):**
+```typescript
+const { data: { session } } = await supabase.auth.getSession();
+const response = await fetch(
+  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`,
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session?.access_token}`,
+    },
+    body: JSON.stringify({ to: clienteTelefone, message: mensagem }),
+  }
+);
+```
 
-Após a limpeza, a função será redeployada automaticamente.
+**Para (corrigido):**
+```typescript
+const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+  body: { to: clienteTelefone, message: mensagem },
+});
+```
+
+### Impacto
+
+- Sem alteração no banco de dados
+- Sem impacto em dados existentes
+- Apenas melhora a confiabilidade da autenticação ao enviar WhatsApp na aprovação de orçamentos
+- Funciona igualmente para todos os usuários (você, Valentina e qualquer outro)
 
