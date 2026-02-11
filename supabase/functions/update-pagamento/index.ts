@@ -178,22 +178,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-```
-
----
-
-## 🚀 **DEPOIS DE COLAR:**
-
-### **1. Adicione variável de ambiente:**
-
-No Lovable ou Supabase Dashboard:
-```
-MAKE_SECRET_KEY=24help_make_secret_2026
-```
-
-### **2. Configure o Make.com:**
-
-No módulo HTTP que chama a função, adicione este **Custom Header**:
-```
-Nome: x-make-secret
-Valor: 24help_make_secret_2026
