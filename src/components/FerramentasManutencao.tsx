@@ -62,7 +62,7 @@ export const FerramentasManutencao = () => {
     setResults((prev) => ({ ...prev, [tool.id]: { success: false, data: null, error: null } }));
 
     try {
-      const method = tool.method || "POST";
+      const method = (tool.method || "POST") as "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
       const { data, error } = await supabase.functions.invoke(tool.functionName, {
         method,
       });
