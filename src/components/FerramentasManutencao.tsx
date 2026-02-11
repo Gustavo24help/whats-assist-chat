@@ -131,6 +131,7 @@ export const FerramentasManutencao = () => {
               </Button>
             </div>
 
+            {results[tool.id] && (
               <div
                 className={`rounded-md p-3 text-xs font-mono overflow-auto max-h-48 ${
                   results[tool.id].success
