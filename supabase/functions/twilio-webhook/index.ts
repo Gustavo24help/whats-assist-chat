@@ -638,7 +638,7 @@ serve(async (req) => {
         message_sid: null,
         client_phone: null,
         success: false,
-        error_message: error instanceof Error ? error.stack : String(error),
+        error_message: error instanceof Error ? (error.stack ?? error.message) : String(error),
         step: "ERROR_FATAL",
       });
     } catch (e) {
