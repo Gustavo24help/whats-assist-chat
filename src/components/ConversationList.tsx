@@ -84,8 +84,8 @@ export const ConversationList = ({
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   
-  // Toggle "Meus Tickets" / "Todos" - supervisores/admins começam vendo todos
-  const [ticketView, setTicketView] = useState<"meus" | "todos">(isSupervisor ? "todos" : "meus");
+  // Toggle "Meus Tickets" / "Todos" - padrão em "todos" para evitar perda de sincronização visual
+  const [ticketView, setTicketView] = useState<"meus" | "todos">("todos");
   
   // 🆕 Filtro de conversas ativas/inativas
   const [conversaStatusFilter, setConversaStatusFilter] = useState<"ativas" | "inativas" | "todas">("ativas");
@@ -172,16 +172,13 @@ export const ConversationList = ({
     // 🔐 Filtro por atendente baseado na role do usuário
     // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
     if (user && !ignorarFiltrosBuscaId) {
-      if (!isSupervisor) {
-        // Usuários comuns: só veem seus tickets ou sem dono
+      // "Meus" = conversas atribuídas ao operador atual + sem dono
+      // "Todos" = visão global independente de role
+      if (ticketView === "meus") {
         filtered = filtered.filter(c => 
           c.atendente_id === user.id || c.atendente_id === null
         );
-      } else if (ticketView === "meus") {
-        // Supervisor/Admin filtrando "Meus Tickets"
-        filtered = filtered.filter(c => c.atendente_id === user.id);
       }
-      // Se ticketView === "todos" e isSupervisor, não filtra (vê todos)
     }
 
     // 🆕 Filtro de conversas ativas/inativas por status da ficha
@@ -868,8 +865,8 @@ export const ConversationList = ({
               <h2 className="font-semibold text-base md:text-lg">
                 {showArchived ? "Arquivadas" : "Conversas"}
               </h2>
-              {/* Toggle Meus/Todos - só aparece para supervisores/admins */}
-              {isSupervisor && !showArchived && (
+              {/* Toggle Meus/Todos para todos os operadores */}
+              {!showArchived && (
                 <ToggleGroup 
                   type="single" 
                   value={ticketView} 
