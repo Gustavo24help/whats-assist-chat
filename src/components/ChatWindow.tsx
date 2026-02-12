@@ -371,11 +371,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         console.log('[ChatWindow] Status do canal bot-status:', status);
       });
 
+    // Fallback para redes com bloqueio de websocket/realtime (firewall/proxy):
+    // mantém sincronização mínima via polling periódico.
+    const pollingInterval = window.setInterval(() => {
+      fetchMensagens();
+      fetchClienteData();
+    }, 30000);
+
     return () => {
       console.log('[ChatWindow] Limpando canais Realtime');
       supabase.removeChannel(channel);
       supabase.removeChannel(broadcastChannel);
       supabase.removeChannel(botStatusChannel);
+      window.clearInterval(pollingInterval);
     };
   }, [clienteTelefone]);
 
