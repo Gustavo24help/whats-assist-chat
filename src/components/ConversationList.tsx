@@ -154,10 +154,17 @@ export const ConversationList = ({
       )
       .subscribe();
 
+    // Fallback para ambientes onde websocket/realtime é bloqueado (ex.: firewall/rede corporativa)
+    const pollingInterval = window.setInterval(() => {
+      fetchClientes();
+      fetchServicosParaFinalizar();
+    }, 30000);
+
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(fichasChannel);
+      window.clearInterval(pollingInterval);
     };
   }, []);
 
