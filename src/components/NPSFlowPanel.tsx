@@ -127,18 +127,19 @@ export const NPSFlowPanel = ({
   };
 
   const getClassificacao = (nota: number): { classificacao: string; tipo: string } => {
-    if (nota >= 9) return { classificacao: "promotor", tipo: "positivo" };
-    if (nota >= 7) return { classificacao: "neutro", tipo: "neutro" };
-    return { classificacao: "detrator", tipo: "negativo" };
+    if (nota >= 4) return { classificacao: "positivo", tipo: "positivo" };
+    if (nota === 3) return { classificacao: "neutro", tipo: "neutro" };
+    return { classificacao: "critico", tipo: "negativo" };
   };
 
   const getClassificacaoBadge = (classificacao: string | null) => {
     switch (classificacao) {
       case "promotor":
+      case "positivo":
         return (
           <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1">
             <ThumbsUp className="h-3 w-3" />
-            Promotor
+            Positivo
           </Badge>
         );
       case "neutro":
@@ -149,10 +150,11 @@ export const NPSFlowPanel = ({
           </Badge>
         );
       case "detrator":
+      case "critico":
         return (
           <Badge className="bg-red-500 hover:bg-red-600 text-white gap-1">
             <ThumbsDown className="h-3 w-3" />
-            Detrator
+            Crítico
           </Badge>
         );
       default:
@@ -166,25 +168,27 @@ export const NPSFlowPanel = ({
     return `Olá, ${nome}! 😊
 Seu atendimento foi finalizado agora.
 
-Em uma escala de 0 a 10,
-o quanto você recomendaria a 24help para um amigo?
+Em uma escala de 1 a 5,
+como você avalia seu atendimento com a 24help?
 
 (Pode responder só com um número)`;
   };
 
   const getMensagemInvalida = () => {
-    return `Pode me responder apenas com um número de 0 a 10? 😊`;
+    return `Pode me responder apenas com um número de 1 a 5? 😊`;
   };
 
   const getMensagemFollowUp = (classificacao: string) => {
     switch (classificacao) {
       case "promotor":
+      case "positivo":
         return `Que ótimo! 🙌
 O que mais te fez dar essa nota?`;
       case "neutro":
         return `Obrigado!
-O que podemos melhorar para chegar no 10?`;
+O que podemos melhorar para tornar sua experiência ainda melhor?`;
       case "detrator":
+      case "critico":
         return `Obrigado pela sinceridade.
 Pode me contar o que deu errado na sua experiência?`;
       default:
@@ -206,7 +210,7 @@ Pode me contar o que deu errado na sua experiência?`;
 
   const iniciarNPS = async () => {
     if (!fichaId) {
-      toast.error("É necessário ter uma ficha de serviço para enviar NPS");
+      toast.error("É necessário ter uma ficha de serviço para enviar a pesquisa de satisfação");
       return;
     }
 
@@ -219,7 +223,7 @@ Pode me contar o que deu errado na sua experiência?`;
       .maybeSingle();
 
     if (existingNPS) {
-      toast.error("Já existe uma pesquisa NPS para esta ficha");
+      toast.error("Já existe uma pesquisa de satisfação para esta ficha");
       return;
     }
 
@@ -251,10 +255,10 @@ Pode me contar o que deu errado na sua experiência?`;
 
       setCurrentNPS(data as NPSResposta);
       setStep("waiting_score");
-      toast.success("Pesquisa NPS iniciada! Copie a mensagem e envie ao cliente.");
+      toast.success("Pesquisa de Satisfação iniciada! Copie a mensagem e envie ao cliente.");
     } catch (error) {
       console.error("Erro ao iniciar NPS:", error);
-      toast.error("Erro ao iniciar pesquisa NPS");
+      toast.error("Erro ao iniciar pesquisa de satisfação");
     } finally {
       setLoading(false);
     }
@@ -263,8 +267,8 @@ Pode me contar o que deu errado na sua experiência?`;
   const registrarNota = async (nota: number) => {
     if (!currentNPS) return;
 
-    if (nota < 0 || nota > 10) {
-      toast.error("A nota deve ser entre 0 e 10");
+    if (nota < 1 || nota > 5) {
+      toast.error("A nota deve ser entre 1 e 5");
       return;
     }
 
@@ -279,8 +283,8 @@ Pode me contar o que deu errado na sua experiência?`;
         respondido_em: new Date().toISOString(),
       };
 
-      // Se for detrator, marcar como prioridade
-      if (classificacao === "detrator") {
+      // Se for crítico, marcar como prioridade
+      if (classificacao === "critico") {
         updateData.prioridade = true;
         setShowAlertSupervisor(true);
       }
@@ -350,7 +354,7 @@ Pode me contar o que deu errado na sua experiência?`;
 
       if (error) throw error;
 
-      toast.success("Supervisor alertado sobre cliente detrator");
+      toast.success("Supervisor alertado sobre cliente crítico");
       setShowAlertSupervisor(false);
     } catch (error) {
       console.error("Erro ao alertar supervisor:", error);
@@ -389,9 +393,9 @@ Pode me contar o que deu errado na sua experiência?`;
   // Detectar se uma mensagem contém nota válida
   const isValidScore = (text: string): number | null => {
     const cleaned = text.trim();
-    const match = cleaned.match(/^(10|[0-9])$/);
+    const match = cleaned.match(/^[1-5]$/);
     if (match) {
-      return parseInt(match[1], 10);
+      return parseInt(match[0], 10);
     }
     return null;
   };
@@ -405,17 +409,17 @@ Pode me contar o que deu errado na sua experiência?`;
             size="sm"
             className="gap-1.5"
             disabled={!fichaId}
-            title={!fichaId ? "É necessário ter uma ficha de serviço" : "Enviar pesquisa NPS"}
+            title={!fichaId ? "É necessário ter uma ficha de serviço" : "Enviar pesquisa de satisfação"}
           >
             <Star className="h-4 w-4" />
-            <span className="hidden md:inline">NPS</span>
+            <span className="hidden md:inline">Satisfação</span>
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Star className="h-5 w-5 text-yellow-500" />
-              Pesquisa NPS
+              Pesquisa de Satisfação
             </DialogTitle>
             <DialogDescription>
               Colete a avaliação do cliente após o atendimento
@@ -493,7 +497,7 @@ Pode me contar o que deu errado na sua experiência?`;
                     ) : (
                       <MessageCircle className="h-4 w-4" />
                     )}
-                    Iniciar Pesquisa NPS
+                    Iniciar Pesquisa de Satisfação
                   </Button>
                 </div>
               )}
@@ -514,7 +518,7 @@ Pode me contar o que deu errado na sua experiência?`;
                       </p>
 
                       <div className="flex flex-wrap gap-1.5 justify-center">
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        {[1, 2, 3, 4, 5].map((n) => (
                           <Button
                             key={n}
                             variant="outline"
@@ -523,9 +527,9 @@ Pode me contar o que deu errado na sua experiência?`;
                             disabled={loading}
                             className={cn(
                               "w-9 h-9 p-0 font-bold",
-                              n <= 6 && "hover:bg-red-500 hover:text-white hover:border-red-500",
-                              n >= 7 && n <= 8 && "hover:bg-yellow-500 hover:text-white hover:border-yellow-500",
-                              n >= 9 && "hover:bg-emerald-500 hover:text-white hover:border-emerald-500"
+                              n <= 2 && "hover:bg-red-500 hover:text-white hover:border-red-500",
+                              n === 3 && "hover:bg-yellow-500 hover:text-white hover:border-yellow-500",
+                              n >= 4 && "hover:bg-emerald-500 hover:text-white hover:border-emerald-500"
                             )}
                           >
                             {n}
@@ -534,11 +538,11 @@ Pode me contar o que deu errado na sua experiência?`;
                       </div>
 
                       <div className="text-xs text-center text-muted-foreground">
-                        <span className="text-red-500">0-6 Detrator</span>
+                        <span className="text-red-500">1-2 Crítico</span>
                         {" • "}
-                        <span className="text-yellow-500">7-8 Neutro</span>
+                        <span className="text-yellow-500">3 Neutro</span>
                         {" • "}
-                        <span className="text-emerald-500">9-10 Promotor</span>
+                        <span className="text-emerald-500">4-5 Positivo</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -633,7 +637,7 @@ Pode me contar o que deu errado na sua experiência?`;
               {step === "completed" && (
                 <div className="text-center py-4 space-y-2">
                   <div className="text-4xl">✅</div>
-                  <p className="text-lg font-medium">Pesquisa NPS concluída!</p>
+                  <p className="text-lg font-medium">Pesquisa de Satisfação concluída!</p>
                   <p className="text-sm text-muted-foreground">
                     Os dados foram salvos com sucesso.
                   </p>
@@ -656,10 +660,10 @@ Pode me contar o que deu errado na sua experiência?`;
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-500">
               <AlertTriangle className="h-5 w-5" />
-              Cliente Detrator Identificado
+              Cliente Crítico Identificado
             </AlertDialogTitle>
             <AlertDialogDescription>
-              O cliente deu uma nota baixa (0-6). Isso indica insatisfação significativa.
+              O cliente deu uma nota baixa (1-2). Isso indica insatisfação significativa.
               Deseja alertar o supervisor imediatamente?
             </AlertDialogDescription>
           </AlertDialogHeader>
