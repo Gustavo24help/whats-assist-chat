@@ -1162,6 +1162,8 @@ CREATE TABLE nps_respostas (
 - **3:** neutro
 - **4-5:** positivo
 
+**Escopo da avaliação:** somente o atendimento do prestador responsável pela ficha finalizada.
+
 > Observação: esta regra deve permanecer alinhada entre operação, atendimento e monitoramento de KPIs.
 
 #### `google_ads_metrics`
@@ -1301,10 +1303,10 @@ CREATE TABLE configuracoes (
 ┌─────────────────────────────────────────────────────────────────┐
 │  10. PESQUISA NPS                                                │
 │      NPSFlowPanel.tsx                                            │
-│      • Envia template de NPS para cliente                        │
-│      • Cliente responde com nota (1-5)                           │
-│      • Sistema classifica (positivo/neutro/crítico)              │
-│      • Alerta supervisor se crítico                              │
+│      • Disparo automático ao marcar serviço como finalizado      │
+│      • Cliente responde com nota do prestador (1-5)              │
+│      • Sistema processa resposta automaticamente (webhook)        │
+│      • Classificação: positivo/neutro/crítico                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

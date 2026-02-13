@@ -169,7 +169,7 @@ export const NPSFlowPanel = ({
 Seu atendimento foi finalizado agora.
 
 Em uma escala de 1 a 5,
-como você avalia seu atendimento com a 24help?
+como você avalia o atendimento do prestador que realizou seu serviço?
 
 (Pode responder só com um número)`;
   };

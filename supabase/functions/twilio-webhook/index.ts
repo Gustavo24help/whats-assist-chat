@@ -558,37 +558,39 @@ serve(async (req) => {
       }
     }
 
-    // ========== NPS ==========
+    // ========== PESQUISA DE SATISFAÇÃO DO PRESTADOR (1-5) ==========
     const textoParaVerificar = body?.trim() || "";
-    const npsScoreMatch = textoParaVerificar.match(/^(10|[0-9])$/);
+    const scoreMatch15 = textoParaVerificar.match(/^[1-5]$/);
 
-    if (npsScoreMatch) {
+    if (scoreMatch15) {
       const { data: npsPendente } = await supabase
         .from("nps_respostas")
-        .select("*")
+        .select("id, prestador_id")
         .eq("telefone_cliente", from)
         .is("nota", null)
+        .is("respondido_em", null)
         .not("enviado_em", "is", null)
+        .not("prestador_id", "is", null)
         .order("enviado_em", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (npsPendente) {
-        const nota = parseInt(npsScoreMatch[1], 10);
-        let classificacao = nota >= 9 ? "promotor" : nota >= 7 ? "neutro" : "detrator";
+        const nota = parseInt(scoreMatch15[0], 10);
+        const classificacao = nota >= 4 ? "positivo" : nota === 3 ? "neutro" : "critico";
 
         await supabase
           .from("nps_respostas")
           .update({
             nota,
             classificacao,
-            tipo_feedback: nota >= 9 ? "positivo" : nota >= 7 ? "neutro" : "negativo",
+            tipo_feedback: nota >= 4 ? "positivo" : nota === 3 ? "neutro" : "negativo",
             respondido_em: new Date().toISOString(),
-            prioridade: nota < 7,
+            prioridade: nota <= 2,
           })
           .eq("id", npsPendente.id);
 
-        console.log(`[${requestId}] 📊 NPS registrado: ${nota} (${classificacao})`);
+        console.log(`[${requestId}] 📊 Avaliação de prestador registrada: ${nota} (${classificacao})`);
       }
     }
 
