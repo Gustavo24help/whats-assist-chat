@@ -54,6 +54,7 @@ export const AvaliacaoPrestadorFlowPanel = ({
     }
   }, [open, fichaId]);
 
+  // Realtime: atualização da avaliação
   useEffect(() => {
     if (!fichaId) return;
 
@@ -85,6 +86,82 @@ export const AvaliacaoPrestadorFlowPanel = ({
       supabase.removeChannel(channel);
     };
   }, [fichaId]);
+
+  // Realtime: monitorar mensagens do cliente para auto-detectar nota e feedback
+  useEffect(() => {
+    if (!clienteTelefone || !currentAvaliacao) return;
+    if (step !== "waiting_score" && step !== "waiting_feedback") return;
+
+    const channel = supabase
+      .channel(`av-prestador-msgs-${clienteTelefone}-${currentAvaliacao.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensagens',
+          filter: `cliente_id=eq.${clienteTelefone}`
+        },
+        (payload) => {
+          const msg = payload.new as { remetente: string; texto: string | null };
+          if (msg.remetente !== "cliente" || !msg.texto) return;
+
+          const texto = msg.texto.trim();
+          console.log(`🔧 [Av.Prestador] Mensagem do cliente detectada: "${texto}" (step: ${step})`);
+
+          if (step === "waiting_score") {
+            const nota = parseNotaPrestador(texto);
+            if (nota !== null) {
+              console.log(`🔧 [Av.Prestador] Nota ${nota} auto-detectada!`);
+              registrarNota(nota);
+            }
+          } else if (step === "waiting_feedback") {
+            // Qualquer texto que não seja apenas um número é feedback
+            if (!/^[1-5]$/.test(texto)) {
+              console.log(`🔧 [Av.Prestador] Feedback auto-detectado: "${texto.substring(0, 50)}..."`);
+              autoRegistrarFeedback(texto);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clienteTelefone, currentAvaliacao?.id, step]);
+
+  const parseNotaPrestador = (text: string): number | null => {
+    const match = text.match(/^[1-5]$/);
+    return match ? parseInt(match[0], 10) : null;
+  };
+
+  const autoRegistrarFeedback = async (texto: string) => {
+    if (!currentAvaliacao) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("avaliacao_prestador")
+        .update({
+          feedback: texto,
+          feedback_respondido_em: new Date().toISOString(),
+        })
+        .eq("id", currentAvaliacao.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setCurrentAvaliacao(data as AvaliacaoResposta);
+      setStep("completed");
+      toast.success("Feedback do cliente registrado automaticamente!");
+    } catch (error) {
+      console.error("Erro ao registrar feedback automático:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const checkExistingAvaliacao = async () => {
     if (!fichaId) return;
@@ -485,7 +562,7 @@ O que deu errado no trabalho do prestador?`;
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <p className="text-sm text-muted-foreground">
-                        Quando o cliente responder, registre a nota abaixo:
+                        A nota será registrada automaticamente quando o cliente responder com um número de 1 a 5. Ou registre manualmente:
                       </p>
 
                       <div className="flex flex-wrap gap-1.5 justify-center">
@@ -576,7 +653,7 @@ O que deu errado no trabalho do prestador?`;
                   </Card>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Registrar feedback do cliente:</label>
+                    <label className="text-sm font-medium">O feedback será capturado automaticamente da resposta do cliente, ou registre manualmente:</label>
                     <Textarea
                       placeholder="Cole aqui a resposta do cliente..."
                       value={manualFeedback}
