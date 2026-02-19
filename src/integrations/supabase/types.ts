@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      avaliacao_prestador: {
+        Row: {
+          classificacao: string | null
+          created_at: string
+          enviado_em: string
+          feedback: string | null
+          feedback_respondido_em: string | null
+          ficha_id: string
+          id: string
+          nota: number | null
+          operador_id: string | null
+          prestador_id: string | null
+          prioridade: boolean | null
+          respondido_em: string | null
+          supervisor_alertado: boolean | null
+          telefone_cliente: string
+          tipo_feedback: string | null
+        }
+        Insert: {
+          classificacao?: string | null
+          created_at?: string
+          enviado_em?: string
+          feedback?: string | null
+          feedback_respondido_em?: string | null
+          ficha_id: string
+          id?: string
+          nota?: number | null
+          operador_id?: string | null
+          prestador_id?: string | null
+          prioridade?: boolean | null
+          respondido_em?: string | null
+          supervisor_alertado?: boolean | null
+          telefone_cliente: string
+          tipo_feedback?: string | null
+        }
+        Update: {
+          classificacao?: string | null
+          created_at?: string
+          enviado_em?: string
+          feedback?: string | null
+          feedback_respondido_em?: string | null
+          ficha_id?: string
+          id?: string
+          nota?: number | null
+          operador_id?: string | null
+          prestador_id?: string | null
+          prioridade?: boolean | null
+          respondido_em?: string | null
+          supervisor_alertado?: boolean | null
+          telefone_cliente?: string
+          tipo_feedback?: string | null
+        }
+        Relationships: []
+      }
       bot_historico: {
         Row: {
           acao: string

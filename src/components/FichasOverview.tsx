@@ -16,6 +16,7 @@ import { FichasDashboard } from "./FichasDashboard";
 import { OrcamentoTempoKPIs } from "./OrcamentoTempoKPIs";
 import { VisitaConversaoKPIs } from "./VisitaConversaoKPIs";
 import { NPSMetricsKPIs } from "./NPSMetricsKPIs";
+import { AvaliacaoPrestadorMetricsKPIs } from "./AvaliacaoPrestadorMetricsKPIs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import type { Database } from "@/integrations/supabase/types";
@@ -338,6 +339,14 @@ export const FichasOverview = () => {
               />
             </div>
             
+            {/* Métricas Avaliação de Prestadores */}
+            <div className="mt-6">
+              <AvaliacaoPrestadorMetricsKPIs
+                periodoFrom={getDateRange().from}
+                periodoTo={getDateRange().to}
+              />
+            </div>
+
             {/* Métricas NPS */}
             <div className="mt-6">
               <NPSMetricsKPIs

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
 import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";
 import { NPSFlowPanel } from "./NPSFlowPanel";
+import { AvaliacaoPrestadorFlowPanel } from "./AvaliacaoPrestadorFlowPanel";
 import { useConversationTimer } from "@/hooks/useConversationTimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
@@ -1531,6 +1532,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
               >
                 <History className="h-4 w-4" />
               </Button>
+
+              {/* Botão Avaliação do Prestador */}
+              <AvaliacaoPrestadorFlowPanel
+                clienteTelefone={clienteTelefone}
+                clienteNome={clienteNome}
+                fichaId={fichaId}
+                onCopyMessage={(msg) => setNovaMsg(msg)}
+              />
 
               {/* Botão NPS */}
               <NPSFlowPanel
