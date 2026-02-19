@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
-import { classifyNps, npsFeedbackType, parseNpsScore, parseOperationalScore } from "./score-routing.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -559,39 +558,37 @@ serve(async (req) => {
       }
     }
 
-    // ========== PESQUISA DE SATISFAÇÃO DO PRESTADOR (1-5) ==========
+    // ========== NPS ==========
     const textoParaVerificar = body?.trim() || "";
-    const scoreMatch15 = textoParaVerificar.match(/^[1-5]$/);
+    const npsScoreMatch = textoParaVerificar.match(/^(10|[0-9])$/);
 
-    if (scoreMatch15) {
+    if (npsScoreMatch) {
       const { data: npsPendente } = await supabase
         .from("nps_respostas")
-        .select("id, prestador_id")
+        .select("*")
         .eq("telefone_cliente", from)
         .is("nota", null)
-        .is("respondido_em", null)
         .not("enviado_em", "is", null)
-        .not("prestador_id", "is", null)
         .order("enviado_em", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (npsPendente) {
-        const nota = parseInt(scoreMatch15[0], 10);
-        const classificacao = nota >= 4 ? "positivo" : nota === 3 ? "neutro" : "critico";
+        const nota = parseInt(npsScoreMatch[1], 10);
+        let classificacao = nota >= 9 ? "promotor" : nota >= 7 ? "neutro" : "detrator";
 
         await supabase
           .from("nps_respostas")
           .update({
             nota,
             classificacao,
-            tipo_feedback: nota >= 4 ? "positivo" : nota === 3 ? "neutro" : "negativo",
+            tipo_feedback: nota >= 9 ? "positivo" : nota >= 7 ? "neutro" : "negativo",
             respondido_em: new Date().toISOString(),
-            prioridade: nota <= 2,
+            prioridade: nota < 7,
           })
           .eq("id", npsPendente.id);
 
-        console.log(`[${requestId}] 📊 Avaliação de prestador registrada: ${nota} (${classificacao})`);
+        console.log(`[${requestId}] 📊 NPS registrado: ${nota} (${classificacao})`);
       }
     }
 

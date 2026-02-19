@@ -550,72 +550,6 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (data) setPrestadores(data as Prestador[]);
   };
 
-
-
-  const enviarPesquisaPrestadorAutomatica = async (fichaData: Ficha) => {
-    if (!fichaData.prestador_id) {
-      console.log('ℹ️ Sem prestador definido, pesquisa automática não enviada');
-      return;
-    }
-
-    try {
-      const { data: npsExistente } = await supabase
-        .from('nps_respostas')
-        .select('id')
-        .eq('ficha_id', fichaData.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (npsExistente) {
-        console.log('ℹ️ Pesquisa de satisfação já existe para esta ficha');
-        return;
-      }
-
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData.user?.id;
-
-      const { error: createError } = await supabase
-        .from('nps_respostas')
-        .insert({
-          ficha_id: fichaData.id,
-          telefone_cliente: fichaData.telefone_cliente,
-          prestador_id: fichaData.prestador_id,
-          operador_id: userId || null,
-          enviado_em: new Date().toISOString(),
-        });
-
-      if (createError) throw createError;
-
-      const mensagem = `Olá! 😊
-Seu serviço foi concluído.
-
-Queremos avaliar apenas o atendimento do prestador responsável.
-Em uma escala de 1 a 5, qual nota você dá para o prestador?
-
-(Responda somente com um número de 1 a 5)`;
-
-      const { error: sendError } = await supabase.functions.invoke('send-whatsapp', {
-        body: {
-          to: fichaData.telefone_cliente,
-          message: mensagem,
-          userId: userId || null,
-          remetente: 'atendente',
-        },
-      });
-
-      if (sendError) {
-        console.error('⚠️ Falha ao enviar mensagem automática de avaliação:', sendError);
-        toast.warning('Pesquisa criada, mas não foi possível enviar mensagem automática agora.');
-        return;
-      }
-
-      toast.success('Pesquisa automática de avaliação do prestador enviada ao cliente.');
-    } catch (error) {
-      console.error('Erro ao enviar pesquisa automática do prestador:', error);
-      toast.error('Erro ao iniciar pesquisa automática do prestador.');
-    }
-  };
-
   const updateFicha = (updates: Partial<Ficha>) => {
     if (!ficha || !fichaId) {
       console.error('❌ UpdateFicha: ficha ou fichaId inválido');
@@ -630,15 +564,11 @@ Em uma escala de 1 a 5, qual nota você dá para o prestador?
     
     const updatedFicha = { ...ficha, ...updates };
     setFicha(updatedFicha);
-
+    
     // Auto-save APENAS em mudança de STATUS
     if (updates.status && updates.status !== ficha.status) {
       console.log('📊 Status mudou, salvando automaticamente:', updates.status);
       autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
-
-      if (updates.status === 'Finalizado') {
-        enviarPesquisaPrestadorAutomatica(updatedFicha);
-      }
     }
   };
 
