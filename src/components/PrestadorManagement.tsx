@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Upload, HelpCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, HelpCircle, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -41,6 +41,8 @@ interface Prestador {
   id_azure: string | null;
   cnpj: string | null;
 }
+
+const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM"];
 
 export const PrestadorManagement = () => {
   const { toast } = useToast();
@@ -463,6 +465,78 @@ export const PrestadorManagement = () => {
     }
   };
 
+  const escapeCsvField = (value: string) => `"${value.replace(/"/g, '""')}"`;
+
+  const baixarArquivo = (nomeArquivo: string, conteudo: string, tipo: string) => {
+    const blob = new Blob([conteudo], { type: tipo });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = nomeArquivo;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportPrestadoresCsv = () => {
+    if (prestadores.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Sem dados para exportar",
+        description: "Cadastre ao menos um prestador antes de exportar.",
+      });
+      return;
+    }
+
+    const linhas = prestadores.map((prestador) => [
+      prestador.nome,
+      prestador.cpf,
+      prestador.telefone,
+      prestador.categoria || "",
+      prestador.id_crm || "",
+    ]);
+
+    const csv = [
+      EXPORT_HEADERS.join(","),
+      ...linhas.map((linha) => linha.map((valor) => escapeCsvField(valor)).join(",")),
+    ].join("\n");
+
+    baixarArquivo("prestadores-exportacao.csv", csv, "text/csv;charset=utf-8;");
+
+    toast({
+      title: "Exportação concluída",
+      description: "Arquivo CSV gerado com sucesso para abrir no Excel.",
+    });
+  };
+
+  const handleExportPrestadoresTxt = () => {
+    if (prestadores.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Sem dados para exportar",
+        description: "Cadastre ao menos um prestador antes de exportar.",
+      });
+      return;
+    }
+
+    const tsv = [
+      EXPORT_HEADERS.join("\t"),
+      ...prestadores.map((prestador) => [
+        prestador.nome,
+        prestador.cpf,
+        prestador.telefone,
+        prestador.categoria || "",
+        prestador.id_crm || "",
+      ].join("\t")),
+    ].join("\n");
+
+    baixarArquivo("prestadores-exportacao.txt", tsv, "text/plain;charset=utf-8;");
+
+    toast({
+      title: "Exportação concluída",
+      description: "Arquivo TXT tabulado gerado com sucesso.",
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -633,6 +707,22 @@ export const PrestadorManagement = () => {
             >
               <Upload className="mr-2 h-4 w-4" />
               Importar CSV
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={handleExportPrestadoresCsv}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar Excel (CSV)
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={handleExportPrestadoresTxt}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar Texto (TXT)
             </Button>
             
             <Button
