@@ -598,6 +598,39 @@ export type Database = {
         }
         Relationships: []
       }
+      avaliacoes_operacionais: {
+        Row: {
+          created_at: string
+          enviada_em: string
+          ficha_id: string
+          id: string
+          nota: number | null
+          respondida_em: string | null
+          status: string
+          telefone_cliente: string
+        }
+        Insert: {
+          created_at?: string
+          enviada_em?: string
+          ficha_id: string
+          id?: string
+          nota?: number | null
+          respondida_em?: string | null
+          status?: string
+          telefone_cliente: string
+        }
+        Update: {
+          created_at?: string
+          enviada_em?: string
+          ficha_id?: string
+          id?: string
+          nota?: number | null
+          respondida_em?: string | null
+          status?: string
+          telefone_cliente?: string
+        }
+        Relationships: []
+      }
       nps_respostas: {
         Row: {
           classificacao:
