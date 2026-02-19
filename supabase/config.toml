@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.compare-messages-count]
 verify_jwt = false
+
+[functions.force-recover-message-sids]
+verify_jwt = false
