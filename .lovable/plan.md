@@ -1,101 +1,50 @@
 
-## Avaliacao do Prestador - Sistema de Avaliacao de Prestadores
 
-### Resumo
+## Restaurar NPS para escala 1 a 10
 
-Criar um sistema de avaliacao de prestadores identico ao fluxo do NPS, mas focado em avaliar o prestador que realizou o servico. A avaliacao acontece logo apos o termino do servico, **antes** do NPS final. Escala de 1 a 5.
+O sistema de NPS foi incorretamente alterado para escala 1-5. Precisa voltar para **1 a 10** com a classificacao classica do NPS. A escala 1-5 e exclusiva da Avaliacao do Prestador.
 
-### O que sera criado
-
----
-
-### 1. Nova tabela: `avaliacao_prestador`
-
-Estrutura espelhada no `nps_respostas`, mas com foco no prestador:
-
-| Coluna | Tipo | Descricao |
-|--------|------|-----------|
-| id | uuid (PK) | Identificador |
-| ficha_id | text (NOT NULL) | Referencia a ficha de servico |
-| telefone_cliente | text (NOT NULL) | Telefone do cliente que avalia |
-| prestador_id | text | CPF do prestador avaliado |
-| nota | integer | Nota de 1 a 5 |
-| classificacao | text | positivo / neutro / critico |
-| feedback | text | Comentario do cliente |
-| tipo_feedback | text | positivo / neutro / negativo |
-| enviado_em | timestamptz (NOT NULL) | Quando foi enviado |
-| respondido_em | timestamptz | Quando o cliente respondeu a nota |
-| feedback_respondido_em | timestamptz | Quando o cliente respondeu o feedback |
-| prioridade | boolean (default false) | Marcado se nota critica |
-| supervisor_alertado | boolean (default false) | Se supervisor foi alertado |
-| operador_id | uuid | Quem enviou a avaliacao |
-| created_at | timestamptz | Data de criacao |
-
-Politicas RLS identicas ao `nps_respostas` (SELECT, INSERT, UPDATE para todos autenticados). Realtime habilitado.
+**Dados existentes**: Nenhum dado sera perdido. Respostas ja registradas na escala 1-5 continuarao validas. Respostas legado (notas > 5, ate 10) voltarao a ser tratadas normalmente.
 
 ---
 
-### 2. Novo componente: `AvaliacaoPrestadorFlowPanel.tsx`
+### Alteracoes no `NPSFlowPanel.tsx`
 
-Copia do `NPSFlowPanel.tsx` adaptado para avaliacao do prestador:
+1. **Mensagem inicial** (linha 171): Trocar "1 a 5" por "0 a 10"
+2. **Mensagem invalida** (linha 178): Trocar "1 a 5" por "0 a 10"
+3. **Classificacao** (linha 129-133): Restaurar logica classica do NPS:
+   - 9-10 = Promotor
+   - 7-8 = Neutro
+   - 0-6 = Detrator
+4. **Validacao de nota** (linha 270): Trocar `nota > 5` por `nota > 10`
+5. **Regex de validacao** (linha 396): Trocar `^[1-5]$` por `^(10|[0-9])$`
+6. **Botoes de nota** (linha 521): Trocar `[1,2,3,4,5]` por `[0,1,2,3,4,5,6,7,8,9,10]`
+7. **Legenda dos botoes** (linhas 541-545): Atualizar para "0-6 Detrator / 7-8 Neutro / 9-10 Promotor"
+8. **Cores dos botoes** (linhas 530-532): Ajustar faixas de cor para a nova escala
+9. **Texto do alerta** (linha 666): Trocar "(1-2)" por "(0-6)"
 
-- Botao com icone de Wrench ou UserCheck (diferente da estrela do NPS)
-- Label: "Av. Prestador"
-- Mensagens adaptadas:
-  - Inicial: "Ola, [nome]! O servico do prestador foi finalizado. Em uma escala de 1 a 5, como voce avalia o trabalho do prestador? (Responda so com um numero)"
-  - Invalida: "Pode me responder apenas com um numero de 1 a 5?"
-  - Follow-up positivo: "Que otimo! O que mais gostou no trabalho do prestador?"
-  - Follow-up neutro: "Obrigado! O que o prestador poderia ter feito melhor?"
-  - Follow-up critico: "Obrigado pela sinceridade. O que deu errado no trabalho do prestador?"
-- Tabela consultada: `avaliacao_prestador` (em vez de `nps_respostas`)
-- Realtime subscription na tabela `avaliacao_prestador`
-- Mesmo fluxo: idle -> waiting_score -> waiting_feedback -> completed
-- Alerta de supervisor para notas 1-2 (criticas)
+### Alteracoes no `NPSMetricsKPIs.tsx`
 
----
+1. **Filtro de dados** (linha 110-111): Aceitar notas de 0 a 10 (nao apenas 1-5)
+2. **Filtro legado** (linha 115-117): Remover (ja nao ha "legado" com escala 0-10)
+3. **Classificacao das metricas** (linhas 138-140): Restaurar faixas do NPS classico:
+   - Promotores: 9-10
+   - Neutros: 7-8
+   - Detratores: 0-6
+4. **Calculo do indice** (linha 142): Dividir por 10 (nao por 5)
+5. **Titulos e labels**: Trocar "Satisfacao (1-5)" por "NPS (0-10)", "Notas 4-5" por "Notas 9-10", "Notas 1-2" por "Notas 0-6"
+6. **Badge de legado** (linha 258): Remover referencia a "respostas legado 0-10"
 
-### 3. Novo componente: `AvaliacaoPrestadorMetricsKPIs.tsx`
+### Arquivos afetados
 
-Copia do `NPSMetricsKPIs.tsx` adaptado:
+| Arquivo | Tipo |
+|---------|------|
+| `src/components/NPSFlowPanel.tsx` | Editar |
+| `src/components/NPSMetricsKPIs.tsx` | Editar |
 
-- Titulo: "Metricas de Avaliacao de Prestadores (1-5)"
-- Icone diferente (Wrench em vez de Star)
-- Mesmos KPIs: Indice de Satisfacao, Media Geral, % Positivas, % Criticas
-- Mesma distribuicao visual (barra colorida)
-- Ranking de prestadores por media de avaliacao
-- Lista de avaliacoes criticas recentes
-- Dados vindos da tabela `avaliacao_prestador`
+### Protecoes
 
----
+- Nenhuma tabela do banco sera alterada (a estrutura ja suporta notas inteiras)
+- Dados existentes com notas 1-5 continuam validos e serao classificados corretamente pela nova logica
+- O componente de Avaliacao do Prestador (`AvaliacaoPrestadorFlowPanel`) permanece inalterado na escala 1-5
 
-### 4. Integracao no ChatWindow
-
-- Adicionar o botao `AvaliacaoPrestadorFlowPanel` ao lado do botao NPS existente, na barra de ferramentas
-- Ordem visual: ... | Av. Prestador | Satisfacao (NPS) | ...
-- O botao de Avaliacao do Prestador vem antes do NPS, refletindo a ordem do fluxo
-
----
-
-### 5. Integracao no FichasOverview
-
-- Adicionar `AvaliacaoPrestadorMetricsKPIs` na secao de metricas, acima ou ao lado do `NPSMetricsKPIs`
-- Recebe os mesmos filtros de periodo (`periodoFrom`, `periodoTo`)
-
----
-
-### Arquivos envolvidos
-
-| Acao | Arquivo |
-|------|---------|
-| Criar | Migracao SQL para tabela `avaliacao_prestador` + RLS + realtime |
-| Criar | `src/components/AvaliacaoPrestadorFlowPanel.tsx` |
-| Criar | `src/components/AvaliacaoPrestadorMetricsKPIs.tsx` |
-| Editar | `src/components/ChatWindow.tsx` (adicionar botao) |
-| Editar | `src/components/FichasOverview.tsx` (adicionar metricas) |
-
-### Riscos e protecoes
-
-- Nenhuma alteracao em tabelas ou dados existentes
-- A tabela `nps_respostas` permanece intacta
-- Nenhuma modificacao no fluxo NPS atual
-- Dados existentes nao serao afetados de nenhuma forma
