@@ -1130,8 +1130,9 @@ CREATE TABLE nps_respostas (
   ficha_id TEXT NOT NULL,
   telefone_cliente TEXT NOT NULL,
   prestador_id TEXT,
-  nota INTEGER,                       -- 0-10
-  classificacao TEXT,                 -- 'promotor', 'neutro', 'detrator'
+  nota INTEGER,                       -- 1-5 (escala atual)
+  classificacao TEXT,                 -- 'positivo', 'neutro', 'critico'
+                                    -- legado: 'promotor', 'detrator'
   feedback TEXT,
   tipo_feedback TEXT,
   enviado_em TIMESTAMPTZ DEFAULT now(),
@@ -1143,6 +1144,27 @@ CREATE TABLE nps_respostas (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ```
+
+
+
+#### Estratégia para dados históricos da pesquisa
+
+**Escolha adotada: Opção A (coexistência de modelos)**
+
+- O histórico legado com notas **0-10** é mantido sem transformação.
+- Os novos KPIs principais utilizam apenas respostas da escala **1-5**.
+- Respostas legadas aparecem apenas como contagem informativa para contexto operacional.
+- Motivação: preservar rastreabilidade e evitar conversão retroativa sem validação formal do negócio.
+
+**Regra operacional de classificação (escala 1-5)**
+
+- **1-2:** crítico
+- **3:** neutro
+- **4-5:** positivo
+
+**Escopo da avaliação:** somente o atendimento do prestador responsável pela ficha finalizada.
+
+> Observação: esta regra deve permanecer alinhada entre operação, atendimento e monitoramento de KPIs.
 
 #### `google_ads_metrics`
 
@@ -1281,10 +1303,10 @@ CREATE TABLE configuracoes (
 ┌─────────────────────────────────────────────────────────────────┐
 │  10. PESQUISA NPS                                                │
 │      NPSFlowPanel.tsx                                            │
-│      • Envia template de NPS para cliente                        │
-│      • Cliente responde com nota (0-10)                          │
-│      • Sistema classifica (promotor/neutro/detrator)             │
-│      • Alerta supervisor se detrator                             │
+│      • Disparo automático ao marcar serviço como finalizado      │
+│      • Cliente responde com nota do prestador (1-5)              │
+│      • Sistema processa resposta automaticamente (webhook)        │
+│      • Classificação: positivo/neutro/crítico                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
