@@ -107,18 +107,13 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
     }
   };
 
-  const dataEscala15 = useMemo(
-    () => npsData.filter((n) => n.nota !== null && n.nota >= 1 && n.nota <= 5),
-    [npsData]
-  );
-
-  const respostasLegado = useMemo(
-    () => npsData.filter((n) => n.nota !== null && n.nota > 5),
+  const dataValida = useMemo(
+    () => npsData.filter((n) => n.nota !== null && n.nota >= 0 && n.nota <= 10),
     [npsData]
   );
 
   const metrics = useMemo(() => {
-    if (dataEscala15.length === 0) {
+    if (dataValida.length === 0) {
       return {
         mediaGeral: 0,
         indiceSatisfacao: 0,
@@ -131,15 +126,15 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
       };
     }
 
-    const totalRespostas = dataEscala15.length;
-    const somaNotas = dataEscala15.reduce((acc, n) => acc + (n.nota || 0), 0);
+    const totalRespostas = dataValida.length;
+    const somaNotas = dataValida.reduce((acc, n) => acc + (n.nota || 0), 0);
     const mediaGeral = somaNotas / totalRespostas;
 
-    const positivos = dataEscala15.filter((n) => (n.nota || 0) >= 4).length;
-    const neutros = dataEscala15.filter((n) => (n.nota || 0) === 3).length;
-    const criticos = dataEscala15.filter((n) => (n.nota || 0) <= 2).length;
+    const positivos = dataValida.filter((n) => (n.nota || 0) >= 9).length;
+    const neutros = dataValida.filter((n) => (n.nota || 0) >= 7 && (n.nota || 0) <= 8).length;
+    const criticos = dataValida.filter((n) => (n.nota || 0) <= 6).length;
 
-    const indiceSatisfacao = Math.round((mediaGeral / 5) * 100);
+    const indiceSatisfacao = Math.round((mediaGeral / 10) * 100);
     const percentualPositivas = Math.round((positivos / totalRespostas) * 100);
     const percentualCriticas = Math.round((criticos / totalRespostas) * 100);
 
@@ -153,13 +148,13 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
       percentualPositivas,
       percentualCriticas,
     };
-  }, [dataEscala15]);
+  }, [dataValida]);
 
   const prestadorMetrics = useMemo((): PrestadorSatisfacao[] => {
     const prestadorMap = new Map(prestadores.map((p) => [p.cpf, p.nome]));
     const grouped: Record<string, { notas: number[]; classificacoes: string[] }> = {};
 
-    dataEscala15.forEach((nps) => {
+    dataValida.forEach((nps) => {
       if (nps.prestador_id && nps.nota !== null) {
         if (!grouped[nps.prestador_id]) {
           grouped[nps.prestador_id] = { notas: [], classificacoes: [] };
@@ -189,14 +184,14 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
         };
       })
       .sort((a, b) => b.media - a.media);
-  }, [dataEscala15, prestadores]);
+  }, [dataValida, prestadores]);
 
   const criticosRecentes = useMemo(() => {
-    return dataEscala15
-      .filter((n) => (n.nota || 0) <= 2 || ["critico", "detrator"].includes(n.classificacao || ""))
+    return dataValida
+      .filter((n) => (n.nota || 0) <= 6 || ["critico", "detrator"].includes(n.classificacao || ""))
       .sort((a, b) => new Date(b.enviado_em).getTime() - new Date(a.enviado_em).getTime())
       .slice(0, 5);
-  }, [dataEscala15]);
+  }, [dataValida]);
 
   const getIndiceColor = (indice: number) => {
     if (indice >= 80) return "text-emerald-600";
@@ -227,18 +222,18 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
     );
   }
 
-  if (dataEscala15.length === 0) {
+  if (dataValida.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Star className="h-5 w-5 text-yellow-500" />
-            Métricas de Satisfação (1-5)
+            Métricas NPS (0-10)
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-center py-8">
-            Nenhuma resposta na escala 1-5 registrada no período selecionado
+            Nenhuma resposta NPS registrada no período selecionado
           </p>
         </CardContent>
       </Card>
@@ -250,13 +245,10 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
       <CardHeader className="pb-4">
         <CardTitle className="text-lg flex items-center gap-2">
           <Star className="h-5 w-5 text-yellow-500" />
-          Métricas de Satisfação (1-5)
+          Métricas NPS (0-10)
           <Badge variant="secondary" className="ml-2">
             {metrics.totalRespostas} respostas
           </Badge>
-          {respostasLegado.length > 0 && (
-            <Badge variant="outline">{respostasLegado.length} respostas legado 0-10</Badge>
-          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -277,7 +269,7 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
             <CardContent className="pt-4">
               <div className="text-sm text-muted-foreground mb-1">Média Geral</div>
               <div className="text-3xl font-bold">{metrics.mediaGeral.toFixed(1)}</div>
-              <div className="text-xs text-muted-foreground mt-1">de 1 a 5</div>
+              <div className="text-xs text-muted-foreground mt-1">de 0 a 10</div>
             </CardContent>
           </Card>
 
@@ -285,7 +277,7 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
             <CardContent className="pt-4">
               <div className="text-sm text-muted-foreground mb-1">% Positivas</div>
               <div className="text-3xl font-bold text-emerald-600">{metrics.percentualPositivas}%</div>
-              <div className="text-xs text-muted-foreground mt-1">Notas 4-5</div>
+              <div className="text-xs text-muted-foreground mt-1">Notas 9-10</div>
             </CardContent>
           </Card>
 
@@ -293,7 +285,7 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
             <CardContent className="pt-4">
               <div className="text-sm text-muted-foreground mb-1">% Críticas</div>
               <div className="text-3xl font-bold text-red-600">{metrics.percentualCriticas}%</div>
-              <div className="text-xs text-muted-foreground mt-1">Notas 1-2</div>
+              <div className="text-xs text-muted-foreground mt-1">Notas 0-6</div>
             </CardContent>
           </Card>
         </div>
@@ -364,7 +356,7 @@ export const NPSMetricsKPIs = ({ periodoFrom, periodoTo }: NPSMetricsKPIsProps) 
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={cn("font-bold", p.media >= 4 && "text-emerald-600", p.media === 3 && "text-yellow-600", p.media < 3 && "text-red-600")}>
+                        <div className={cn("font-bold", p.media >= 9 && "text-emerald-600", p.media >= 7 && p.media < 9 && "text-yellow-600", p.media < 7 && "text-red-600")}>
                           {p.media.toFixed(1)}
                         </div>
                         <div className="flex gap-1 text-xs">

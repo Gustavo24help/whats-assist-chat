@@ -127,9 +127,9 @@ export const NPSFlowPanel = ({
   };
 
   const getClassificacao = (nota: number): { classificacao: string; tipo: string } => {
-    if (nota >= 4) return { classificacao: "positivo", tipo: "positivo" };
-    if (nota === 3) return { classificacao: "neutro", tipo: "neutro" };
-    return { classificacao: "critico", tipo: "negativo" };
+    if (nota >= 9) return { classificacao: "promotor", tipo: "positivo" };
+    if (nota >= 7) return { classificacao: "neutro", tipo: "neutro" };
+    return { classificacao: "detrator", tipo: "negativo" };
   };
 
   const getClassificacaoBadge = (classificacao: string | null) => {
@@ -168,14 +168,14 @@ export const NPSFlowPanel = ({
     return `Olá, ${nome}! 😊
 Seu atendimento foi finalizado agora.
 
-Em uma escala de 1 a 5,
+Em uma escala de 0 a 10,
 como você avalia seu atendimento com a 24help?
 
 (Pode responder só com um número)`;
   };
 
   const getMensagemInvalida = () => {
-    return `Pode me responder apenas com um número de 1 a 5? 😊`;
+    return `Pode me responder apenas com um número de 0 a 10? 😊`;
   };
 
   const getMensagemFollowUp = (classificacao: string) => {
@@ -267,8 +267,8 @@ Pode me contar o que deu errado na sua experiência?`;
   const registrarNota = async (nota: number) => {
     if (!currentNPS) return;
 
-    if (nota < 1 || nota > 5) {
-      toast.error("A nota deve ser entre 1 e 5");
+    if (nota < 0 || nota > 10) {
+      toast.error("A nota deve ser entre 0 e 10");
       return;
     }
 
@@ -393,7 +393,7 @@ Pode me contar o que deu errado na sua experiência?`;
   // Detectar se uma mensagem contém nota válida
   const isValidScore = (text: string): number | null => {
     const cleaned = text.trim();
-    const match = cleaned.match(/^[1-5]$/);
+    const match = cleaned.match(/^(10|[0-9])$/);
     if (match) {
       return parseInt(match[0], 10);
     }
@@ -518,7 +518,7 @@ Pode me contar o que deu errado na sua experiência?`;
                       </p>
 
                       <div className="flex flex-wrap gap-1.5 justify-center">
-                        {[1, 2, 3, 4, 5].map((n) => (
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                           <Button
                             key={n}
                             variant="outline"
@@ -527,9 +527,9 @@ Pode me contar o que deu errado na sua experiência?`;
                             disabled={loading}
                             className={cn(
                               "w-9 h-9 p-0 font-bold",
-                              n <= 2 && "hover:bg-red-500 hover:text-white hover:border-red-500",
-                              n === 3 && "hover:bg-yellow-500 hover:text-white hover:border-yellow-500",
-                              n >= 4 && "hover:bg-emerald-500 hover:text-white hover:border-emerald-500"
+                              n <= 6 && "hover:bg-red-500 hover:text-white hover:border-red-500",
+                              (n === 7 || n === 8) && "hover:bg-yellow-500 hover:text-white hover:border-yellow-500",
+                              n >= 9 && "hover:bg-emerald-500 hover:text-white hover:border-emerald-500"
                             )}
                           >
                             {n}
@@ -538,11 +538,11 @@ Pode me contar o que deu errado na sua experiência?`;
                       </div>
 
                       <div className="text-xs text-center text-muted-foreground">
-                        <span className="text-red-500">1-2 Crítico</span>
+                        <span className="text-red-500">0-6 Detrator</span>
                         {" • "}
-                        <span className="text-yellow-500">3 Neutro</span>
+                        <span className="text-yellow-500">7-8 Neutro</span>
                         {" • "}
-                        <span className="text-emerald-500">4-5 Positivo</span>
+                        <span className="text-emerald-500">9-10 Promotor</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -663,7 +663,7 @@ Pode me contar o que deu errado na sua experiência?`;
               Cliente Crítico Identificado
             </AlertDialogTitle>
             <AlertDialogDescription>
-              O cliente deu uma nota baixa (1-2). Isso indica insatisfação significativa.
+              O cliente deu uma nota baixa (0-6). Isso indica insatisfação significativa.
               Deseja alertar o supervisor imediatamente?
             </AlertDialogDescription>
           </AlertDialogHeader>
