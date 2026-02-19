@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import { classifyNps, npsFeedbackType, parseNpsScore, parseOperationalScore } from "./score-routing.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -558,11 +559,43 @@ serve(async (req) => {
       }
     }
 
-    // ========== NPS ==========
+    // ========== AVALIAÇÃO OPERACIONAL (1-5) ==========
     const textoParaVerificar = body?.trim() || "";
-    const npsScoreMatch = textoParaVerificar.match(/^(10|[0-9])$/);
+    const avaliacaoScore = parseOperationalScore(textoParaVerificar);
+    let avaliacaoOperacionalRegistrada = false;
 
-    if (npsScoreMatch) {
+    if (avaliacaoScore !== null) {
+      const { data: avaliacaoPendente } = await supabase
+        .from("avaliacoes_operacionais")
+        .select("*")
+        .eq("telefone_cliente", from)
+        .eq("status", "pendente")
+        .is("nota", null)
+        .order("enviada_em", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (avaliacaoPendente) {
+        const nota = avaliacaoScore;
+
+        await supabase
+          .from("avaliacoes_operacionais")
+          .update({
+            nota,
+            status: "respondida",
+            respondida_em: new Date().toISOString(),
+          })
+          .eq("id", avaliacaoPendente.id);
+
+        avaliacaoOperacionalRegistrada = true;
+        console.log(`[${requestId}] ⭐ Avaliação operacional registrada: ${nota}/5`);
+      }
+    }
+
+    // ========== NPS ==========
+    const npsScore = parseNpsScore(textoParaVerificar);
+
+    if (!avaliacaoOperacionalRegistrada && npsScore !== null) {
       const { data: npsPendente } = await supabase
         .from("nps_respostas")
         .select("*")
@@ -574,15 +607,15 @@ serve(async (req) => {
         .maybeSingle();
 
       if (npsPendente) {
-        const nota = parseInt(npsScoreMatch[1], 10);
-        let classificacao = nota >= 9 ? "promotor" : nota >= 7 ? "neutro" : "detrator";
+        const nota = npsScore;
+        const classificacao = classifyNps(nota);
 
         await supabase
           .from("nps_respostas")
           .update({
             nota,
             classificacao,
-            tipo_feedback: nota >= 9 ? "positivo" : nota >= 7 ? "neutro" : "negativo",
+            tipo_feedback: npsFeedbackType(nota),
             respondido_em: new Date().toISOString(),
             prioridade: nota < 7,
           })
