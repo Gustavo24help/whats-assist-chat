@@ -600,13 +600,7 @@ export type Database = {
       }
       nps_respostas: {
         Row: {
-          classificacao:
-            | "critico"
-            | "neutro"
-            | "positivo"
-            | "detrator"
-            | "promotor"
-            | null
+          classificacao: string | null
           created_at: string
           enviado_em: string
           feedback: string | null
@@ -620,16 +614,10 @@ export type Database = {
           respondido_em: string | null
           supervisor_alertado: boolean | null
           telefone_cliente: string
-          tipo_feedback: "negativo" | "neutro" | "positivo" | null
+          tipo_feedback: string | null
         }
         Insert: {
-          classificacao?:
-            | "critico"
-            | "neutro"
-            | "positivo"
-            | "detrator"
-            | "promotor"
-            | null
+          classificacao?: string | null
           created_at?: string
           enviado_em?: string
           feedback?: string | null
@@ -643,16 +631,10 @@ export type Database = {
           respondido_em?: string | null
           supervisor_alertado?: boolean | null
           telefone_cliente: string
-          tipo_feedback?: "negativo" | "neutro" | "positivo" | null
+          tipo_feedback?: string | null
         }
         Update: {
-          classificacao?:
-            | "critico"
-            | "neutro"
-            | "positivo"
-            | "detrator"
-            | "promotor"
-            | null
+          classificacao?: string | null
           created_at?: string
           enviado_em?: string
           feedback?: string | null
@@ -666,7 +648,7 @@ export type Database = {
           respondido_em?: string | null
           supervisor_alertado?: boolean | null
           telefone_cliente?: string
-          tipo_feedback?: "negativo" | "neutro" | "positivo" | null
+          tipo_feedback?: string | null
         }
         Relationships: []
       }
