@@ -16,6 +16,7 @@ import BairrosReport from "./pages/BairrosReport";
 import OrcamentoPublico from "./pages/OrcamentoPublico";
 import PrestadorPortal from "./pages/PrestadorPortal";
 import PrestadoresReport from "./pages/PrestadoresReport";
+import DashboardTV from "./pages/DashboardTV";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +83,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <PrestadoresReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard-tv"
+                element={
+                  <ProtectedRoute>
+                    <DashboardTV />
                   </ProtectedRoute>
                 }
               />

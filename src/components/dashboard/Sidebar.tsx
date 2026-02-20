@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
+  Monitor,
   Megaphone,
   TrendingUp,
   Headphones,
@@ -28,6 +29,7 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'Dashboard TV', icon: Monitor, path: '/dashboard-tv' },
   { label: 'Chat', icon: MessageCircle, path: '/chat' },
   { label: 'Prestadores', icon: Users, path: '/prestadores' },
   { label: 'Bairros', icon: MapPin, path: '/bairros' },
