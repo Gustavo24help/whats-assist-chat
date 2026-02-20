@@ -17,6 +17,9 @@ import OrcamentoPublico from "./pages/OrcamentoPublico";
 import PrestadorPortal from "./pages/PrestadorPortal";
 import PrestadoresReport from "./pages/PrestadoresReport";
 import DashboardTV from "./pages/DashboardTV";
+import GerenciamentoPrestadores from "./pages/GerenciamentoPrestadores";
+import AnaliseServicos from "./pages/AnaliseServicos";
+import Manutencao from "./pages/Manutencao";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +70,30 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <FichasGeral />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analise-servicos"
+                element={
+                  <ProtectedRoute>
+                    <AnaliseServicos />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/gerenciamento-prestadores"
+                element={
+                  <ProtectedRoute>
+                    <GerenciamentoPrestadores />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/manutencao"
+                element={
+                  <ProtectedRoute>
+                    <Manutencao />
                   </ProtectedRoute>
                 }
               />
