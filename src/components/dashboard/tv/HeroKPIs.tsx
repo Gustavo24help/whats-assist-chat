@@ -6,29 +6,29 @@ import { mockData } from '../shared/mockData';
 
 const cards = [
   {
-    label: 'REVENUE',
+    label: 'RECEITA TOTAL',
     icon: '💰',
-    data: mockData.hero.revenue,
-    sparkline: mockData.sparklineData.revenue,
+    data: mockData.hero.receita,
+    sparkline: mockData.sparklineData.receita,
     prefix: 'R$ ',
     color: '#10b981',
     goalLabel: 'Meta',
   },
   {
-    label: 'PROFIT',
+    label: 'LUCRO BRUTO',
     icon: '📈',
-    data: mockData.hero.profit,
-    sparkline: mockData.sparklineData.profit,
+    data: mockData.hero.lucro,
+    sparkline: mockData.sparklineData.lucro,
     prefix: 'R$ ',
     color: '#3b82f6',
     goalLabel: 'Margem',
-    extra: `${mockData.hero.profit.margin}%`,
+    extra: `${mockData.hero.lucro.margin}%`,
   },
   {
-    label: 'SERVICES',
+    label: 'SERVIÇOS FECHADOS',
     icon: '🏆',
-    data: mockData.hero.services,
-    sparkline: mockData.sparklineData.services,
+    data: mockData.hero.servicos,
+    sparkline: mockData.sparklineData.servicos,
     prefix: '',
     color: '#8b5cf6',
     goalLabel: 'Meta',
@@ -54,7 +54,6 @@ export const HeroKPIs = () => (
           whileHover={{ y: -4, transition: { duration: 0.3 } }}
           className="relative rounded-[20px] p-6 border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.37)] overflow-hidden"
         >
-          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div
@@ -84,7 +83,6 @@ export const HeroKPIs = () => (
             </div>
           </div>
 
-          {/* Value */}
           <div className="mb-3">
             <div
               className="text-[48px] font-bold tabular-nums leading-none"
@@ -98,15 +96,13 @@ export const HeroKPIs = () => (
             </div>
           </div>
 
-          {/* Sparkline */}
           <div className="mb-4 -mx-2">
             <Sparkline data={card.sparkline} color={card.color} height={48} />
           </div>
 
-          {/* Footer */}
           <div className="space-y-2 border-t border-white/10 pt-3">
             <div className="text-xs text-white/40">
-              vs Ontem: {card.prefix}{card.data.previous.toLocaleString('pt-BR')}
+              vs Anterior: {card.prefix}{card.data.previous.toLocaleString('pt-BR')}
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-white/50">{card.goalLabel}: {Math.round(progress)}%</span>
