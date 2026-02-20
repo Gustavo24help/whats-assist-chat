@@ -466,7 +466,6 @@ export const PrestadorManagement = () => {
   };
 
   const escapeCsvField = (value: string) => `"${value.replace(/"/g, '""')}"`;
-  const escapeExcelTextField = (value: string) => `="${value.replace(/"/g, '""')}"`;
 
   const baixarArquivo = (nomeArquivo: string, conteudo: string, tipo: string) => {
     const blob = new Blob([conteudo], { type: tipo });
@@ -489,16 +488,16 @@ export const PrestadorManagement = () => {
     }
 
     const linhas = prestadores.map((prestador) => [
-      escapeCsvField(prestador.nome),
-      escapeExcelTextField(prestador.cpf),
-      escapeExcelTextField(prestador.telefone),
-      escapeCsvField(prestador.categoria || ""),
-      escapeCsvField(prestador.id_crm || ""),
-    ].join(","));
+      prestador.nome,
+      prestador.cpf,
+      prestador.telefone,
+      prestador.categoria || "",
+      prestador.id_crm || "",
+    ]);
 
     const csv = [
       EXPORT_HEADERS.join(","),
-      ...linhas,
+      ...linhas.map((linha) => linha.map((valor) => escapeCsvField(valor)).join(",")),
     ].join("\n");
 
     baixarArquivo("prestadores-exportacao.csv", csv, "text/csv;charset=utf-8;");
