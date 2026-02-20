@@ -14,6 +14,18 @@ export interface TVFilters {
   customRange?: { from: Date; to: Date };
 }
 
+export interface TVPreviousValues {
+  receitaTotal: number;
+  lucroBruto: number;
+  servicosFechados: number;
+  cliquesAnuncios: number;
+  conversasIniciadas: number;
+  fsCriadas: number;
+  agendados: number;
+  executados: number;
+  pagos: number;
+}
+
 export interface TVDashboardData {
   // KPIs principais
   receitaTotal: number;
@@ -63,6 +75,8 @@ export interface TVDashboardData {
     executados: number | null;
     pagos: number | null;
   };
+  // Valores absolutos do período anterior
+  previous: TVPreviousValues;
   // Alertas para ticker
   orcamentosPendentes2h: number;
   proximaMeta: string;
@@ -94,6 +108,7 @@ function getDateRange(period: TVPeriod, customRange?: { from: Date; to: Date }) 
 function getComparisonRange(from: Date, to: Date, comparison: TVComparison) {
   const periodMs = to.getTime() - from.getTime();
   const periodDays = Math.ceil(periodMs / (1000 * 60 * 60 * 24));
+  const now = new Date();
 
   switch (comparison) {
     case 'yesterday':
@@ -102,8 +117,16 @@ function getComparisonRange(from: Date, to: Date, comparison: TVComparison) {
       return { from: startOfDay(subDays(from, 7)), to: endOfDay(subDays(to, 7)) };
     case 'last_month':
       return { from: startOfDay(subDays(from, 30)), to: endOfDay(subDays(to, 30)) };
-    case 'same_day_last_month':
-      return { from: startOfDay(subMonths(from, 1)), to: endOfDay(subMonths(to, 1)) };
+    case 'same_day_last_month': {
+      // Cumulative: 1st of previous month → same day of previous month
+      // e.g. if today is Feb 20, compare Jan 1-Jan 20 vs Feb 1-Feb 20
+      const prevMonth = subMonths(now, 1);
+      const prevFrom = startOfMonth(prevMonth);
+      // Same day number in previous month (capped to end of that month)
+      const dayOfMonth = now.getDate();
+      const prevTo = endOfDay(new Date(prevMonth.getFullYear(), prevMonth.getMonth(), dayOfMonth));
+      return { from: prevFrom, to: prevTo };
+    }
     default:
       return { from: startOfDay(subDays(from, periodDays)), to: endOfDay(subDays(from, 1)) };
   }
@@ -116,7 +139,15 @@ function calcVariation(current: number, previous: number): number | null {
 }
 
 async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
-  const { from, to } = getDateRange(filters.period, filters.customRange);
+  let { from, to } = getDateRange(filters.period, filters.customRange);
+  
+  // When using same_day_last_month, force current period to be cumulative (1st of month → today)
+  if (filters.comparison === 'same_day_last_month') {
+    const now = new Date();
+    from = startOfMonth(now);
+    to = endOfDay(now);
+  }
+  
   const { from: prevFrom, to: prevTo } = getComparisonRange(from, to, filters.comparison);
 
   const fromStr = from.toISOString();
@@ -476,6 +507,17 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
       agendados: calcVariation(agendados, agendadosPrev),
       executados: calcVariation(executados, executadosPrev),
       pagos: calcVariation(servicosFechados, servicosPrev),
+    },
+    previous: {
+      receitaTotal: receitaPrev,
+      lucroBruto: lucroPrev,
+      servicosFechados: servicosPrev,
+      cliquesAnuncios: cliquesPrev,
+      conversasIniciadas: conversasPrev,
+      fsCriadas: fsPrev,
+      agendados: agendadosPrev,
+      executados: executadosPrev,
+      pagos: servicosPrev,
     },
     orcamentosPendentes2h,
     proximaMeta,
