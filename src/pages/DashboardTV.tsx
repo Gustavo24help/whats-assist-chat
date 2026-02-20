@@ -387,6 +387,75 @@ export default function DashboardTV() {
         </div>
       </section>
 
+      {/* CONVERSAS EM ABERTO */}
+      {data?.conversasAbertas && (
+        <section className="px-4 pb-10">
+          <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">
+            📞 Conversas em Aberto — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Por Status */}
+            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Quantidade por Status</div>
+              <div className="space-y-1.5">
+                {(data.conversasAbertas.porStatus || []).map((s, i) => {
+                  const pct = data.conversasAbertas.total > 0 ? (s.count / data.conversasAbertas.total) * 100 : 0;
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-2 min-w-0">
+                        <span className="text-xs text-gray-300 truncate w-[140px]">{s.status}</span>
+                        <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-white w-8 text-right">{s.count}</span>
+                    </div>
+                  );
+                })}
+                {(data.conversasAbertas.porStatus || []).length === 0 && (
+                  <div className="text-xs text-gray-500 text-center py-2">Nenhuma conversa em aberto</div>
+                )}
+              </div>
+            </div>
+
+            {/* Ranking sem resposta */}
+            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">🔥 Aguardando Resposta — Mais Tempo</div>
+              <div className="space-y-1 max-h-[160px] overflow-y-auto">
+                {(data.conversasAbertas.rankingSemResposta || []).map((c, i) => {
+                  const horas = Math.floor(c.tempoSemResposta / 60);
+                  const mins = c.tempoSemResposta % 60;
+                  const tempoStr = horas > 0 ? `${horas}h${mins}m` : `${mins}m`;
+                  const urgente = c.tempoSemResposta > 120;
+                  const muitoUrgente = c.tempoSemResposta > 480;
+                  return (
+                    <div key={i} className={cn(
+                      'flex items-center justify-between py-1 px-2 rounded text-xs',
+                      muitoUrgente ? 'bg-red-500/10 border border-red-500/30' : urgente ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-gray-800/40'
+                    )}>
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="text-gray-500 w-4 text-right">{i + 1}.</span>
+                        <span className="text-gray-300 truncate">{c.nome}</span>
+                        <span className="text-[9px] text-gray-500 shrink-0">{c.status}</span>
+                      </div>
+                      <span className={cn(
+                        'font-mono font-bold shrink-0 ml-2',
+                        muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400'
+                      )}>
+                        {muitoUrgente ? '🚨' : urgente ? '⚠️' : ''} {tempoStr}
+                      </span>
+                    </div>
+                  );
+                })}
+                {(data.conversasAbertas.rankingSemResposta || []).length === 0 && (
+                  <div className="text-xs text-gray-500 text-center py-2">Todas respondidas ✅</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* TICKER */}
       <footer className="fixed bottom-0 left-0 right-0 bg-gray-900/90 backdrop-blur border-t border-gray-800 px-4 py-2">
         <div className="overflow-hidden">

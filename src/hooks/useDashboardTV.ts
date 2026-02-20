@@ -42,6 +42,15 @@ export interface TVPreviousValues {
   pagos: number;
 }
 
+export interface ConversaAberta {
+  telefone: string;
+  nome: string;
+  status: string;
+  fichaId: string;
+  tempoSemResposta: number; // minutes
+  ultimaMensagemCliente: string;
+}
+
 export interface TVDashboardData {
   receitaTotal: number;
   lucroBruto: number;
@@ -88,8 +97,13 @@ export interface TVDashboardData {
   previous: TVPreviousValues;
   orcamentosPendentes2h: number;
   proximaMeta: string;
-  // Info about comparison for display
   comparisonLabel: string;
+  // Open conversations
+  conversasAbertas: {
+    porStatus: { status: string; count: number }[];
+    total: number;
+    rankingSemResposta: ConversaAberta[];
+  };
 }
 
 function getDateRange(period: TVPeriod, customRange?: { from: Date; to: Date }) {
@@ -446,6 +460,78 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     }
   }
 
+  // --- Open conversations (not in Agendado, Finalizado, Perdido, Garantia, Não foi adiante) ---
+  const statusFechados = ['Agendado', 'Finalizado', 'Perdido', 'Garantia', 'Não foi adiante'];
+  
+  const { data: fichasAbertas } = await supabase
+    .from('fichas_de_servico')
+    .select('id, status, telefone_cliente, nome_cliente, nome_ficha')
+    .not('status', 'in', `(${statusFechados.join(',')})`)
+    .order('updated_at', { ascending: true })
+    .limit(500);
+
+  const fichasAbertasList = fichasAbertas || [];
+  
+  // Count by status
+  const statusCountMap = new Map<string, number>();
+  const telefonesAbertos = new Set<string>();
+  for (const f of fichasAbertasList) {
+    const s = f.status || 'pendente';
+    statusCountMap.set(s, (statusCountMap.get(s) || 0) + 1);
+    telefonesAbertos.add(f.telefone_cliente);
+  }
+  const porStatus = Array.from(statusCountMap.entries())
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Find conversations waiting longest without our response
+  let rankingSemResposta: ConversaAberta[] = [];
+  if (telefonesAbertos.size > 0) {
+    const telefonesArr = Array.from(telefonesAbertos).slice(0, 100);
+    const { data: ultimasMsgs } = await supabase
+      .from('mensagens')
+      .select('cliente_id, remetente, data_hora')
+      .in('cliente_id', telefonesArr)
+      .order('data_hora', { ascending: false })
+      .limit(2000);
+
+    if (ultimasMsgs) {
+      // For each client, find if last message is from client (waiting for our response)
+      const clienteUltima = new Map<string, { remetente: string; data_hora: string }>();
+      for (const m of ultimasMsgs) {
+        if (!clienteUltima.has(m.cliente_id)) {
+          clienteUltima.set(m.cliente_id, { remetente: m.remetente, data_hora: m.data_hora || '' });
+        }
+      }
+
+      const nowMs = Date.now();
+      for (const f of fichasAbertasList) {
+        const ultima = clienteUltima.get(f.telefone_cliente);
+        if (ultima && ultima.remetente === 'cliente') {
+          const tempoMin = (nowMs - new Date(ultima.data_hora).getTime()) / (1000 * 60);
+          rankingSemResposta.push({
+            telefone: f.telefone_cliente,
+            nome: f.nome_cliente || f.nome_ficha || f.telefone_cliente,
+            status: f.status || 'pendente',
+            fichaId: f.id,
+            tempoSemResposta: Math.round(tempoMin),
+            ultimaMensagemCliente: ultima.data_hora,
+          });
+        }
+      }
+      // Sort by longest waiting first, deduplicate by telefone
+      const seen = new Set<string>();
+      rankingSemResposta = rankingSemResposta
+        .sort((a, b) => b.tempoSemResposta - a.tempoSemResposta)
+        .filter(c => {
+          if (seen.has(c.telefone)) return false;
+          seen.add(c.telefone);
+          return true;
+        })
+        .slice(0, 15);
+    }
+  }
+
   return {
     receitaTotal, lucroBruto, servicosFechados, ticketMedio, margemMedia,
     cliquesAnuncios, conversasIniciadas, fsCriadas, agendados, executados, pagos,
@@ -478,6 +564,11 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     orcamentosPendentes2h,
     proximaMeta,
     comparisonLabel,
+    conversasAbertas: {
+      porStatus,
+      total: fichasAbertasList.length,
+      rankingSemResposta,
+    },
   };
 }
 
