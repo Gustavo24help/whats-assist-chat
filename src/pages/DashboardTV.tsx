@@ -108,12 +108,12 @@ export default function DashboardTV() {
   const conversaoTotal = data.cliquesAnuncios > 0 ? (data.pagos / data.cliquesAnuncios) * 100 : (data.conversasIniciadas > 0 ? (data.pagos / data.conversasIniciadas) * 100 : 0);
 
   const funnelSteps = [
-    { label: 'Cliques', icon: '🎯', value: data.cliquesAnuncios, variation: data.variations.cliquesAnuncios, color: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30' },
-    { label: 'Conversas', icon: '💬', value: data.conversasIniciadas, variation: data.variations.conversasIniciadas, color: 'from-blue-500/20 to-blue-500/5 border-blue-500/30' },
-    { label: 'FS Criadas', icon: '📋', value: data.fsCriadas, variation: data.variations.fsCriadas, color: 'from-violet-500/20 to-violet-500/5 border-violet-500/30' },
-    { label: 'Agendados', icon: '📅', value: data.agendados, variation: data.variations.agendados, color: 'from-amber-500/20 to-amber-500/5 border-amber-500/30' },
-    { label: 'Executados', icon: '✅', value: data.executados, variation: data.variations.executados, color: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/30' },
-    { label: 'Pagos', icon: '💰', value: data.pagos, variation: data.variations.pagos, color: 'from-green-500/20 to-green-500/5 border-green-500/30' },
+    { label: 'Cliques', icon: '🎯', value: data.cliquesAnuncios, variation: data.variations.cliquesAnuncios, prev: data.previous.cliquesAnuncios, color: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30' },
+    { label: 'Conversas', icon: '💬', value: data.conversasIniciadas, variation: data.variations.conversasIniciadas, prev: data.previous.conversasIniciadas, color: 'from-blue-500/20 to-blue-500/5 border-blue-500/30' },
+    { label: 'FS Criadas', icon: '📋', value: data.fsCriadas, variation: data.variations.fsCriadas, prev: data.previous.fsCriadas, color: 'from-violet-500/20 to-violet-500/5 border-violet-500/30' },
+    { label: 'Agendados', icon: '📅', value: data.agendados, variation: data.variations.agendados, prev: data.previous.agendados, color: 'from-amber-500/20 to-amber-500/5 border-amber-500/30' },
+    { label: 'Executados', icon: '✅', value: data.executados, variation: data.variations.executados, prev: data.previous.executados, color: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/30' },
+    { label: 'Pagos', icon: '💰', value: data.pagos, variation: data.variations.pagos, prev: data.previous.pagos, color: 'from-green-500/20 to-green-500/5 border-green-500/30' },
   ];
 
   const conversionCards = [
@@ -220,18 +220,21 @@ export default function DashboardTV() {
           {
             label: 'Receita Total', value: fmtCurrency(data.receitaTotal),
             variation: data.variations.receitaTotal,
+            prevValue: fmtCurrency(data.previous.receitaTotal),
             meta: metas?.valor_os, progress: metas?.valor_os ? Math.min((data.receitaTotal / metas.valor_os) * 100, 100) : null,
             sub: `Ticket Médio: ${fmtCurrency(data.ticketMedio)}`,
           },
           {
             label: 'Lucro Bruto', value: fmtCurrency(data.lucroBruto),
             variation: data.variations.lucroBruto,
+            prevValue: fmtCurrency(data.previous.lucroBruto),
             meta: metas?.lucro_bruto, progress: metas?.lucro_bruto ? Math.min((data.lucroBruto / metas.lucro_bruto) * 100, 100) : null,
             sub: `Margem: ${data.margemMedia.toFixed(1)}%`,
           },
           {
             label: 'Serviços Fechados', value: fmtNum(data.servicosFechados),
             variation: data.variations.servicosFechados,
+            prevValue: fmtNum(data.previous.servicosFechados),
             meta: metas?.quantidade_servicos, progress: metas?.quantidade_servicos ? Math.min((data.servicosFechados / metas.quantidade_servicos) * 100, 100) : null,
             sub: `Conv. Total: ${conversaoTotal.toFixed(1)}%`,
           },
@@ -243,8 +246,9 @@ export default function DashboardTV() {
               <span className={cn('text-sm font-semibold', kpi.variation !== null && kpi.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                 {kpi.variation !== null ? (kpi.variation >= 0 ? '↑' : '↓') : ''} {fmtPct(kpi.variation)}
               </span>
-              <span className="text-xs text-gray-500">{kpi.sub}</span>
+              <span className="text-[10px] text-gray-500">ant: {kpi.prevValue}</span>
             </div>
+            <div className="text-xs text-gray-500 mt-0.5">{kpi.sub}</div>
             {kpi.progress !== null && (
               <div className="mt-2">
                 <div className="flex justify-between text-[10px] text-gray-500 mb-0.5">
@@ -268,8 +272,11 @@ export default function DashboardTV() {
                 <div className="text-lg">{step.icon}</div>
                 <div className="text-xl font-bold">{fmtNum(step.value)}</div>
                 <div className="text-[10px] text-gray-300">{step.label}</div>
-                <div className={cn('text-[10px] font-semibold mt-0.5', step.variation !== null && step.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                  {fmtPct(step.variation)}
+                <div className="flex items-center justify-center gap-1">
+                  <span className={cn('text-[10px] font-semibold', step.variation !== null && step.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                    {fmtPct(step.variation)}
+                  </span>
+                  <span className="text-[9px] text-gray-500">({fmtNum(step.prev)})</span>
                 </div>
               </div>
               {i < funnelSteps.length - 1 && <span className="text-gray-600 text-lg">→</span>}
