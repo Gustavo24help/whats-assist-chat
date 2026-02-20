@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>24Help Chat - Protótipo Standalone</title>
+    <style>
+      :root {
+        --green: #005a2c;
+        --green-100: #e6f3ec;
+        --yellow: #d69200;
+        --bg: #f1f5f9;
+        --line: #d9e2ec;
+        --text: #0f172a;
+        --muted: #64748b;
+        --danger: #ef4444;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+      .hidden {
+        display: none !important;
+      }
+      .btn {
+        height: 34px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #fff;
+        color: #1e293b;
+        padding: 0 12px;
+        cursor: pointer;
+      }
+      .btn.primary {
+        background: var(--green);
+        color: #fff;
+        border-color: var(--green);
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: transparent;
+      }
+
+      /* LOGIN */
+      .auth-wrap {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background: linear-gradient(
+          130deg,
+          #e2f6eb 0%,
+          #f8fafc 40%,
+          #edf5ff 100%
+        );
+      }
+      .auth-card {
+        width: 100%;
+        max-width: 460px;
+        background: #fff;
+        border: 1px solid #d6dee8;
+        border-radius: 14px;
+        box-shadow: 0 8px 30px rgba(15, 23, 42, 0.1);
+        padding: 24px;
+      }
+      .logo-round {
+        width: 48px;
+        height: 48px;
+        border-radius: 999px;
+        background: #dce9e0;
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+        margin: 0 auto 12px;
+      }
+      .auth-title {
+        text-align: center;
+        margin: 0;
+        font-size: 42px;
+      }
+      .auth-sub {
+        text-align: center;
+        margin: 10px 0 18px;
+        color: var(--muted);
+        font-size: 27px;
+      }
+      .field {
+        margin-top: 12px;
+      }
+      .field label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 19px;
+      }
+      .field input {
+        width: 100%;
+        height: 56px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        font-size: 25px;
+        padding: 0 14px;
+      }
+      .remember {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0;
+      }
+      .remember input {
+        width: 16px;
+        height: 16px;
+      }
+      .login-btn {
+        width: 100%;
+        height: 52px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--green);
+        color: #fff;
+        font-size: 24px;
+        cursor: pointer;
+      }
+
+      /* BASE APP */
+      .app {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .topbar {
+        height: 62px;
+        background: #fff;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .logo {
+        color: var(--green);
+        font-size: 44px;
+        line-height: 1;
+        padding: 0 6px;
+      }
+
+      /* HOME */
+      .home-main {
+        flex: 1;
+        display: grid;
+        align-content: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+      }
+      .home-main h1 {
+        margin: 0;
+        font-size: 56px;
+      }
+      .home-main p {
+        margin: 8px 0 28px;
+        color: var(--muted);
+        font-size: 40px;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(340px, 1fr));
+        gap: 26px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid #dce5ef;
+        box-shadow: 0 8px 25px rgba(15, 23, 42, 0.08);
+        text-align: left;
+        padding: 24px;
+      }
+      .icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 26px;
+      }
+      .icon.green {
+        background: var(--green);
+      }
+      .icon.yellow {
+        background: var(--yellow);
+      }
+      .card h3 {
+        margin: 16px 0 8px;
+        font-size: 45px;
+      }
+      .card p {
+        margin: 0 0 16px;
+        font-size: 35px;
+        text-align: left;
+      }
+      .card a {
+        color: var(--green);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 33px;
+      }
+
+      /* CHAT */
+      .chat-layout {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
+      .sidebar {
+        width: 390px;
+        background: #fff;
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+      }
+      .tabbar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+      .tab {
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid #d6dee8;
+        background: #fff;
+        font-size: 31px;
+      }
+      .tab.active {
+        background: #f8fafc;
+        font-weight: 600;
+      }
+      .section {
+        padding: 10px 10px 6px;
+        border-bottom: 1px solid var(--line);
+      }
+      .title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .title {
+        font-size: 42px;
+        font-weight: 700;
+      }
+      .pill {
+        height: 38px;
+        border-radius: 12px;
+        border: 1px solid #d1dbe6;
+        background: #fff;
+        padding: 0 14px;
+        font-size: 28px;
+      }
+      .pill.green {
+        background: var(--green);
+        border-color: var(--green);
+        color: #fff;
+      }
+      .search {
+        margin-top: 10px;
+        height: 46px;
+        border: 1px solid #d1dbe6;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        color: var(--muted);
+        font-size: 29px;
+      }
+      .alert {
+        margin-top: 8px;
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+        padding: 8px 10px;
+        color: #334155;
+        font-size: 31px;
+        background: #fff;
+      }
+      .alert.warn {
+        border-color: #fde68a;
+      }
+      .filters {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .toggle-row {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .conversation-list {
+        overflow: auto;
+      }
+      .conv-item {
+        border-bottom: 1px solid var(--line);
+        padding: 12px 10px;
+        cursor: pointer;
+      }
+      .conv-item.active {
+        background: #eef6f1;
+      }
+      .conv-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .name {
+        font-size: 36px;
+        font-weight: 600;
+      }
+      .meta {
+        margin-top: 8px;
+        font-size: 27px;
+        color: #5f7590;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #f59e0b;
+        display: inline-block;
+      }
+      .center-empty {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        color: #64748b;
+      }
+      .center-empty h2 {
+        margin: 0;
+        font-size: 47px;
+        font-weight: 500;
+      }
+      .center-empty p {
+        margin: 10px 0 0;
+        font-size: 34px;
+      }
+      .chat-pane {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #f8fafc;
+      }
+      .chat-head {
+        height: 58px;
+        border-bottom: 1px solid var(--line);
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+      }
+      .messages {
+        flex: 1;
+        padding: 14px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .msg {
+        max-width: 70%;
+        border-radius: 14px;
+        padding: 10px 12px;
+        font-size: 29px;
+      }
+      .msg.in {
+        background: #fff;
+        border: 1px solid #d6dee8;
+      }
+      .msg.out {
+        background: var(--green);
+        color: #fff;
+        margin-left: auto;
+      }
+      .composer {
+        border-top: 1px solid var(--line);
+        background: #fff;
+        display: flex;
+        gap: 8px;
+        padding: 10px;
+      }
+      .composer input {
+        flex: 1;
+        height: 42px;
+        border-radius: 10px;
+        border: 1px solid #d1dbe6;
+        padding: 0 10px;
+        font-size: 28px;
+      }
+
+      @media (max-width: 1200px) {
+        .cards {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          width: 100%;
+          max-width: 420px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section id="loginScreen" class="auth-wrap">
+      <div class="auth-card">
+        <div class="logo-round">💬</div>
+        <h1 class="auth-title">Central de Atendimento</h1>
+        <p class="auth-sub">Faça login para acessar o sistema</p>
+        <form id="loginForm">
+          <div class="field">
+            <label>Email</label>
+            <input type="email" placeholder="seu@email.com" required />
+          </div>
+          <div class="field">
+            <label>Senha</label>
+            <input type="password" placeholder="••••••••" required />
+          </div>
+          <label class="remember"
+            ><input type="checkbox" checked /> Lembrar usuário</label
+          >
+          <button type="submit" class="login-btn">Entrar</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="homeScreen" class="app hidden">
+      <header class="topbar">
+        <div class="row">
+          <button class="btn ghost">🏠</button>
+          <div class="logo">〰️</div>
+        </div>
+        <div class="row">
+          <button class="btn">🔔</button>
+          <button class="btn">⚙️ Configurações</button>
+          <button id="logoutHome" class="btn">↩️ Sair</button>
+        </div>
+      </header>
+      <main class="home-main">
+        <h1>Olá, Gustavo!</h1>
+        <p>O que deseja fazer hoje?</p>
+        <div class="cards">
+          <article class="card">
+            <div class="icon green">💬</div>
+            <h3>Chat de Atendimento</h3>
+            <p>
+              Gerencie conversas do WhatsApp, fichas de serviço e atendimento
+              aos clientes.
+            </p>
+            <a href="#" id="goChat">Acessar →</a>
+          </article>
+          <article class="card">
+            <div class="icon yellow">📊</div>
+            <h3>Dashboard de Resultados</h3>
+            <p>
+              Visualize métricas, KPIs e acompanhe o desempenho do seu negócio.
+            </p>
+            <a href="#">Acessar →</a>
+          </article>
+        </div>
+      </main>
+    </section>
+
+    <section id="chatScreen" class="app hidden">
+      <header class="topbar">
+        <div class="row">
+          <button id="backHome" class="btn ghost">🏠</button>
+          <div class="logo">〰️</div>
+          <button class="btn primary">Conversas</button>
+          <button class="btn">Geral</button>
+          <button class="btn">Dashboard</button>
+        </div>
+        <div class="row">
+          <button class="btn">🔔</button>
+          <button class="btn">⚙️ Configurações</button>
+          <button id="logoutChat" class="btn">↩️ Sair</button>
+        </div>
+      </header>
+
+      <div class="chat-layout">
+        <aside class="sidebar">
+          <div class="tabbar">
+            <button class="tab active">💬 Conversas</button>
+            <button class="tab">👥 Contatos</button>
+          </div>
+          <div class="section">
+            <div class="title-row">
+              <div class="title">Conversas</div>
+              <button class="pill">Meus</button>
+              <button class="pill green">Todos</button>
+              <button class="pill green">+ Nova</button>
+            </div>
+            <div class="search">🔍 Buscar...</div>
+            <div class="alert warn">⚠️ 1 conversa precisa de atendimento</div>
+            <div class="alert">🔴 2 serviços precisam de atualização</div>
+            <div class="filters">
+              <button class="pill">🔎 Filtros</button>
+              <button class="pill">🏷️ Tags 25</button>
+            </div>
+            <div class="toggle-row">
+              <button class="pill green">Ativas</button>
+              <button class="pill">Inativas</button>
+              <button class="pill">Todas</button>
+            </div>
+          </div>
+
+          <div class="conversation-list" id="conversationList">
+            <article class="conv-item" data-name="Izadora Lago">
+              <div class="conv-head">
+                <div class="name">Izadora Lago</div>
+                <small>whatsapp:+554188338658</small>
+              </div>
+              <div class="meta">
+                📋 FS6-260220 <span class="dot"></span> Orçamento Enviado 💰1
+              </div>
+              <div class="meta">há menos de um minuto</div>
+            </article>
+            <article class="conv-item" data-name="Juliano 🌊🌊🌊🌊">
+              <div class="conv-head">
+                <div class="name">Juliano 🌊🌊🌊🌊</div>
+                <small>whatsapp:+554195833216</small>
+              </div>
+              <div class="meta">
+                📋 FS2-260219 <span class="dot"></span> Orçamento Enviado 💰1
+              </div>
+              <div class="meta">há 1 minuto</div>
+            </article>
+            <article class="conv-item" data-name="Eder">
+              <div class="conv-head">
+                <div class="name">Eder</div>
+                <small>whatsapp:+554198621876</small>
+              </div>
+              <div class="meta">
+                📋 FS1-260220 <span class="dot"></span> Orçamento Enviado 💰3
+              </div>
+              <div class="meta">há 4 minutos</div>
+            </article>
+            <article class="conv-item" data-name="Jessica Siqueira">
+              <div class="conv-head">
+                <div class="name">Jessica Siqueira</div>
+                <small>whatsapp:+554199792427</small>
+              </div>
+              <div class="meta">📋 FS4-260220 🔵 Ficha Criada</div>
+              <div class="meta">há 5 minutos</div>
+            </article>
+          </div>
+        </aside>
+
+        <main id="chatPaneEmpty" class="center-empty">
+          <div>
+            <h2>Selecione uma conversa</h2>
+            <p>Escolha um contato da lista para começar</p>
+          </div>
+        </main>
+
+        <main id="chatPane" class="chat-pane hidden">
+          <div class="chat-head">
+            <strong id="activeName">Cliente</strong>
+            <div class="row"><button class="btn">Abrir ficha</button></div>
+          </div>
+          <div class="messages">
+            <div class="msg in">Olá! Preciso atualizar meu orçamento.</div>
+            <div class="msg out">
+              Claro! Vou verificar os dados e te retorno agora.
+            </div>
+            <div class="msg in">Perfeito, fico no aguardo.</div>
+          </div>
+          <div class="composer">
+            <input placeholder="Digite sua mensagem..." />
+            <button class="btn primary">Enviar</button>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <script>
+      const loginScreen = document.getElementById("loginScreen");
+      const homeScreen = document.getElementById("homeScreen");
+      const chatScreen = document.getElementById("chatScreen");
+
+      function show(screen) {
+        loginScreen.classList.add("hidden");
+        homeScreen.classList.add("hidden");
+        chatScreen.classList.add("hidden");
+        screen.classList.remove("hidden");
+      }
+
+      document.getElementById("loginForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        show(homeScreen);
+      });
+      document.getElementById("goChat").addEventListener("click", (e) => {
+        e.preventDefault();
+        show(chatScreen);
+      });
+      document
+        .getElementById("backHome")
+        .addEventListener("click", () => show(homeScreen));
+      document
+        .getElementById("logoutHome")
+        .addEventListener("click", () => show(loginScreen));
+      document
+        .getElementById("logoutChat")
+        .addEventListener("click", () => show(loginScreen));
+
+      const conversationList = document.getElementById("conversationList");
+      const items = conversationList.querySelectorAll(".conv-item");
+      const chatPaneEmpty = document.getElementById("chatPaneEmpty");
+      const chatPane = document.getElementById("chatPane");
+      const activeName = document.getElementById("activeName");
+
+      items.forEach((item) => {
+        item.addEventListener("click", () => {
+          items.forEach((i) => i.classList.remove("active"));
+          item.classList.add("active");
+          activeName.textContent = item.dataset.name || "Cliente";
+          chatPaneEmpty.classList.add("hidden");
+          chatPane.classList.remove("hidden");
+        });
+      });
+    </script>
+  </body>
+</html>
