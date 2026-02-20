@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Protótipo - Tela de Chat</title>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --muted: #64748b;
+        --text: #0f172a;
+        --border: #e2e8f0;
+        --primary: #0f766e;
+        --primary-soft: #ccfbf1;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+      .app {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .header {
+        height: 56px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+      }
+      .left,
+      .right,
+      .group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .logo {
+        font-weight: 700;
+        color: var(--primary);
+        padding: 0 8px;
+      }
+      .btn {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 8px;
+        height: 34px;
+        padding: 0 12px;
+        cursor: pointer;
+        color: var(--text);
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: transparent;
+      }
+      .btn.primary {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      .content {
+        flex: 1;
+        display: flex;
+        position: relative;
+        overflow: hidden;
+      }
+      .sidebar {
+        width: 360px;
+        background: var(--panel);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+      .tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 8px;
+        height: 36px;
+        cursor: pointer;
+      }
+      .tab.active {
+        background: var(--primary-soft);
+        border-color: #99f6e4;
+        color: #115e59;
+        font-weight: 600;
+      }
+      .list {
+        padding: 8px;
+        overflow: auto;
+        flex: 1;
+      }
+      .item {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        background: #fff;
+      }
+      .item.active {
+        border-color: #5eead4;
+        background: #f0fdfa;
+      }
+      .item small {
+        color: var(--muted);
+      }
+      .main {
+        flex: 1;
+        display: flex;
+        min-width: 0;
+      }
+      .chat {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #f8fafc;
+      }
+      .chat-header {
+        border-bottom: 1px solid var(--border);
+        height: 56px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+      }
+      .messages {
+        flex: 1;
+        padding: 16px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .msg {
+        max-width: 70%;
+        padding: 10px 12px;
+        border-radius: 12px;
+      }
+      .msg.in {
+        align-self: flex-start;
+        background: #fff;
+        border: 1px solid var(--border);
+      }
+      .msg.out {
+        align-self: flex-end;
+        background: var(--primary);
+        color: #fff;
+      }
+      .composer {
+        border-top: 1px solid var(--border);
+        background: #fff;
+        padding: 10px;
+        display: flex;
+        gap: 8px;
+      }
+      .composer input {
+        flex: 1;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        height: 36px;
+        padding: 0 10px;
+      }
+      .empty {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+      }
+      .ficha-overlay {
+        position: fixed;
+        inset: 56px 0 0 0;
+        background: rgba(15, 23, 42, 0.08);
+        display: none;
+      }
+      .ficha {
+        position: fixed;
+        top: 56px;
+        right: 0;
+        bottom: 0;
+        width: 420px;
+        max-width: 100%;
+        background: rgba(255, 255, 255, 0.95);
+        border-left: 1px solid var(--border);
+        box-shadow: -6px 0 20px rgba(2, 6, 23, 0.15);
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+        padding: 16px;
+      }
+      .ficha.open {
+        transform: translateX(0);
+      }
+      .ficha-overlay.open {
+        display: block;
+      }
+      .collapse-btn {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 10;
+        display: none;
+      }
+      .sidebar.hidden {
+        display: none;
+      }
+      .collapse-btn.visible {
+        display: inline-flex;
+      }
+      @media (max-width: 900px) {
+        .header .group .btn span {
+          display: none;
+        }
+        .sidebar {
+          width: 100%;
+        }
+        .main.has-selection .sidebar {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="left">
+          <button class="btn ghost">🏠</button>
+          <div class="logo">Whats Assist</div>
+          <div class="group">
+            <button class="btn primary">Conversas</button>
+            <button class="btn">Geral</button>
+            <button class="btn">Dashboard</button>
+          </div>
+        </div>
+        <div class="right">
+          <button class="btn">🔔</button>
+          <button class="btn">⚙️ <span>Configurações</span></button>
+          <button class="btn">↩️ <span>Sair</span></button>
+        </div>
+      </header>
+
+      <div class="content">
+        <button id="expandSidebar" class="btn collapse-btn">☰</button>
+
+        <aside id="sidebar" class="sidebar">
+          <div class="tabs">
+            <button class="tab active" data-tab="conversas">
+              💬 Conversas
+            </button>
+            <button class="tab" data-tab="contatos">👥 Contatos</button>
+          </div>
+
+          <div id="tab-conversas" class="list">
+            <div class="item active" data-cliente="Maria Oliveira">
+              <strong>Maria Oliveira</strong><br />
+              <small>Preciso confirmar o orçamento...</small>
+            </div>
+            <div class="item" data-cliente="João Lima">
+              <strong>João Lima</strong><br />
+              <small>Tem disponibilidade para hoje?</small>
+            </div>
+            <div class="item" data-cliente="Condomínio Sol Nascente">
+              <strong>Condomínio Sol Nascente</strong><br />
+              <small>Mensagem não lida (3)</small>
+            </div>
+          </div>
+
+          <div id="tab-contatos" class="list" style="display: none">
+            <div class="item">
+              <strong>Ana Souza</strong><br /><small>(11) 98888-1111</small>
+            </div>
+            <div class="item">
+              <strong>Bruno Silva</strong><br /><small>(11) 97777-2222</small>
+            </div>
+            <div class="item">
+              <strong>Carlos Mendes</strong><br /><small>(11) 96666-3333</small>
+            </div>
+          </div>
+        </aside>
+
+        <main id="main" class="main has-selection">
+          <section class="chat" id="chatView">
+            <div class="chat-header">
+              <strong id="clienteNome">Maria Oliveira</strong>
+              <div>
+                <button class="btn" id="toggleSidebar">Ocultar menu</button>
+                <button class="btn primary" id="openFicha">Abrir ficha</button>
+              </div>
+            </div>
+
+            <div class="messages">
+              <div class="msg in">
+                Olá! Gostaria de saber o valor da visita técnica.
+              </div>
+              <div class="msg out">
+                Oi, Maria! A visita técnica fica em R$120,00.
+              </div>
+              <div class="msg in">Perfeito, pode agendar para amanhã?</div>
+            </div>
+
+            <div class="composer">
+              <input type="text" placeholder="Digite sua mensagem..." />
+              <button class="btn primary">Enviar</button>
+            </div>
+          </section>
+
+          <section id="emptyView" class="empty" style="display: none">
+            <div>
+              <p style="margin: 0 0 8px; font-size: 18px">
+                Selecione uma conversa
+              </p>
+              <p style="margin: 0; font-size: 14px">
+                Escolha um contato da lista para começar.
+              </p>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <div id="fichaOverlay" class="ficha-overlay"></div>
+      <aside id="fichaPanel" class="ficha">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+          "
+        >
+          <strong>Ficha do cliente</strong>
+          <button id="closeFicha" class="btn">Fechar</button>
+        </div>
+        <p>
+          <strong>Cliente:</strong>
+          <span id="fichaCliente">Maria Oliveira</span>
+        </p>
+        <p><strong>Status:</strong> Em atendimento</p>
+        <p><strong>Serviço:</strong> Manutenção preventiva</p>
+        <p>
+          <strong>Observações:</strong> Cliente prefere atendimento no período
+          da manhã.
+        </p>
+      </aside>
+    </div>
+
+    <script>
+      const tabs = document.querySelectorAll(".tab");
+      const conversas = document.getElementById("tab-conversas");
+      const contatos = document.getElementById("tab-contatos");
+      const items = document.querySelectorAll("#tab-conversas .item");
+      const clienteNome = document.getElementById("clienteNome");
+      const fichaCliente = document.getElementById("fichaCliente");
+      const fichaPanel = document.getElementById("fichaPanel");
+      const fichaOverlay = document.getElementById("fichaOverlay");
+      const openFicha = document.getElementById("openFicha");
+      const closeFicha = document.getElementById("closeFicha");
+      const sidebar = document.getElementById("sidebar");
+      const toggleSidebar = document.getElementById("toggleSidebar");
+      const expandSidebar = document.getElementById("expandSidebar");
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          tabs.forEach((t) => t.classList.remove("active"));
+          tab.classList.add("active");
+          const isConversas = tab.dataset.tab === "conversas";
+          conversas.style.display = isConversas ? "block" : "none";
+          contatos.style.display = isConversas ? "none" : "block";
+        });
+      });
+
+      items.forEach((item) => {
+        item.addEventListener("click", () => {
+          items.forEach((i) => i.classList.remove("active"));
+          item.classList.add("active");
+          const nome = item.dataset.cliente;
+          clienteNome.textContent = nome;
+          fichaCliente.textContent = nome;
+        });
+      });
+
+      function openFichaPanel() {
+        fichaPanel.classList.add("open");
+        fichaOverlay.classList.add("open");
+      }
+      function closeFichaPanel() {
+        fichaPanel.classList.remove("open");
+        fichaOverlay.classList.remove("open");
+      }
+
+      openFicha.addEventListener("click", openFichaPanel);
+      closeFicha.addEventListener("click", closeFichaPanel);
+      fichaOverlay.addEventListener("click", closeFichaPanel);
+
+      toggleSidebar.addEventListener("click", () => {
+        sidebar.classList.add("hidden");
+        expandSidebar.classList.add("visible");
+      });
+
+      expandSidebar.addEventListener("click", () => {
+        sidebar.classList.remove("hidden");
+        expandSidebar.classList.remove("visible");
+      });
+    </script>
+  </body>
+</html>
