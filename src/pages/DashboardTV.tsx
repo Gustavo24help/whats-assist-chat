@@ -96,49 +96,51 @@ export default function DashboardTV() {
     );
   }
 
-  const metas = data.metas;
+  const metas = data?.metas;
+  const variations = data?.variations ?? {} as Record<string, number | null>;
+  const previous = data?.previous ?? {} as Record<string, number>;
 
   // Computed conversion rates
-  const taxaAgendFS = data.fsCriadas > 0 ? (data.agendados / data.fsCriadas) * 100 : 0;
-  const taxaPagosFS = data.fsCriadas > 0 ? (data.pagos / data.fsCriadas) * 100 : 0;
-  const taxaPagosAgend = data.agendados > 0 ? (data.pagos / data.agendados) * 100 : 0;
-  const taxaPagosCliques = data.cliquesAnuncios > 0 ? (data.pagos / data.cliquesAnuncios) * 100 : 0;
-  const taxaConvCliques = data.cliquesAnuncios > 0 ? (data.conversasIniciadas / data.cliquesAnuncios) * 100 : 0;
-  const taxaExecAgend = data.agendados > 0 ? (data.executados / data.agendados) * 100 : 0;
-  const conversaoTotal = data.cliquesAnuncios > 0 ? (data.pagos / data.cliquesAnuncios) * 100 : (data.conversasIniciadas > 0 ? (data.pagos / data.conversasIniciadas) * 100 : 0);
+  const taxaAgendFS = (data?.fsCriadas ?? 0) > 0 ? ((data?.agendados ?? 0) / data!.fsCriadas) * 100 : 0;
+  const taxaPagosFS = (data?.fsCriadas ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.fsCriadas) * 100 : 0;
+  const taxaPagosAgend = (data?.agendados ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.agendados) * 100 : 0;
+  const taxaPagosCliques = (data?.cliquesAnuncios ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.cliquesAnuncios) * 100 : 0;
+  const taxaConvCliques = (data?.cliquesAnuncios ?? 0) > 0 ? ((data?.conversasIniciadas ?? 0) / data!.cliquesAnuncios) * 100 : 0;
+  const taxaExecAgend = (data?.agendados ?? 0) > 0 ? ((data?.executados ?? 0) / data!.agendados) * 100 : 0;
+  const conversaoTotal = (data?.cliquesAnuncios ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.cliquesAnuncios) * 100 : ((data?.conversasIniciadas ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.conversasIniciadas) * 100 : 0);
 
   const funnelSteps = [
-    { label: 'Cliques', icon: '🎯', value: data.cliquesAnuncios, variation: data.variations.cliquesAnuncios, prev: data.previous.cliquesAnuncios, color: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30' },
-    { label: 'Conversas', icon: '💬', value: data.conversasIniciadas, variation: data.variations.conversasIniciadas, prev: data.previous.conversasIniciadas, color: 'from-blue-500/20 to-blue-500/5 border-blue-500/30' },
-    { label: 'FS Criadas', icon: '📋', value: data.fsCriadas, variation: data.variations.fsCriadas, prev: data.previous.fsCriadas, color: 'from-violet-500/20 to-violet-500/5 border-violet-500/30' },
-    { label: 'Agendados', icon: '📅', value: data.agendados, variation: data.variations.agendados, prev: data.previous.agendados, color: 'from-amber-500/20 to-amber-500/5 border-amber-500/30' },
-    { label: 'Executados', icon: '✅', value: data.executados, variation: data.variations.executados, prev: data.previous.executados, color: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/30' },
-    { label: 'Pagos', icon: '💰', value: data.pagos, variation: data.variations.pagos, prev: data.previous.pagos, color: 'from-green-500/20 to-green-500/5 border-green-500/30' },
+    { label: 'Cliques', icon: '🎯', value: data?.cliquesAnuncios ?? 0, variation: variations.cliquesAnuncios ?? null, prev: previous.cliquesAnuncios ?? 0, color: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30' },
+    { label: 'Conversas', icon: '💬', value: data?.conversasIniciadas ?? 0, variation: variations.conversasIniciadas ?? null, prev: previous.conversasIniciadas ?? 0, color: 'from-blue-500/20 to-blue-500/5 border-blue-500/30' },
+    { label: 'FS Criadas', icon: '📋', value: data?.fsCriadas ?? 0, variation: variations.fsCriadas ?? null, prev: previous.fsCriadas ?? 0, color: 'from-violet-500/20 to-violet-500/5 border-violet-500/30' },
+    { label: 'Agendados', icon: '📅', value: data?.agendados ?? 0, variation: variations.agendados ?? null, prev: previous.agendados ?? 0, color: 'from-amber-500/20 to-amber-500/5 border-amber-500/30' },
+    { label: 'Executados', icon: '✅', value: data?.executados ?? 0, variation: variations.executados ?? null, prev: previous.executados ?? 0, color: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/30' },
+    { label: 'Pagos', icon: '💰', value: data?.pagos ?? 0, variation: variations.pagos ?? null, prev: previous.pagos ?? 0, color: 'from-green-500/20 to-green-500/5 border-green-500/30' },
   ];
 
   const conversionCards = [
-    { label: 'Agendados / FS', value: taxaAgendFS, meta: metas?.taxa_fs_agendado || 25, calc: `${data.agendados} / ${data.fsCriadas}` },
-    { label: 'Pagos / FS', value: taxaPagosFS, meta: 20, calc: `${data.pagos} / ${data.fsCriadas}` },
-    { label: 'Pagos / Agendados', value: taxaPagosAgend, meta: metas?.taxa_agendado_pago || 85, calc: `${data.pagos} / ${data.agendados}` },
-    { label: 'Pagos / Cliques', value: taxaPagosCliques, meta: metas?.taxa_conversao_total || 10, calc: `${data.pagos} / ${data.cliquesAnuncios}` },
-    { label: 'Conversas / Cliques', value: taxaConvCliques, meta: 60, calc: `${data.conversasIniciadas} / ${data.cliquesAnuncios}` },
-    { label: 'Executados / Agendados', value: taxaExecAgend, meta: 90, calc: `${data.executados} / ${data.agendados}` },
+    { label: 'Agendados / FS', value: taxaAgendFS, meta: metas?.taxa_fs_agendado || 25, calc: `${data?.agendados ?? 0} / ${data?.fsCriadas ?? 0}` },
+    { label: 'Pagos / FS', value: taxaPagosFS, meta: 20, calc: `${data?.pagos ?? 0} / ${data?.fsCriadas ?? 0}` },
+    { label: 'Pagos / Agendados', value: taxaPagosAgend, meta: metas?.taxa_agendado_pago || 85, calc: `${data?.pagos ?? 0} / ${data?.agendados ?? 0}` },
+    { label: 'Pagos / Cliques', value: taxaPagosCliques, meta: metas?.taxa_conversao_total || 10, calc: `${data?.pagos ?? 0} / ${data?.cliquesAnuncios ?? 0}` },
+    { label: 'Conversas / Cliques', value: taxaConvCliques, meta: 60, calc: `${data?.conversasIniciadas ?? 0} / ${data?.cliquesAnuncios ?? 0}` },
+    { label: 'Executados / Agendados', value: taxaExecAgend, meta: 90, calc: `${data?.executados ?? 0} / ${data?.agendados ?? 0}` },
   ];
 
   const timeCards = [
-    { label: 'Tempo Resposta', value: data.tempoRespostaMin, unit: 'min', target: metas?.tempo_resposta_max || 60, icon: '⚡' },
-    { label: 'Recebimento Orçamento', value: data.tempoOrcamentoMin, unit: 'min', target: metas?.tempo_orcamento_max || 120, icon: '🎯' },
-    { label: 'FS → Agendado', value: data.tempoFSAgendadoDias !== null ? data.tempoFSAgendadoDias : null, unit: 'dias', target: 2, icon: '📅' },
-    { label: 'Agendado → Executado', value: data.tempoAgendadoExecDias !== null ? data.tempoAgendadoExecDias : null, unit: 'dias', target: 3, icon: '🔄' },
-    { label: 'Ciclo Completo', value: data.tempoCicloCompletoDias !== null ? data.tempoCicloCompletoDias : null, unit: 'dias', target: 7, icon: '🎪' },
+    { label: 'Tempo Resposta', value: data?.tempoRespostaMin ?? null, unit: 'min', target: metas?.tempo_resposta_max || 60, icon: '⚡' },
+    { label: 'Recebimento Orçamento', value: data?.tempoOrcamentoMin ?? null, unit: 'min', target: metas?.tempo_orcamento_max || 120, icon: '🎯' },
+    { label: 'FS → Agendado', value: data?.tempoFSAgendadoDias ?? null, unit: 'dias', target: 2, icon: '📅' },
+    { label: 'Agendado → Executado', value: data?.tempoAgendadoExecDias ?? null, unit: 'dias', target: 3, icon: '🔄' },
+    { label: 'Ciclo Completo', value: data?.tempoCicloCompletoDias ?? null, unit: 'dias', target: 7, icon: '🎪' },
   ];
 
   // Ticker messages
   const tickerItems = [
-    data.orcamentosPendentes2h > 0 ? `🔥 ${data.orcamentosPendentes2h} orçamentos pendentes >2h` : null,
-    data.proximaMeta ? `🎯 ${data.proximaMeta}` : null,
-    data.npsGeral !== null ? `⭐ NPS Geral: ${data.npsGeral.toFixed(1)}` : null,
-    data.avaliacaoMediaPrestadores !== null ? `👷 Avaliação Prestadores: ${data.avaliacaoMediaPrestadores.toFixed(1)}` : null,
+    (data?.orcamentosPendentes2h ?? 0) > 0 ? `🔥 ${data!.orcamentosPendentes2h} orçamentos pendentes >2h` : null,
+    data?.proximaMeta ? `🎯 ${data.proximaMeta}` : null,
+    data?.npsGeral != null ? `⭐ NPS Geral: ${data.npsGeral.toFixed(1)}` : null,
+    data?.avaliacaoMediaPrestadores != null ? `👷 Avaliação Prestadores: ${data.avaliacaoMediaPrestadores.toFixed(1)}` : null,
   ].filter(Boolean).join('   |   ');
 
   return (
@@ -218,24 +220,24 @@ export default function DashboardTV() {
       <section className="grid grid-cols-3 gap-3 px-4 py-3">
         {[
           {
-            label: 'Receita Total', value: fmtCurrency(data.receitaTotal),
-            variation: data.variations.receitaTotal,
-            prevValue: fmtCurrency(data.previous.receitaTotal),
-            meta: metas?.valor_os, progress: metas?.valor_os ? Math.min((data.receitaTotal / metas.valor_os) * 100, 100) : null,
-            sub: `Ticket Médio: ${fmtCurrency(data.ticketMedio)}`,
+            label: 'Receita Total', value: fmtCurrency(data?.receitaTotal ?? 0),
+            variation: variations.receitaTotal ?? null,
+            prevValue: fmtCurrency(previous.receitaTotal ?? 0),
+            meta: metas?.valor_os, progress: metas?.valor_os ? Math.min(((data?.receitaTotal ?? 0) / metas.valor_os) * 100, 100) : null,
+            sub: `Ticket Médio: ${fmtCurrency(data?.ticketMedio ?? 0)}`,
           },
           {
-            label: 'Lucro Bruto', value: fmtCurrency(data.lucroBruto),
-            variation: data.variations.lucroBruto,
-            prevValue: fmtCurrency(data.previous.lucroBruto),
-            meta: metas?.lucro_bruto, progress: metas?.lucro_bruto ? Math.min((data.lucroBruto / metas.lucro_bruto) * 100, 100) : null,
-            sub: `Margem: ${data.margemMedia.toFixed(1)}%`,
+            label: 'Lucro Bruto', value: fmtCurrency(data?.lucroBruto ?? 0),
+            variation: variations.lucroBruto ?? null,
+            prevValue: fmtCurrency(previous.lucroBruto ?? 0),
+            meta: metas?.lucro_bruto, progress: metas?.lucro_bruto ? Math.min(((data?.lucroBruto ?? 0) / metas.lucro_bruto) * 100, 100) : null,
+            sub: `Margem: ${(data?.margemMedia ?? 0).toFixed(1)}%`,
           },
           {
-            label: 'Serviços Fechados', value: fmtNum(data.servicosFechados),
-            variation: data.variations.servicosFechados,
-            prevValue: fmtNum(data.previous.servicosFechados),
-            meta: metas?.quantidade_servicos, progress: metas?.quantidade_servicos ? Math.min((data.servicosFechados / metas.quantidade_servicos) * 100, 100) : null,
+            label: 'Serviços Fechados', value: fmtNum(data?.servicosFechados ?? 0),
+            variation: variations.servicosFechados ?? null,
+            prevValue: fmtNum(previous.servicosFechados ?? 0),
+            meta: metas?.quantidade_servicos, progress: metas?.quantidade_servicos ? Math.min(((data?.servicosFechados ?? 0) / metas.quantidade_servicos) * 100, 100) : null,
             sub: `Conv. Total: ${conversaoTotal.toFixed(1)}%`,
           },
         ].map((kpi, i) => (
@@ -284,7 +286,7 @@ export default function DashboardTV() {
           ))}
         </div>
         <div className="text-center text-xs text-gray-500 mt-1">
-          Conversão Total: {data.cliquesAnuncios > 0 ? `${fmtNum(data.cliquesAnuncios)} → ${fmtNum(data.pagos)} = ${conversaoTotal.toFixed(1)}%` : `${fmtNum(data.conversasIniciadas)} → ${fmtNum(data.pagos)}`}
+          Conversão Total: {(data?.cliquesAnuncios ?? 0) > 0 ? `${fmtNum(data!.cliquesAnuncios)} → ${fmtNum(data?.pagos ?? 0)} = ${conversaoTotal.toFixed(1)}%` : `${fmtNum(data?.conversasIniciadas ?? 0)} → ${fmtNum(data?.pagos ?? 0)}`}
         </div>
       </section>
 
