@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { getWeekdayName } from '@/lib/businessDays2026';
 import logoGreen from '@/assets/logo-green.png';
 
 // ---- Helpers ----
@@ -52,6 +53,10 @@ export default function DashboardTV() {
     period: 'today',
     comparison: 'yesterday',
     onlyBusinessDays: false,
+    compareWeekday: new Date().getDay(),
+    compareWeekdayTarget: new Date().getDay(),
+    compareDay: new Date().getDate(),
+    compareDayCumulative: true,
   });
   const [metasOpen, setMetasOpen] = useState(false);
   const [clock, setClock] = useState(new Date());
@@ -63,7 +68,6 @@ export default function DashboardTV() {
 
   const { data, isLoading } = useDashboardTV(filters);
 
-  // Load prestadores and categorias for filters
   const { data: prestadores } = useQuery({
     queryKey: ['prestadores-list'],
     queryFn: async () => {
@@ -91,7 +95,6 @@ export default function DashboardTV() {
           <Skeleton className="h-40 bg-gray-800" />
         </div>
         <Skeleton className="h-32 bg-gray-800" />
-        <Skeleton className="h-32 bg-gray-800" />
       </div>
     );
   }
@@ -100,7 +103,6 @@ export default function DashboardTV() {
   const variations = data?.variations ?? {} as Record<string, number | null>;
   const previous = data?.previous ?? {} as Record<string, number>;
 
-  // Computed conversion rates
   const taxaAgendFS = (data?.fsCriadas ?? 0) > 0 ? ((data?.agendados ?? 0) / data!.fsCriadas) * 100 : 0;
   const taxaPagosFS = (data?.fsCriadas ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.fsCriadas) * 100 : 0;
   const taxaPagosAgend = (data?.agendados ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.agendados) * 100 : 0;
@@ -135,13 +137,15 @@ export default function DashboardTV() {
     { label: 'Ciclo Completo', value: data?.tempoCicloCompletoDias ?? null, unit: 'dias', target: 7, icon: '🎪' },
   ];
 
-  // Ticker messages
   const tickerItems = [
     (data?.orcamentosPendentes2h ?? 0) > 0 ? `🔥 ${data!.orcamentosPendentes2h} orçamentos pendentes >2h` : null,
     data?.proximaMeta ? `🎯 ${data.proximaMeta}` : null,
     data?.npsGeral != null ? `⭐ NPS Geral: ${data.npsGeral.toFixed(1)}` : null,
     data?.avaliacaoMediaPrestadores != null ? `👷 Avaliação Prestadores: ${data.avaliacaoMediaPrestadores.toFixed(1)}` : null,
   ].filter(Boolean).join('   |   ');
+
+  const showWeekdaySelectors = filters.comparison === 'weekday_compare';
+  const showDaySelectors = filters.comparison === 'specific_day';
 
   return (
     <div className="min-h-screen bg-gray-950 text-white overflow-hidden">
@@ -162,7 +166,7 @@ export default function DashboardTV() {
             </span>
           </div>
         </div>
-        {/* FILTERS */}
+        {/* FILTERS ROW 1 */}
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={filters.period} onValueChange={v => setFilters(f => ({ ...f, period: v as TVPeriod }))}>
             <SelectTrigger className="h-7 w-[130px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
@@ -176,14 +180,63 @@ export default function DashboardTV() {
             </SelectContent>
           </Select>
           <Select value={filters.comparison} onValueChange={v => setFilters(f => ({ ...f, comparison: v as TVComparison }))}>
-            <SelectTrigger className="h-7 w-[160px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-7 w-[180px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="yesterday">vs Ontem</SelectItem>
               <SelectItem value="last_week">vs Semana Passada</SelectItem>
               <SelectItem value="last_month">vs Mês Anterior</SelectItem>
               <SelectItem value="same_day_last_month">vs Mesmo dia mês ant.</SelectItem>
+              <SelectItem value="business_days_cumulative">vs Dias Úteis Acum.</SelectItem>
+              <SelectItem value="weekday_compare">vs Dia da Semana</SelectItem>
+              <SelectItem value="specific_day">vs Dia Específico</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Weekday selectors */}
+          {showWeekdaySelectors && (
+            <>
+              <Select value={String(filters.compareWeekday ?? 1)} onValueChange={v => setFilters(f => ({ ...f, compareWeekday: Number(v) }))}>
+                <SelectTrigger className="h-7 w-[100px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[1,2,3,4,5].map(d => (
+                    <SelectItem key={d} value={String(d)}>{getWeekdayName(d)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-[10px] text-gray-500">vs</span>
+              <Select value={String(filters.compareWeekdayTarget ?? 1)} onValueChange={v => setFilters(f => ({ ...f, compareWeekdayTarget: Number(v) }))}>
+                <SelectTrigger className="h-7 w-[100px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[1,2,3,4,5].map(d => (
+                    <SelectItem key={d} value={String(d)}>{getWeekdayName(d)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+
+          {/* Specific day selectors */}
+          {showDaySelectors && (
+            <>
+              <Select value={String(filters.compareDay ?? 1)} onValueChange={v => setFilters(f => ({ ...f, compareDay: Number(v) }))}>
+                <SelectTrigger className="h-7 w-[80px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                    <SelectItem key={d} value={String(d)}>Dia {d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-1">
+                <Switch
+                  checked={filters.compareDayCumulative ?? true}
+                  onCheckedChange={v => setFilters(f => ({ ...f, compareDayCumulative: v }))}
+                  className="h-4 w-7"
+                />
+                <span className="text-[10px] text-gray-400">Acumulado</span>
+              </div>
+            </>
+          )}
+
           <div className="flex items-center gap-1">
             <Switch
               checked={filters.onlyBusinessDays}
@@ -213,6 +266,9 @@ export default function DashboardTV() {
           <Button variant="outline" size="sm" className="h-7 text-xs bg-gray-800 border-gray-700" onClick={() => setMetasOpen(true)}>
             🎯 Metas
           </Button>
+          {data?.comparisonLabel && (
+            <span className="text-[10px] text-amber-400 font-medium ml-1">{data.comparisonLabel}</span>
+          )}
         </div>
       </header>
 
