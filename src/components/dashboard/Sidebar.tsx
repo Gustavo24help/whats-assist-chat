@@ -14,6 +14,7 @@ import {
   MessageCircle,
   MapPin,
   Users,
+  Monitor,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,6 +29,7 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'Dashboard TV', icon: Monitor, path: '/dashboard-tv' },
   { label: 'Chat', icon: MessageCircle, path: '/chat' },
   { label: 'Prestadores', icon: Users, path: '/prestadores' },
   { label: 'Bairros', icon: MapPin, path: '/bairros' },
