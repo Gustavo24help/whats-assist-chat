@@ -269,7 +269,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     buildFichaFilter(
       supabase.from('fichas_de_servico')
         .select('valor_total, valor_mao_obra, valor_pecas')
-        .eq('status', 'Finalizado').eq('pagamento_realizado', true)
+        .eq('status', 'Finalizado')
         .gte('created_at', fromStr).lte('created_at', toStr)
     ),
     buildFichaFilter(
@@ -311,7 +311,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     buildFichaFilter(
       supabase.from('fichas_de_servico')
         .select('valor_total, valor_mao_obra, valor_pecas')
-        .eq('status', 'Finalizado').eq('pagamento_realizado', true)
+        .eq('status', 'Finalizado')
         .gte('created_at', prevFromStr).lte('created_at', prevToStr)
     ),
     buildFichaFilter(
@@ -362,7 +362,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
   const receitaTotal = fichasPagas.reduce((s, f) => s + (f.valor_total || 0), 0);
   const totalMaoObra = fichasPagas.reduce((s, f) => s + (f.valor_mao_obra || 0), 0);
   const totalPecas = fichasPagas.reduce((s, f) => s + (f.valor_pecas || 0), 0);
-  const lucroBruto = totalMaoObra > 0 ? receitaTotal - totalPecas : receitaTotal * 0.6;
+  const lucroBruto = (totalMaoObra > 0 || totalPecas > 0) ? receitaTotal - totalMaoObra - totalPecas : receitaTotal * 0.23;
   const servicosFechados = fichasPagas.length;
   const ticketMedio = servicosFechados > 0 ? receitaTotal / servicosFechados : 0;
   const margemMedia = receitaTotal > 0 ? (lucroBruto / receitaTotal) * 100 : 0;
@@ -441,7 +441,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
   const receitaPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_total || 0), 0);
   const maoObraPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_mao_obra || 0), 0);
   const pecasPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_pecas || 0), 0);
-  const lucroPrev = maoObraPrev > 0 ? receitaPrev - pecasPrev : receitaPrev * 0.6;
+  const lucroPrev = (maoObraPrev > 0 || pecasPrev > 0) ? receitaPrev - maoObraPrev - pecasPrev : receitaPrev * 0.23;
   const servicosPrev = fichasPagasPrev.length;
   const fsPrev = fsCriadasPrevRes.count || 0;
   const agendadosPrev = (agendadosPrevRes.count || 0) + servicosPrev;

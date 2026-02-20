@@ -106,7 +106,6 @@ async function fetchDashboardSummary(period: PeriodOption, customRange?: { from:
       .from('fichas_de_servico')
       .select('valor_total, valor_mao_obra, valor_pecas')
       .eq('status', 'Finalizado')
-      .eq('pagamento_realizado', true)
       .gte('created_at', fromStr)
       .lte('created_at', toStr),
     
@@ -165,7 +164,6 @@ async function fetchDashboardSummary(period: PeriodOption, customRange?: { from:
       .from('fichas_de_servico')
       .select('valor_total, valor_mao_obra, valor_pecas')
       .eq('status', 'Finalizado')
-      .eq('pagamento_realizado', true)
       .gte('created_at', prevFromStr)
       .lte('created_at', prevToStr),
     
@@ -218,8 +216,8 @@ async function fetchDashboardSummary(period: PeriodOption, customRange?: { from:
   const fichasPagas = fichasPagasResult.data || [];
   const valorTotalPago = fichasPagas.reduce((sum, f) => sum + (f.valor_total || 0), 0);
   const valorMaoObra = fichasPagas.reduce((sum, f) => sum + (f.valor_mao_obra || 0), 0);
-  // Lucro líquido = valor total - custo de peças (aproximação)
-  const lucroLiquido = valorMaoObra > 0 ? valorMaoObra : valorTotalPago * 0.6; // 60% margem se não tiver mão de obra
+  // Lucro líquido = valor total - mão de obra - peças
+  const lucroLiquido = (valorMaoObra > 0 || fichasPagas.reduce((sum, f) => sum + (f.valor_pecas || 0), 0) > 0) ? valorTotalPago - valorMaoObra - fichasPagas.reduce((sum, f) => sum + (f.valor_pecas || 0), 0) : valorTotalPago * 0.23;
 
   const osGeradas = osGeradasResult.data || [];
   const valorOSGeradas = osGeradas.reduce((sum, f) => sum + (f.valor_total || 0), 0);
@@ -243,7 +241,8 @@ async function fetchDashboardSummary(period: PeriodOption, customRange?: { from:
   const fichasPagasPrev = fichasPagasPrevResult.data || [];
   const valorTotalPagoPrev = fichasPagasPrev.reduce((sum, f) => sum + (f.valor_total || 0), 0);
   const valorMaoObraPrev = fichasPagasPrev.reduce((sum, f) => sum + (f.valor_mao_obra || 0), 0);
-  const lucroLiquidoPrev = valorMaoObraPrev > 0 ? valorMaoObraPrev : valorTotalPagoPrev * 0.6;
+  const valorPecasPrev = fichasPagasPrev.reduce((sum, f) => sum + (f.valor_pecas || 0), 0);
+  const lucroLiquidoPrev = (valorMaoObraPrev > 0 || valorPecasPrev > 0) ? valorTotalPagoPrev - valorMaoObraPrev - valorPecasPrev : valorTotalPagoPrev * 0.23;
 
   const osGeradasPrev = osGeradasPrevResult.data || [];
   const valorOSGeradasPrev = osGeradasPrev.reduce((sum, f) => sum + (f.valor_total || 0), 0);
