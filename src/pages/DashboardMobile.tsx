@@ -30,14 +30,14 @@ const DashboardMobile = () => {
         <LiveIndicator />
       </header>
 
-      {/* Hero Card - Revenue */}
+      {/* Hero Card - Receita */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="mx-4 mt-4 rounded-2xl p-5 border border-white/10 bg-white/5 backdrop-blur-xl"
       >
         <div className="text-[11px] font-bold tracking-[2px] uppercase text-white/50 mb-2">
-          💰 Revenue
+          💰 Receita Total
         </div>
         <div
           className="text-[40px] font-bold tabular-nums leading-none mb-2"
@@ -47,18 +47,18 @@ const DashboardMobile = () => {
             WebkitTextFillColor: 'transparent',
           }}
         >
-          <AnimatedNumber value={hero.revenue.current} prefix="R$ " />
+          <AnimatedNumber value={hero.receita.current} prefix="R$ " />
         </div>
-        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${hero.revenue.change >= 0 ? 'text-emerald-400 bg-emerald-500/20' : 'text-red-400 bg-red-500/20'}`}>
-          {hero.revenue.change >= 0 ? '↑' : '↓'} {hero.revenue.change >= 0 ? '+' : ''}{hero.revenue.change}%
+        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${hero.receita.change >= 0 ? 'text-emerald-400 bg-emerald-500/20' : 'text-red-400 bg-red-500/20'}`}>
+          {hero.receita.change >= 0 ? '↑' : '↓'} {hero.receita.change >= 0 ? '+' : ''}{hero.receita.change}%
         </div>
         <div className="mt-3">
-          <Sparkline data={mockData.sparklineData.revenue} color="#10b981" height={36} />
+          <Sparkline data={mockData.sparklineData.receita} color="#10b981" height={36} />
         </div>
       </motion.div>
 
       {/* Mini Funnel */}
-      <div className="grid grid-cols-4 gap-2 mx-4 mt-4">
+      <div className="grid grid-cols-3 gap-2 mx-4 mt-4">
         {funnel.map((step, i) => (
           <motion.div
             key={step.label}
@@ -69,7 +69,7 @@ const DashboardMobile = () => {
           >
             <div className="text-2xl mb-1">{step.icon}</div>
             <div className="text-xl font-bold text-white tabular-nums">{step.value}</div>
-            <div className="text-[10px] text-white/50">{step.label}</div>
+            <div className="text-[10px] text-white/50 leading-tight">{step.label}</div>
           </motion.div>
         ))}
       </div>

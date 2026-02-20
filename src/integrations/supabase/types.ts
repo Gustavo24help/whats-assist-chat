@@ -287,6 +287,60 @@ export type Database = {
         }
         Relationships: []
       }
+      dashboard_metas: {
+        Row: {
+          created_at: string | null
+          id: string
+          lucro_bruto: number | null
+          quantidade_agendados: number | null
+          quantidade_fs: number | null
+          quantidade_servicos: number | null
+          taxa_agendado_pago: number | null
+          taxa_conversao_total: number | null
+          taxa_fs_agendado: number | null
+          tempo_orcamento_max: number | null
+          tempo_resposta_max: number | null
+          ticket_medio: number | null
+          tipo: string
+          updated_at: string | null
+          valor_os: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lucro_bruto?: number | null
+          quantidade_agendados?: number | null
+          quantidade_fs?: number | null
+          quantidade_servicos?: number | null
+          taxa_agendado_pago?: number | null
+          taxa_conversao_total?: number | null
+          taxa_fs_agendado?: number | null
+          tempo_orcamento_max?: number | null
+          tempo_resposta_max?: number | null
+          ticket_medio?: number | null
+          tipo?: string
+          updated_at?: string | null
+          valor_os?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lucro_bruto?: number | null
+          quantidade_agendados?: number | null
+          quantidade_fs?: number | null
+          quantidade_servicos?: number | null
+          taxa_agendado_pago?: number | null
+          taxa_conversao_total?: number | null
+          taxa_fs_agendado?: number | null
+          tempo_orcamento_max?: number | null
+          tempo_resposta_max?: number | null
+          ticket_medio?: number | null
+          tipo?: string
+          updated_at?: string | null
+          valor_os?: number | null
+        }
+        Relationships: []
+      }
       ficha_status_historico: {
         Row: {
           created_at: string
