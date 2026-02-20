@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Upload, HelpCircle, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, HelpCircle, Download, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -40,12 +41,14 @@ interface Prestador {
   id_crm: string | null;
   id_azure: string | null;
   cnpj: string | null;
+  created_at?: string | null;
 }
 
 const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM"];
 
 export const PrestadorManagement = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -840,13 +843,27 @@ export const PrestadorManagement = () => {
                         className="cursor-pointer"
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{prestador.nome}</TableCell>
+                    <TableCell className="font-medium">
+                      <button
+                        className="text-left hover:underline"
+                        onClick={() => navigate(`/gerenciamento-prestadores/${prestador.cpf}`)}
+                      >
+                        {prestador.nome}
+                      </button>
+                    </TableCell>
                     <TableCell>{prestador.cpf}</TableCell>
                     <TableCell>{prestador.telefone}</TableCell>
                     <TableCell>{prestador.categoria || "-"}</TableCell>
                     <TableCell>{prestador.id_crm || "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate(`/gerenciamento-prestadores/${prestador.cpf}`)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
