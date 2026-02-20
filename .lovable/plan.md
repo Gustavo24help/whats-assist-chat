@@ -1,29 +1,16 @@
 
 
-## Adicionar acesso ao Dashboard TV na Sidebar
+## Deploy da função sync-twilio-messages
 
-O Dashboard Elite (TV e Mobile) ja existe nas rotas `/dashboard-tv` e `/dashboard-mobile`, mas nao ha nenhum link de navegacao para chegar ate eles a partir do dashboard principal.
+Tarefa simples: fazer o deploy da Edge Function `sync-twilio-messages` que ja existe no projeto.
 
-### Alteracao
+### Acao
 
-**Arquivo: `src/components/dashboard/Sidebar.tsx`**
+Executar o deploy da funcao `sync-twilio-messages` para o ambiente de producao. A funcao ja esta configurada no `supabase/config.toml` com `verify_jwt = false`.
 
-Adicionar um novo item de navegacao na lista `mainNavItems` com icone de TV (lucide `Monitor` ou `Tv`) apontando para `/dashboard-tv`:
+### Arquivo envolvido
 
-```
-{ label: 'Dashboard TV', icon: Monitor, path: '/dashboard-tv' }
-```
-
-Sera posicionado logo abaixo do item "Dashboard" existente para facil acesso.
-
-### Arquivos afetados
-
-| Arquivo | Tipo |
+| Arquivo | Acao |
 |---------|------|
-| `src/components/dashboard/Sidebar.tsx` | Editar |
-
-### Protecoes
-
-- Nenhuma alteracao em dados ou logica existente
-- Apenas adicao de um link de navegacao
+| `supabase/functions/sync-twilio-messages/index.ts` | Deploy (sem alteracoes no codigo) |
 

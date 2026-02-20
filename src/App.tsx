@@ -16,8 +16,6 @@ import BairrosReport from "./pages/BairrosReport";
 import OrcamentoPublico from "./pages/OrcamentoPublico";
 import PrestadorPortal from "./pages/PrestadorPortal";
 import PrestadoresReport from "./pages/PrestadoresReport";
-import DashboardTV from "./pages/DashboardTV";
-import DashboardMobile from "./pages/DashboardMobile";
 
 const queryClient = new QueryClient();
 
@@ -87,8 +85,6 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              <Route path="/dashboard-tv" element={<DashboardTV />} />
-              <Route path="/dashboard-mobile" element={<DashboardMobile />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
