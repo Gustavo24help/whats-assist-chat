@@ -91,6 +91,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/gerenciamento-prestadores/:cpf"
+                element={
+                  <ProtectedRoute>
+                    <PrestadorDetalhes />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/manutencao"
                 element={
                   <ProtectedRoute>
