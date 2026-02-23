@@ -215,11 +215,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const { dentroJanela } = useConversationTimer(clienteTelefone);
   
+  const isMyTicket = atendenteAtual?.id === user?.id;
+  
   // 🔐 Controle de permissão para reatribuição
   // - Ticket sem dono: qualquer um pode assumir
   // - Ticket com dono: dono atual OU supervisor/admin pode reatribuir/transferir
   const canReassign = !atendenteAtual || isSupervisor || isMyTicket;
-  const isMyTicket = atendenteAtual?.id === user?.id;
   
   // 🔐 Controle de permissão de ESCRITA
   // - Meu ticket: pode escrever
