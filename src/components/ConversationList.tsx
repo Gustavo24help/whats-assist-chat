@@ -160,6 +160,7 @@ export const ConversationList = ({
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
       fetchServicosParaFinalizar();
+      fetchSemOrcamento();
     }, 30000);
 
     return () => {
