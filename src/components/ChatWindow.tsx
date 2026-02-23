@@ -391,32 +391,50 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   // ✅ Controle de scroll: só rola para baixo automaticamente na abertura da conversa
   const userScrolledUpRef = useRef(false);
   const isInitialLoadRef = useRef(true);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Detectar quando o usuário rola para cima
-  useEffect(() => {
+  // Callback ref para combinar dropZoneRef e messagesContainerRef + listener de scroll
+  const setMessagesContainerRef = useCallback((el: HTMLDivElement | null) => {
+    // Limpar listener anterior
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.removeEventListener('scroll', handleContainerScroll);
+    }
+    
+    (dropZoneRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    messagesContainerRef.current = el;
+
+    // Adicionar listener no novo elemento
+    if (el) {
+      el.addEventListener('scroll', handleContainerScroll);
+    }
+  }, []);
+
+  // Handler de scroll estável
+  const handleContainerScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 80;
-      userScrolledUpRef.current = !isAtBottom;
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 80;
+    userScrolledUpRef.current = !isAtBottom;
   }, []);
 
   // Scroll para baixo só no carregamento inicial da conversa
   useEffect(() => {
     if (isInitialLoadRef.current && mensagens.length > 0 && !isLoadingMessages) {
-      messagesEndRef.current?.scrollIntoView();
-      // Pequeno delay para garantir que o scroll aconteceu após render
+      // Múltiplos delays para garantir scroll após render completo das mensagens
+      const scrollToBottom = () => {
+        const container = messagesContainerRef.current;
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      };
+      scrollToBottom();
+      setTimeout(scrollToBottom, 50);
+      setTimeout(scrollToBottom, 150);
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView();
+        scrollToBottom();
         isInitialLoadRef.current = false;
-      }, 100);
+      }, 300);
     }
   }, [mensagens, isLoadingMessages]);
 
@@ -1788,10 +1806,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
       {/* Messages area - Scrollable with Drag & Drop */}
       <div 
-        ref={(el) => {
-          (dropZoneRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-          (messagesContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-        }}
+        ref={setMessagesContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10 relative"
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
