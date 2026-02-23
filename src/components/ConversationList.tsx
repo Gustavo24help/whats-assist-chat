@@ -603,6 +603,43 @@ export const ConversationList = ({
     }
   };
 
+  // Buscar fichas sem orçamento há mais de 15 minutos no status "Ficha Criada"
+  const fetchSemOrcamento = async () => {
+    const quinzeMinAtras = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+    // Status onde orçamento deveria existir
+    const statusOrcamento = ['Ficha Criada'];
+
+    // Buscar fichas nesses status criadas/atualizadas há mais de 15 min
+    const { data: fichas, error: fichasError } = await supabase
+      .from('fichas_de_servico')
+      .select('id, telefone_cliente')
+      .in('status', statusOrcamento)
+      .lt('updated_at', quinzeMinAtras);
+
+    if (fichasError || !fichas || fichas.length === 0) {
+      setClientesSemOrcamento(new Set());
+      return;
+    }
+
+    const fichaIds = fichas.map(f => f.id);
+
+    // Buscar quais dessas fichas já têm orçamento
+    const { data: orcamentos } = await supabase
+      .from('orcamentos')
+      .select('ficha_nome')
+      .in('ficha_nome', fichaIds);
+
+    const fichasComOrcamento = new Set(orcamentos?.map(o => o.ficha_nome) || []);
+
+    // Filtrar fichas sem orçamento
+    const telefonesSemOrcamento = fichas
+      .filter(f => !fichasComOrcamento.has(f.id))
+      .map(f => f.telefone_cliente);
+
+    setClientesSemOrcamento(new Set(telefonesSemOrcamento));
+  };
+
   const fetchClientes = async () => {
     // Buscar clientes arquivados para o contador
     const { count } = await supabase
