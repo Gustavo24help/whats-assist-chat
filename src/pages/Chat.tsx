@@ -127,9 +127,9 @@ const Chat = () => {
             <Button 
               variant="ghost"
               size="sm" 
-              onClick={() => navigate("/geral")}
+              onClick={() => navigate("/analise-servicos")}
             >
-              Geral
+              Análise de Serviços
             </Button>
             <Button 
               variant="ghost"
