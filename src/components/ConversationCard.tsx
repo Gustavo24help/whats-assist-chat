@@ -101,7 +101,8 @@ export const ConversationCard = memo(({
     <div
       className={cn(
         "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
-        isSelected ? "bg-primary/10 border-l-4 border-l-primary" : ""
+        isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
+        semOrcamento && !isSelected && "bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-400 animate-pulse"
       )}
       onClick={onClick}
     >
