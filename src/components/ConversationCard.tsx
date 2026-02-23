@@ -86,7 +86,8 @@ export const ConversationCard = memo(({
   atendenteNome,
   temServicoParaFinalizar = false,
   pagamentoLink,
-  pagamentoRealizado = false
+  pagamentoRealizado = false,
+  semOrcamento = false
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
