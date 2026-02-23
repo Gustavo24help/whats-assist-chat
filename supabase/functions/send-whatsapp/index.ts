@@ -130,6 +130,11 @@ serve(async (req) => {
     if (mediaUrl) {
       body.append('MediaUrl', mediaUrl);
     }
+    
+    // Adicionar StatusCallback para receber atualizações de status (delivered, read)
+    const statusCallbackUrl = `${supabaseUrl}/functions/v1/update-message-status`;
+    body.append('StatusCallback', statusCallbackUrl);
+    console.log('📡 StatusCallback configurado:', statusCallbackUrl);
 
     const twilioResponse = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`,

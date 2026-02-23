@@ -65,6 +65,11 @@ serve(async (req) => {
       console.log("Variáveis do template:", JSON.stringify(contentVariables));
     }
 
+    // Adicionar StatusCallback para receber atualizações de status (delivered, read)
+    const statusCallbackUrl = `${supabaseUrl}/functions/v1/update-message-status`;
+    formData.append('StatusCallback', statusCallbackUrl);
+    console.log('📡 StatusCallback configurado:', statusCallbackUrl);
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {

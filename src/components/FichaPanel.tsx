@@ -109,12 +109,14 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
         valor_mao_obra: 0,
         valor_pecas: 0,
         pagamento_parcelas: 1,
-        pagamento_gerar_link: false,
+        pagamento_gerar_link: true,
       }] as any)
       .select()
       .single();
 
     if (!error && data) {
+      // Marcar nova ficha como ativa automaticamente
+      await marcarFichaComoAtiva(data.id);
       fetchFichas();
     }
   };

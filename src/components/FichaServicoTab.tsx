@@ -565,9 +565,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     const updatedFicha = { ...ficha, ...updates };
     setFicha(updatedFicha);
     
-    // Auto-save APENAS em mudança de STATUS
+    // Auto-save em mudança de STATUS
     if (updates.status && updates.status !== ficha.status) {
       console.log('📊 Status mudou, salvando automaticamente:', updates.status);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+    }
+    
+    // Auto-save quando pagamento_gerar_link mudar (dispara webhook para Make.com criar link)
+    if (updates.pagamento_gerar_link !== undefined && updates.pagamento_gerar_link !== ficha.pagamento_gerar_link) {
+      console.log('💳 pagamento_gerar_link mudou, salvando automaticamente:', updates.pagamento_gerar_link);
       autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
     }
   };
