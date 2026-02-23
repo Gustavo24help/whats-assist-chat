@@ -719,7 +719,8 @@ export const ConversationList = ({
         .from('fichas_de_servico')
         .select('id, telefone_cliente, nome_ficha, status, created_at, pagamento_link, pagamento_realizado')
         .in('telefone_cliente', telefonesSeficha)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(500);
 
       // Criar mapa de última ficha por telefone
       const ultimasFichasMap = new Map();
