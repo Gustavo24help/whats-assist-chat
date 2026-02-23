@@ -608,13 +608,13 @@ export const ConversationList = ({
     const quinzeMinAtras = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
     // Status onde orçamento deveria existir
-    const statusOrcamento = ['Ficha Criada'];
+    const statusOrcamento: Array<"Ficha Criada"> = ['Ficha Criada'];
 
-    // Buscar fichas nesses status criadas/atualizadas há mais de 15 min
+    // Buscar fichas nesses status atualizadas há mais de 15 min
     const { data: fichas, error: fichasError } = await supabase
       .from('fichas_de_servico')
       .select('id, telefone_cliente')
-      .in('status', statusOrcamento)
+      .in('status', statusOrcamento as any)
       .lt('updated_at', quinzeMinAtras);
 
     if (fichasError || !fichas || fichas.length === 0) {
