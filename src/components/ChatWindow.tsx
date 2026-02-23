@@ -662,6 +662,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         quando: ultimaAcao.created_at
       });
     }
+    } catch (err) {
+      console.error('Erro ao buscar dados do cliente:', err);
+    }
   };
 
   const clearUnreadMark = async () => {
