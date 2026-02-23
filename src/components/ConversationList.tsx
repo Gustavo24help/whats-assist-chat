@@ -720,6 +720,17 @@ export const ConversationList = ({
         }
       });
 
+      // Persistir ficha_ativa_id para clientes sem ficha ativa (evitar fallback repetido)
+      const updatePromises = Array.from(ultimasFichasMap.entries()).map(([telefone, ficha]: [string, any]) =>
+        supabase
+          .from('clientes')
+          .update({ ficha_ativa_id: ficha.id })
+          .eq('telefone', telefone)
+      );
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+      }
+
       // ✅ Query 5: Buscar contagem de orçamentos para todas as fichas ativas (em batch)
       const todasFichasIds = [
         ...fichasAtivasIds,
