@@ -217,8 +217,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   
   // 🔐 Controle de permissão para reatribuição
   // - Ticket sem dono: qualquer um pode assumir
-  // - Ticket com dono: só supervisor/admin pode reatribuir
-  const canReassign = !atendenteAtual || isSupervisor;
+  // - Ticket com dono: dono atual OU supervisor/admin pode reatribuir/transferir
+  const canReassign = !atendenteAtual || isSupervisor || isMyTicket;
   const isMyTicket = atendenteAtual?.id === user?.id;
   
   // 🔐 Controle de permissão de ESCRITA
