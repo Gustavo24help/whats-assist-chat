@@ -121,7 +121,8 @@ export const ConversationList = ({
         fetchClientes(),
         fetchTagsWithColors(),
         fetchServicosParaFinalizar(),
-        fetchAtendentes()
+        fetchAtendentes(),
+        fetchSemOrcamento()
       ]);
       setIsLoading(false);
     };
