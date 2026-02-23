@@ -653,7 +653,10 @@ export const ConversationList = ({
     setClientesSemOrcamento(new Set(telefonesSemOrcamento));
   };
 
+  const isFirstLoadRef = useRef(true);
+
   const fetchClientes = async () => {
+    try {
     // Buscar clientes arquivados para o contador
     const { count } = await supabase
       .from('clientes')
@@ -677,13 +680,14 @@ export const ConversationList = ({
     if (!error && clientesData) {
       const telefones = clientesData.map(c => c.telefone);
 
-      // ✅ Query 2: Buscar TODAS as últimas mensagens de uma vez
+      // ✅ Query 2: Buscar últimas mensagens com limite
       const { data: ultimasMensagens } = await supabase
         .from('mensagens')
         .select('cliente_id, data_hora')
         .in('cliente_id', telefones)
         .eq('remetente', 'cliente')
-        .order('data_hora', { ascending: false });
+        .order('data_hora', { ascending: false })
+        .limit(1000);
 
       // Criar mapa de última mensagem por cliente
       const mensagensMap = new Map();

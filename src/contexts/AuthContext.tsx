@@ -189,14 +189,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const isAdmin = userProfile?.role === 'admin';
   const isSupervisor = userProfile?.role === 'supervisor' || userProfile?.role === 'admin';
 
-  console.log('📌 AuthContext - Estado atual:', {
-    hasUser: !!user,
-    hasProfile: !!userProfile,
-    role: userProfile?.role,
-    isAdmin,
-    isSupervisor,
-    loading
-  });
+  // Removido console.log que rodava a cada render (impacto de performance)
 
   return (
     <AuthContext.Provider
