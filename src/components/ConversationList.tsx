@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -84,6 +84,7 @@ export const ConversationList = ({
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [clientesSemOrcamento, setClientesSemOrcamento] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const isFirstLoadRef = useRef(true);
   
   // Toggle "Meus Tickets" / "Todos" - padrão em "todos" para evitar perda de sincronização visual
   const [ticketView, setTicketView] = useState<"meus" | "todos">("todos");
@@ -117,14 +118,19 @@ export const ConversationList = ({
     // ✅ Carregar dados iniciais em paralelo
     const loadInitialData = async () => {
       setIsLoading(true);
-      await Promise.all([
-        fetchClientes(),
-        fetchTagsWithColors(),
-        fetchServicosParaFinalizar(),
-        fetchAtendentes(),
-        fetchSemOrcamento()
-      ]);
-      setIsLoading(false);
+      try {
+        await Promise.all([
+          fetchClientes(),
+          fetchTagsWithColors(),
+          fetchServicosParaFinalizar(),
+          fetchAtendentes(),
+          fetchSemOrcamento()
+        ]);
+      } catch (err) {
+        console.error('Erro ao carregar dados iniciais:', err);
+      } finally {
+        setIsLoading(false);
+      }
     };
     
     loadInitialData();
@@ -161,7 +167,7 @@ export const ConversationList = ({
       fetchClientes();
       fetchServicosParaFinalizar();
       fetchSemOrcamento();
-    }, 30000);
+    }, 60000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -649,6 +655,7 @@ export const ConversationList = ({
   };
 
   const fetchClientes = async () => {
+    try {
     // Buscar clientes arquivados para o contador
     const { count } = await supabase
       .from('clientes')
@@ -672,13 +679,14 @@ export const ConversationList = ({
     if (!error && clientesData) {
       const telefones = clientesData.map(c => c.telefone);
 
-      // ✅ Query 2: Buscar TODAS as últimas mensagens de uma vez
+      // ✅ Query 2: Buscar últimas mensagens com limite
       const { data: ultimasMensagens } = await supabase
         .from('mensagens')
         .select('cliente_id, data_hora')
         .in('cliente_id', telefones)
         .eq('remetente', 'cliente')
-        .order('data_hora', { ascending: false });
+        .order('data_hora', { ascending: false })
+        .limit(1000);
 
       // Criar mapa de última mensagem por cliente
       const mensagensMap = new Map();
@@ -710,7 +718,8 @@ export const ConversationList = ({
         .from('fichas_de_servico')
         .select('id, telefone_cliente, nome_ficha, status, created_at, pagamento_link, pagamento_realizado')
         .in('telefone_cliente', telefonesSeficha)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(500);
 
       // Criar mapa de última ficha por telefone
       const ultimasFichasMap = new Map();
@@ -720,14 +729,15 @@ export const ConversationList = ({
         }
       });
 
-      // Persistir ficha_ativa_id para clientes sem ficha ativa (evitar fallback repetido)
-      const updatePromises = Array.from(ultimasFichasMap.entries()).map(([telefone, ficha]: [string, any]) =>
-        supabase
-          .from('clientes')
-          .update({ ficha_ativa_id: ficha.id })
-          .eq('telefone', telefone)
-      );
-      if (updatePromises.length > 0) {
+      // Persistir ficha_ativa_id apenas na primeira carga (não no polling)
+      if (isFirstLoadRef.current && ultimasFichasMap.size > 0) {
+        isFirstLoadRef.current = false;
+        const updatePromises = Array.from(ultimasFichasMap.entries()).map(([telefone, ficha]: [string, any]) =>
+          supabase
+            .from('clientes')
+            .update({ ficha_ativa_id: ficha.id })
+            .eq('telefone', telefone)
+        );
         await Promise.all(updatePromises);
       }
 
@@ -795,6 +805,9 @@ export const ConversationList = ({
       });
 
       setClientes(clientesComFicha);
+    }
+    } catch (err) {
+      console.error('Erro ao buscar clientes:', err);
     }
   };
 

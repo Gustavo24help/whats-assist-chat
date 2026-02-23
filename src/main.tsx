@@ -4,6 +4,12 @@ import { Toaster } from "sonner";
 import App from "./App.tsx";
 import "./index.css";
 
+// Handler global para erros assíncronos não tratados
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  event.preventDefault();
+});
+
 createRoot(document.getElementById("root")!).render(
   <>
     <App />

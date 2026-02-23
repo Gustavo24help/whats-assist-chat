@@ -555,6 +555,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
   // ✅ Função consolidada para buscar dados do cliente (ficha, bot, atendente, notas)
   const fetchClienteData = async () => {
+    try {
     const { data: clienteData } = await supabase
       .from('clientes')
       .select(`
@@ -660,6 +661,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         por: nomeExecutor,
         quando: ultimaAcao.created_at
       });
+    }
+    } catch (err) {
+      console.error('Erro ao buscar dados do cliente:', err);
     }
   };
 
