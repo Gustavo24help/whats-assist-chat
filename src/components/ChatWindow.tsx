@@ -388,9 +388,43 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     };
   }, [clienteTelefone]);
 
+  // ✅ Controle de scroll: só rola para baixo automaticamente na abertura da conversa
+  const userScrolledUpRef = useRef(false);
+  const isInitialLoadRef = useRef(true);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Detectar quando o usuário rola para cima
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [mensagens]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 80;
+      userScrolledUpRef.current = !isAtBottom;
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Scroll para baixo só no carregamento inicial da conversa
+  useEffect(() => {
+    if (isInitialLoadRef.current && mensagens.length > 0 && !isLoadingMessages) {
+      messagesEndRef.current?.scrollIntoView();
+      // Pequeno delay para garantir que o scroll aconteceu após render
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView();
+        isInitialLoadRef.current = false;
+      }, 100);
+    }
+  }, [mensagens, isLoadingMessages]);
+
+  // Reset do controle de scroll ao trocar de conversa
+  useEffect(() => {
+    userScrolledUpRef.current = false;
+    isInitialLoadRef.current = true;
+  }, [clienteTelefone]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1754,7 +1788,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
       {/* Messages area - Scrollable with Drag & Drop */}
       <div 
-        ref={dropZoneRef}
+        ref={(el) => {
+          (dropZoneRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+          (messagesContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+        }}
         className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10 relative"
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
