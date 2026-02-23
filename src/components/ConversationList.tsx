@@ -166,7 +166,7 @@ export const ConversationList = ({
       fetchClientes();
       fetchServicosParaFinalizar();
       fetchSemOrcamento();
-    }, 30000);
+    }, 60000);
 
     return () => {
       supabase.removeChannel(channel);
