@@ -323,8 +323,16 @@ export const ConversationList = ({
       });
     }
 
+    // Ordenar: clientes sem orçamento no topo
+    filtered.sort((a, b) => {
+      const aSem = clientesSemOrcamento.has(a.telefone) ? 1 : 0;
+      const bSem = clientesSemOrcamento.has(b.telefone) ? 1 : 0;
+      if (aSem !== bSem) return bSem - aSem; // sem orçamento primeiro
+      return 0; // manter ordem original (ultima_interacao) para o resto
+    });
+
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesComServicoParaFinalizar, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
