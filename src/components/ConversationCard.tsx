@@ -36,6 +36,7 @@ interface ConversationCardProps {
   temServicoParaFinalizar?: boolean;
   pagamentoLink?: string | null;
   pagamentoRealizado?: boolean;
+  semOrcamento?: boolean;
 }
 
 const getStatusColor = (status: string) => {
