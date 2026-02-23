@@ -846,7 +846,7 @@ export const PrestadorManagement = () => {
                     <TableCell className="font-medium">
                       <button
                         className="text-left hover:underline"
-                        onClick={() => navigate(`/gerenciamento-prestadores?cpf=${prestador.cpf}`)}
+                        onClick={() => navigate(`/gerenciamento-prestadores/${prestador.cpf}`)}
                       >
                         {prestador.nome}
                       </button>
@@ -860,7 +860,7 @@ export const PrestadorManagement = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => navigate(`/gerenciamento-prestadores?cpf=${prestador.cpf}`)}
+                          onClick={() => navigate(`/gerenciamento-prestadores/${prestador.cpf}`)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>

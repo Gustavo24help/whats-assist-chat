@@ -20,7 +20,6 @@ import DashboardTV from "./pages/DashboardTV";
 import GerenciamentoPrestadores from "./pages/GerenciamentoPrestadores";
 import AnaliseServicos from "./pages/AnaliseServicos";
 import Manutencao from "./pages/Manutencao";
-import PrestadorDetalhes from "./pages/PrestadorDetalhes";
 
 const queryClient = new QueryClient();
 
@@ -87,14 +86,6 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <GerenciamentoPrestadores />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/gerenciamento-prestadores/:cpf"
-                element={
-                  <ProtectedRoute>
-                    <PrestadorDetalhes />
                   </ProtectedRoute>
                 }
               />

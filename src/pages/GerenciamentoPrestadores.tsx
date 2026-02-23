@@ -1,14 +1,11 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
 import { PrestadorManagement } from "@/components/PrestadorManagement";
-import PrestadorDetalhes from "@/pages/PrestadorDetalhes";
 import { Button } from "@/components/ui/button";
 
 const GerenciamentoPrestadores = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const selectedCpf = searchParams.get("cpf");
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,7 +24,7 @@ const GerenciamentoPrestadores = () => {
       </header>
 
       <main className="container mx-auto p-6">
-        {selectedCpf ? <PrestadorDetalhes cpf={selectedCpf} /> : <PrestadorManagement />}
+        <PrestadorManagement />
       </main>
     </div>
   );
