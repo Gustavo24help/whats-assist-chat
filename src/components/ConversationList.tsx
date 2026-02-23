@@ -729,14 +729,15 @@ export const ConversationList = ({
         }
       });
 
-      // Persistir ficha_ativa_id para clientes sem ficha ativa (evitar fallback repetido)
-      const updatePromises = Array.from(ultimasFichasMap.entries()).map(([telefone, ficha]: [string, any]) =>
-        supabase
-          .from('clientes')
-          .update({ ficha_ativa_id: ficha.id })
-          .eq('telefone', telefone)
-      );
-      if (updatePromises.length > 0) {
+      // Persistir ficha_ativa_id apenas na primeira carga (não no polling)
+      if (isFirstLoadRef.current && ultimasFichasMap.size > 0) {
+        isFirstLoadRef.current = false;
+        const updatePromises = Array.from(ultimasFichasMap.entries()).map(([telefone, ficha]: [string, any]) =>
+          supabase
+            .from('clientes')
+            .update({ ficha_ativa_id: ficha.id })
+            .eq('telefone', telefone)
+        );
         await Promise.all(updatePromises);
       }
 
@@ -804,6 +805,9 @@ export const ConversationList = ({
       });
 
       setClientes(clientesComFicha);
+    }
+    } catch (err) {
+      console.error('Erro ao buscar clientes:', err);
     }
   };
 
