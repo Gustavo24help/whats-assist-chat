@@ -1491,8 +1491,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                         Assumir para mim
                       </Button>
 
-                      {/* Lista de outros operadores - só para supervisores/admins */}
-                      {isSupervisor && (
+                      {/* Lista de outros operadores - para supervisores/admins e dono do ticket */}
+                      {(isSupervisor || isMyTicket) && (
                         <>
                           <Separator />
                           <div className="max-h-48 overflow-y-auto">
