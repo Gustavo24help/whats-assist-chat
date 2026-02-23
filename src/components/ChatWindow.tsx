@@ -215,11 +215,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const { dentroJanela } = useConversationTimer(clienteTelefone);
   
+  const isMyTicket = atendenteAtual?.id === user?.id;
+  
   // 🔐 Controle de permissão para reatribuição
   // - Ticket sem dono: qualquer um pode assumir
-  // - Ticket com dono: só supervisor/admin pode reatribuir
-  const canReassign = !atendenteAtual || isSupervisor;
-  const isMyTicket = atendenteAtual?.id === user?.id;
+  // - Ticket com dono: dono atual OU supervisor/admin pode reatribuir/transferir
+  const canReassign = !atendenteAtual || isSupervisor || isMyTicket;
   
   // 🔐 Controle de permissão de ESCRITA
   // - Meu ticket: pode escrever
@@ -1490,8 +1491,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                         Assumir para mim
                       </Button>
 
-                      {/* Lista de outros operadores - só para supervisores/admins */}
-                      {isSupervisor && (
+                      {/* Lista de outros operadores - para supervisores/admins e dono do ticket */}
+                      {(isSupervisor || isMyTicket) && (
                         <>
                           <Separator />
                           <div className="max-h-48 overflow-y-auto">
@@ -1522,7 +1523,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
                           <Separator />
 
-                          {/* Opção para remover atribuição - só supervisores */}
+                          {/* Opção para remover atribuição - supervisores ou dono do ticket */}
                           {atendenteAtual && (
                             <Button
                               variant="ghost"
