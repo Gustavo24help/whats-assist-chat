@@ -1041,6 +1041,22 @@ export const ConversationList = ({
               </Button>
             )}
 
+            {/* Indicador de fichas sem orçamento há mais de 15 min */}
+            {clientesSemOrcamento.size > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2 border-amber-300 animate-pulse"
+              >
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 shrink-0">
+                  <span className="text-white text-xs font-bold">💰</span>
+                </div>
+                <span className="text-sm text-amber-700 dark:text-amber-300">
+                  {clientesSemOrcamento.size} {clientesSemOrcamento.size === 1 ? 'ficha sem' : 'fichas sem'} orçamento
+                </span>
+              </Button>
+            )}
+
             {/* Linha 1: Filtros + Tags lado a lado */}
             <div className="flex gap-1.5">
               <FilterDropdown
