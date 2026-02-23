@@ -27,14 +27,9 @@ const sanitizeNumericField = (value: string | null): string | null => {
   return cleaned || null;
 };
 
-type PrestadorDetalhesProps = {
-  cpf?: string;
-};
-
-const PrestadorDetalhes = ({ cpf: cpfFromProps }: PrestadorDetalhesProps) => {
+const PrestadorDetalhes = () => {
   const navigate = useNavigate();
-  const { cpf: cpfFromParams } = useParams();
-  const cpf = (cpfFromProps || cpfFromParams) ? decodeURIComponent(cpfFromProps || cpfFromParams || "") : undefined;
+  const { cpf } = useParams();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
