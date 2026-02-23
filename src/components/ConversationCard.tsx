@@ -235,6 +235,11 @@ export const ConversationCard = memo(({
         </span>
         
         <div className="flex items-center gap-1.5">
+          {semOrcamento && (
+            <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
+              💰 Sem orçamento
+            </span>
+          )}
           {temServicoParaFinalizar && (
             <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 shrink-0">
               <span className="text-white text-xs font-bold">!</span>
