@@ -126,7 +126,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   useEffect(() => {
-    console.log('🚀 AuthContext - Inicializando...');
+    // Timeout de segurança: se não carregar em 10s, liberar a tela
+    const safetyTimeout = setTimeout(() => {
+      setLoading(prev => {
+        if (prev) {
+          console.warn('⚠️ AuthContext - Timeout de segurança atingido, liberando tela');
+          return false;
+        }
+        return prev;
+      });
+    }, 10000);
 
     // Carregar sessão inicial
     const initializeAuth = async () => {
@@ -140,11 +149,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
 
         if (session?.user) {
-          console.log('✅ AuthContext - Sessão encontrada:', session.user.id);
           setUser(session.user);
           await loadUserProfile(session.user.id);
-        } else {
-          console.log('⚠️ AuthContext - Nenhuma sessão ativa');
         }
       } catch (error) {
         console.error('❌ AuthContext - Erro na inicialização:', error);
@@ -158,27 +164,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('🔄 AuthContext - Mudança de auth:', event);
-
         if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ AuthContext - Usuário logou:', session.user.id);
           setUser(session.user);
-          // Agendar carregamento do perfil sem await no listener
           setTimeout(() => loadUserProfile(session.user.id), 0);
         } else if (event === 'SIGNED_OUT') {
-          console.log('👋 AuthContext - Usuário deslogou');
           setUser(null);
           setUserProfile(null);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('🔄 AuthContext - Token atualizado');
           setUser(session.user);
-          // Recarregar perfil para garantir role atualizado
-          setTimeout(() => loadUserProfile(session.user.id), 0);
+          // Só recarregar perfil se ainda não existe
+          if (!userProfile) {
+            setTimeout(() => loadUserProfile(session.user.id), 0);
+          }
         }
       }
     );
 
     return () => {
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
   }, []);
