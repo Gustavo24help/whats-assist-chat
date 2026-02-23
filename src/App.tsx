@@ -90,14 +90,6 @@ const App = () => (
                 }
               />
               <Route
-                path="/gerenciamento-prestadores/:cpf"
-                element={
-                  <ProtectedRoute>
-                    <GerenciamentoPrestadores />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/manutencao"
                 element={
                   <ProtectedRoute>
