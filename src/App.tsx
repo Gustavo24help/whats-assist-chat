@@ -18,6 +18,7 @@ import PrestadorPortal from "./pages/PrestadorPortal";
 import PrestadoresReport from "./pages/PrestadoresReport";
 import DashboardTV from "./pages/DashboardTV";
 import GerenciamentoPrestadores from "./pages/GerenciamentoPrestadores";
+import PrestadorDetalhes from "./pages/PrestadorDetalhes";
 import AnaliseServicos from "./pages/AnaliseServicos";
 import Manutencao from "./pages/Manutencao";
 
@@ -86,6 +87,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <GerenciamentoPrestadores />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/gerenciamento-prestadores/:cpf"
+                element={
+                  <ProtectedRoute>
+                    <PrestadorDetalhes />
                   </ProtectedRoute>
                 }
               />
