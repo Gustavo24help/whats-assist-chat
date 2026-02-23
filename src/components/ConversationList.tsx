@@ -1287,6 +1287,7 @@ export const ConversationList = ({
                       orcamentosCount={cliente.orcamentos_count}
                       atendenteNome={(cliente as any).atendente?.full_name}
                       temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
+                      semOrcamento={clientesSemOrcamento.has(cliente.telefone)}
                       pagamentoLink={cliente.pagamento_link}
                       pagamentoRealizado={cliente.pagamento_realizado}
                     />
