@@ -63,9 +63,21 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
         .eq('telefone', clienteTelefone)
         .single();
 
-      // Se há ficha ativa, usar ela, senão usar a primeira
-      const fichaInicial = clienteData?.ficha_ativa_id || data[0].id;
+      // Validar que ficha_ativa_id existe na lista de fichas deste cliente
+      const fichaAtivaValida = clienteData?.ficha_ativa_id 
+        && data.some(f => f.id === clienteData.ficha_ativa_id);
+      
+      const fichaInicial = fichaAtivaValida 
+        ? clienteData!.ficha_ativa_id! 
+        : data[0].id;
+      
       setFichaAtual(fichaInicial);
+      
+      // Corrigir ficha_ativa_id se estava inválida
+      if (!fichaAtivaValida) {
+        console.log('[FichaPanel] ficha_ativa_id inválida, corrigindo para:', data[0].id);
+        marcarFichaComoAtiva(data[0].id);
+      }
     } else {
       // Limpar estados quando não há fichas
       setFichas([]);
@@ -97,12 +109,14 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
         valor_mao_obra: 0,
         valor_pecas: 0,
         pagamento_parcelas: 1,
-        pagamento_gerar_link: false,
+        pagamento_gerar_link: true,
       }] as any)
       .select()
       .single();
 
     if (!error && data) {
+      // Marcar nova ficha como ativa automaticamente
+      await marcarFichaComoAtiva(data.id);
       fetchFichas();
     }
   };
