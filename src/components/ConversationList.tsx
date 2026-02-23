@@ -84,6 +84,7 @@ export const ConversationList = ({
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [clientesSemOrcamento, setClientesSemOrcamento] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const isFirstLoadRef = useRef(true);
   
   // Toggle "Meus Tickets" / "Todos" - padrão em "todos" para evitar perda de sincronização visual
   const [ticketView, setTicketView] = useState<"meus" | "todos">("todos");
