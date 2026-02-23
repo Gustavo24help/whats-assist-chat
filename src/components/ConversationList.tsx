@@ -82,6 +82,7 @@ export const ConversationList = ({
   const [searchMode, setSearchMode] = useState<'ficha' | 'prestador' | 'descricao' | 'id_ficha'>('ficha');
   const [showServicosParaFinalizarOnly, setShowServicosParaFinalizarOnly] = useState(false);
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
+  const [clientesSemOrcamento, setClientesSemOrcamento] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   
   // Toggle "Meus Tickets" / "Todos" - padrão em "todos" para evitar perda de sincronização visual
@@ -120,7 +121,8 @@ export const ConversationList = ({
         fetchClientes(),
         fetchTagsWithColors(),
         fetchServicosParaFinalizar(),
-        fetchAtendentes()
+        fetchAtendentes(),
+        fetchSemOrcamento()
       ]);
       setIsLoading(false);
     };
@@ -158,6 +160,7 @@ export const ConversationList = ({
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
       fetchServicosParaFinalizar();
+      fetchSemOrcamento();
     }, 30000);
 
     return () => {
@@ -320,8 +323,16 @@ export const ConversationList = ({
       });
     }
 
+    // Ordenar: clientes sem orçamento no topo
+    filtered.sort((a, b) => {
+      const aSem = clientesSemOrcamento.has(a.telefone) ? 1 : 0;
+      const bSem = clientesSemOrcamento.has(b.telefone) ? 1 : 0;
+      if (aSem !== bSem) return bSem - aSem; // sem orçamento primeiro
+      return 0; // manter ordem original (ultima_interacao) para o resto
+    });
+
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesComServicoParaFinalizar, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -598,6 +609,43 @@ export const ConversationList = ({
       const telefonesSet = new Set(data.map(f => f.telefone_cliente));
       setClientesComServicoParaFinalizar(telefonesSet);
     }
+  };
+
+  // Buscar fichas sem orçamento há mais de 15 minutos no status "Ficha Criada"
+  const fetchSemOrcamento = async () => {
+    const quinzeMinAtras = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+    // Status onde orçamento deveria existir
+    const statusOrcamento: Array<"Ficha Criada"> = ['Ficha Criada'];
+
+    // Buscar fichas nesses status atualizadas há mais de 15 min
+    const { data: fichas, error: fichasError } = await supabase
+      .from('fichas_de_servico')
+      .select('id, telefone_cliente')
+      .in('status', statusOrcamento as any)
+      .lt('updated_at', quinzeMinAtras);
+
+    if (fichasError || !fichas || fichas.length === 0) {
+      setClientesSemOrcamento(new Set());
+      return;
+    }
+
+    const fichaIds = fichas.map(f => f.id);
+
+    // Buscar quais dessas fichas já têm orçamento
+    const { data: orcamentos } = await supabase
+      .from('orcamentos')
+      .select('ficha_nome')
+      .in('ficha_nome', fichaIds);
+
+    const fichasComOrcamento = new Set(orcamentos?.map(o => o.ficha_nome) || []);
+
+    // Filtrar fichas sem orçamento
+    const telefonesSemOrcamento = fichas
+      .filter(f => !fichasComOrcamento.has(f.id))
+      .map(f => f.telefone_cliente);
+
+    setClientesSemOrcamento(new Set(telefonesSemOrcamento));
   };
 
   const fetchClientes = async () => {
@@ -993,6 +1041,22 @@ export const ConversationList = ({
               </Button>
             )}
 
+            {/* Indicador de fichas sem orçamento há mais de 15 min */}
+            {clientesSemOrcamento.size > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2 border-amber-300 animate-pulse"
+              >
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 shrink-0">
+                  <span className="text-white text-xs font-bold">💰</span>
+                </div>
+                <span className="text-sm text-amber-700 dark:text-amber-300">
+                  {clientesSemOrcamento.size} {clientesSemOrcamento.size === 1 ? 'ficha sem' : 'fichas sem'} orçamento
+                </span>
+              </Button>
+            )}
+
             {/* Linha 1: Filtros + Tags lado a lado */}
             <div className="flex gap-1.5">
               <FilterDropdown
@@ -1223,6 +1287,7 @@ export const ConversationList = ({
                       orcamentosCount={cliente.orcamentos_count}
                       atendenteNome={(cliente as any).atendente?.full_name}
                       temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
+                      semOrcamento={clientesSemOrcamento.has(cliente.telefone)}
                       pagamentoLink={cliente.pagamento_link}
                       pagamentoRealizado={cliente.pagamento_realizado}
                     />
