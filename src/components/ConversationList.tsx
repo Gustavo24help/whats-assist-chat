@@ -653,8 +653,6 @@ export const ConversationList = ({
     setClientesSemOrcamento(new Set(telefonesSemOrcamento));
   };
 
-  const isFirstLoadRef = useRef(true);
-
   const fetchClientes = async () => {
     try {
     // Buscar clientes arquivados para o contador
