@@ -66,7 +66,7 @@ serve(async (req) => {
     }
 
     // Adicionar StatusCallback para receber atualizações de status (delivered, read)
-    const statusCallbackUrl = `${supabaseUrl}/functions/v1/update-message-status`;
+    const statusCallbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/update-message-status`;
     formData.append('StatusCallback', statusCallbackUrl);
     console.log('📡 StatusCallback configurado:', statusCallbackUrl);
 
