@@ -117,14 +117,19 @@ export const ConversationList = ({
     // ✅ Carregar dados iniciais em paralelo
     const loadInitialData = async () => {
       setIsLoading(true);
-      await Promise.all([
-        fetchClientes(),
-        fetchTagsWithColors(),
-        fetchServicosParaFinalizar(),
-        fetchAtendentes(),
-        fetchSemOrcamento()
-      ]);
-      setIsLoading(false);
+      try {
+        await Promise.all([
+          fetchClientes(),
+          fetchTagsWithColors(),
+          fetchServicosParaFinalizar(),
+          fetchAtendentes(),
+          fetchSemOrcamento()
+        ]);
+      } catch (err) {
+        console.error('Erro ao carregar dados iniciais:', err);
+      } finally {
+        setIsLoading(false);
+      }
     };
     
     loadInitialData();
