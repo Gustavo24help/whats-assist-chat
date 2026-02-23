@@ -1523,7 +1523,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
                           <Separator />
 
-                          {/* Opção para remover atribuição - só supervisores */}
+                          {/* Opção para remover atribuição - supervisores ou dono do ticket */}
                           {atendenteAtual && (
                             <Button
                               variant="ghost"
