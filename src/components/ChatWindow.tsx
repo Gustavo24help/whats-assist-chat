@@ -583,11 +583,39 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         });
       }
       
-      // Ficha
+      // Ficha - respeitar ficha_ativa_id, validando que existe
       if (clienteData.ficha_ativa_id) {
-        setFichaId(clienteData.ficha_ativa_id);
+        // Validar que a ficha ativa realmente existe
+        const { data: fichaAtivaData } = await supabase
+          .from('fichas_de_servico')
+          .select('id')
+          .eq('id', clienteData.ficha_ativa_id)
+          .eq('telefone_cliente', clienteTelefone)
+          .maybeSingle();
+
+        if (fichaAtivaData) {
+          setFichaId(fichaAtivaData.id);
+        } else {
+          // ficha_ativa_id inválida, buscar última e corrigir
+          const { data: ultimaFicha } = await supabase
+            .from('fichas_de_servico')
+            .select('id')
+            .eq('telefone_cliente', clienteTelefone)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (ultimaFicha) {
+            setFichaId(ultimaFicha.id);
+            // Persistir correção
+            await supabase
+              .from('clientes')
+              .update({ ficha_ativa_id: ultimaFicha.id })
+              .eq('telefone', clienteTelefone);
+          }
+        }
       } else {
-        // Fallback: pegar última ficha criada
+        // Sem ficha_ativa_id: pegar última ficha criada e persistir
         const { data: ultimaFicha } = await supabase
           .from('fichas_de_servico')
           .select('id')
@@ -598,6 +626,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
         if (ultimaFicha) {
           setFichaId(ultimaFicha.id);
+          // Persistir para evitar fallback repetido
+          await supabase
+            .from('clientes')
+            .update({ ficha_ativa_id: ultimaFicha.id })
+            .eq('telefone', clienteTelefone);
         }
       }
     }
