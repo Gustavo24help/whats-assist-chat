@@ -761,7 +761,118 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     await atribuirOperador(user.id, nome);
   };
 
-  const removerAtribuicao = async () => {
+  // Função para iniciar solicitação de takeover
+  const iniciarTakeover = async () => {
+    if (!user || !atendenteAtual) return;
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+    
+    const meuNome = profile?.full_name || 'Operador';
+    
+    // Criar registro na tabela
+    const { data: request, error } = await supabase
+      .from('takeover_requests')
+      .insert({
+        telefone_cliente: clienteTelefone,
+        solicitante_id: user.id,
+        solicitante_nome: meuNome,
+        operador_atual_id: atendenteAtual.id,
+        status: 'pending'
+      })
+      .select('id')
+      .single();
+    
+    if (error) {
+      toast.error('Erro ao solicitar takeover');
+      return;
+    }
+    
+    // Enviar broadcast
+    takeoverChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'takeover_request',
+      payload: {
+        request_id: request.id,
+        solicitante_id: user.id,
+        solicitante_nome: meuNome,
+        operador_atual_id: atendenteAtual.id,
+      }
+    });
+    
+    setTakeoverWaitingOperadorNome(atendenteAtual.nome);
+    setTakeoverRequestId(request.id);
+    setTakeoverWaitingOpen(true);
+  };
+
+  // Handlers de resposta do takeover (operador atual)
+  const handleTakeoverApprove = async () => {
+    setTakeoverRequestOpen(false);
+    
+    // Atualizar registro
+    if (takeoverRequestId) {
+      await supabase
+        .from('takeover_requests')
+        .update({ status: 'approved', responded_at: new Date().toISOString() })
+        .eq('id', takeoverRequestId);
+    }
+    
+    // Enviar broadcast de aprovação
+    takeoverChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'takeover_response',
+      payload: {
+        response: 'approved',
+        solicitante_id: null, // será preenchido pelo listener
+        request_id: takeoverRequestId,
+      }
+    });
+    
+    toast.info('Conversa transferida.');
+  };
+
+  const handleTakeoverDeny = async () => {
+    setTakeoverRequestOpen(false);
+    
+    if (takeoverRequestId) {
+      await supabase
+        .from('takeover_requests')
+        .update({ status: 'denied', responded_at: new Date().toISOString() })
+        .eq('id', takeoverRequestId);
+    }
+    
+    takeoverChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'takeover_response',
+      payload: {
+        response: 'denied',
+        solicitante_id: null,
+        request_id: takeoverRequestId,
+      }
+    });
+    
+    toast.info('Solicitação de takeover negada.');
+  };
+
+  const handleTakeoverTimeout = async () => {
+    setTakeoverWaitingOpen(false);
+    
+    // Marcar como expired
+    if (takeoverRequestId) {
+      await supabase
+        .from('takeover_requests')
+        .update({ status: 'expired', responded_at: new Date().toISOString() })
+        .eq('id', takeoverRequestId);
+    }
+    
+    toast.success('Tempo esgotado. Assumindo conversa automaticamente...');
+    await assumirParaMim();
+  };
+
+
     const { error } = await supabase
       .from('clientes')
       .update({ atendente_id: null })
