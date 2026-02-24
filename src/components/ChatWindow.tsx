@@ -1731,24 +1731,33 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   </PopoverContent>
                 </Popover>
               ) : (
-                /* Ticket de outro atendente - usuário comum não pode reatribuir */
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50">
-                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold">
-                          {atendenteAtual?.nome.charAt(0).toUpperCase()}
+                /* Ticket de outro atendente - usuário comum pode solicitar takeover */
+                <div className="flex items-center gap-1.5">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50">
+                          <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold">
+                            {atendenteAtual?.nome.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-xs text-muted-foreground">{atendenteAtual?.nome}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">{atendenteAtual?.nome}</span>
-                        <Lock className="h-3 w-3 text-muted-foreground" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">Atribuído a {atendenteAtual?.nome}</p>
-                      <p className="text-xs text-muted-foreground">Apenas supervisores podem reatribuir</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Atribuído a {atendenteAtual?.nome}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={iniciarTakeover}
+                  >
+                    <UserCheckIcon className="h-3 w-3" />
+                    Assumir
+                  </Button>
+                </div>
               )}
 
               {/* Botão de notas internas */}
