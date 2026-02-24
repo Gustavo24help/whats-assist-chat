@@ -25,6 +25,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
+import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 
 import {
   AlertDialog,
