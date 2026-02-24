@@ -877,7 +877,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     await assumirParaMim();
   };
 
-
+  const removerAtribuicao = async () => {
     const { error } = await supabase
       .from('clientes')
       .update({ atendente_id: null })
