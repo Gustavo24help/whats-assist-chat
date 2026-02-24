@@ -390,11 +390,43 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       fetchClienteData();
     }, 30000);
 
+    // Canal de broadcast para takeover requests
+    const takeoverChannel = supabase
+      .channel(`takeover-${clienteTelefone}`)
+      .on('broadcast', { event: 'takeover_request' }, (payload: any) => {
+        console.log('[ChatWindow] Takeover request recebido:', payload);
+        const data = payload.payload;
+        // Só mostrar se EU sou o operador atual
+        if (data?.operador_atual_id === user?.id) {
+          setTakeoverRequestSolicitanteNome(data.solicitante_nome);
+          setTakeoverRequestId(data.request_id);
+          setTakeoverRequestOpen(true);
+        }
+      })
+      .on('broadcast', { event: 'takeover_response' }, (payload: any) => {
+        console.log('[ChatWindow] Takeover response recebido:', payload);
+        const data = payload.payload;
+        if (data?.solicitante_id === user?.id) {
+          setTakeoverWaitingOpen(false);
+          if (data.response === 'approved') {
+            toast.success('Solicitação aprovada! Assumindo conversa...');
+            assumirParaMim();
+          } else if (data.response === 'denied') {
+            toast.error(`${takeoverWaitingOperadorNome} negou a solicitação.`);
+          }
+        }
+      })
+      .subscribe();
+    
+    takeoverChannelRef.current = takeoverChannel;
+
     return () => {
       console.log('[ChatWindow] Limpando canais Realtime');
       supabase.removeChannel(channel);
       supabase.removeChannel(broadcastChannel);
       supabase.removeChannel(botStatusChannel);
+      supabase.removeChannel(takeoverChannel);
+      takeoverChannelRef.current = null;
       window.clearInterval(pollingInterval);
     };
   }, [clienteTelefone]);
