@@ -2318,6 +2318,21 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         telefoneCliente={clienteTelefone}
         nomeCliente={clienteNome}
       />
+
+      {/* Takeover Dialogs */}
+      <TakeoverRequestDialog
+        open={takeoverRequestOpen}
+        solicitanteNome={takeoverRequestSolicitanteNome}
+        onApprove={handleTakeoverApprove}
+        onDeny={handleTakeoverDeny}
+      />
+
+      <TakeoverWaitingDialog
+        open={takeoverWaitingOpen}
+        operadorNome={takeoverWaitingOperadorNome}
+        onTimeout={handleTakeoverTimeout}
+        onClose={() => setTakeoverWaitingOpen(false)}
+      />
     </div>
   );
 };
