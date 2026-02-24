@@ -886,6 +886,39 @@ export type Database = {
         }
         Relationships: []
       }
+      takeover_requests: {
+        Row: {
+          created_at: string
+          id: string
+          operador_atual_id: string
+          responded_at: string | null
+          solicitante_id: string
+          solicitante_nome: string
+          status: string
+          telefone_cliente: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          operador_atual_id: string
+          responded_at?: string | null
+          solicitante_id: string
+          solicitante_nome: string
+          status?: string
+          telefone_cliente: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          operador_atual_id?: string
+          responded_at?: string | null
+          solicitante_id?: string
+          solicitante_nome?: string
+          status?: string
+          telefone_cliente?: string
+        }
+        Relationships: []
+      }
       twilio_sync_control: {
         Row: {
           errors: number | null

@@ -25,6 +25,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
+import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 
 import {
   AlertDialog,
@@ -207,6 +209,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   
+  // Estados para takeover
+  const [takeoverWaitingOpen, setTakeoverWaitingOpen] = useState(false);
+  const [takeoverWaitingOperadorNome, setTakeoverWaitingOperadorNome] = useState("");
+  const [takeoverRequestOpen, setTakeoverRequestOpen] = useState(false);
+  const [takeoverRequestSolicitanteNome, setTakeoverRequestSolicitanteNome] = useState("");
+  const [takeoverRequestId, setTakeoverRequestId] = useState<string | null>(null);
+  const takeoverChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const takeoverRequestIdRef = useRef<string | null>(null);
+  const takeoverWaitingOperadorNomeRef = useRef("");
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -380,11 +392,44 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       fetchClienteData();
     }, 30000);
 
+    // Canal de broadcast para takeover requests
+    const takeoverChannel = supabase
+      .channel(`takeover-${clienteTelefone}`)
+      .on('broadcast', { event: 'takeover_request' }, (payload: any) => {
+        console.log('[ChatWindow] Takeover request recebido:', payload);
+        const data = payload.payload;
+        // Só mostrar se EU sou o operador atual
+        if (data?.operador_atual_id === user?.id) {
+          setTakeoverRequestSolicitanteNome(data.solicitante_nome);
+          setTakeoverRequestId(data.request_id);
+          takeoverRequestIdRef.current = data.request_id;
+          setTakeoverRequestOpen(true);
+        }
+      })
+      .on('broadcast', { event: 'takeover_response' }, (payload: any) => {
+        console.log('[ChatWindow] Takeover response recebido:', payload);
+        const data = payload.payload;
+        if (data?.request_id && data.request_id === takeoverRequestIdRef.current) {
+          setTakeoverWaitingOpen(false);
+          if (data.response === 'approved') {
+            toast.success('Solicitação aprovada! Assumindo conversa...');
+            assumirParaMim();
+          } else if (data.response === 'denied') {
+            toast.error(`${takeoverWaitingOperadorNomeRef.current} negou a solicitação.`);
+          }
+        }
+      })
+      .subscribe();
+    
+    takeoverChannelRef.current = takeoverChannel;
+
     return () => {
       console.log('[ChatWindow] Limpando canais Realtime');
       supabase.removeChannel(channel);
       supabase.removeChannel(broadcastChannel);
       supabase.removeChannel(botStatusChannel);
+      supabase.removeChannel(takeoverChannel);
+      takeoverChannelRef.current = null;
       window.clearInterval(pollingInterval);
     };
   }, [clienteTelefone]);
@@ -717,6 +762,119 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     
     const nome = profile?.full_name || 'Você';
     await atribuirOperador(user.id, nome);
+  };
+
+  // Função para iniciar solicitação de takeover
+  const iniciarTakeover = async () => {
+    if (!user || !atendenteAtual) return;
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+    
+    const meuNome = profile?.full_name || 'Operador';
+    
+    // Criar registro na tabela
+    const { data: request, error } = await supabase
+      .from('takeover_requests')
+      .insert({
+        telefone_cliente: clienteTelefone,
+        solicitante_id: user.id,
+        solicitante_nome: meuNome,
+        operador_atual_id: atendenteAtual.id,
+        status: 'pending'
+      })
+      .select('id')
+      .single();
+    
+    if (error) {
+      toast.error('Erro ao solicitar takeover');
+      return;
+    }
+    
+    // Enviar broadcast
+    takeoverChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'takeover_request',
+      payload: {
+        request_id: request.id,
+        solicitante_id: user.id,
+        solicitante_nome: meuNome,
+        operador_atual_id: atendenteAtual.id,
+      }
+    });
+    
+    setTakeoverWaitingOperadorNome(atendenteAtual.nome);
+    takeoverWaitingOperadorNomeRef.current = atendenteAtual.nome;
+    setTakeoverRequestId(request.id);
+    takeoverRequestIdRef.current = request.id;
+    setTakeoverWaitingOpen(true);
+  };
+
+  // Handlers de resposta do takeover (operador atual)
+  const handleTakeoverApprove = async () => {
+    setTakeoverRequestOpen(false);
+    
+    // Atualizar registro
+    if (takeoverRequestId) {
+      await supabase
+        .from('takeover_requests')
+        .update({ status: 'approved', responded_at: new Date().toISOString() })
+        .eq('id', takeoverRequestId);
+    }
+    
+    // Enviar broadcast de aprovação
+    takeoverChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'takeover_response',
+      payload: {
+        response: 'approved',
+        solicitante_id: null, // será preenchido pelo listener
+        request_id: takeoverRequestId,
+      }
+    });
+    
+    toast.info('Conversa transferida.');
+  };
+
+  const handleTakeoverDeny = async () => {
+    setTakeoverRequestOpen(false);
+    
+    if (takeoverRequestId) {
+      await supabase
+        .from('takeover_requests')
+        .update({ status: 'denied', responded_at: new Date().toISOString() })
+        .eq('id', takeoverRequestId);
+    }
+    
+    takeoverChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'takeover_response',
+      payload: {
+        response: 'denied',
+        solicitante_id: null,
+        request_id: takeoverRequestId,
+      }
+    });
+    
+    toast.info('Solicitação de takeover negada.');
+  };
+
+  const handleTakeoverTimeout = async () => {
+    setTakeoverWaitingOpen(false);
+    
+    // Marcar como expired
+    if (takeoverRequestId) {
+      await supabase
+        .from('takeover_requests')
+        .update({ status: 'expired', responded_at: new Date().toISOString() })
+        .eq('id', takeoverRequestId);
+    }
+    
+    toast.success('Tempo esgotado. Assumindo conversa automaticamente...');
+    await assumirParaMim();
   };
 
   const removerAtribuicao = async () => {
@@ -1578,24 +1736,33 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   </PopoverContent>
                 </Popover>
               ) : (
-                /* Ticket de outro atendente - usuário comum não pode reatribuir */
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50">
-                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold">
-                          {atendenteAtual?.nome.charAt(0).toUpperCase()}
+                /* Ticket de outro atendente - usuário comum pode solicitar takeover */
+                <div className="flex items-center gap-1.5">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50">
+                          <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold">
+                            {atendenteAtual?.nome.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-xs text-muted-foreground">{atendenteAtual?.nome}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">{atendenteAtual?.nome}</span>
-                        <Lock className="h-3 w-3 text-muted-foreground" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">Atribuído a {atendenteAtual?.nome}</p>
-                      <p className="text-xs text-muted-foreground">Apenas supervisores podem reatribuir</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Atribuído a {atendenteAtual?.nome}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={iniciarTakeover}
+                  >
+                    <UserCheckIcon className="h-3 w-3" />
+                    Assumir
+                  </Button>
+                </div>
               )}
 
               {/* Botão de notas internas */}
@@ -2155,6 +2322,21 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         onOpenChange={setBotHistoricoOpen}
         telefoneCliente={clienteTelefone}
         nomeCliente={clienteNome}
+      />
+
+      {/* Takeover Dialogs */}
+      <TakeoverRequestDialog
+        open={takeoverRequestOpen}
+        solicitanteNome={takeoverRequestSolicitanteNome}
+        onApprove={handleTakeoverApprove}
+        onDeny={handleTakeoverDeny}
+      />
+
+      <TakeoverWaitingDialog
+        open={takeoverWaitingOpen}
+        operadorNome={takeoverWaitingOperadorNome}
+        onTimeout={handleTakeoverTimeout}
+        onClose={() => setTakeoverWaitingOpen(false)}
       />
     </div>
   );
