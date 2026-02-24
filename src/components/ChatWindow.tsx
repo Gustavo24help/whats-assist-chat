@@ -806,7 +806,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     });
     
     setTakeoverWaitingOperadorNome(atendenteAtual.nome);
+    takeoverWaitingOperadorNomeRef.current = atendenteAtual.nome;
     setTakeoverRequestId(request.id);
+    takeoverRequestIdRef.current = request.id;
     setTakeoverWaitingOpen(true);
   };
 
