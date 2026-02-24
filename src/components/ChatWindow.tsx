@@ -408,14 +408,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .on('broadcast', { event: 'takeover_response' }, (payload: any) => {
         console.log('[ChatWindow] Takeover response recebido:', payload);
         const data = payload.payload;
-        // Matchear por request_id em vez de solicitante_id
-        if (data?.request_id && data.request_id === takeoverRequestId) {
+        if (data?.request_id && data.request_id === takeoverRequestIdRef.current) {
           setTakeoverWaitingOpen(false);
           if (data.response === 'approved') {
             toast.success('Solicitação aprovada! Assumindo conversa...');
             assumirParaMim();
           } else if (data.response === 'denied') {
-            toast.error(`${takeoverWaitingOperadorNome} negou a solicitação.`);
+            toast.error(`${takeoverWaitingOperadorNomeRef.current} negou a solicitação.`);
           }
         }
       })
