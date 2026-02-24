@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bell, CalendarDays, CheckCircle2, ImageIcon, PlusCircle } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, CheckCircle2, ImageIcon, PlusCircle, Upload, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +30,7 @@ type Aviso = {
 
 const Avisos = () => {
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, userProfile, isAdmin } = useAuth();
 
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [lidos, setLidos] = useState<Set<string>>(new Set());
@@ -40,11 +40,13 @@ const Avisos = () => {
   const [novoTitulo, setNovoTitulo] = useState("");
   const [novoConteudo, setNovoConteudo] = useState("");
   const [novaImagemUrl, setNovaImagemUrl] = useState("");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadAvisos = async () => {
     if (!user) return;
-
     setLoading(true);
 
     const { data: avisosData, error: avisosError } = await (supabase as any)
@@ -82,22 +84,74 @@ const Avisos = () => {
 
   const markAsRead = async (avisoId: string) => {
     if (!user || lidos.has(avisoId)) return;
-
     const { error } = await (supabase as any)
       .from("aviso_leituras")
       .upsert({ aviso_id: avisoId, user_id: user.id, lido_em: new Date().toISOString() }, { onConflict: "aviso_id,user_id" });
-
     if (error) {
       toast.error("Erro ao marcar aviso como lido.");
       return;
     }
-
     setLidos((prev) => new Set([...prev, avisoId]));
   };
 
   const openAviso = async (aviso: Aviso) => {
     setSelectedAviso(aviso);
     await markAsRead(aviso.id);
+  };
+
+  // Upload de imagem para o bucket
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Apenas imagens são permitidas.");
+      return;
+    }
+    setUploading(true);
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+
+    const { error } = await supabase.storage.from("avisos-images").upload(fileName, file);
+    if (error) {
+      toast.error("Erro ao enviar imagem.");
+      setUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("avisos-images").getPublicUrl(fileName);
+    setNovaImagemUrl(urlData.publicUrl);
+    setImagePreview(urlData.publicUrl);
+    setUploading(false);
+    toast.success("Imagem enviada com sucesso!");
+  };
+
+  // Paste handler para capturar imagens do clipboard
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleImageUpload(file);
+        return;
+      }
+    }
+  };
+
+  // Drag & drop handler
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      handleImageUpload(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const removeImage = () => {
+    setNovaImagemUrl("");
+    setImagePreview(null);
   };
 
   const createAviso = async () => {
@@ -114,6 +168,7 @@ const Avisos = () => {
       conteudo: novoConteudo.trim(),
       imagem_url: novaImagemUrl.trim() || null,
       criado_por: user?.id,
+      criado_por_nome: userProfile?.fullName || null,
     });
 
     setSubmitting(false);
@@ -127,6 +182,7 @@ const Avisos = () => {
     setNovoTitulo("");
     setNovoConteudo("");
     setNovaImagemUrl("");
+    setImagePreview(null);
     loadAvisos();
   };
 
@@ -203,20 +259,58 @@ const Avisos = () => {
                       onChange={(event) => setNovoTitulo(event.target.value)}
                     />
                     <Textarea
-                      placeholder="Escreva o conteúdo do aviso"
+                      placeholder="Escreva o conteúdo do aviso (cole uma imagem aqui com Ctrl+V)"
                       value={novoConteudo}
                       onChange={(event) => setNovoConteudo(event.target.value)}
+                      onPaste={handlePaste}
                       rows={8}
                     />
-                    <Input
-                      placeholder="URL da imagem (opcional)"
-                      value={novaImagemUrl}
-                      onChange={(event) => setNovaImagemUrl(event.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Nesta versão, imagens são aceitas por URL. Upload direto de arquivo ainda não foi implementado.
-                    </p>
-                    <Button onClick={createAviso} disabled={submitting}>
+
+                    {/* Upload de imagem */}
+                    <div
+                      className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-muted/20 transition-colors"
+                      onClick={() => fileInputRef.current?.click()}
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageUpload(file);
+                        }}
+                      />
+                      {uploading ? (
+                        <p className="text-sm text-muted-foreground">Enviando imagem...</p>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload className="h-6 w-6 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">
+                            Clique para enviar imagem, arraste aqui, ou cole com Ctrl+V no campo acima
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Preview da imagem */}
+                    {imagePreview && (
+                      <div className="relative rounded-md border overflow-hidden">
+                        <img src={imagePreview} alt="Preview" className="w-full h-auto max-h-64 object-contain" />
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 h-7 w-7"
+                          onClick={removeImage}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    <Button onClick={createAviso} disabled={submitting || uploading}>
                       <PlusCircle className="h-4 w-4 mr-2" />
                       {submitting ? "Publicando..." : "Publicar aviso"}
                     </Button>

@@ -68,6 +68,65 @@ export type Database = {
         }
         Relationships: []
       }
+      aviso_leituras: {
+        Row: {
+          aviso_id: string
+          id: string
+          lido_em: string
+          user_id: string
+        }
+        Insert: {
+          aviso_id: string
+          id?: string
+          lido_em?: string
+          user_id: string
+        }
+        Update: {
+          aviso_id?: string
+          id?: string
+          lido_em?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aviso_leituras_aviso_id_fkey"
+            columns: ["aviso_id"]
+            isOneToOne: false
+            referencedRelation: "avisos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avisos: {
+        Row: {
+          conteudo: string
+          created_at: string
+          criado_por: string | null
+          criado_por_nome: string | null
+          id: string
+          imagem_url: string | null
+          titulo: string
+        }
+        Insert: {
+          conteudo: string
+          created_at?: string
+          criado_por?: string | null
+          criado_por_nome?: string | null
+          id?: string
+          imagem_url?: string | null
+          titulo: string
+        }
+        Update: {
+          conteudo?: string
+          created_at?: string
+          criado_por?: string | null
+          criado_por_nome?: string | null
+          id?: string
+          imagem_url?: string | null
+          titulo?: string
+        }
+        Relationships: []
+      }
       bot_historico: {
         Row: {
           acao: string
