@@ -1,166 +1,131 @@
 
+# Solicitacao de Assumir Conversa Ocupada (Takeover Request)
 
-# Correcao de Lentidao e Travamento do App
+## Contexto atual
 
-## Diagnostico
+Hoje, quando um operador quer assumir uma conversa que ja esta atribuida a outro, ele depende do operador atual para liberar manualmente (transferir ou remover atribuicao). Isso gera dependencia operacional -- o operador precisa pedir ao colega ou ate usar o computador dele.
 
-Foram identificados 3 problemas principais causando a lentidao e travamento:
+## Solucao proposta
 
-### Problema 1: Falhas de rede sem tratamento adequado
-Os console logs mostram dezenas de erros `TypeError: Failed to fetch` em cadeia. Quando uma requisicao falha (rede instavel, timeout), o app nao se recupera - fica preso no estado "Carregando..." indefinidamente.
+Criar um fluxo de **solicitacao de takeover** com as seguintes regras:
 
-**Locais afetados:**
-- `AuthContext.tsx`: Se a busca de perfil/role falha, o `loading` pode nunca virar `false` em certos cenarios
-- `ConversationList.tsx`: As 5 queries paralelas nao tem try/catch - se uma falha, a lista nao carrega
-- `OrcamentosSemFichaNotification.tsx`: Falha silenciosa ja visivel nos logs
+1. Operador A clica em "Assumir para mim" em uma conversa atribuida ao Operador B
+2. Um popup aparece para o Operador B pedindo permissao (15 segundos para responder)
+3. Se o Operador B **aprovar**: conversa e transferida imediatamente
+4. Se o Operador B **negar**: solicitacao e cancelada, Operador A recebe feedback
+5. Se o Operador B **nao responder em 15 segundos** (PC desligado, app fechado, etc.): conversa e transferida automaticamente
 
-### Problema 2: Requisicoes excessivas ao backend
-- `AuthContext.tsx` linha 189: Um `console.log` roda em **cada render** do provider (dezenas de vezes por segundo)
-- `TOKEN_REFRESHED` dispara um reload completo do perfil (desnecessario se o perfil ja esta carregado)
-- `fetchClientes()` faz 5 queries sequenciais + writes (update ficha_ativa_id) a cada 30 segundos via polling
-- `fetchClientes()` busca TODAS as mensagens para calcular janela 24h (query pesada sem limite)
+## Arquitetura tecnica
 
-### Problema 3: Falta de timeout e retry
-- Nenhuma requisicao tem timeout configurado
-- Nao existe retry automatico para falhas transientes
-- A tela de "Carregando..." nao tem timeout de seguranca
+### Comunicacao entre operadores: Supabase Realtime Broadcast
 
----
+Usar o canal de **broadcast** do Supabase Realtime (ja utilizado no projeto para mensagens do bot). Nao precisa de tabela nova -- broadcast e peer-to-peer via canais.
 
-## Solucao
-
-### 1. AuthContext.tsx - Resiliencia e reducao de chamadas
-
-**Alteracoes:**
-- Remover o `console.log` da linha 189 que roda a cada render (impacto de performance)
-- Adicionar timeout de seguranca no `loading`: se nao carregar em 10 segundos, liberar a tela com fallback
-- No `TOKEN_REFRESHED`, so recarregar perfil se ele ainda nao existir (evitar chamadas redundantes)
-- Adicionar try/catch mais robusto no `initializeAuth`
-
-### 2. ConversationList.tsx - Otimizacao de queries e tratamento de erros
-
-**Alteracoes:**
-- Envolver `fetchClientes()` em try/catch para nao travar em caso de falha de rede
-- Envolver `fetchSemOrcamento()`, `fetchServicosParaFinalizar()`, `fetchTagsWithColors()`, `fetchAtendentes()` em try/catch
-- Na query de mensagens (linha 676-681), adicionar `.limit(1000)` para nao buscar quantidade ilimitada
-- Na query de fichas sem ficha ativa (linha 709-713), adicionar `.limit(500)`
-- Remover ou limitar o `Promise.all` de updates de `ficha_ativa_id` (linhas 724-732) - nao fazer writes em polling, apenas na primeira carga
-- Aumentar intervalo do polling de 30s para 60s (reduzir carga no backend)
-
-### 3. App.tsx ou main.tsx - Handler global de rejeicoes nao tratadas
-
-**Alteracao:**
-- Adicionar `window.addEventListener('unhandledrejection', ...)` no `main.tsx` para capturar erros asincronos que escapam dos try/catch e evitar que o app trave silenciosamente
-
-### 4. ChatWindow.tsx - Tratamento de falhas
-
-**Alteracao:**
-- Garantir que o `fetchClienteData` tem try/catch adequado para nao travar a tela de chat quando a rede falhar
-
----
-
-## Detalhes tecnicos
-
-### AuthContext.tsx
-
-```typescript
-// REMOVER linha 189 (console.log que roda a cada render)
-
-// ADICIONAR timeout de seguranca no useEffect
-useEffect(() => {
-  // Timeout de seguranca: se nao carregar em 10s, liberar
-  const safetyTimeout = setTimeout(() => {
-    if (loading) {
-      console.warn('AuthContext - Timeout de seguranca atingido');
-      setLoading(false);
-    }
-  }, 10000);
-
-  initializeAuth();
-
-  return () => clearTimeout(safetyTimeout);
-}, []);
-
-// MODIFICAR TOKEN_REFRESHED handler
-} else if (event === 'TOKEN_REFRESHED' && session?.user) {
-  setUser(session.user);
-  // So recarregar se perfil ainda nao existe
-  if (!userProfile) {
-    setTimeout(() => loadUserProfile(session.user.id), 0);
-  }
-}
+```text
+Operador A                    Canal Realtime                   Operador B
+    |                              |                                |
+    |-- broadcast: takeover_request --------------------------->    |
+    |                              |                     [popup 15s]|
+    |                              |                                |
+    |   <-- broadcast: takeover_response (approved/denied) -----   |
+    |                              |                                |
+    [se timeout 15s sem resposta: assume automaticamente]
 ```
 
-### ConversationList.tsx
+### Tabela de backup: `takeover_requests`
 
-```typescript
-// Envolver loadInitialData em try/catch
-const loadInitialData = async () => {
-  setIsLoading(true);
-  try {
-    await Promise.all([
-      fetchClientes(),
-      fetchTagsWithColors(),
-      fetchServicosParaFinalizar(),
-      fetchAtendentes(),
-      fetchSemOrcamento()
-    ]);
-  } catch (err) {
-    console.error('Erro ao carregar dados iniciais:', err);
-  } finally {
-    setIsLoading(false);
-  }
-};
+Para cobrir o cenario em que o Operador B esta offline, precisamos de uma tabela para persistir a solicitacao e verificar timeout no lado do solicitante.
 
-// Cada fetch individual tambem com try/catch
-const fetchClientes = async () => {
-  try {
-    // ... queries existentes ...
-  } catch (err) {
-    console.error('Erro ao buscar clientes:', err);
-  }
-};
+```sql
+CREATE TABLE public.takeover_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  telefone_cliente text NOT NULL,
+  solicitante_id uuid NOT NULL,
+  solicitante_nome text NOT NULL,
+  operador_atual_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'pending',  -- pending, approved, denied, expired
+  created_at timestamptz NOT NULL DEFAULT now(),
+  responded_at timestamptz
+);
 
-// Aumentar polling para 60s
-const pollingInterval = window.setInterval(() => {
-  fetchClientes();
-  fetchServicosParaFinalizar();
-  fetchSemOrcamento();
-}, 60000);
+ALTER TABLE public.takeover_requests ENABLE ROW LEVEL SECURITY;
 
-// Limitar query de mensagens
-const { data: ultimasMensagens } = await supabase
-  .from('mensagens')
-  .select('cliente_id, data_hora')
-  .in('cliente_id', telefones)
-  .eq('remetente', 'cliente')
-  .order('data_hora', { ascending: false })
-  .limit(1000);
+-- Politicas: autenticados podem ler/inserir/atualizar
+CREATE POLICY "Atendentes podem ver solicitacoes"
+  ON public.takeover_requests FOR SELECT TO authenticated
+  USING (true);
 
-// Remover writes de ficha_ativa_id do polling (mover para flag)
-// Apenas na primeira carga, nao no polling
+CREATE POLICY "Atendentes podem inserir solicitacoes"
+  ON public.takeover_requests FOR INSERT TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Atendentes podem atualizar solicitacoes"
+  ON public.takeover_requests FOR UPDATE TO authenticated
+  USING (true);
+
+-- Realtime para a tabela
+ALTER PUBLICATION supabase_realtime ADD TABLE public.takeover_requests;
 ```
 
-### main.tsx
+### Fluxo detalhado
 
-```typescript
-// Adicionar handler global
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled rejection:', event.reason);
-  event.preventDefault();
-});
-```
+**Operador A (solicitante):**
+1. Clica "Assumir para mim" em conversa ocupada
+2. Sistema cria registro em `takeover_requests` com status `pending`
+3. Envia broadcast no canal `takeover-{telefone_cliente}` com evento `takeover_request`
+4. Exibe dialog "Aguardando resposta de {Operador B}..." com countdown de 15s
+5. Escuta broadcast de resposta no mesmo canal
+6. Se receber `approved` ou timeout de 15s: executa `atribuirOperador()` e marca status como `approved`/`expired`
+7. Se receber `denied`: fecha dialog com feedback
 
----
+**Operador B (operador atual):**
+1. Ao abrir o ChatWindow, subscribe no canal `takeover-{telefone_cliente}`
+2. Tambem subscribe em `postgres_changes` na tabela `takeover_requests` (para quando nao receber o broadcast)
+3. Ao receber solicitacao: exibe AlertDialog com countdown visual de 15s
+4. Se clicar "Permitir": envia broadcast `takeover_response: approved`, atualiza registro
+5. Se clicar "Negar": envia broadcast `takeover_response: denied`, atualiza registro
+6. Se nao responder: nada acontece do lado dele (o solicitante assume por timeout)
 
-## Resumo de alteracoes
+**Cenario offline do Operador B:**
+- Broadcast nao sera recebido (esperado)
+- Apos 15 segundos sem resposta, Operador A assume automaticamente
+- O registro na tabela muda para `expired`
+- Quando Operador B voltar, vera que a conversa foi reatribuida (via realtime existente de `clientes`)
 
-| Arquivo | Alteracao | Impacto |
-|---------|-----------|---------|
-| `src/contexts/AuthContext.tsx` | Remover console.log de render, timeout de seguranca 10s, evitar reload redundante em TOKEN_REFRESHED | Elimina tela "Carregando..." infinita |
-| `src/components/ConversationList.tsx` | Try/catch em todas as funcoes fetch, limitar queries, polling 60s, remover writes do polling | Chats e conversas carregam mesmo com rede instavel |
-| `src/main.tsx` | Handler global de unhandledrejection | Previne travamentos silenciosos |
-| `src/components/ChatWindow.tsx` | Try/catch robusto no fetchClienteData | Chat individual nao trava |
+## Alteracoes em arquivos
 
-**Nota de seguranca de dados:** Nenhuma dessas alteracoes modifica dados existentes ou altera a estrutura do banco. Sao apenas melhorias de resiliencia e performance no lado do cliente.
+### 1. Migracao SQL
+- Criar tabela `takeover_requests`
+- Adicionar a tabela ao `supabase_realtime`
 
+### 2. `src/components/ChatWindow.tsx`
+- Modificar o botao "Assumir para mim" no popover (linhas ~1511-1529): se `atendenteAtual` existe e nao e o usuario atual, iniciar fluxo de takeover ao inves de atribuicao direta
+- Adicionar canal de broadcast `takeover-{telefone_cliente}` no useEffect de realtime
+- Adicionar estado para `takeoverRequest` (solicitacao recebida pendente)
+- Adicionar dialog de "Solicitacao de takeover recebida" com countdown e botoes Permitir/Negar
+- Adicionar dialog de "Aguardando resposta..." com countdown para o solicitante
+- Manter a logica existente de supervisores/admins: estes continuam podendo assumir diretamente sem pedir permissao
+
+### 3. `src/components/TakeoverRequestDialog.tsx` (novo)
+- Componente para o popup do operador que recebe a solicitacao
+- Countdown visual de 15 segundos
+- Botoes "Permitir" e "Negar"
+- Auto-fecha ao expirar
+
+### 4. `src/components/TakeoverWaitingDialog.tsx` (novo)
+- Componente para o popup do operador que esta aguardando resposta
+- Countdown visual de 15 segundos
+- Mensagem "Aguardando resposta de {nome}..."
+- Auto-assume ao expirar
+
+## Regras de permissao preservadas
+
+- **Supervisores/Admins**: continuam podendo assumir diretamente, sem solicitar permissao (comportamento atual mantido)
+- **Operadores comuns**: precisam solicitar takeover quando a conversa pertence a outro operador
+- **Conversa sem dono**: qualquer operador pode assumir diretamente (comportamento atual mantido)
+
+## Seguranca de dados
+
+- Nenhum dado existente e modificado
+- A tabela `takeover_requests` e apenas de controle/log
+- As atribuicoes continuam usando o campo `atendente_id` da tabela `clientes` exatamente como hoje
