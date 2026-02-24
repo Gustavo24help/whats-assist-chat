@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -11,13 +12,41 @@ import {
   Users,
   Wrench,
   ClipboardList,
+  Bell,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const Home = () => {
   const navigate = useNavigate();
-  const { userProfile } = useAuth();
+  const { user, userProfile } = useAuth();
+  const [unreadAvisos, setUnreadAvisos] = useState(0);
+
+  const loadUnreadAvisos = async () => {
+    if (!user) return;
+
+    const { data: avisosData, error: avisosError } = await (supabase as any)
+      .from("avisos")
+      .select("id");
+
+    if (avisosError) return;
+
+    const { data: lidosData, error: lidosError } = await (supabase as any)
+      .from("aviso_leituras")
+      .select("aviso_id")
+      .eq("user_id", user.id);
+
+    if (lidosError) return;
+
+    const totalAvisos = (avisosData || []).length;
+    const totalLidos = new Set((lidosData || []).map((item: { aviso_id: string }) => item.aviso_id)).size;
+
+    setUnreadAvisos(Math.max(totalAvisos - totalLidos, 0));
+  };
+
+  useEffect(() => {
+    loadUnreadAvisos();
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -146,6 +175,30 @@ const Home = () => {
             </p>
             <div className="flex items-center text-brand-green font-medium">
               Acessar
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate("/avisos")}
+            className={`group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 animate-slide-up ${
+              unreadAvisos > 0
+                ? "border-orange-400/70 shadow-[0_0_30px_rgba(251,146,60,0.5)]"
+                : "border-transparent hover:border-brand-yellow/30"
+            }`}
+            style={{ animationDelay: "0.6s" }}
+          >
+            <div className="icon-container brand-coral mb-6 relative">
+              <Bell className={`h-7 w-7 ${unreadAvisos > 0 ? "animate-pulse text-orange-500" : ""}`} />
+            </div>
+            <h2 className="text-2xl font-semibold text-foreground mb-2 group-hover:text-brand-yellow transition-colors">
+              Avisos
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Veja avisos da operação, com status de lido/não lido e detalhes completos.
+            </p>
+            <div className="flex items-center text-brand-yellow font-medium">
+              {unreadAvisos > 0 ? `${unreadAvisos} não lido(s)` : "Acessar"}
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </div>
           </button>

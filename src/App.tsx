@@ -21,6 +21,7 @@ import GerenciamentoPrestadores from "./pages/GerenciamentoPrestadores";
 import PrestadorDetalhes from "./pages/PrestadorDetalhes";
 import AnaliseServicos from "./pages/AnaliseServicos";
 import Manutencao from "./pages/Manutencao";
+import Avisos from "./pages/Avisos";
 
 const queryClient = new QueryClient();
 
@@ -103,6 +104,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Manutencao />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/avisos"
+                element={
+                  <ProtectedRoute>
+                    <Avisos />
                   </ProtectedRoute>
                 }
               />
