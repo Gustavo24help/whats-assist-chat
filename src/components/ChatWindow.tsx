@@ -406,7 +406,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .on('broadcast', { event: 'takeover_response' }, (payload: any) => {
         console.log('[ChatWindow] Takeover response recebido:', payload);
         const data = payload.payload;
-        if (data?.solicitante_id === user?.id) {
+        // Matchear por request_id em vez de solicitante_id
+        if (data?.request_id && data.request_id === takeoverRequestId) {
           setTakeoverWaitingOpen(false);
           if (data.response === 'approved') {
             toast.success('Solicitação aprovada! Assumindo conversa...');
