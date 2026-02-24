@@ -216,6 +216,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [takeoverRequestSolicitanteNome, setTakeoverRequestSolicitanteNome] = useState("");
   const [takeoverRequestId, setTakeoverRequestId] = useState<string | null>(null);
   const takeoverChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const takeoverRequestIdRef = useRef<string | null>(null);
+  const takeoverWaitingOperadorNomeRef = useRef("");
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
