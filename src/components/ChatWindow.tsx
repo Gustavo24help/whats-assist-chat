@@ -209,6 +209,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   
+  // Estados para takeover
+  const [takeoverWaitingOpen, setTakeoverWaitingOpen] = useState(false);
+  const [takeoverWaitingOperadorNome, setTakeoverWaitingOperadorNome] = useState("");
+  const [takeoverRequestOpen, setTakeoverRequestOpen] = useState(false);
+  const [takeoverRequestSolicitanteNome, setTakeoverRequestSolicitanteNome] = useState("");
+  const [takeoverRequestId, setTakeoverRequestId] = useState<string | null>(null);
+  const takeoverChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
