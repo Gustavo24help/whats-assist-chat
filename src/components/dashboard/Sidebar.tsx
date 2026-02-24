@@ -104,14 +104,21 @@ export const Sidebar = ({
         'flex items-center h-16 border-b px-4',
         collapsed ? 'justify-center' : 'justify-between'
       )}>
-        {!collapsed && (
-          <img src={logoGreen} alt="24Help" className="h-8 w-auto" />
-        )}
-        {collapsed && (
-          <div className="h-8 w-8 rounded-full bg-brand-green flex items-center justify-center">
-            <span className="text-white font-bold text-sm">24</span>
-          </div>
-        )}
+        <Button
+          variant="ghost"
+          className={cn('h-auto p-0 hover:bg-transparent', collapsed && 'rounded-full')}
+          onClick={() => navigate('/')}
+          aria-label="Voltar para a página inicial"
+        >
+          {!collapsed && (
+            <img src={logoGreen} alt="24Help" className="h-8 w-auto" />
+          )}
+          {collapsed && (
+            <div className="h-8 w-8 rounded-full bg-brand-green flex items-center justify-center">
+              <span className="text-white font-bold text-sm">24</span>
+            </div>
+          )}
+        </Button>
         {onToggle && (
           <Button
             variant="ghost"
