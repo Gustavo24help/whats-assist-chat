@@ -402,6 +402,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         if (data?.operador_atual_id === user?.id) {
           setTakeoverRequestSolicitanteNome(data.solicitante_nome);
           setTakeoverRequestId(data.request_id);
+          takeoverRequestIdRef.current = data.request_id;
           setTakeoverRequestOpen(true);
         }
       })
