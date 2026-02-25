@@ -22,6 +22,7 @@ import PrestadorDetalhes from "./pages/PrestadorDetalhes";
 import AnaliseServicos from "./pages/AnaliseServicos";
 import Manutencao from "./pages/Manutencao";
 import Avisos from "./pages/Avisos";
+import MensagensInternas from "./pages/MensagensInternas";
 
 const queryClient = new QueryClient();
 
@@ -136,6 +137,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <DashboardTV />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mensagens"
+                element={
+                  <ProtectedRoute>
+                    <MensagensInternas />
                   </ProtectedRoute>
                 }
               />
