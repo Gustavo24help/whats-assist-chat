@@ -1,99 +1,115 @@
 
 
-# Revisao Dashboard TV: Origem dos Dados e Novo Filtro de Datas
+# Diagnostico e Correcao: Orcamento de Prestadores e Criacao de Fichas
 
-## 1. Mapeamento Completo das Fontes de Dados
+## Analise Completa
 
-Cada metrica do Dashboard TV vem do hook `useDashboardTV.ts`, que consulta diretamente as tabelas do banco:
+### Problema 1: Operadores nao conseguem criar ficha
 
-| Metrica | Tabela / Fonte | Filtro Aplicado | Observacao |
-|---|---|---|---|
-| **Receita Total** | `fichas_de_servico` | `status = 'Finalizado'` + periodo `created_at` | **PROBLEMA**: Nao verifica `pagamento_realizado = true`. Inclui fichas finalizadas mas nao pagas |
-| **Lucro Bruto** | Calculado | `receita - mao_obra - pecas` (ou `receita * 0.23` se custos zerados) | Fallback de 23% pode distorcer |
-| **Servicos Fechados** | `fichas_de_servico` | Mesmo filtro da receita (count) | Mesmo problema: conta finalizados sem pagamento |
-| **Ticket Medio** | Calculado | `receitaTotal / servicosFechados` | Depende dos dados acima |
-| **Margem Media** | Calculado | `(lucroBruto / receitaTotal) * 100` | Depende dos dados acima |
-| **FS Criadas** | `fichas_de_servico` | Todas fichas no periodo (`created_at`) | Correto |
-| **Agendados** | `fichas_de_servico` | `status IN ('Agendado', 'Visita Tecnica')` + servicosFechados | Logica acumulativa: soma fichas atualmente agendadas com finalizadas |
-| **Executados** | `fichas_de_servico` | `status IN ('Em andamento', 'Finalizado')` + servicosFechados | **BUG**: 'Finalizado' ja esta no filtro IN e e somado novamente via servicosFechados. Contagem dupla! |
-| **Pagos** | `fichas_de_servico` | Igual a servicosFechados (status='Finalizado') | **PROBLEMA**: Label diz "Pagos" mas conta todos finalizados |
-| **Cliques Anuncios** | `google_ads_metrics` | `data_referencia` no periodo | Correto |
-| **Conversas Iniciadas** | RPC `calculate_conversas_iniciadas` | Periodo + filtros opcionais | Correto |
-| **NPS Geral** | `nps_respostas` | Media de `nota` no periodo | Correto |
-| **Avaliacao Prestadores** | `avaliacao_prestador` | Media de `nota` no periodo | Correto |
-| **Metas** | `dashboard_metas` | `tipo = 'diarias'` (sempre diarias, mesmo em periodos maiores) | Pode nao fazer sentido para periodos de 30 dias |
-| **Orcamentos Pendentes >2h** | `fichas_de_servico` | `status IN ('Orcamento Enviado', 'Negociacao')` + `updated_at > 2h atras` | Correto |
-| **Tempo Resposta** | Nao implementado | Retorna `null` sempre | Placeholder |
-| **Tempo Orcamento** | Nao implementado | Retorna `null` sempre | Placeholder |
-| **Tempo FS->Agendado** | `ficha_status_historico` + `fichas_de_servico` | Calcula diferenca entre created_at da ficha e data_inicio do status 'Agendado' | Correto |
-| **Tempo Agendado->Executado** | `ficha_status_historico` | Diferenca entre status 'Agendado' e 'Em andamento' | Correto |
-| **Ciclo Completo** | `fichas_de_servico` | `updated_at - created_at` para finalizadas pagas | Correto |
-| **Conversas Abertas** | `fichas_de_servico` + `mensagens` | Fichas com status nao-fechado, cruza com ultima mensagem do cliente | Correto |
-
-### Bugs Identificados
-
-1. **Executados conta Finalizado duas vezes**: A query filtra `status IN ('Em andamento', 'Finalizado')` e depois soma `servicosFechados` (que tambem e Finalizado). Resultado: fichas finalizadas sao contadas 2x.
-
-2. **Receita/Pagos nao verificam pagamento**: O filtro usa apenas `status = 'Finalizado'` sem `pagamento_realizado = true`. Fichas finalizadas mas ainda nao pagas entram na receita.
-
-3. **Variacao de Pagos usa metrica errada**: Linha 557 calcula `calcVariation(servicosFechados, servicosPrev)` -- deveria comparar pagos com pagos do periodo anterior, nao servicos fechados.
-
----
-
-## 2. Correcoes dos Dados
-
-### No arquivo `src/hooks/useDashboardTV.ts`:
-
-**Corrigir Receita/Pagos** (linha 270-274): Adicionar `.eq('pagamento_realizado', true)` na query de fichasPagas, e fazer o mesmo para fichasPagasPrev.
-
-**Corrigir Executados** (linha 372): Mudar de `(executadosRes.count || 0) + servicosFechados` para apenas `executadosRes.count || 0`, ja que 'Finalizado' ja esta incluido no filtro IN.
-
-**Corrigir variacao de Pagos** (linha 557): Ja esta correto apos a correcao de receita.
-
----
-
-## 3. Novo Sistema de Filtro de Datas
-
-### Design
-
-Substituir os dropdowns de periodo/comparacao por:
+**Causa raiz identificada:** O componente `CriarFichaDialog.tsx` (linha 104) **bloqueia completamente** a criacao da ficha se o webhook URL nao estiver carregado:
 
 ```text
-[Periodo: 01/02/2026 - 25/02/2026]  [Comparar: 01/01/2026 - 25/01/2026]  [25 dias corridos | 18 DU]  vs  [25 dias corridos | 17 DU]
+if (!webhookUrl) {
+  toast.error("Configure o webhook de criacao de fichas nas configuracoes");
+  return;   // <-- BLOQUEIA a criacao
+}
 ```
 
-- Dois seletores de calendario (inicio/fim), cada um abrindo um `Popover` com `Calendar` em modo `range`
-- Dias uteis destacados com cor/marcacao diferente no calendario (usando o modulo `businessDays2026.ts` existente)
-- Ao selecionar comparacao, exibir badges com contagem de dias corridos e dias uteis de cada periodo
-- Manter filtros de prestador, categoria e metas como estao
+O webhook URL e carregado de forma assincrona em `FichaPanel.tsx` via `fetchWebhookUrl()`. Se houver qualquer falha de rede, timeout, ou se o usuario abrir o dialogo antes do fetch completar, `webhookUrl` sera vazio e a criacao e bloqueada com a mensagem "Configure o webhook...".
 
-### Alteracoes em arquivos
+**Causa secundaria:** A tabela `fichas_de_servico` tem uma foreign key `telefone_cliente -> clientes(telefone)`. Se por algum motivo o telefone do cliente nao corresponder exatamente ao formato armazenado na tabela `clientes`, a insercao falha com erro de constraint.
 
-#### `src/hooks/useDashboardTV.ts`
-- Corrigir os 3 bugs de dados listados acima
-- Ajustar `TVFilters` para usar `customRange` e `comparisonRange` como `{ from: Date; to: Date }` ao inves dos modos predefinidos
-- Simplificar `getDateRange` e `getComparisonRange` para usar ranges diretos
-- Manter os modos predefinidos como atalhos que preenchem as datas automaticamente
+**O que o operador ve:** Toast de erro "Configure o webhook de criacao de fichas nas configuracoes" ou mensagem generica de erro.
 
-#### `src/pages/DashboardTV.tsx`
-- Substituir os `Select` de periodo/comparacao por dois `Popover` + `Calendar` com modo `range`
-- Adicionar marcacao visual de dias uteis no calendario (usando `modifiers` e `modifiersStyles` do DayPicker + `isBusinessDay()`)
-- Exibir badges ao lado dos filtros mostrando: "X dias corridos | Y DU" para cada periodo selecionado
-- Adicionar atalhos rapidos (Hoje, 7 dias, 30 dias, Mes) como botoes pequenos acima do calendario principal
-- Manter os filtros existentes (prestador, categoria, metas, dias uteis)
+### Problema 2: Prestadores nao conseguem enviar orcamento
 
-#### `src/components/ui/calendar.tsx`
-- Nenhuma alteracao necessaria (o componente ja suporta modifiers nativamente via props do DayPicker)
+**Causa provavel:** O formulario publico (`OrcamentoPublico.tsx`) funciona sem autenticacao. Banco de dados, RLS e grants estao configurados corretamente (confirmado via testes). As causas mais provaveis sao:
 
-### Experiencia do Usuario
+1. **Erros silenciosos na edge function**: A chamada `supabase.functions.invoke("submit-orcamento")` pode falhar em producao (timeout, CORS) e o erro e engolido silenciosamente
+2. **Validacao de formulario bloqueando**: Campos obrigatorios como tempo estimado e categoria impedem o envio se nao preenchidos, mas a mensagem de erro pode nao ser clara no mobile
+3. **Problemas de rede em mobile**: Prestadores acessam pelo celular, conexoes instáveis podem causar falha no INSERT
 
-1. Clicar em "Periodo" abre popover com calendario de selecao de intervalo + atalhos rapidos
-2. Dias uteis aparecem com uma bolinha verde ou fundo levemente diferente
-3. Clicar em "Comparar" abre outro popover semelhante
-4. Ao lado dos filtros, badges mostram: `25 dias | 18 DU` vs `25 dias | 17 DU`
-5. Os badges ajudam a entender se a comparacao e justa (mesmo numero de dias uteis)
+**O que o prestador ve:** "Erro ao enviar orcamento. Tente novamente." (mensagem generica sem detalhe da causa)
 
-### Calculo de dias uteis nos badges
+---
 
-Usar `getBusinessDaysInRange(from, to).length` do modulo `businessDays2026.ts` existente para contar dias uteis em cada intervalo selecionado.
+## Solucao
+
+### 1. Corrigir `CriarFichaDialog.tsx` - Remover bloqueio do webhook
+
+O webhook deve ser **opcional**, nao bloqueante. A ficha deve ser criada no banco independente do webhook.
+
+**Antes:** Webhook obrigatorio, bloqueia criacao
+**Depois:** Criar ficha primeiro, enviar webhook depois (sem bloquear)
+
+Alteracoes:
+- Remover o check `if (!webhookUrl)` que bloqueia a criacao (linha 104-107)
+- Mover a prop `webhookUrl` para dentro do componente (buscar diretamente no submit)
+- Adicionar log detalhado do erro no `catch` para facilitar diagnostico
+- Melhorar mensagem de erro para mostrar o motivo real da falha
+
+### 2. Corrigir `OrcamentoPublico.tsx` - Melhorar tratamento de erros
+
+Alteracoes:
+- Mostrar mensagem de erro detalhada (nao generica) quando o INSERT falha
+- Adicionar console.log com o erro completo para debug
+- Adicionar feedback visual de que o orcamento foi salvo mesmo que o webhook falhe
+- Garantir que erros de rede sao tratados adequadamente
+
+### 3. Atualizar `FichaPanel.tsx` - Tornar webhookUrl resiliente
+
+Alteracoes:
+- Remover a prop `webhookUrl` do `CriarFichaDialog` (sera buscado internamente)
+- Simplificar o componente
+
+---
+
+## Detalhes tecnicos das alteracoes
+
+### `CriarFichaDialog.tsx`
+
+```text
+ANTES (bloqueante):
+  if (!webhookUrl) {
+    toast.error("Configure o webhook...");
+    return;   // BLOQUEIA
+  }
+  // inserir ficha
+  // chamar webhook
+
+DEPOIS (resiliente):
+  // 1. Inserir ficha (SEMPRE)
+  // 2. Buscar webhook URL internamente
+  // 3. Se webhook URL existir, enviar (assincrono, nao bloqueia)
+  // 4. Se falhar, logar erro mas NAO impedir criacao
+```
+
+- Remover prop `webhookUrl` da interface
+- Buscar `webhook_criar_ficha` dentro do `handleSubmit` com try-catch
+- Mensagem de erro detalhada: `toast.error(error.message || error.code || "Erro ao criar ficha")`
+
+### `OrcamentoPublico.tsx`
+
+- Na linha 356-359, melhorar o catch para mostrar detalhes:
+```text
+ANTES: toast.error("Erro", { description: "Erro ao enviar orcamento." })
+DEPOIS: toast.error("Erro ao enviar", { description: error.message || error.code || "Erro de conexao" })
+```
+
+### `FichaPanel.tsx`
+
+- Remover `fetchWebhookUrl` e estado `webhookUrl`
+- Remover prop `webhookUrl` do `CriarFichaDialog`
+
+---
+
+## Resumo de impacto
+
+| Arquivo | Alteracao | Impacto |
+|---|---|---|
+| `CriarFichaDialog.tsx` | Remover bloqueio do webhook, buscar URL internamente | Operadores sempre podem criar fichas |
+| `OrcamentoPublico.tsx` | Melhorar mensagens de erro | Prestadores veem causa real da falha |
+| `FichaPanel.tsx` | Remover logica de webhook desnecessaria | Simplificacao |
+
+**Seguranca de dados:** Nenhum dado existente e modificado. As alteracoes afetam apenas o fluxo de criacao de novos registros.
 
