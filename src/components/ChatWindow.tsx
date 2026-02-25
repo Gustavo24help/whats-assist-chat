@@ -1043,6 +1043,26 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
+  // Handler para colar imagem da área de transferência (Ctrl+V / Cmd+V)
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (statusConversa === "fechada") return;
+    
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          handleFileSelect(file);
+        }
+        return;
+      }
+    }
+  };
+
   // Função para fazer upload e enviar arquivo
   const uploadAndSendFile = async () => {
     if (!pendingFile) return;
@@ -1074,7 +1094,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
       if (uploadError) {
         console.error("Erro ao fazer upload:", uploadError);
-        throw new Error("Erro ao fazer upload do arquivo");
+        throw new Error(`Erro ao fazer upload: ${uploadError.message || 'erro desconhecido'}`);
       }
 
       // Obter URL pública
@@ -2291,6 +2311,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                       enviarMensagem();
                     }
                   }}
+                  onPaste={handlePaste}
                   disabled={statusConversa === "fechada" || !!pendingFile}
                   className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
                   rows={1}
