@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Upload, HelpCircle, Download, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, HelpCircle, Download, Eye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -56,6 +56,8 @@ export const PrestadorManagement = () => {
   const [showCsvHelp, setShowCsvHelp] = useState(false);
   const [selectedPrestadores, setSelectedPrestadores] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [sortField, setSortField] = useState<"nome" | "categoria" | null>("nome");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [formData, setFormData] = useState<Prestador>({
     cpf: "",
@@ -345,6 +347,36 @@ export const PrestadorManagement = () => {
   const toggleSelect = (cpf: string) => {
     setSelectedPrestadores(prev =>
       prev.includes(cpf) ? prev.filter(c => c !== cpf) : [...prev, cpf]
+    );
+  };
+
+  const stripNumbers = (str: string) => str.replace(/\d/g, "").trim();
+
+  const sortedPrestadores = useMemo(() => {
+    if (!sortField) return prestadores;
+    return [...prestadores].sort((a, b) => {
+      const valA = stripNumbers(String(a[sortField] || ""));
+      const valB = stripNumbers(String(b[sortField] || ""));
+      const comparison = valA.localeCompare(valB, "pt-BR", { sensitivity: "base" });
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [prestadores, sortField, sortDirection]);
+
+  const handleSort = (field: "nome" | "categoria") => {
+    if (sortField === field) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: "nome" | "categoria" }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-50" />;
+    return sortDirection === "asc" ? (
+      <ArrowUp className="h-3.5 w-3.5 ml-1" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5 ml-1" />
     );
   };
 
@@ -824,16 +856,26 @@ export const PrestadorManagement = () => {
                       className="cursor-pointer"
                     />
                   </TableHead>
-                  <TableHead>Nome</TableHead>
+                  <TableHead className="cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort("nome")}>
+                    <div className="flex items-center">
+                      Nome
+                      <SortIcon field="nome" />
+                    </div>
+                  </TableHead>
                   <TableHead>CPF</TableHead>
                   <TableHead>Telefone</TableHead>
-                  <TableHead>Categoria</TableHead>
+                  <TableHead className="cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort("categoria")}>
+                    <div className="flex items-center">
+                      Categoria
+                      <SortIcon field="categoria" />
+                    </div>
+                  </TableHead>
                   <TableHead>ID CRM</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {prestadores.map((prestador) => (
+                {sortedPrestadores.map((prestador) => (
                   <TableRow key={prestador.cpf}>
                     <TableCell>
                       <input
