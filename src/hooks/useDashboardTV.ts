@@ -11,7 +11,8 @@ export type TVComparison =
   | 'same_day_last_month'
   | 'business_days_cumulative'
   | 'weekday_compare'
-  | 'specific_day';
+  | 'specific_day'
+  | 'custom';
 
 export interface TVFilters {
   period: TVPeriod;
@@ -20,6 +21,7 @@ export interface TVFilters {
   prestadorCpf?: string;
   categoriaId?: number;
   customRange?: { from: Date; to: Date };
+  comparisonRange?: { from: Date; to: Date };
   // For weekday_compare: 0=Sun..6=Sat
   compareWeekday?: number;
   // For weekday_compare: which weekday to compare against (if different)
@@ -201,6 +203,13 @@ function getComparisonRange(from: Date, to: Date, comparison: TVComparison, filt
       }
     }
 
+    case 'custom': {
+      if (filters.comparisonRange) {
+        return { from: startOfDay(filters.comparisonRange.from), to: endOfDay(filters.comparisonRange.to), label: 'vs Personalizado' };
+      }
+      return { from: startOfDay(subDays(from, periodDays)), to: endOfDay(subDays(from, 1)), label: '' };
+    }
+
     default:
       return { from: startOfDay(subDays(from, periodDays)), to: endOfDay(subDays(from, 1)), label: '' };
   }
@@ -270,6 +279,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
       supabase.from('fichas_de_servico')
         .select('valor_total, valor_mao_obra, valor_pecas')
         .eq('status', 'Finalizado')
+        .eq('pagamento_realizado', true)
         .gte('created_at', fromStr).lte('created_at', toStr)
     ),
     buildFichaFilter(
@@ -312,6 +322,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
       supabase.from('fichas_de_servico')
         .select('valor_total, valor_mao_obra, valor_pecas')
         .eq('status', 'Finalizado')
+        .eq('pagamento_realizado', true)
         .gte('created_at', prevFromStr).lte('created_at', prevToStr)
     ),
     buildFichaFilter(
@@ -369,7 +380,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
 
   const fsCriadas = fsCriadasRes.count || 0;
   const agendados = (agendadosRes.count || 0) + servicosFechados;
-  const executados = (executadosRes.count || 0) + servicosFechados;
+  const executados = executadosRes.count || 0;
   const pagos = servicosFechados;
 
   const adsData = adsRes.data || [];
@@ -445,7 +456,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
   const servicosPrev = fichasPagasPrev.length;
   const fsPrev = fsCriadasPrevRes.count || 0;
   const agendadosPrev = (agendadosPrevRes.count || 0) + servicosPrev;
-  const executadosPrev = (executadosPrevRes.count || 0) + servicosPrev;
+  const executadosPrev = executadosPrevRes.count || 0;
   const cliquesPrev = (adsPrevRes.data || []).reduce((s, a) => s + (a.cliques || 0), 0);
   const conversasPrev = conversasPrevRes.data || 0;
 
@@ -554,7 +565,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
       fsCriadas: calcVariation(fsCriadas, fsPrev),
       agendados: calcVariation(agendados, agendadosPrev),
       executados: calcVariation(executados, executadosPrev),
-      pagos: calcVariation(servicosFechados, servicosPrev),
+      pagos: calcVariation(pagos, servicosPrev),
     },
     previous: {
       receitaTotal: receitaPrev, lucroBruto: lucroPrev, servicosFechados: servicosPrev,
