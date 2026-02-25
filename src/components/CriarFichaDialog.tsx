@@ -22,7 +22,6 @@ interface CriarFichaDialogProps {
   onOpenChange: (open: boolean) => void;
   clienteTelefone: string;
   clienteNome: string;
-  webhookUrl: string;
 }
 
 export const CriarFichaDialog = ({
@@ -30,7 +29,6 @@ export const CriarFichaDialog = ({
   onOpenChange,
   clienteTelefone,
   clienteNome,
-  webhookUrl,
 }: CriarFichaDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [categorias, setCategorias] = useState<any[]>([]);
@@ -101,11 +99,6 @@ export const CriarFichaDialog = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!webhookUrl) {
-      toast.error("Configure o webhook de criação de fichas nas configurações");
-      return;
-    }
-
     try {
       setLoading(true);
 
@@ -146,7 +139,7 @@ export const CriarFichaDialog = ({
       toast.success("Ficha criada com sucesso!");
       onOpenChange(false);
 
-      // 3. CHAMAR WEBHOOK DE FORMA ASSÍNCRONA (não bloqueia)
+      // 3. BUSCAR WEBHOOK URL INTERNAMENTE E CHAMAR (não bloqueia)
       const payload = {
         telefone_cliente: clienteTelefone,
         nome_cliente: clienteNome,
@@ -155,27 +148,35 @@ export const CriarFichaDialog = ({
         categoria: formData.categoria,
       };
 
-      fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      })
-        .then(async (response) => {
-          if (response.ok) {
-            // Marcar webhook como enviado com sucesso
-            await supabase
-              .from('fichas_de_servico')
-              .update({ webhook_pendente: false })
-              .eq('id', nomeFicha);
-            console.log(`Webhook enviado com sucesso para ficha ${nomeFicha}`);
-          } else {
-            console.error(`Webhook falhou para ficha ${nomeFicha}: ${response.status}`);
+      // Buscar webhook URL de forma resiliente e chamar assincronamente
+      supabase
+        .from("configuracoes")
+        .select("valor")
+        .eq("chave", "webhook_criar_ficha")
+        .single()
+        .then(({ data: configData }) => {
+          const url = configData?.valor;
+          if (!url) {
+            console.warn("[CriarFichaDialog] Webhook URL não configurada, pulando envio");
+            return Promise.resolve();
           }
-        })
-        .catch((err) => {
-          console.error(`Erro ao chamar webhook para ficha ${nomeFicha}:`, err);
+          return fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).then(async (response) => {
+            if (response.ok) {
+              await supabase
+                .from('fichas_de_servico')
+                .update({ webhook_pendente: false })
+                .eq('id', nomeFicha);
+              console.log(`Webhook enviado com sucesso para ficha ${nomeFicha}`);
+            } else {
+              console.error(`Webhook falhou para ficha ${nomeFicha}: ${response.status}`);
+            }
+          }).catch((err: any) => {
+            console.error(`Erro ao chamar webhook para ficha ${nomeFicha}:`, err);
+          });
         });
 
       // 4. Aguardar 3 segundos antes de recarregar

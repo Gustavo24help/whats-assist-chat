@@ -23,7 +23,6 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [fichaAtual, setFichaAtual] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("");
 
   useEffect(() => {
     console.log('[FichaPanel] Limpando fichas para:', clienteTelefone);
@@ -31,20 +30,7 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
     setFichaAtual(null);
     
     fetchFichas();
-    fetchWebhookUrl();
   }, [clienteTelefone]);
-
-  const fetchWebhookUrl = async () => {
-    const { data } = await supabase
-      .from("configuracoes")
-      .select("valor")
-      .eq("chave", "webhook_criar_ficha")
-      .single();
-
-    if (data?.valor) {
-      setWebhookUrl(data.valor);
-    }
-  };
 
   const fetchFichas = async () => {
     const { data } = await supabase
@@ -202,7 +188,6 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
         onOpenChange={setDialogOpen}
         clienteTelefone={clienteTelefone}
         clienteNome={clienteNome}
-        webhookUrl={webhookUrl}
       />
     </div>
   );
