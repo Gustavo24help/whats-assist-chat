@@ -625,6 +625,103 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_conversation_members: {
+        Row: {
+          conversation_id: string
+          id: string
+          joined_at: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          joined_at?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          joined_at?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_conversation_members_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "internal_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_conversations: {
+        Row: {
+          created_at: string
+          group_name: string | null
+          id: string
+          is_group: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          group_name?: string | null
+          id?: string
+          is_group?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          group_name?: string | null
+          id?: string
+          is_group?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      internal_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          file_name: string | null
+          file_type: string | null
+          file_url: string | null
+          id: string
+          sender_id: string
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          sender_id: string
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "internal_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mensagens: {
         Row: {
           arquivo_url: string | null

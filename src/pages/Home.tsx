@@ -13,6 +13,7 @@ import {
   Wrench,
   ClipboardList,
   Bell,
+  MessageSquare,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -199,6 +200,26 @@ const Home = () => {
             </p>
             <div className="flex items-center text-brand-yellow font-medium">
               {unreadAvisos > 0 ? `${unreadAvisos} não lido(s)` : "Acessar"}
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate("/mensagens")}
+            className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-green/30 animate-slide-up"
+            style={{ animationDelay: "0.7s" }}
+          >
+            <div className="icon-container brand-green mb-6">
+              <MessageSquare className="h-7 w-7" />
+            </div>
+            <h2 className="text-2xl font-semibold text-foreground mb-2 group-hover:text-brand-green transition-colors">
+              Mensagens Internas
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Comunicação interna entre operadores e administradores do sistema.
+            </p>
+            <div className="flex items-center text-brand-green font-medium">
+              Acessar
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </div>
           </button>
