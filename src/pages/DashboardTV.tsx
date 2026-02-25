@@ -3,15 +3,19 @@ import { useDashboardTV, TVFilters, TVPeriod, TVComparison } from '@/hooks/useDa
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { MetasModal } from '@/components/dashboard/tv/MetasModal';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays, startOfMonth, subDays, subMonths, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { getWeekdayName } from '@/lib/businessDays2026';
+import { getWeekdayName, isBusinessDay, getBusinessDaysInRange } from '@/lib/businessDays2026';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import logoGreen from '@/assets/logo-green.png';
 
 // ---- Helpers ----
@@ -48,15 +52,42 @@ function statusEmoji(value: number, target: number, higherIsBetter = true): stri
   return '🚨';
 }
 
+function countDaysInfo(from: Date, to: Date) {
+  const corridos = differenceInCalendarDays(to, from) + 1;
+  const uteis = getBusinessDaysInRange(from, to).length;
+  return { corridos, uteis };
+}
+
+function applyPeriodShortcut(shortcut: string): { from: Date; to: Date } {
+  const now = new Date();
+  switch (shortcut) {
+    case 'today': return { from: now, to: now };
+    case '7days': return { from: subDays(now, 6), to: now };
+    case '30days': return { from: subDays(now, 29), to: now };
+    case 'month': return { from: startOfMonth(now), to: now };
+    case 'last_month': return { from: startOfMonth(subMonths(now, 1)), to: endOfMonth(subMonths(now, 1)) };
+    default: return { from: now, to: now };
+  }
+}
+
+// Business day modifier for calendar
+const businessDayModifier = (date: Date) => isBusinessDay(date);
+
 export default function DashboardTV() {
+  const now = new Date();
+  const [periodRange, setPeriodRange] = useState<{ from: Date; to?: Date }>({
+    from: now,
+    to: now,
+  });
+  const [comparisonRange, setComparisonRange] = useState<{ from: Date; to?: Date } | undefined>(undefined);
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const [comparisonOpen, setComparisonOpen] = useState(false);
+
   const [filters, setFilters] = useState<TVFilters>({
-    period: 'today',
-    comparison: 'yesterday',
+    period: 'custom',
+    comparison: 'custom',
     onlyBusinessDays: false,
-    compareWeekday: new Date().getDay(),
-    compareWeekdayTarget: new Date().getDay(),
-    compareDay: new Date().getDate(),
-    compareDayCumulative: true,
+    customRange: { from: now, to: now },
   });
   const [metasOpen, setMetasOpen] = useState(false);
   const [clock, setClock] = useState(new Date());
@@ -65,6 +96,28 @@ export default function DashboardTV() {
     const t = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Sync period range to filters
+  useEffect(() => {
+    if (periodRange.from && periodRange.to) {
+      setFilters(f => ({
+        ...f,
+        period: 'custom',
+        customRange: { from: periodRange.from, to: periodRange.to! },
+      }));
+    }
+  }, [periodRange]);
+
+  // Sync comparison range to filters
+  useEffect(() => {
+    if (comparisonRange?.from && comparisonRange?.to) {
+      setFilters(f => ({
+        ...f,
+        comparison: 'custom',
+        comparisonRange: { from: comparisonRange.from, to: comparisonRange.to! },
+      }));
+    }
+  }, [comparisonRange]);
 
   const { data, isLoading } = useDashboardTV(filters);
 
@@ -144,8 +197,19 @@ export default function DashboardTV() {
     data?.avaliacaoMediaPrestadores != null ? `👷 Avaliação Prestadores: ${data.avaliacaoMediaPrestadores.toFixed(1)}` : null,
   ].filter(Boolean).join('   |   ');
 
-  const showWeekdaySelectors = filters.comparison === 'weekday_compare';
-  const showDaySelectors = filters.comparison === 'specific_day';
+  const periodInfo = periodRange.from && periodRange.to ? countDaysInfo(periodRange.from, periodRange.to) : null;
+  const compInfo = comparisonRange?.from && comparisonRange?.to ? countDaysInfo(comparisonRange.from, comparisonRange.to) : null;
+
+  const handlePeriodShortcut = (shortcut: string) => {
+    const range = applyPeriodShortcut(shortcut);
+    setPeriodRange(range);
+    setPeriodOpen(false);
+  };
+
+  const formatRangeLabel = (range: { from: Date; to?: Date }) => {
+    if (!range.to) return format(range.from, 'dd/MM/yy', { locale: ptBR });
+    return `${format(range.from, 'dd/MM', { locale: ptBR })} - ${format(range.to, 'dd/MM', { locale: ptBR })}`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-white overflow-hidden">
@@ -166,74 +230,116 @@ export default function DashboardTV() {
             </span>
           </div>
         </div>
-        {/* FILTERS ROW 1 */}
+        {/* FILTERS ROW */}
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={filters.period} onValueChange={v => setFilters(f => ({ ...f, period: v as TVPeriod }))}>
-            <SelectTrigger className="h-7 w-[130px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Hoje</SelectItem>
-              <SelectItem value="yesterday">Ontem</SelectItem>
-              <SelectItem value="7days">Últimos 7 dias</SelectItem>
-              <SelectItem value="30days">Últimos 30 dias</SelectItem>
-              <SelectItem value="month">Mês Atual</SelectItem>
-              <SelectItem value="last_month">Mês Anterior</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filters.comparison} onValueChange={v => setFilters(f => ({ ...f, comparison: v as TVComparison }))}>
-            <SelectTrigger className="h-7 w-[180px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="yesterday">vs Ontem</SelectItem>
-              <SelectItem value="last_week">vs Semana Passada</SelectItem>
-              <SelectItem value="last_month">vs Mês Anterior</SelectItem>
-              <SelectItem value="same_day_last_month">vs Mesmo dia mês ant.</SelectItem>
-              <SelectItem value="business_days_cumulative">vs Dias Úteis Acum.</SelectItem>
-              <SelectItem value="weekday_compare">vs Dia da Semana</SelectItem>
-              <SelectItem value="specific_day">vs Dia Específico</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Weekday selectors */}
-          {showWeekdaySelectors && (
-            <>
-              <Select value={String(filters.compareWeekday ?? 1)} onValueChange={v => setFilters(f => ({ ...f, compareWeekday: Number(v) }))}>
-                <SelectTrigger className="h-7 w-[100px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[1,2,3,4,5].map(d => (
-                    <SelectItem key={d} value={String(d)}>{getWeekdayName(d)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <span className="text-[10px] text-gray-500">vs</span>
-              <Select value={String(filters.compareWeekdayTarget ?? 1)} onValueChange={v => setFilters(f => ({ ...f, compareWeekdayTarget: Number(v) }))}>
-                <SelectTrigger className="h-7 w-[100px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[1,2,3,4,5].map(d => (
-                    <SelectItem key={d} value={String(d)}>{getWeekdayName(d)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
-
-          {/* Specific day selectors */}
-          {showDaySelectors && (
-            <>
-              <Select value={String(filters.compareDay ?? 1)} onValueChange={v => setFilters(f => ({ ...f, compareDay: Number(v) }))}>
-                <SelectTrigger className="h-7 w-[80px] bg-gray-800 border-gray-700 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                    <SelectItem key={d} value={String(d)}>Dia {d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-1">
-                <Switch
-                  checked={filters.compareDayCumulative ?? true}
-                  onCheckedChange={v => setFilters(f => ({ ...f, compareDayCumulative: v }))}
-                  className="h-4 w-7"
-                />
-                <span className="text-[10px] text-gray-400">Acumulado</span>
+          {/* Period Calendar Picker */}
+          <Popover open={periodOpen} onOpenChange={setPeriodOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-7 bg-gray-800 border-gray-700 text-xs gap-1.5">
+                <CalendarIcon className="h-3 w-3" />
+                <span>Período: {formatRangeLabel(periodRange)}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-gray-900 border-gray-700" align="start">
+              <div className="flex gap-1 p-2 border-b border-gray-800 flex-wrap">
+                {[
+                  { label: 'Hoje', value: 'today' },
+                  { label: '7 dias', value: '7days' },
+                  { label: '30 dias', value: '30days' },
+                  { label: 'Mês', value: 'month' },
+                  { label: 'Mês Ant.', value: 'last_month' },
+                ].map(s => (
+                  <Button key={s.value} variant="ghost" size="sm" className="h-6 text-[10px] text-gray-300 hover:text-white hover:bg-gray-700" onClick={() => handlePeriodShortcut(s.value)}>
+                    {s.label}
+                  </Button>
+                ))}
               </div>
+              <Calendar
+                mode="range"
+                selected={periodRange}
+                onSelect={(range: any) => {
+                  if (range) setPeriodRange(range);
+                  if (range?.from && range?.to) setPeriodOpen(false);
+                }}
+                locale={ptBR}
+                numberOfMonths={2}
+                className="p-3 pointer-events-auto"
+                modifiers={{ businessDay: businessDayModifier }}
+                modifiersStyles={{ businessDay: { position: 'relative' } }}
+                modifiersClassNames={{ businessDay: 'business-day-marker' }}
+              />
+            </PopoverContent>
+          </Popover>
+
+          {/* Comparison Calendar Picker */}
+          <Popover open={comparisonOpen} onOpenChange={setComparisonOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-7 bg-gray-800 border-gray-700 text-xs gap-1.5">
+                <CalendarIcon className="h-3 w-3" />
+                <span>{comparisonRange?.from && comparisonRange?.to ? `Comparar: ${formatRangeLabel(comparisonRange)}` : 'Comparar...'}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-gray-900 border-gray-700" align="start">
+              <div className="flex gap-1 p-2 border-b border-gray-800 flex-wrap">
+                {periodRange.from && periodRange.to && [
+                  { label: 'Período anterior', value: 'prev_period' },
+                  { label: 'Mês anterior', value: 'prev_month' },
+                ].map(s => (
+                  <Button key={s.value} variant="ghost" size="sm" className="h-6 text-[10px] text-gray-300 hover:text-white hover:bg-gray-700" onClick={() => {
+                    const days = differenceInCalendarDays(periodRange.to!, periodRange.from) + 1;
+                    if (s.value === 'prev_period') {
+                      const to = subDays(periodRange.from, 1);
+                      const from = subDays(to, days - 1);
+                      setComparisonRange({ from, to });
+                    } else {
+                      const from = startOfMonth(subMonths(periodRange.from, 1));
+                      const to = endOfMonth(subMonths(periodRange.from, 1));
+                      setComparisonRange({ from, to });
+                    }
+                    setComparisonOpen(false);
+                  }}>
+                    {s.label}
+                  </Button>
+                ))}
+                {comparisonRange && (
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-red-400 hover:text-red-300 hover:bg-gray-700" onClick={() => {
+                    setComparisonRange(undefined);
+                    setFilters(f => ({ ...f, comparison: 'yesterday', comparisonRange: undefined }));
+                    setComparisonOpen(false);
+                  }}>
+                    Limpar
+                  </Button>
+                )}
+              </div>
+              <Calendar
+                mode="range"
+                selected={comparisonRange}
+                onSelect={(range: any) => {
+                  if (range) setComparisonRange(range);
+                  if (range?.from && range?.to) setComparisonOpen(false);
+                }}
+                locale={ptBR}
+                numberOfMonths={2}
+                className="p-3 pointer-events-auto"
+                modifiers={{ businessDay: businessDayModifier }}
+                modifiersStyles={{ businessDay: { position: 'relative' } }}
+                modifiersClassNames={{ businessDay: 'business-day-marker' }}
+              />
+            </PopoverContent>
+          </Popover>
+
+          {/* Days info badges */}
+          {periodInfo && (
+            <Badge variant="outline" className="h-6 text-[10px] border-gray-600 text-gray-300 font-normal">
+              {periodInfo.corridos}d | {periodInfo.uteis} DU
+            </Badge>
+          )}
+          {compInfo && (
+            <>
+              <span className="text-[10px] text-gray-500">vs</span>
+              <Badge variant="outline" className="h-6 text-[10px] border-gray-600 text-gray-300 font-normal">
+                {compInfo.corridos}d | {compInfo.uteis} DU
+              </Badge>
             </>
           )}
 
@@ -474,6 +580,17 @@ export default function DashboardTV() {
         }
         .animate-marquee {
           animation: marquee 30s linear infinite;
+        }
+        .business-day-marker::after {
+          content: '';
+          position: absolute;
+          bottom: 2px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background-color: #22c55e;
         }
       `}</style>
     </div>
