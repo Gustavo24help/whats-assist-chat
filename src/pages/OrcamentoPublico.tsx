@@ -352,10 +352,11 @@ const OrcamentoPublico = () => {
       setDataSugerida(undefined);
       setCpfValido(null);
       setNomePrestador("");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao enviar orçamento:", error);
-      toast.error("Erro", {
-        description: "Erro ao enviar orçamento. Tente novamente.",
+      const detalhe = error?.message || error?.code || "Erro de conexão. Verifique sua internet e tente novamente.";
+      toast.error("Erro ao enviar orçamento", {
+        description: detalhe,
       });
     } finally {
       setLoading(false);
