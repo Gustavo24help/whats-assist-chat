@@ -45,7 +45,7 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    if (!message || typeof message !== 'string' || message.length > 5000) {
+    if ((!message && !mediaUrl) || (message && typeof message !== 'string') || (message && message.length > 5000)) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid message' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -126,7 +126,9 @@ serve(async (req) => {
     const body = new URLSearchParams();
     body.append('To', to);
     body.append('From', fromNumber);
-    body.append('Body', message);
+    if (message) {
+      body.append('Body', message);
+    }
     if (mediaUrl) {
       body.append('MediaUrl', mediaUrl);
     }
