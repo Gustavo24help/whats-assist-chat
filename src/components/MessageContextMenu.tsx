@@ -17,6 +17,7 @@ interface MessageContextMenuProps {
   messageText: string;
   fichaId: string | null;
   messageData?: any;
+  onReply?: () => void;
 }
 
 const FIELD_GROUPS = {
