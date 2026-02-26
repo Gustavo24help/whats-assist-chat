@@ -40,7 +40,7 @@ const FIELD_GROUPS = {
   ],
 };
 
-export const MessageContextMenu = ({ children, messageText, fichaId, messageData }: MessageContextMenuProps) => {
+export const MessageContextMenu = ({ children, messageText, fichaId, messageData, onReply }: MessageContextMenuProps) => {
   const [selectedText, setSelectedText] = useState("");
 
   // Clean text by removing all timestamps and normalizing spaces
