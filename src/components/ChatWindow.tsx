@@ -2206,6 +2206,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Reply indicator */}
+      {replyingTo && (
+        <ReplyIndicator
+          message={replyingTo}
+          onCancel={() => setReplyingTo(null)}
+        />
+      )}
+
       {/* Input area - Fixed at bottom */}
       <div className="px-3 py-2.5 md:px-4 md:py-3 border-t bg-background shadow-sm shrink-0 flex-none">
         <div className="max-w-5xl mx-auto">
