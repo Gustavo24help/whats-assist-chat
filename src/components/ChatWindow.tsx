@@ -162,6 +162,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Mensagem | null>(null);
   const [fichaId, setFichaId] = useState<string | undefined>();
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
