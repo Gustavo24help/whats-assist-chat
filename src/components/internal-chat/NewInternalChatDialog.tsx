@@ -79,12 +79,11 @@ export const NewInternalChatDialog = ({ open, onOpenChange, onCreated }: NewInte
         }
       }
 
-      // Create new conversation
-      const { data: conv, error: convError } = await (supabase as any)
+      // Create new conversation (generate UUID client-side to avoid SELECT policy issue)
+      const convId = crypto.randomUUID();
+      const { error: convError } = await (supabase as any)
         .from("internal_conversations")
-        .insert({ is_group: false })
-        .select("id")
-        .single();
+        .insert({ id: convId, is_group: false });
 
       if (convError) throw convError;
 
@@ -92,8 +91,8 @@ export const NewInternalChatDialog = ({ open, onOpenChange, onCreated }: NewInte
       const { error: membersError } = await (supabase as any)
         .from("internal_conversation_members")
         .insert([
-          { conversation_id: conv.id, user_id: user.id },
-          { conversation_id: conv.id, user_id: targetUserId },
+          { conversation_id: convId, user_id: user.id },
+          { conversation_id: convId, user_id: targetUserId },
         ]);
 
       if (membersError) throw membersError;
