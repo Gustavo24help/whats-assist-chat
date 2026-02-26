@@ -2131,6 +2131,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   messageText={msg.texto || ""} 
                   fichaId={fichaId || null}
                   messageData={msg}
+                  onReply={() => setReplyingTo(msg)}
                 >
                   <div
                     className={cn(
