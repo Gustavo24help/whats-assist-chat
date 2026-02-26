@@ -107,6 +107,13 @@ export const MessageContextMenu = ({ children, messageText, fichaId, messageData
           {selectedText ? "Copiar seleção" : "Copiar mensagem"}
         </ContextMenuItem>
 
+        {onReply && (
+          <ContextMenuItem onClick={onReply}>
+            <Reply className="mr-2 h-4 w-4" />
+            Responder
+          </ContextMenuItem>
+        )}
+
         {fichaId && (
           <ContextMenuSub>
             <ContextMenuSubTrigger>
