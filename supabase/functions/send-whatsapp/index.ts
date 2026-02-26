@@ -36,7 +36,7 @@ serve(async (req) => {
       );
     }
 
-    const { to, message, mediaUrl, userId, remetente } = await req.json();
+    const { to, message, mediaUrl, userId, remetente, replyToMessageId } = await req.json();
 
     // Input validation
     if (!to || typeof to !== 'string' || to.length > 50) {
