@@ -176,7 +176,8 @@ serve(async (req) => {
       status: 'enviado',
       data_hora: new Date().toISOString(),
       message_sid: twilioData.sid,
-      enviado_por_id: userData.user.id
+      enviado_por_id: userData.user.id,
+      reply_to_message_id: replyToMessageId || null
     });
 
     if (insertError) {
