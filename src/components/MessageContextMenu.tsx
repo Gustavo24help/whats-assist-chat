@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/context-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ClipboardCopy, FileText, Calendar, User, DollarSign } from "lucide-react";
+import { ClipboardCopy, FileText, Calendar, User, DollarSign, Reply } from "lucide-react";
 
 interface MessageContextMenuProps {
   children: React.ReactNode;
