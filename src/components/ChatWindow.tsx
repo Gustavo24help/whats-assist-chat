@@ -1314,7 +1314,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         body: {
           to: clienteTelefone,
           message: mensagemTexto,
-          userId: user?.id
+          userId: user?.id,
+          replyToMessageId: replyId
         },
       });
       
