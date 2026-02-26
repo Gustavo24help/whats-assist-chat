@@ -97,7 +97,7 @@ export const NewInternalChatDialog = ({ open, onOpenChange, onCreated }: NewInte
 
       if (membersError) throw membersError;
 
-      onCreated(conv.id);
+      onCreated(convId);
       onOpenChange(false);
     } catch (err) {
       toast.error("Erro ao criar conversa");
