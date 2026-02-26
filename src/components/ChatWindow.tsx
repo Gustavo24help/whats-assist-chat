@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Skeleton } from "@/components/ui/skeleton";
 import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
 import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
+import { ReplyIndicator } from "./ReplyIndicator";
 
 import {
   AlertDialog,
@@ -161,6 +162,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Mensagem | null>(null);
   const [fichaId, setFichaId] = useState<string | undefined>();
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
@@ -1288,8 +1290,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         arquivo_url: null,
         data_hora: new Date().toISOString(),
         remetente: "atendente",
-        status: "enviado"
+        status: "enviado",
+        reply_to_message_id: replyingTo?.id || null,
+        reply_to: replyingTo || null
       };
+      
+      const replyId = replyingTo?.id || null;
+      setReplyingTo(null); // Clear reply immediately
       
       setMensagens(prev => [...prev, novaMensagemTemp]);
 
@@ -1307,7 +1314,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         body: {
           to: clienteTelefone,
           message: mensagemTexto,
-          userId: user?.id
+          userId: user?.id,
+          replyToMessageId: replyId
         },
       });
       
@@ -2123,6 +2131,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   messageText={msg.texto || ""} 
                   fichaId={fichaId || null}
                   messageData={msg}
+                  onReply={() => setReplyingTo(msg)}
                 >
                   <div
                     className={cn(
@@ -2196,6 +2205,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Reply indicator */}
+      {replyingTo && (
+        <ReplyIndicator
+          message={replyingTo}
+          onCancel={() => setReplyingTo(null)}
+        />
+      )}
 
       {/* Input area - Fixed at bottom */}
       <div className="px-3 py-2.5 md:px-4 md:py-3 border-t bg-background shadow-sm shrink-0 flex-none">

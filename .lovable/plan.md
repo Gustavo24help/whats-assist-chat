@@ -1,74 +1,39 @@
 
 
-# 4 Melhorias: Responder Mensagem + Corrigir Chat Interno + Avisos Melhorados
+# Ordenacao Alfabetica na Tabela de Prestadores
 
-## 1. Responder mensagem no WhatsApp (Chat principal)
+## O que sera feito
 
-O ChatWindow ja possui a infraestrutura de `reply_to_message_id` no banco e o componente `QuotedMessage` para exibir citacoes, alem do `ReplyIndicator` ja criado mas nao utilizado. Falta apenas conectar tudo.
+Adicionar botoes de ordenacao clicaveis nos cabecalhos "Nome" e "Categoria" da tabela de prestadores. Ao clicar, a lista sera ordenada alfabeticamente (A-Z ou Z-A), ignorando numeros no inicio/meio do texto para evitar que prefixos numericos (ex: "321 Joao") interfiram na ordenacao.
 
-**Alteracoes em `src/components/ChatWindow.tsx`:**
-- Adicionar estado `replyingTo: Mensagem | null`
-- Adicionar opcao "Responder" no `MessageContextMenu` (via callback)
-- Ao clicar em "Responder", setar `replyingTo` com a mensagem selecionada
-- Exibir o `ReplyIndicator` acima da area de input quando `replyingTo` estiver preenchido
-- Ao enviar, incluir `reply_to_message_id` na mensagem temporaria e no insert do banco
-- Limpar `replyingTo` apos envio
+## Como funciona
 
-**Alteracoes em `src/components/MessageContextMenu.tsx`:**
-- Adicionar prop `onReply?: () => void`
-- Adicionar item de menu "Responder" com icone de seta
+- Clicar no cabecalho "Nome" ordena por nome (A-Z). Clicar novamente inverte (Z-A).
+- Clicar no cabecalho "Categoria" ordena por categoria, mesma logica.
+- Um icone de seta indica a direcao atual da ordenacao.
+- Campos CPF, Telefone e ID CRM nao terao ordenacao.
 
-**Alteracoes em `supabase/functions/send-whatsapp/index.ts`:**
-- Verificar se precisa passar `reply_to_message_id` para gravar no banco (a funcao ja insere na tabela `mensagens`)
+## Detalhes tecnicos
 
----
+**Arquivo:** `src/components/PrestadorManagement.tsx`
 
-## 2. Corrigir Chat Interno (nao abre novas conversas)
-
-**Causa raiz:** As politicas RLS das tabelas `internal_conversations` e `internal_conversation_members` possuem auto-referencia com bug. Por exemplo:
-
+1. Adicionar estado de ordenacao:
 ```text
-icm.conversation_id = icm.conversation_id  -- sempre TRUE, deveria ser:
-icm.conversation_id = internal_conversation_members.conversation_id
+sortField: "nome" | "categoria" | null
+sortDirection: "asc" | "desc"
 ```
 
-E nas politicas de `internal_conversations`:
+2. Criar funcao de comparacao que remove digitos antes de comparar:
 ```text
-internal_conversation_members.conversation_id = internal_conversation_members.id
--- deveria ser:
-internal_conversation_members.conversation_id = internal_conversations.id
+// Remove numeros para comparacao
+const stripNumbers = (str: string) => str.replace(/\d/g, "").trim();
+// Comparar: stripNumbers("321 Joao") => "Joao"
 ```
 
-**Correcao via migracao SQL:**
-- Recriar as politicas de SELECT e UPDATE em `internal_conversations` com a expressao correta referenciando `internal_conversations.id`
-- Recriar a politica de SELECT em `internal_conversation_members` com referencia correta a `internal_conversation_members.conversation_id`
+3. Aplicar `useMemo` para gerar `sortedPrestadores` a partir de `prestadores` + estado de sort, sem alterar o array original.
 
----
+4. Nos `TableHead` de "Nome" e "Categoria", adicionar `onClick` + icone `ArrowUpDown` / `ArrowUp` / `ArrowDown` do lucide-react para indicar estado.
 
-## 3. Avisos: Arquivar + Scroll + Autor + Deletar
+5. Renderizar `sortedPrestadores` no lugar de `prestadores` no `TableBody`.
 
-**Migracao SQL:**
-- Adicionar coluna `arquivado boolean DEFAULT false` na tabela `avisos`
-- Adicionar politica RLS de UPDATE para admins na tabela `avisos`
-- Adicionar politica RLS de DELETE para admins na tabela `avisos`
-
-**Alteracoes em `src/pages/Avisos.tsx`:**
-- **Arquivar:** Adicionar botao "Arquivar" no card do aviso e no dialog. Ao arquivar, atualizar `arquivado = true`. Filtrar a lista principal para mostrar apenas `arquivado = false`
-- **Tab Arquivados:** Adicionar nova tab "Arquivados" que mostra apenas avisos com `arquivado = true`, com opcao de desarquivar
-- **Scroll em avisos longos:** No Dialog de detalhes, envolver o conteudo em `ScrollArea` com `max-h-[60vh]` para avisos muito longos
-- **Autor:** Mostrar `criado_por_nome` na lista de avisos (abaixo da data), nao apenas no dialog
-- **Deletar:** Botao "Apagar" visivel apenas para admins, com confirmacao (AlertDialog) antes de deletar permanentemente
-
----
-
-## Resumo de arquivos alterados
-
-| Arquivo | Alteracao |
-|---|---|
-| Migracao SQL | Corrigir RLS do chat interno + adicionar coluna `arquivado` + RLS UPDATE/DELETE em avisos |
-| `src/components/ChatWindow.tsx` | Estado `replyingTo`, ReplyIndicator, reply_to_message_id no envio |
-| `src/components/MessageContextMenu.tsx` | Opcao "Responder" no menu de contexto |
-| `src/pages/Avisos.tsx` | Tab arquivados, scroll, autor na lista, botao deletar/arquivar |
-
-**Seguranca de dados:** Nenhum dado existente sera modificado. A nova coluna `arquivado` tera default `false`, preservando todos os avisos atuais como nao-arquivados. As correcoes de RLS apenas ajustam a logica de acesso sem alterar dados.
-
+**Impacto:** Apenas ordenacao visual no frontend. Nenhum dado e modificado. A busca ao banco continua igual (`.order("nome")`).

@@ -36,7 +36,7 @@ serve(async (req) => {
       );
     }
 
-    const { to, message, mediaUrl, userId, remetente } = await req.json();
+    const { to, message, mediaUrl, userId, remetente, replyToMessageId } = await req.json();
 
     // Input validation
     if (!to || typeof to !== 'string' || to.length > 50) {
@@ -176,7 +176,8 @@ serve(async (req) => {
       status: 'enviado',
       data_hora: new Date().toISOString(),
       message_sid: twilioData.sid,
-      enviado_por_id: userData.user.id
+      enviado_por_id: userData.user.id,
+      reply_to_message_id: replyToMessageId || null
     });
 
     if (insertError) {

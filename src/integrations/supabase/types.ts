@@ -99,6 +99,7 @@ export type Database = {
       }
       avisos: {
         Row: {
+          arquivado: boolean
           conteudo: string
           created_at: string
           criado_por: string | null
@@ -108,6 +109,7 @@ export type Database = {
           titulo: string
         }
         Insert: {
+          arquivado?: boolean
           conteudo: string
           created_at?: string
           criado_por?: string | null
@@ -117,6 +119,7 @@ export type Database = {
           titulo: string
         }
         Update: {
+          arquivado?: boolean
           conteudo?: string
           created_at?: string
           criado_por?: string | null

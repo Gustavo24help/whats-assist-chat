@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bell, CalendarDays, CheckCircle2, ImageIcon, PlusCircle, Upload, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Bell, CalendarDays, CheckCircle2, ImageIcon, PlusCircle, Trash2, Upload, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,6 +37,7 @@ type Aviso = {
   imagem_url: string | null;
   created_at: string;
   criado_por_nome: string | null;
+  arquivado: boolean;
 };
 
 const Avisos = () => {
@@ -36,6 +48,7 @@ const Avisos = () => {
   const [lidos, setLidos] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [selectedAviso, setSelectedAviso] = useState<Aviso | null>(null);
+  const [deleteConfirmAviso, setDeleteConfirmAviso] = useState<Aviso | null>(null);
 
   const [novoTitulo, setNovoTitulo] = useState("");
   const [novoConteudo, setNovoConteudo] = useState("");
@@ -51,7 +64,7 @@ const Avisos = () => {
 
     const { data: avisosData, error: avisosError } = await (supabase as any)
       .from("avisos")
-      .select("id, titulo, conteudo, imagem_url, created_at, criado_por_nome")
+      .select("id, titulo, conteudo, imagem_url, created_at, criado_por_nome, arquivado")
       .order("created_at", { ascending: false });
 
     if (avisosError) {
@@ -80,7 +93,9 @@ const Avisos = () => {
     loadAvisos();
   }, [user?.id]);
 
-  const unreadCount = useMemo(() => avisos.filter((aviso) => !lidos.has(aviso.id)).length, [avisos, lidos]);
+  const avisosAtivos = useMemo(() => avisos.filter((a) => !a.arquivado), [avisos]);
+  const avisosArquivados = useMemo(() => avisos.filter((a) => a.arquivado), [avisos]);
+  const unreadCount = useMemo(() => avisosAtivos.filter((aviso) => !lidos.has(aviso.id)).length, [avisosAtivos, lidos]);
 
   const markAsRead = async (avisoId: string) => {
     if (!user || lidos.has(avisoId)) return;
@@ -97,6 +112,39 @@ const Avisos = () => {
   const openAviso = async (aviso: Aviso) => {
     setSelectedAviso(aviso);
     await markAsRead(aviso.id);
+  };
+
+  const toggleArquivar = async (aviso: Aviso, arquivar: boolean) => {
+    const { error } = await (supabase as any)
+      .from("avisos")
+      .update({ arquivado: arquivar })
+      .eq("id", aviso.id);
+
+    if (error) {
+      toast.error("Erro ao atualizar aviso.");
+      return;
+    }
+
+    toast.success(arquivar ? "Aviso arquivado!" : "Aviso desarquivado!");
+    setSelectedAviso(null);
+    loadAvisos();
+  };
+
+  const deleteAviso = async (aviso: Aviso) => {
+    const { error } = await (supabase as any)
+      .from("avisos")
+      .delete()
+      .eq("id", aviso.id);
+
+    if (error) {
+      toast.error("Erro ao apagar aviso.");
+      return;
+    }
+
+    toast.success("Aviso apagado permanentemente!");
+    setDeleteConfirmAviso(null);
+    setSelectedAviso(null);
+    loadAvisos();
   };
 
   // Upload de imagem para o bucket
@@ -123,7 +171,6 @@ const Avisos = () => {
     toast.success("Imagem enviada com sucesso!");
   };
 
-  // Paste handler para capturar imagens do clipboard
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
     for (const item of items) {
@@ -136,7 +183,6 @@ const Avisos = () => {
     }
   };
 
-  // Drag & drop handler
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
@@ -186,6 +232,30 @@ const Avisos = () => {
     loadAvisos();
   };
 
+  const renderAvisoCard = (aviso: Aviso) => {
+    const isRead = lidos.has(aviso.id);
+    return (
+      <button
+        key={aviso.id}
+        onClick={() => openAviso(aviso)}
+        className="w-full text-left rounded-lg border p-4 hover:bg-muted/30 transition-colors"
+      >
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <h3 className="font-semibold text-foreground truncate">{aviso.titulo}</h3>
+          <Badge variant={isRead ? "secondary" : "default"}>{isRead ? "Lido" : "Não lido"}</Badge>
+        </div>
+        <p className="text-sm text-muted-foreground line-clamp-2">{aviso.conteudo}</p>
+        <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+          <CalendarDays className="h-3.5 w-3.5" />
+          {new Date(aviso.created_at).toLocaleString("pt-BR")}
+          {aviso.criado_por_nome && (
+            <span className="text-muted-foreground">• por {aviso.criado_por_nome}</span>
+          )}
+        </div>
+      </button>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex flex-col">
       <header className="h-16 border-b bg-background/80 backdrop-blur-sm flex items-center justify-between px-6 shadow-sm">
@@ -210,7 +280,12 @@ const Avisos = () => {
           <CardContent>
             <Tabs defaultValue="lista" className="w-full">
               <TabsList className="mb-4">
-                <TabsTrigger value="lista">Avisos prévios</TabsTrigger>
+                <TabsTrigger value="lista">
+                  Avisos {unreadCount > 0 && `(${unreadCount})`}
+                </TabsTrigger>
+                <TabsTrigger value="arquivados">
+                  Arquivados {avisosArquivados.length > 0 && `(${avisosArquivados.length})`}
+                </TabsTrigger>
                 <TabsTrigger value="novo" disabled={!isAdmin}>Escrever aviso</TabsTrigger>
               </TabsList>
 
@@ -221,31 +296,21 @@ const Avisos = () => {
 
                 {loading && <p className="text-sm text-muted-foreground">Carregando avisos...</p>}
 
-                {!loading && avisos.length === 0 && (
+                {!loading && avisosAtivos.length === 0 && (
                   <p className="text-sm text-muted-foreground">Nenhum aviso publicado até o momento.</p>
                 )}
 
-                {!loading &&
-                  avisos.map((aviso) => {
-                    const isRead = lidos.has(aviso.id);
-                    return (
-                      <button
-                        key={aviso.id}
-                        onClick={() => openAviso(aviso)}
-                        className="w-full text-left rounded-lg border p-4 hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <h3 className="font-semibold text-foreground truncate">{aviso.titulo}</h3>
-                          <Badge variant={isRead ? "secondary" : "default"}>{isRead ? "Lido" : "Não lido"}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">{aviso.conteudo}</p>
-                        <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
-                          <CalendarDays className="h-3.5 w-3.5" />
-                          {new Date(aviso.created_at).toLocaleString("pt-BR")}
-                        </div>
-                      </button>
-                    );
-                  })}
+                {!loading && avisosAtivos.map(renderAvisoCard)}
+              </TabsContent>
+
+              <TabsContent value="arquivados" className="space-y-3">
+                {loading && <p className="text-sm text-muted-foreground">Carregando...</p>}
+
+                {!loading && avisosArquivados.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Nenhum aviso arquivado.</p>
+                )}
+
+                {!loading && avisosArquivados.map(renderAvisoCard)}
               </TabsContent>
 
               <TabsContent value="novo">
@@ -322,44 +387,99 @@ const Avisos = () => {
         </Card>
       </main>
 
+      {/* Dialog de detalhes do aviso */}
       <Dialog open={!!selectedAviso} onOpenChange={(open) => !open && setSelectedAviso(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
           {selectedAviso && (
             <>
               <DialogHeader>
                 <DialogTitle>{selectedAviso.titulo}</DialogTitle>
-                <DialogDescription className="flex items-center gap-2">
+                <DialogDescription className="flex items-center gap-2 flex-wrap">
                   <CalendarDays className="h-3.5 w-3.5" />
                   {new Date(selectedAviso.created_at).toLocaleString("pt-BR")}
                   {selectedAviso.criado_por_nome ? ` • por ${selectedAviso.criado_por_nome}` : ""}
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4">
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedAviso.conteudo}</p>
+              <ScrollArea className="flex-1 max-h-[60vh]">
+                <div className="space-y-4 pr-4">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedAviso.conteudo}</p>
 
-                {selectedAviso.imagem_url && (
-                  <div className="rounded-md border overflow-hidden">
-                    <img src={selectedAviso.imagem_url} alt={selectedAviso.titulo} className="w-full h-auto" />
+                  {selectedAviso.imagem_url && (
+                    <div className="rounded-md border overflow-hidden">
+                      <img src={selectedAviso.imagem_url} alt={selectedAviso.titulo} className="w-full h-auto" />
+                    </div>
+                  )}
+
+                  {!selectedAviso.imagem_url && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      Este aviso não possui imagem.
+                    </div>
+                  )}
+
+                  <div className="text-xs text-brand-green flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Marcado como lido
                   </div>
-                )}
-
-                {!selectedAviso.imagem_url && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-2">
-                    <ImageIcon className="h-3.5 w-3.5" />
-                    Este aviso não possui imagem.
-                  </div>
-                )}
-
-                <div className="text-xs text-brand-green flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Marcado como lido
                 </div>
-              </div>
+              </ScrollArea>
+
+              {/* Action buttons */}
+              {isAdmin && (
+                <div className="flex items-center gap-2 pt-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleArquivar(selectedAviso, !selectedAviso.arquivado)}
+                  >
+                    {selectedAviso.arquivado ? (
+                      <>
+                        <ArchiveRestore className="h-4 w-4 mr-2" />
+                        Desarquivar
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-4 w-4 mr-2" />
+                        Arquivar
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDeleteConfirmAviso(selectedAviso)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Apagar
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmação de exclusão */}
+      <AlertDialog open={!!deleteConfirmAviso} onOpenChange={(open) => !open && setDeleteConfirmAviso(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar aviso permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O aviso "{deleteConfirmAviso?.titulo}" será removido permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deleteConfirmAviso && deleteAviso(deleteConfirmAviso)}
+            >
+              Apagar permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
