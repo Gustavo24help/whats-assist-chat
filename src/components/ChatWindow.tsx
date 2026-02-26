@@ -1290,8 +1290,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         arquivo_url: null,
         data_hora: new Date().toISOString(),
         remetente: "atendente",
-        status: "enviado"
+        status: "enviado",
+        reply_to_message_id: replyingTo?.id || null,
+        reply_to: replyingTo || null
       };
+      
+      const replyId = replyingTo?.id || null;
+      setReplyingTo(null); // Clear reply immediately
       
       setMensagens(prev => [...prev, novaMensagemTemp]);
 
