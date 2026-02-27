@@ -1,39 +1,54 @@
 
 
-# Ordenacao Alfabetica na Tabela de Prestadores
+# Substituir Templates Antigos pelos Novos (_2 e _3)
 
-## O que sera feito
+## Situacao Atual
 
-Adicionar botoes de ordenacao clicaveis nos cabecalhos "Nome" e "Categoria" da tabela de prestadores. Ao clicar, a lista sera ordenada alfabeticamente (A-Z ou Z-A), ignorando numeros no inicio/meio do texto para evitar que prefixos numericos (ex: "321 Joao") interfiram na ordenacao.
+Templates **antigos** (a remover):
+- `aviso_pagamento` (HXe54ac...) - mapeamento: var 1 = cliente.nome
+- `botao_abrir_conversa` (HXb899...) - sem mapeamento
+- `cobranca_cliente` (HX18a5...) - mapeamento: var 1 = cliente.nome
+- `novo_orcamento` (HXa2ed...) - sem mapeamento
+- `promocao_fimdeano` (HX282b...) - mapeamento: var 1 = cliente.nome
 
-## Como funciona
+Templates **novos** (que ficam):
+- `aviso_pagamento_3` (HXff01...) - var 1, sem mapeamento
+- `botao_abrir_conversa_3` (HXebff...) - var 1, sem mapeamento
+- `cobranca_cliente_2` (HXfeaf...) - var 1, sem mapeamento
+- `novo_orcamento_2` (HX075e...) - var 1, sem mapeamento
 
-- Clicar no cabecalho "Nome" ordena por nome (A-Z). Clicar novamente inverte (Z-A).
-- Clicar no cabecalho "Categoria" ordena por categoria, mesma logica.
-- Um icone de seta indica a direcao atual da ordenacao.
-- Campos CPF, Telefone e ID CRM nao terao ordenacao.
+## Plano
 
-## Detalhes tecnicos
+### 1. Transferir mapeamentos de variaveis dos antigos para os novos
 
-**Arquivo:** `src/components/PrestadorManagement.tsx`
+Os templates novos que possuem variaveis (`aviso_pagamento_3`, `botao_abrir_conversa_3`, `cobranca_cliente_2`, `novo_orcamento_2`) precisam receber o mapeamento `cliente.nome` no index 0, que era o padrao dos antigos.
 
-1. Adicionar estado de ordenacao:
+**Migracao SQL:**
 ```text
-sortField: "nome" | "categoria" | null
-sortDirection: "asc" | "desc"
+UPDATE whatsapp_templates 
+SET variable_mapping = '[{"index": 0, "field": "cliente.nome"}]'::jsonb
+WHERE friendly_name IN (
+  'aviso_pagamento_3', 
+  'botao_abrir_conversa_3', 
+  'cobranca_cliente_2', 
+  'novo_orcamento_2'
+);
 ```
 
-2. Criar funcao de comparacao que remove digitos antes de comparar:
+### 2. Remover templates antigos
+
 ```text
-// Remove numeros para comparacao
-const stripNumbers = (str: string) => str.replace(/\d/g, "").trim();
-// Comparar: stripNumbers("321 Joao") => "Joao"
+DELETE FROM whatsapp_templates 
+WHERE friendly_name IN (
+  'aviso_pagamento', 
+  'botao_abrir_conversa', 
+  'cobranca_cliente', 
+  'novo_orcamento', 
+  'promocao_fimdeano'
+);
 ```
 
-3. Aplicar `useMemo` para gerar `sortedPrestadores` a partir de `prestadores` + estado de sort, sem alterar o array original.
+### Resultado
 
-4. Nos `TableHead` de "Nome" e "Categoria", adicionar `onClick` + icone `ArrowUpDown` / `ArrowUp` / `ArrowDown` do lucide-react para indicar estado.
+Nenhuma alteracao de codigo necessaria -- os templates sao carregados dinamicamente do banco. Apos a migracao, os dialogs de "Abrir Conversa" e "Nova Conversa" mostrarao apenas os templates novos com mapeamento automatico de `cliente.nome`.
 
-5. Renderizar `sortedPrestadores` no lugar de `prestadores` no `TableBody`.
-
-**Impacto:** Apenas ordenacao visual no frontend. Nenhum dado e modificado. A busca ao banco continua igual (`.order("nome")`).
