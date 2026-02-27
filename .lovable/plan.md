@@ -1,54 +1,71 @@
 
+# Corrigir Mensagens em Branco no Chat
 
-# Substituir Templates Antigos pelos Novos (_2 e _3)
+## Problema
+O campo `remetente` na tabela `mensagens` foi migrado de valores textuais ("cliente"/"atendente"/"bot") para telefones reais (ex: `whatsapp:+554138911555`). Porem, o codigo frontend e algumas edge functions ainda comparam com os valores antigos, causando mensagens sem estilizacao correta.
 
-## Situacao Atual
+O numero da 24help e: `whatsapp:+554138911555`
 
-Templates **antigos** (a remover):
-- `aviso_pagamento` (HXe54ac...) - mapeamento: var 1 = cliente.nome
-- `botao_abrir_conversa` (HXb899...) - sem mapeamento
-- `cobranca_cliente` (HX18a5...) - mapeamento: var 1 = cliente.nome
-- `novo_orcamento` (HXa2ed...) - sem mapeamento
-- `promocao_fimdeano` (HX282b...) - mapeamento: var 1 = cliente.nome
+**Dados atuais no banco:**
+- 18.191 mensagens com `whatsapp:+554138911555` (24help/atendente/bot)
+- Milhares de mensagens com numeros de clientes
+- Apenas 20 registros antigos com "cliente"/"atendente"/"bot"
 
-Templates **novos** (que ficam):
-- `aviso_pagamento_3` (HXff01...) - var 1, sem mapeamento
-- `botao_abrir_conversa_3` (HXebff...) - var 1, sem mapeamento
-- `cobranca_cliente_2` (HXfeaf...) - var 1, sem mapeamento
-- `novo_orcamento_2` (HX075e...) - var 1, sem mapeamento
+## Arquivos a Corrigir
 
-## Plano
+### 1. `src/components/ChatWindow.tsx`
 
-### 1. Transferir mapeamentos de variaveis dos antigos para os novos
+**Interface Mensagem (linha 49):** Mudar o tipo de `remetente` de `"cliente" | "atendente" | "bot"` para `string`.
 
-Os templates novos que possuem variaveis (`aviso_pagamento_3`, `botao_abrir_conversa_3`, `cobranca_cliente_2`, `novo_orcamento_2`) precisam receber o mapeamento `cliente.nome` no index 0, que era o padrao dos antigos.
+**Constante global:** Adicionar `const NUMERO_24HELP = 'whatsapp:+554138911555';`
 
-**Migracao SQL:**
+**Funcao helper:** Criar funcao `isAtendente(remetente: string)` que retorna `true` se `remetente === NUMERO_24HELP` ou `remetente === 'atendente'` ou `remetente === 'bot'` (para compatibilidade com os 20 registros antigos).
+
+**Locais de comparacao a atualizar:**
+- `getSenderName` (linha 75-81): usar `isAtendente()` em vez de switch
+- `MessageStatusIndicator` (linha 125): `isAtendente()` em vez de `!== 'atendente'`
+- Optimistic update (linha 1292): mudar `remetente: "atendente"` para `remetente: NUMERO_24HELP`
+- Renderizacao (linhas 2139, 2145-2149, 2177, 2183): substituir todas as comparacoes
+
+### 2. `src/components/NotificationSystem.tsx`
+
+**Linha 24:** O filtro Realtime `remetente=eq.cliente` nao funciona mais. Mudar para escutar todas as mensagens e filtrar no callback: se `remetente !== NUMERO_24HELP`, e mensagem de cliente.
+
+### 3. `src/components/ConversationList.tsx`
+
+**Linha 687:** `.eq('remetente', 'cliente')` precisa mudar para `.neq('remetente', NUMERO_24HELP)` (buscar mensagens que NAO sao da 24help = mensagens de clientes).
+
+### 4. `src/hooks/useConversationTimer.ts`
+
+**Linha 25:** `.eq('remetente', 'cliente')` -> `.neq('remetente', NUMERO_24HELP)`
+**Linha 76:** `payload.new?.remetente === 'cliente'` -> `payload.new?.remetente !== NUMERO_24HELP`
+
+### 5. `src/hooks/useDashboardTV.ts`
+
+**Linha 521:** `ultima.remetente === 'cliente'` -> `ultima.remetente !== NUMERO_24HELP`
+
+### 6. `src/components/AvaliacaoPrestadorFlowPanel.tsx`
+
+**Linha 107:** `msg.remetente !== "cliente"` -> `msg.remetente === NUMERO_24HELP` (inverter logica - ignorar mensagens da 24help)
+
+### 7. `supabase/functions/send-whatsapp/index.ts`
+
+**Linha 73:** `remetente === 'bot'` precisa manter compatibilidade (o parametro vem do frontend). Sem mudanca necessaria aqui.
+**Linha 172:** `remetente: 'atendente'` -> `remetente: NUMERO_24HELP` (gravar telefone real).
+
+## Estrategia de Seguranca
+
+- Manter compatibilidade com os 20 registros antigos usando `||` nas comparacoes
+- A funcao `isAtendente()` aceita tanto o telefone quanto os valores legados
+- Nenhum dado existente sera alterado no banco
+- Deploy da edge function `send-whatsapp` apos a correcao
+
+## Detalhes Tecnicos
+
 ```text
-UPDATE whatsapp_templates 
-SET variable_mapping = '[{"index": 0, "field": "cliente.nome"}]'::jsonb
-WHERE friendly_name IN (
-  'aviso_pagamento_3', 
-  'botao_abrir_conversa_3', 
-  'cobranca_cliente_2', 
-  'novo_orcamento_2'
-);
+Fluxo de identificacao:
+  remetente === NUMERO_24HELP  -->  Mensagem do atendente/bot (verde)
+  remetente === 'atendente'    -->  Legado (manter compatibilidade)
+  remetente === 'bot'          -->  Legado (manter compatibilidade)
+  qualquer outro valor         -->  Mensagem do cliente (branco)
 ```
-
-### 2. Remover templates antigos
-
-```text
-DELETE FROM whatsapp_templates 
-WHERE friendly_name IN (
-  'aviso_pagamento', 
-  'botao_abrir_conversa', 
-  'cobranca_cliente', 
-  'novo_orcamento', 
-  'promocao_fimdeano'
-);
-```
-
-### Resultado
-
-Nenhuma alteracao de codigo necessaria -- os templates sao carregados dinamicamente do banco. Apos a migracao, os dialogs de "Abrir Conversa" e "Nova Conversa" mostrarao apenas os templates novos com mapeamento automatico de `cliente.nome`.
-
