@@ -459,7 +459,7 @@ serve(async (req) => {
         const textoMidia = i === 0 && finalBody ? finalBody : `Arquivo ${i + 1}`;
         const mensagem = {
           cliente_id: cliente.telefone,
-          remetente: "cliente",
+          remetente: from, // ✅ CORRIGIDO - agora salva o telefone real
           texto: textoMidia,
           tipo: getTipoMensagem(mediaTypes[i]),
           arquivo_url: mediaUrls[i],
@@ -512,7 +512,7 @@ serve(async (req) => {
 
       const mensagem = {
         cliente_id: cliente.telefone,
-        remetente: "cliente",
+        remetente: from, // ✅ CORRIGIDO - agora salva o telefone real
         texto: finalBody,
         tipo: "texto",
         arquivo_url: null,
