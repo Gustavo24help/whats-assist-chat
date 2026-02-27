@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Bell,
   MessageSquare,
+  DollarSign,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -153,6 +154,26 @@ const Home = () => {
             </h2>
             <p className="text-muted-foreground mb-6">
               Consulte o painel que hoje está no Geral do Chat para acompanhar serviços e indicadores.
+            </p>
+            <div className="flex items-center text-brand-yellow font-medium">
+              Acessar
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate("/financeiro")}
+            className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-yellow/30 animate-slide-up"
+            style={{ animationDelay: "0.45s" }}
+          >
+            <div className="icon-container brand-yellow mb-6">
+              <DollarSign className="h-7 w-7" />
+            </div>
+            <h2 className="text-2xl font-semibold text-foreground mb-2 group-hover:text-brand-yellow transition-colors">
+              Financeiro
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Controle de pagamentos, transações financeiras e conta corrente de prestadores.
             </p>
             <div className="flex items-center text-brand-yellow font-medium">
               Acessar

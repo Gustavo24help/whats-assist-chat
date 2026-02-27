@@ -23,6 +23,7 @@ import AnaliseServicos from "./pages/AnaliseServicos";
 import Manutencao from "./pages/Manutencao";
 import Avisos from "./pages/Avisos";
 import MensagensInternas from "./pages/MensagensInternas";
+import Financeiro from "./pages/Financeiro";
 
 const queryClient = new QueryClient();
 
@@ -145,6 +146,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <MensagensInternas />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/financeiro"
+                element={
+                  <ProtectedRoute>
+                    <Financeiro />
                   </ProtectedRoute>
                 }
               />
