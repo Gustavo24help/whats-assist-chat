@@ -22,7 +22,7 @@ export const useConversationTimer = (telefoneCliente: string) => {
           .from('mensagens')
           .select('data_hora')
           .eq('cliente_id', telefoneCliente)
-          .eq('remetente', 'cliente')
+          .neq('remetente', 'whatsapp:+554138911555')
           .order('data_hora', { ascending: false })
           .limit(1)
           .single();
