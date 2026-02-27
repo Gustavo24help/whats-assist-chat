@@ -46,13 +46,16 @@ interface Mensagem {
   tipo: "texto" | "arquivo" | "imagem" | "video" | "audio";
   arquivo_url: string | null;
   data_hora: string;
-  remetente: "cliente" | "atendente" | "bot";
+  remetente: string;
   status: "enviado" | "recebido" | "lido";
   status_atualizado_em?: string;
   reply_to_message_id?: string | null;
   reply_to?: Mensagem | null;
   enviado_por?: { full_name: string } | null;
 }
+
+const NUMERO_24HELP = "whatsapp:+554138911555";
+const isBotMessage = (remetente: string) => remetente === NUMERO_24HELP;
 
 const QuotedMessage = React.memo(({ 
   quotedMsg, 
@@ -73,11 +76,7 @@ const QuotedMessage = React.memo(({
   });
   
   const getSenderName = (remetente: string) => {
-    switch (remetente) {
-      case "atendente": return "Você";
-      case "bot": return "Bot";
-      default: return "Cliente";
-    }
+    return isBotMessage(remetente) ? "Bot" : "Cliente";
   };
 
   const getPreview = () => {
@@ -121,8 +120,8 @@ const QuotedMessage = React.memo(({
 });
 
 const MessageStatusIndicator = React.memo(({ status, remetente }: { status: string | null, remetente: string }) => {
-  // Só mostrar para mensagens do atendente
-  if (remetente !== 'atendente') return null;
+  // Só mostrar para mensagens enviadas pelo número da 24Help
+  if (!isBotMessage(remetente)) return null;
   
   switch (status) {
     case 'enviado':
@@ -1289,7 +1288,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         tipo: "texto",
         arquivo_url: null,
         data_hora: new Date().toISOString(),
-        remetente: "atendente",
+        remetente: NUMERO_24HELP,
         status: "enviado",
         reply_to_message_id: replyingTo?.id || null,
         reply_to: replyingTo || null
@@ -2111,6 +2110,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             )}
             
             {mensagens.map((msg, index) => {
+          const isBot = isBotMessage(msg.remetente);
+          const isCliente = !isBot;
           const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
           const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
           
@@ -2136,17 +2137,15 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   <div
                     className={cn(
                       "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-200",
-                      msg.remetente === "atendente" ? "justify-end" : "justify-start"
+                      isCliente ? "justify-start" : "justify-end"
                     )}
                   >
                     <div
                       className={cn(
                         "max-w-[85%] sm:max-w-[75%] md:max-w-[65%] rounded-2xl px-3 py-2 md:px-3.5 md:py-2.5 shadow-sm transition-all hover:shadow-md cursor-context-menu",
-                        msg.remetente === "atendente"
-                          ? "bg-primary text-primary-foreground rounded-br-sm"
-                          : msg.remetente === "bot"
-                          ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
-                          : "bg-card border rounded-bl-sm",
+                        isCliente
+                          ? "bg-card border rounded-bl-sm"
+                          : "bg-primary text-primary-foreground rounded-br-sm",
                         highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]",
                         searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30"
                       )}
@@ -2174,13 +2173,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     <MessageStatusIndicator status={msg.status} remetente={msg.remetente} />
                     <p className={cn(
                       "text-xs opacity-70",
-                      msg.remetente === "atendente" 
+                      isBot 
                         ? "text-primary-foreground" 
                         : "text-muted-foreground"
                     )}>
                       {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
                     </p>
-                    {msg.remetente === "atendente" && msg.enviado_por?.full_name && (
+                    {isBot && msg.enviado_por?.full_name && (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
