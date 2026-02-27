@@ -2145,10 +2145,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     <div
                       className={cn(
                         "max-w-[85%] sm:max-w-[75%] md:max-w-[65%] rounded-2xl px-3 py-2 md:px-3.5 md:py-2.5 shadow-sm transition-all hover:shadow-md cursor-context-menu",
-                        msg.remetente === "atendente"
+                        isAtendente(msg.remetente)
                           ? "bg-primary text-primary-foreground rounded-br-sm"
-                          : msg.remetente === "bot"
-                          ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
                           : "bg-card border rounded-bl-sm",
                         highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]",
                         searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30"
