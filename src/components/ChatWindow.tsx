@@ -40,13 +40,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const NUMERO_24HELP = 'whatsapp:+554138911555';
+
+const isAtendente = (remetente: string): boolean =>
+  remetente === NUMERO_24HELP || remetente === 'atendente' || remetente === 'bot';
+
 interface Mensagem {
   id: string;
   texto: string;
   tipo: "texto" | "arquivo" | "imagem" | "video" | "audio";
   arquivo_url: string | null;
   data_hora: string;
-  remetente: "cliente" | "atendente" | "bot";
+  remetente: string;
   status: "enviado" | "recebido" | "lido";
   status_atualizado_em?: string;
   reply_to_message_id?: string | null;
