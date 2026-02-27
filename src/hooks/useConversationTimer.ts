@@ -73,7 +73,7 @@ export const useConversationTimer = (telefoneCliente: string) => {
           filter: `cliente_id=eq.${telefoneCliente}`,
         },
         (payload: any) => {
-          if (payload.new?.remetente === 'cliente') {
+          if (payload.new?.remetente !== 'whatsapp:+554138911555' && payload.new?.remetente !== 'atendente' && payload.new?.remetente !== 'bot') {
             verificarJanela();
           }
         }

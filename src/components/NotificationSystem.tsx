@@ -21,10 +21,14 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
           event: 'INSERT',
           schema: 'public',
           table: 'mensagens',
-          filter: 'remetente=eq.cliente'
         },
         async (payload: any) => {
           const clienteId = payload.new.cliente_id;
+          const remetente = payload.new.remetente;
+          
+          // Ignorar mensagens da 24help (atendente/bot)
+          const NUMERO_24HELP = 'whatsapp:+554138911555';
+          if (remetente === NUMERO_24HELP || remetente === 'atendente' || remetente === 'bot') return;
           
           if (clienteId !== currentClienteId) {
             // Verificar se o bot já foi desligado alguma vez para este cliente

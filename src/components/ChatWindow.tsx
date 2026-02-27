@@ -2181,7 +2181,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     )}>
                       {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
                     </p>
-                    {msg.remetente === "atendente" && msg.enviado_por?.full_name && (
+                    {isAtendente(msg.remetente) && msg.enviado_por?.full_name && (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
