@@ -125,7 +125,7 @@ const QuotedMessage = React.memo(({
 
 const MessageStatusIndicator = React.memo(({ status, remetente }: { status: string | null, remetente: string }) => {
   // Só mostrar para mensagens do atendente
-  if (remetente !== 'atendente') return null;
+  if (!isAtendente(remetente)) return null;
   
   switch (status) {
     case 'enviado':
