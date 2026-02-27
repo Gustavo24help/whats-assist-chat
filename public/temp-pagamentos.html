@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>24help - Pagamentos (Mobile)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .btn-primary { background: #0F5A3C; color: white; }
+        .badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.65rem; font-weight: 500; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal.active { display: flex; align-items: flex-end; justify-content: center; }
+        .modal-content { background: white; border-radius: 20px 20px 0 0; width: 100%; max-height: 90vh; overflow-y: auto; animation: slideUp 0.3s; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .toast { position: fixed; bottom: 1rem; left: 1rem; right: 1rem; background: #0F5A3C; color: white; padding: 1rem; border-radius: 8px; display: none; z-index: 2000; }
+        .toast.active { display: block; animation: slideUpToast 0.3s; }
+        @keyframes slideUpToast { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .status-pago { background: #d1fae5; color: #065f46; }
+        .status-nao-pago { background: #fee2e2; color: #991b1b; }
+        .bottom-actions { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; padding: 1rem; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); z-index: 100; }
+        
+        /* PIX ALTERADO */
+        .pix-alterado-mobile {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            padding: 0.75rem;
+            border-radius: 8px;
+            animation: pulse-red 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-red {
+            0%, 100% { background-color: #fee2e2; border-color: #ef4444; }
+            50% { background-color: #fca5a5; border-color: #dc2626; }
+        }
+        
+        /* Avaliação Destacada Mobile */
+        .avaliacao-mobile {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+            padding: 0.5rem 0.75rem;
+            border-radius: 10px;
+        }
+        .avaliacao-mobile .stars { font-size: 1rem; }
+        .avaliacao-mobile .score { font-size: 1.25rem; font-weight: 700; color: #92400e; }
+        
+        /* NPS Destacado Mobile */
+        .nps-mobile {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border: 2px solid #10b981;
+            padding: 0.5rem 0.75rem;
+            border-radius: 10px;
+        }
+        .nps-mobile .label { font-size: 0.65rem; font-weight: 600; color: #065f46; text-transform: uppercase; }
+        .nps-mobile .score { font-size: 1.75rem; font-weight: 700; color: #065f46; line-height: 1; }
+    </style>
+</head>
+<body class="bg-gray-50 pb-24">
+    <!-- Toast -->
+    <div id="toast" class="toast">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-check-circle"></i>
+            <span id="toastMessage">Ação realizada!</span>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-white border-b sticky top-0 z-10">
+        <div class="p-4">
+            <h1 class="text-xl font-bold text-gray-900">Pagamentos</h1>
+            <p class="text-sm text-gray-600">20/02/2026</p>
+        </div>
+
+        <!-- Cards Resumo -->
+        <div class="px-4 pb-4 flex gap-3 overflow-x-auto">
+            <div class="min-w-[140px] bg-[#0F5A3C] text-white rounded-lg p-3">
+                <div class="text-xs opacity-80">Pagamentos</div>
+                <div class="text-2xl font-bold">12</div>
+            </div>
+
+            <div class="min-w-[140px] bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div class="text-xs text-blue-600">Valor Total</div>
+                <div class="text-xl font-bold text-blue-900">R$ 4.230</div>
+            </div>
+
+            <div class="min-w-[140px] bg-green-50 border border-green-200 rounded-lg p-3">
+                <div class="text-xs text-green-600">Selecionados</div>
+                <div class="text-xl font-bold text-green-900" id="selectedCount">0</div>
+                <div class="text-xs text-green-600" id="selectedTotal">R$ 0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista -->
+    <div class="px-4 py-4 space-y-3">
+        <!-- Pagamento 1 -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+            <div class="flex items-start gap-3 mb-3">
+                <input type="checkbox" class="payment-checkbox w-5 h-5 rounded mt-1" data-valor="350.00" onchange="updateSelection()">
+                
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <div class="h-10 w-10 rounded-full bg-[#0F5A3C] flex items-center justify-center text-white font-bold text-sm">JS</div>
+                            <div>
+                                <h3 class="font-semibold text-sm">João Silva</h3>
+                                <p class="text-xs text-gray-500">PREST001</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-bold text-[#0F5A3C]">R$ 350</div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        <span class="badge bg-gray-100 text-gray-700">FS1-260219</span>
+                        <span class="badge bg-green-100 text-green-700">Elétrica</span>
+                        <span class="badge status-pago"><i class="fas fa-check-circle"></i> Cliente Pagou</span>
+                    </div>
+
+                    <!-- Banco -->
+                    <div class="bg-blue-50 rounded-lg p-2 mb-3 text-xs">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fas fa-university text-blue-600"></i>
+                            <span class="font-semibold">Banco do Brasil</span>
+                        </div>
+                        <div class="text-gray-600 pl-5">Ag: 1234-5 • CC: 67890-1</div>
+                        <div class="flex items-center gap-2 mt-1 font-medium text-gray-800 pl-5">
+                            <i class="fas fa-credit-card text-green-600"></i>
+                            PIX: 41999999999
+                        </div>
+                    </div>
+
+                    <!-- Avaliação e NPS -->
+                    <div class="flex gap-2 mb-3">
+                        <div class="avaliacao-mobile">
+                            <div class="stars">⭐⭐⭐⭐⭐</div>
+                            <div class="score">5.0</div>
+                        </div>
+                        <div class="nps-mobile">
+                            <div class="label">NPS</div>
+                            <div class="score">10</div>
+                        </div>
+                    </div>
+
+                    <!-- Datas -->
+                    <div class="text-xs text-gray-600 space-y-1 mb-3">
+                        <div><span class="font-medium">Contratação:</span> 18/02 14:30</div>
+                        <div><span class="font-medium">Execução:</span> 19/02 10:45</div>
+                    </div>
+
+                    <!-- Ações -->
+                    <div class="flex gap-2">
+                        <button onclick="openDetalhes(1)" class="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium">
+                            <i class="fas fa-info-circle"></i> Detalhes
+                        </button>
+                        <button onclick="marcarPago(1)" class="flex-1 px-3 py-2 btn-primary rounded-lg text-sm font-medium">
+                            <i class="fas fa-check"></i> Pagar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagamento 2 - PIX ALTERADO -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-orange-500">
+            <div class="flex items-start gap-3 mb-3">
+                <input type="checkbox" class="payment-checkbox w-5 h-5 rounded mt-1" data-valor="520.00" onchange="updateSelection()">
+                
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <div class="h-10 w-10 rounded-full bg-orange-600 flex items-center justify-center text-white font-bold text-sm">LP</div>
+                            <div>
+                                <h3 class="font-semibold text-sm">Lucas Pereira</h3>
+                                <p class="text-xs text-gray-500">PREST089</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-bold text-[#0F5A3C]">R$ 520</div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        <span class="badge bg-gray-100 text-gray-700">FS4-260219</span>
+                        <span class="badge bg-orange-100 text-orange-700">Marcenaria</span>
+                        <span class="badge status-pago"><i class="fas fa-check-circle"></i> Cliente Pagou</span>
+                    </div>
+
+                    <!-- PIX ALTERADO - PISCANDO -->
+                    <div class="pix-alterado-mobile mb-3">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fas fa-exclamation-triangle text-red-600 text-lg"></i>
+                            <span class="text-sm font-bold text-red-600 uppercase">PIX ALTERADO!</span>
+                        </div>
+                        
+                        <div class="text-xs space-y-1.5">
+                            <div class="flex items-center gap-2 font-semibold text-gray-800">
+                                <i class="fas fa-university text-blue-600"></i>
+                                Itaú
+                            </div>
+                            <div class="text-gray-700 pl-5">
+                                Ag: 9876 • CC: 12345-6
+                            </div>
+                            <div class="bg-white px-2 py-1.5 rounded font-bold text-red-700">
+                                <i class="fas fa-credit-card"></i> PIX NOVO: 41987654321
+                            </div>
+                            <div class="text-red-800 border-t border-red-300 pt-1.5 mt-1.5">
+                                <i class="fas fa-history"></i> Anterior: 41999887766
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mb-3">
+                        <div class="avaliacao-mobile">
+                            <div class="stars">⭐⭐⭐⭐½</div>
+                            <div class="score">4.5</div>
+                        </div>
+                        <div class="nps-mobile">
+                            <div class="label">NPS</div>
+                            <div class="score">9</div>
+                        </div>
+                    </div>
+
+                    <div class="text-xs text-gray-600 space-y-1 mb-3">
+                        <div><span class="font-medium">Contratação:</span> 16/02 09:15</div>
+                        <div><span class="font-medium">Execução:</span> 19/02 15:20</div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="openDetalhes(2)" class="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium">
+                            <i class="fas fa-info-circle"></i> Detalhes
+                        </button>
+                        <button onclick="marcarPago(2)" class="flex-1 px-3 py-2 btn-primary rounded-lg text-sm font-medium">
+                            <i class="fas fa-check"></i> Pagar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagamento 3 - Cliente NÃO Pagou -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-red-400">
+            <div class="flex items-start gap-3 mb-3">
+                <input type="checkbox" class="payment-checkbox w-5 h-5 rounded mt-1" data-valor="280.00" onchange="updateSelection()">
+                
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <div class="h-10 w-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-sm">PC</div>
+                            <div>
+                                <h3 class="font-semibold text-sm">Pedro Costa</h3>
+                                <p class="text-xs text-gray-500">PREST078</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-bold text-[#0F5A3C]">R$ 280</div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        <span class="badge bg-gray-100 text-gray-700">FS3-260219</span>
+                        <span class="badge bg-purple-100 text-purple-700">Hidráulica</span>
+                        <span class="badge status-nao-pago"><i class="fas fa-times-circle"></i> Cliente NÃO Pagou</span>
+                    </div>
+
+                    <div class="bg-blue-50 rounded-lg p-2 mb-3 text-xs">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fas fa-university text-blue-600"></i>
+                            <span class="font-semibold">Caixa Econômica</span>
+                        </div>
+                        <div class="text-gray-600 pl-5">Ag: 0001 • Poupança: 98765-4</div>
+                        <div class="flex items-center gap-2 mt-1 font-medium text-gray-800 pl-5">
+                            <i class="fas fa-credit-card text-green-600"></i>
+                            PIX: 41988887777
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mb-3">
+                        <div class="avaliacao-mobile">
+                            <div class="stars">⭐⭐⭐⭐</div>
+                            <div class="score">4.0</div>
+                        </div>
+                        <div class="nps-mobile">
+                            <div class="label">NPS</div>
+                            <div class="score">7</div>
+                        </div>
+                    </div>
+
+                    <div class="text-xs text-gray-600 space-y-1 mb-3">
+                        <div><span class="font-medium">Contratação:</span> 15/02 11:00</div>
+                        <div><span class="font-medium">Execução:</span> 18/02 16:30</div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="openDetalhes(3)" class="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium">
+                            <i class="fas fa-info-circle"></i> Detalhes
+                        </button>
+                        <button onclick="marcarPago(3)" class="flex-1 px-3 py-2 btn-primary rounded-lg text-sm font-medium">
+                            <i class="fas fa-check"></i> Pagar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ações em Massa -->
+    <div id="bottomActions" class="bottom-actions hidden">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="selectAll" class="w-5 h-5" onchange="toggleSelectAll()">
+                <span class="text-sm font-medium"><span id="selectedCountText">0</span> selecionado(s)</span>
+            </div>
+            <button onclick="clearSelection()" class="text-sm text-red-600 font-medium">Limpar</button>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="marcarComoPago()" class="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-medium">
+                <i class="fas fa-check-circle"></i> Marcar Pago
+            </button>
+            <button onclick="desmarcarComoPago()" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium">
+                <i class="fas fa-times-circle"></i> Desmarcar
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal: Detalhes -->
+    <div id="modalDetalhes" class="modal">
+        <div class="modal-content">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold">Detalhes Completos</h2>
+                    <button onclick="closeModal('modalDetalhes')" class="text-gray-400">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="bg-blue-50 rounded-lg p-3">
+                        <h3 class="font-semibold text-sm mb-2">📋 Serviço</h3>
+                        <div class="space-y-1 text-sm">
+                            <div><span class="text-gray-600">Ficha:</span> <span class="font-medium">FS1-260219</span></div>
+                            <div><span class="text-gray-600">Categoria:</span> <span class="font-medium">Elétrica</span></div>
+                            <div><span class="text-gray-600">Contratação:</span> <span class="font-medium">18/02 14:30</span></div>
+                            <div><span class="text-gray-600">Execução:</span> <span class="font-medium">19/02 10:45</span></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-green-50 rounded-lg p-3">
+                        <h3 class="font-semibold text-sm mb-2">🔧 Prestador</h3>
+                        <div class="space-y-1 text-sm">
+                            <div><span class="text-gray-600">Nome:</span> <span class="font-medium">João Silva</span></div>
+                            <div><span class="text-gray-600">Código:</span> <span class="font-medium">PREST001</span></div>
+                            <div><span class="text-gray-600">Banco:</span> <span class="font-medium">Banco do Brasil</span></div>
+                            <div><span class="text-gray-600">Ag/Conta:</span> <span class="font-medium">1234-5 / 67890-1</span></div>
+                            <div><span class="text-gray-600">PIX:</span> <span class="font-medium">41999999999</span></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-yellow-50 rounded-lg p-4">
+                        <h3 class="font-semibold text-sm mb-3 text-center">⭐ AVALIAÇÃO</h3>
+                        <div class="flex justify-center gap-4 mb-3">
+                            <div class="avaliacao-mobile">
+                                <div class="stars">⭐⭐⭐⭐⭐</div>
+                                <div class="score">5.0</div>
+                            </div>
+                            <div class="nps-mobile">
+                                <div class="label">NPS</div>
+                                <div class="score">10</div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-700 italic text-center">
+                            "Excelente profissional!"
+                        </p>
+                    </div>
+                </div>
+
+                <button onclick="closeModal('modalDetalhes')" class="w-full mt-4 px-4 py-3 bg-gray-200 rounded-lg font-medium">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('.payment-checkbox:checked:not(:disabled)');
+            const count = checkboxes.length;
+            const total = Array.from(checkboxes).reduce((sum, cb) => sum + parseFloat(cb.dataset.valor), 0);
+            document.getElementById('selectedCount').textContent = count;
+            document.getElementById('selectedTotal').textContent = `R$ ${total.toFixed(0)}`;
+            document.getElementById('selectedCountText').textContent = count;
+            document.getElementById('bottomActions').classList.toggle('hidden', count === 0);
+        }
+
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            document.querySelectorAll('.payment-checkbox:not(:disabled)').forEach(cb => cb.checked = selectAll.checked);
+            updateSelection();
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.payment-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('selectAll').checked = false;
+            updateSelection();
+        }
+
+        function marcarComoPago() {
+            showToast('✅ Pagamentos marcados como pagos!');
+            clearSelection();
+        }
+
+        function desmarcarComoPago() {
+            showToast('❌ Pagamentos desmarcados!');
+            clearSelection();
+        }
+
+        function marcarPago(id) {
+            showToast(`✅ Pagamento #${id} marcado!`);
+        }
+
+        function openDetalhes(id) {
+            document.getElementById('modalDetalhes').classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.add('active');
+            setTimeout(() => toast.classList.remove('active'), 2500);
+        }
+    </script>
+</body>
+</html>
