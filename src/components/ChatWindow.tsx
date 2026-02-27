@@ -2139,7 +2139,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   <div
                     className={cn(
                       "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-200",
-                      msg.remetente === "atendente" ? "justify-end" : "justify-start"
+                      isAtendente(msg.remetente) ? "justify-end" : "justify-start"
                     )}
                   >
                     <div
