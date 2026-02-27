@@ -2175,7 +2175,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     <MessageStatusIndicator status={msg.status} remetente={msg.remetente} />
                     <p className={cn(
                       "text-xs opacity-70",
-                      msg.remetente === "atendente" 
+                      isAtendente(msg.remetente) 
                         ? "text-primary-foreground" 
                         : "text-muted-foreground"
                     )}>
