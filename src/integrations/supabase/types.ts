@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      adiantamentos: {
+        Row: {
+          compensado_em: string | null
+          created_at: string | null
+          criado_por: string | null
+          data_adiantamento: string
+          ficha_id: string | null
+          id: string
+          motivo: string | null
+          prestador_id: string
+          status: string
+          transacao_id: string | null
+          valor: number
+        }
+        Insert: {
+          compensado_em?: string | null
+          created_at?: string | null
+          criado_por?: string | null
+          data_adiantamento?: string
+          ficha_id?: string | null
+          id?: string
+          motivo?: string | null
+          prestador_id: string
+          status?: string
+          transacao_id?: string | null
+          valor?: number
+        }
+        Update: {
+          compensado_em?: string | null
+          created_at?: string | null
+          criado_por?: string | null
+          data_adiantamento?: string
+          ficha_id?: string | null
+          id?: string
+          motivo?: string | null
+          prestador_id?: string
+          status?: string
+          transacao_id?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adiantamentos_transacao_id_fkey"
+            columns: ["transacao_id"]
+            isOneToOne: false
+            referencedRelation: "transacoes_financeiras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       avaliacao_prestador: {
         Row: {
           classificacao: string | null
@@ -349,6 +399,69 @@ export type Database = {
         }
         Relationships: []
       }
+      conta_corrente_prestador: {
+        Row: {
+          adiantamento_id: string | null
+          created_at: string | null
+          criado_por: string | null
+          data_movimentacao: string
+          descricao: string
+          id: string
+          origem: string
+          prestador_id: string
+          saldo_anterior: number
+          saldo_atual: number
+          tipo: string
+          transacao_id: string | null
+          valor: number
+        }
+        Insert: {
+          adiantamento_id?: string | null
+          created_at?: string | null
+          criado_por?: string | null
+          data_movimentacao?: string
+          descricao?: string
+          id?: string
+          origem: string
+          prestador_id: string
+          saldo_anterior?: number
+          saldo_atual?: number
+          tipo: string
+          transacao_id?: string | null
+          valor?: number
+        }
+        Update: {
+          adiantamento_id?: string | null
+          created_at?: string | null
+          criado_por?: string | null
+          data_movimentacao?: string
+          descricao?: string
+          id?: string
+          origem?: string
+          prestador_id?: string
+          saldo_anterior?: number
+          saldo_atual?: number
+          tipo?: string
+          transacao_id?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conta_corrente_prestador_adiantamento_id_fkey"
+            columns: ["adiantamento_id"]
+            isOneToOne: false
+            referencedRelation: "adiantamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conta_corrente_prestador_transacao_id_fkey"
+            columns: ["transacao_id"]
+            isOneToOne: false
+            referencedRelation: "transacoes_financeiras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dashboard_metas: {
         Row: {
           created_at: string | null
@@ -402,6 +515,47 @@ export type Database = {
           valor_os?: number | null
         }
         Relationships: []
+      }
+      descontos_ajustes: {
+        Row: {
+          created_at: string | null
+          criado_por: string | null
+          id: string
+          motivo: string
+          percentual: number | null
+          tipo: string
+          transacao_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string | null
+          criado_por?: string | null
+          id?: string
+          motivo?: string
+          percentual?: number | null
+          tipo: string
+          transacao_id: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string | null
+          criado_por?: string | null
+          id?: string
+          motivo?: string
+          percentual?: number | null
+          tipo?: string
+          transacao_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "descontos_ajustes_transacao_id_fkey"
+            columns: ["transacao_id"]
+            isOneToOne: false
+            referencedRelation: "transacoes_financeiras"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ficha_status_historico: {
         Row: {
@@ -1126,6 +1280,156 @@ export type Database = {
         }
         Relationships: []
       }
+      transacoes_financeiras: {
+        Row: {
+          adiantamento_cliente: number
+          adiantamento_prestador: number
+          agencia_prestador: string | null
+          aprovado_em: string | null
+          aprovado_por: string | null
+          atualizado_por: string | null
+          banco_prestador: string | null
+          categoria: string | null
+          cliente_id: string
+          cliente_nome: string
+          conta_prestador: string | null
+          created_at: string | null
+          criado_por: string | null
+          data_contratacao: string | null
+          data_execucao: string
+          data_pagamento_prevista: string
+          data_pagamento_realizada: string | null
+          ficha_id: string
+          forma_pagamento_cliente: string | null
+          id: string
+          link_pagamento_asaas: string | null
+          margem_operacional_real: number
+          margem_percentual: number
+          material_pago_24help: boolean
+          observacoes: string | null
+          pix_prestador: string | null
+          prestador_cnpj: string | null
+          prestador_codigo: string | null
+          prestador_cpf: string | null
+          prestador_id: string
+          prestador_nome: string
+          sheets_row_id: string | null
+          sincronizado_em: string | null
+          sincronizado_sheets: boolean | null
+          status_pagamento_cliente: string
+          status_pagamento_prestador: string
+          taxa_visita: number
+          tem_adiantamento: boolean | null
+          tem_desconto: boolean | null
+          updated_at: string | null
+          valor_a_pagar_prestador: number
+          valor_cliente_calculado: number
+          valor_cliente_final: number
+          valor_lucro_bruto: number
+          valor_mao_obra: number
+          valor_material: number
+          valor_subtotal: number
+        }
+        Insert: {
+          adiantamento_cliente?: number
+          adiantamento_prestador?: number
+          agencia_prestador?: string | null
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          atualizado_por?: string | null
+          banco_prestador?: string | null
+          categoria?: string | null
+          cliente_id: string
+          cliente_nome?: string
+          conta_prestador?: string | null
+          created_at?: string | null
+          criado_por?: string | null
+          data_contratacao?: string | null
+          data_execucao?: string
+          data_pagamento_prevista: string
+          data_pagamento_realizada?: string | null
+          ficha_id: string
+          forma_pagamento_cliente?: string | null
+          id?: string
+          link_pagamento_asaas?: string | null
+          margem_operacional_real?: number
+          margem_percentual?: number
+          material_pago_24help?: boolean
+          observacoes?: string | null
+          pix_prestador?: string | null
+          prestador_cnpj?: string | null
+          prestador_codigo?: string | null
+          prestador_cpf?: string | null
+          prestador_id: string
+          prestador_nome: string
+          sheets_row_id?: string | null
+          sincronizado_em?: string | null
+          sincronizado_sheets?: boolean | null
+          status_pagamento_cliente?: string
+          status_pagamento_prestador?: string
+          taxa_visita?: number
+          tem_adiantamento?: boolean | null
+          tem_desconto?: boolean | null
+          updated_at?: string | null
+          valor_a_pagar_prestador?: number
+          valor_cliente_calculado?: number
+          valor_cliente_final?: number
+          valor_lucro_bruto?: number
+          valor_mao_obra?: number
+          valor_material?: number
+          valor_subtotal?: number
+        }
+        Update: {
+          adiantamento_cliente?: number
+          adiantamento_prestador?: number
+          agencia_prestador?: string | null
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          atualizado_por?: string | null
+          banco_prestador?: string | null
+          categoria?: string | null
+          cliente_id?: string
+          cliente_nome?: string
+          conta_prestador?: string | null
+          created_at?: string | null
+          criado_por?: string | null
+          data_contratacao?: string | null
+          data_execucao?: string
+          data_pagamento_prevista?: string
+          data_pagamento_realizada?: string | null
+          ficha_id?: string
+          forma_pagamento_cliente?: string | null
+          id?: string
+          link_pagamento_asaas?: string | null
+          margem_operacional_real?: number
+          margem_percentual?: number
+          material_pago_24help?: boolean
+          observacoes?: string | null
+          pix_prestador?: string | null
+          prestador_cnpj?: string | null
+          prestador_codigo?: string | null
+          prestador_cpf?: string | null
+          prestador_id?: string
+          prestador_nome?: string
+          sheets_row_id?: string | null
+          sincronizado_em?: string | null
+          sincronizado_sheets?: boolean | null
+          status_pagamento_cliente?: string
+          status_pagamento_prestador?: string
+          taxa_visita?: number
+          tem_adiantamento?: boolean | null
+          tem_desconto?: boolean | null
+          updated_at?: string | null
+          valor_a_pagar_prestador?: number
+          valor_cliente_calculado?: number
+          valor_cliente_final?: number
+          valor_lucro_bruto?: number
+          valor_mao_obra?: number
+          valor_material?: number
+          valor_subtotal?: number
+        }
+        Relationships: []
+      }
       twilio_sync_control: {
         Row: {
           errors: number | null
@@ -1269,6 +1573,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adicionar_dias_uteis: {
+        Args: { data_base: string; dias: number }
+        Returns: string
+      }
+      arredondar_para_8: { Args: { valor: number }; Returns: number }
       calculate_conversas_iniciadas: {
         Args: {
           p_categoria_id?: number
