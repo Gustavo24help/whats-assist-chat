@@ -3,6 +3,9 @@ import { useDashboardTV, TVFilters, TVPeriod, TVComparison } from '@/hooks/useDa
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { MetasModal } from '@/components/dashboard/tv/MetasModal';
+import { TVLayoutProvider, useTVLayout } from '@/contexts/TVLayoutContext';
+import { TVLayoutCustomizer } from '@/components/dashboard/tv/TVLayoutCustomizer';
+import { MetasResultadosSection } from '@/components/dashboard/tv/MetasResultadosSection';
 import { format, differenceInCalendarDays, startOfMonth, subDays, subMonths, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -70,15 +73,12 @@ function applyPeriodShortcut(shortcut: string): { from: Date; to: Date } {
   }
 }
 
-// Business day modifier for calendar
 const businessDayModifier = (date: Date) => isBusinessDay(date);
 
-export default function DashboardTV() {
+function DashboardTVContent() {
+  const { blocks, isEditing } = useTVLayout();
   const now = new Date();
-  const [periodRange, setPeriodRange] = useState<{ from: Date; to?: Date }>({
-    from: now,
-    to: now,
-  });
+  const [periodRange, setPeriodRange] = useState<{ from: Date; to?: Date }>({ from: now, to: now });
   const [comparisonRange, setComparisonRange] = useState<{ from: Date; to?: Date } | undefined>(undefined);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [comparisonOpen, setComparisonOpen] = useState(false);
@@ -97,25 +97,15 @@ export default function DashboardTV() {
     return () => clearInterval(t);
   }, []);
 
-  // Sync period range to filters
   useEffect(() => {
     if (periodRange.from && periodRange.to) {
-      setFilters(f => ({
-        ...f,
-        period: 'custom',
-        customRange: { from: periodRange.from, to: periodRange.to! },
-      }));
+      setFilters(f => ({ ...f, period: 'custom', customRange: { from: periodRange.from, to: periodRange.to! } }));
     }
   }, [periodRange]);
 
-  // Sync comparison range to filters
   useEffect(() => {
     if (comparisonRange?.from && comparisonRange?.to) {
-      setFilters(f => ({
-        ...f,
-        comparison: 'custom',
-        comparisonRange: { from: comparisonRange.from, to: comparisonRange.to! },
-      }));
+      setFilters(f => ({ ...f, comparison: 'custom', comparisonRange: { from: comparisonRange.from, to: comparisonRange.to! } }));
     }
   }, [comparisonRange]);
 
@@ -211,6 +201,209 @@ export default function DashboardTV() {
     return `${format(range.from, 'dd/MM', { locale: ptBR })} - ${format(range.to, 'dd/MM', { locale: ptBR })}`;
   };
 
+  const enabledBlocks = [...blocks].filter(b => b.enabled).sort((a, b) => a.order - b.order);
+  const isBlockEnabled = (id: string) => enabledBlocks.some(b => b.id === id);
+
+  const renderBlock = (blockId: string) => {
+    switch (blockId) {
+      case 'kpis-principais':
+        return (
+          <section key={blockId} className="grid grid-cols-3 gap-3 px-4 py-3">
+            {[
+              {
+                label: 'Receita Total', value: fmtCurrency(data?.receitaTotal ?? 0),
+                variation: variations.receitaTotal ?? null,
+                prevValue: fmtCurrency(previous.receitaTotal ?? 0),
+                meta: metas?.valor_os, progress: metas?.valor_os ? Math.min(((data?.receitaTotal ?? 0) / metas.valor_os) * 100, 100) : null,
+                sub: `Ticket Médio: ${fmtCurrency(data?.ticketMedio ?? 0)}`,
+              },
+              {
+                label: 'Lucro Bruto', value: fmtCurrency(data?.lucroBruto ?? 0),
+                variation: variations.lucroBruto ?? null,
+                prevValue: fmtCurrency(previous.lucroBruto ?? 0),
+                meta: metas?.lucro_bruto, progress: metas?.lucro_bruto ? Math.min(((data?.lucroBruto ?? 0) / metas.lucro_bruto) * 100, 100) : null,
+                sub: `Margem: ${(data?.margemMedia ?? 0).toFixed(1)}%`,
+              },
+              {
+                label: 'Serviços Fechados', value: fmtNum(data?.servicosFechados ?? 0),
+                variation: variations.servicosFechados ?? null,
+                prevValue: fmtNum(previous.servicosFechados ?? 0),
+                meta: metas?.quantidade_servicos, progress: metas?.quantidade_servicos ? Math.min(((data?.servicosFechados ?? 0) / metas.quantidade_servicos) * 100, 100) : null,
+                sub: `Conv. Total: ${conversaoTotal.toFixed(1)}%`,
+              },
+            ].map((kpi, i) => (
+              <div key={i} className="bg-gray-900/60 backdrop-blur border border-gray-800 rounded-xl p-4">
+                <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">{kpi.label}</div>
+                <div className="text-2xl font-bold">{kpi.value}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={cn('text-sm font-semibold', kpi.variation !== null && kpi.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                    {kpi.variation !== null ? (kpi.variation >= 0 ? '↑' : '↓') : ''} {fmtPct(kpi.variation)}
+                  </span>
+                  <span className="text-[10px] text-gray-500">ant: {kpi.prevValue}</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">{kpi.sub}</div>
+                {kpi.progress !== null && (
+                  <div className="mt-2">
+                    <div className="flex justify-between text-[10px] text-gray-500 mb-0.5">
+                      <span>Meta: {kpi.meta ? (typeof kpi.meta === 'number' && kpi.label.includes('Serviço') ? fmtNum(kpi.meta) : fmtCurrency(kpi.meta)) : '—'}</span>
+                      <span>{kpi.progress.toFixed(0)}%</span>
+                    </div>
+                    <Progress value={kpi.progress} className="h-1.5" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </section>
+        );
+
+      case 'funil-vendas':
+        return (
+          <section key={blockId} className="px-4 pb-3">
+            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Funil de Vendas — Conversão ao Vivo</div>
+            <div className="flex items-center gap-1">
+              {funnelSteps.map((step, i) => (
+                <React.Fragment key={i}>
+                  <div className={cn('flex-1 bg-gradient-to-b border rounded-lg p-2 text-center', step.color)}>
+                    <div className="text-lg">{step.icon}</div>
+                    <div className="text-xl font-bold">{fmtNum(step.value)}</div>
+                    <div className="text-[10px] text-gray-300">{step.label}</div>
+                    <div className="flex items-center justify-center gap-1">
+                      <span className={cn('text-[10px] font-semibold', step.variation !== null && step.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                        {fmtPct(step.variation)}
+                      </span>
+                      <span className="text-[9px] text-gray-500">({fmtNum(step.prev)})</span>
+                    </div>
+                  </div>
+                  {i < funnelSteps.length - 1 && <span className="text-gray-600 text-lg">→</span>}
+                </React.Fragment>
+              ))}
+            </div>
+            <div className="text-center text-xs text-gray-500 mt-1">
+              Conversão Total: {(data?.cliquesAnuncios ?? 0) > 0 ? `${fmtNum(data!.cliquesAnuncios)} → ${fmtNum(data?.pagos ?? 0)} = ${conversaoTotal.toFixed(1)}%` : `${fmtNum(data?.conversasIniciadas ?? 0)} → ${fmtNum(data?.pagos ?? 0)}`}
+            </div>
+          </section>
+        );
+
+      case 'taxas-conversao':
+        return (
+          <section key={blockId} className="px-4 pb-3">
+            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Taxas de Conversão</div>
+            <div className="grid grid-cols-6 gap-2">
+              {conversionCards.map((c, i) => {
+                const pct = c.value;
+                const status = pct >= c.meta * 0.9 ? 'emerald' : pct >= c.meta * 0.7 ? 'amber' : 'red';
+                return (
+                  <div key={i} className="bg-gray-900/60 border border-gray-800 rounded-lg p-2 text-center">
+                    <div className="text-[10px] text-gray-400 truncate">{c.label}</div>
+                    <div className={cn('text-lg font-bold', `text-${status}-400`)}>{pct.toFixed(1)}%</div>
+                    <div className="text-[9px] text-gray-500">{c.calc}</div>
+                    <Progress value={Math.min((pct / c.meta) * 100, 100)} className="h-1 mt-1" />
+                    <div className="text-[9px] text-gray-500 mt-0.5">Meta: {c.meta}%</div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+
+      case 'metricas-tempo':
+        return (
+          <section key={blockId} className="px-4 pb-3">
+            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Métricas de Tempo</div>
+            <div className="grid grid-cols-5 gap-2">
+              {timeCards.map((t, i) => {
+                const hasValue = t.value !== null;
+                const emoji = hasValue ? statusEmoji(t.value!, t.target, false) : '—';
+                return (
+                  <div key={i} className="bg-gray-900/60 border border-gray-800 rounded-lg p-2 text-center">
+                    <div className="text-lg">{t.icon}</div>
+                    <div className="text-[10px] text-gray-400">{t.label}</div>
+                    <div className={cn('text-lg font-bold', hasValue ? statusColor(t.value!, t.target, false) : 'text-gray-500')}>
+                      {hasValue ? `${t.value} ${t.unit}` : 'S/D'} {hasValue ? emoji : ''}
+                    </div>
+                    <div className="text-[9px] text-gray-500">Meta: {'<'}{t.target} {t.unit}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+
+      case 'conversas-abertas':
+        if (!data?.conversasAbertas) return null;
+        return (
+          <section key={blockId} className="px-4 pb-3">
+            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">
+              📞 Conversas em Aberto — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Quantidade por Status</div>
+                <div className="space-y-1.5">
+                  {(data.conversasAbertas.porStatus || []).map((s, i) => {
+                    const pct = data.conversasAbertas.total > 0 ? (s.count / data.conversasAbertas.total) * 100 : 0;
+                    return (
+                      <div key={i} className="flex items-center gap-2">
+                        <div className="flex-1 flex items-center gap-2 min-w-0">
+                          <span className="text-xs text-gray-300 truncate w-[140px]">{s.status}</span>
+                          <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                        <span className="text-sm font-bold text-white w-8 text-right">{s.count}</span>
+                      </div>
+                    );
+                  })}
+                  {(data.conversasAbertas.porStatus || []).length === 0 && (
+                    <div className="text-xs text-gray-500 text-center py-2">Nenhuma conversa em aberto</div>
+                  )}
+                </div>
+              </div>
+              <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">🔥 Aguardando Resposta — Mais Tempo</div>
+                <div className="space-y-1 max-h-[160px] overflow-y-auto">
+                  {(data.conversasAbertas.rankingSemResposta || []).map((c, i) => {
+                    const horas = Math.floor(c.tempoSemResposta / 60);
+                    const mins = c.tempoSemResposta % 60;
+                    const tempoStr = horas > 0 ? `${horas}h${mins}m` : `${mins}m`;
+                    const urgente = c.tempoSemResposta > 120;
+                    const muitoUrgente = c.tempoSemResposta > 480;
+                    return (
+                      <div key={i} className={cn(
+                        'flex items-center justify-between py-1 px-2 rounded text-xs',
+                        muitoUrgente ? 'bg-red-500/10 border border-red-500/30' : urgente ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-gray-800/40'
+                      )}>
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-gray-500 w-4 text-right">{i + 1}.</span>
+                          <span className="text-gray-300 truncate">{c.nome}</span>
+                          <span className="text-[9px] text-gray-500 shrink-0">{c.status}</span>
+                        </div>
+                        <span className={cn(
+                          'font-mono font-bold shrink-0 ml-2',
+                          muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400'
+                        )}>
+                          {muitoUrgente ? '🚨' : urgente ? '⚠️' : ''} {tempoStr}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {(data.conversasAbertas.rankingSemResposta || []).length === 0 && (
+                    <div className="text-xs text-gray-500 text-center py-2">Todas respondidas ✅</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'metas-resultados':
+        return <MetasResultadosSection key={blockId} isLayoutEditing={isEditing} />;
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-white overflow-hidden">
       {/* HEADER */}
@@ -221,6 +414,7 @@ export default function DashboardTV() {
             <span className="text-sm font-bold tracking-wider text-gray-300 uppercase">Centro de Comando de Vendas</span>
           </div>
           <div className="flex items-center gap-3">
+            <TVLayoutCustomizer />
             <span className="flex items-center gap-1.5 text-xs">
               <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
               <span className="text-red-400 font-medium">AO VIVO</span>
@@ -232,7 +426,6 @@ export default function DashboardTV() {
         </div>
         {/* FILTERS ROW */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Period Calendar Picker */}
           <Popover open={periodOpen} onOpenChange={setPeriodOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-7 bg-gray-800 border-gray-700 text-xs gap-1.5">
@@ -271,7 +464,6 @@ export default function DashboardTV() {
             </PopoverContent>
           </Popover>
 
-          {/* Comparison Calendar Picker */}
           <Popover open={comparisonOpen} onOpenChange={setComparisonOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-7 bg-gray-800 border-gray-700 text-xs gap-1.5">
@@ -328,7 +520,6 @@ export default function DashboardTV() {
             </PopoverContent>
           </Popover>
 
-          {/* Days info badges */}
           {periodInfo && (
             <Badge variant="outline" className="h-6 text-[10px] border-gray-600 text-gray-300 font-normal">
               {periodInfo.corridos}d | {periodInfo.uteis} DU
@@ -378,189 +569,8 @@ export default function DashboardTV() {
         </div>
       </header>
 
-      {/* KPIs PRINCIPAIS */}
-      <section className="grid grid-cols-3 gap-3 px-4 py-3">
-        {[
-          {
-            label: 'Receita Total', value: fmtCurrency(data?.receitaTotal ?? 0),
-            variation: variations.receitaTotal ?? null,
-            prevValue: fmtCurrency(previous.receitaTotal ?? 0),
-            meta: metas?.valor_os, progress: metas?.valor_os ? Math.min(((data?.receitaTotal ?? 0) / metas.valor_os) * 100, 100) : null,
-            sub: `Ticket Médio: ${fmtCurrency(data?.ticketMedio ?? 0)}`,
-          },
-          {
-            label: 'Lucro Bruto', value: fmtCurrency(data?.lucroBruto ?? 0),
-            variation: variations.lucroBruto ?? null,
-            prevValue: fmtCurrency(previous.lucroBruto ?? 0),
-            meta: metas?.lucro_bruto, progress: metas?.lucro_bruto ? Math.min(((data?.lucroBruto ?? 0) / metas.lucro_bruto) * 100, 100) : null,
-            sub: `Margem: ${(data?.margemMedia ?? 0).toFixed(1)}%`,
-          },
-          {
-            label: 'Serviços Fechados', value: fmtNum(data?.servicosFechados ?? 0),
-            variation: variations.servicosFechados ?? null,
-            prevValue: fmtNum(previous.servicosFechados ?? 0),
-            meta: metas?.quantidade_servicos, progress: metas?.quantidade_servicos ? Math.min(((data?.servicosFechados ?? 0) / metas.quantidade_servicos) * 100, 100) : null,
-            sub: `Conv. Total: ${conversaoTotal.toFixed(1)}%`,
-          },
-        ].map((kpi, i) => (
-          <div key={i} className="bg-gray-900/60 backdrop-blur border border-gray-800 rounded-xl p-4">
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">{kpi.label}</div>
-            <div className="text-2xl font-bold">{kpi.value}</div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={cn('text-sm font-semibold', kpi.variation !== null && kpi.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                {kpi.variation !== null ? (kpi.variation >= 0 ? '↑' : '↓') : ''} {fmtPct(kpi.variation)}
-              </span>
-              <span className="text-[10px] text-gray-500">ant: {kpi.prevValue}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-0.5">{kpi.sub}</div>
-            {kpi.progress !== null && (
-              <div className="mt-2">
-                <div className="flex justify-between text-[10px] text-gray-500 mb-0.5">
-                  <span>Meta: {kpi.meta ? (typeof kpi.meta === 'number' && kpi.label.includes('Serviço') ? fmtNum(kpi.meta) : fmtCurrency(kpi.meta)) : '—'}</span>
-                  <span>{kpi.progress.toFixed(0)}%</span>
-                </div>
-                <Progress value={kpi.progress} className="h-1.5" />
-              </div>
-            )}
-          </div>
-        ))}
-      </section>
-
-      {/* FUNIL */}
-      <section className="px-4 pb-3">
-        <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Funil de Vendas — Conversão ao Vivo</div>
-        <div className="flex items-center gap-1">
-          {funnelSteps.map((step, i) => (
-            <React.Fragment key={i}>
-              <div className={cn('flex-1 bg-gradient-to-b border rounded-lg p-2 text-center', step.color)}>
-                <div className="text-lg">{step.icon}</div>
-                <div className="text-xl font-bold">{fmtNum(step.value)}</div>
-                <div className="text-[10px] text-gray-300">{step.label}</div>
-                <div className="flex items-center justify-center gap-1">
-                  <span className={cn('text-[10px] font-semibold', step.variation !== null && step.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                    {fmtPct(step.variation)}
-                  </span>
-                  <span className="text-[9px] text-gray-500">({fmtNum(step.prev)})</span>
-                </div>
-              </div>
-              {i < funnelSteps.length - 1 && <span className="text-gray-600 text-lg">→</span>}
-            </React.Fragment>
-          ))}
-        </div>
-        <div className="text-center text-xs text-gray-500 mt-1">
-          Conversão Total: {(data?.cliquesAnuncios ?? 0) > 0 ? `${fmtNum(data!.cliquesAnuncios)} → ${fmtNum(data?.pagos ?? 0)} = ${conversaoTotal.toFixed(1)}%` : `${fmtNum(data?.conversasIniciadas ?? 0)} → ${fmtNum(data?.pagos ?? 0)}`}
-        </div>
-      </section>
-
-      {/* TAXAS DE CONVERSÃO */}
-      <section className="px-4 pb-3">
-        <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Taxas de Conversão</div>
-        <div className="grid grid-cols-6 gap-2">
-          {conversionCards.map((c, i) => {
-            const pct = c.value;
-            const status = pct >= c.meta * 0.9 ? 'emerald' : pct >= c.meta * 0.7 ? 'amber' : 'red';
-            return (
-              <div key={i} className="bg-gray-900/60 border border-gray-800 rounded-lg p-2 text-center">
-                <div className="text-[10px] text-gray-400 truncate">{c.label}</div>
-                <div className={cn('text-lg font-bold', `text-${status}-400`)}>{pct.toFixed(1)}%</div>
-                <div className="text-[9px] text-gray-500">{c.calc}</div>
-                <Progress value={Math.min((pct / c.meta) * 100, 100)} className="h-1 mt-1" />
-                <div className="text-[9px] text-gray-500 mt-0.5">Meta: {c.meta}%</div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* MÉTRICAS DE TEMPO */}
-      <section className="px-4 pb-3">
-        <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Métricas de Tempo</div>
-        <div className="grid grid-cols-5 gap-2">
-          {timeCards.map((t, i) => {
-            const hasValue = t.value !== null;
-            const emoji = hasValue ? statusEmoji(t.value!, t.target, false) : '—';
-            return (
-              <div key={i} className="bg-gray-900/60 border border-gray-800 rounded-lg p-2 text-center">
-                <div className="text-lg">{t.icon}</div>
-                <div className="text-[10px] text-gray-400">{t.label}</div>
-                <div className={cn('text-lg font-bold', hasValue ? statusColor(t.value!, t.target, false) : 'text-gray-500')}>
-                  {hasValue ? `${t.value} ${t.unit}` : 'S/D'} {hasValue ? emoji : ''}
-                </div>
-                <div className="text-[9px] text-gray-500">Meta: {'<'}{t.target} {t.unit}</div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* CONVERSAS EM ABERTO */}
-      {data?.conversasAbertas && (
-        <section className="px-4 pb-10">
-          <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">
-            📞 Conversas em Aberto — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Por Status */}
-            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Quantidade por Status</div>
-              <div className="space-y-1.5">
-                {(data.conversasAbertas.porStatus || []).map((s, i) => {
-                  const pct = data.conversasAbertas.total > 0 ? (s.count / data.conversasAbertas.total) * 100 : 0;
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className="flex-1 flex items-center gap-2 min-w-0">
-                        <span className="text-xs text-gray-300 truncate w-[140px]">{s.status}</span>
-                        <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                      <span className="text-sm font-bold text-white w-8 text-right">{s.count}</span>
-                    </div>
-                  );
-                })}
-                {(data.conversasAbertas.porStatus || []).length === 0 && (
-                  <div className="text-xs text-gray-500 text-center py-2">Nenhuma conversa em aberto</div>
-                )}
-              </div>
-            </div>
-
-            {/* Ranking sem resposta */}
-            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">🔥 Aguardando Resposta — Mais Tempo</div>
-              <div className="space-y-1 max-h-[160px] overflow-y-auto">
-                {(data.conversasAbertas.rankingSemResposta || []).map((c, i) => {
-                  const horas = Math.floor(c.tempoSemResposta / 60);
-                  const mins = c.tempoSemResposta % 60;
-                  const tempoStr = horas > 0 ? `${horas}h${mins}m` : `${mins}m`;
-                  const urgente = c.tempoSemResposta > 120;
-                  const muitoUrgente = c.tempoSemResposta > 480;
-                  return (
-                    <div key={i} className={cn(
-                      'flex items-center justify-between py-1 px-2 rounded text-xs',
-                      muitoUrgente ? 'bg-red-500/10 border border-red-500/30' : urgente ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-gray-800/40'
-                    )}>
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className="text-gray-500 w-4 text-right">{i + 1}.</span>
-                        <span className="text-gray-300 truncate">{c.nome}</span>
-                        <span className="text-[9px] text-gray-500 shrink-0">{c.status}</span>
-                      </div>
-                      <span className={cn(
-                        'font-mono font-bold shrink-0 ml-2',
-                        muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400'
-                      )}>
-                        {muitoUrgente ? '🚨' : urgente ? '⚠️' : ''} {tempoStr}
-                      </span>
-                    </div>
-                  );
-                })}
-                {(data.conversasAbertas.rankingSemResposta || []).length === 0 && (
-                  <div className="text-xs text-gray-500 text-center py-2">Todas respondidas ✅</div>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* DYNAMIC BLOCKS */}
+      {enabledBlocks.map(block => renderBlock(block.id))}
 
       {/* TICKER */}
       <footer className="fixed bottom-0 left-0 right-0 bg-gray-900/90 backdrop-blur border-t border-gray-800 px-4 py-2">
@@ -594,5 +604,13 @@ export default function DashboardTV() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function DashboardTV() {
+  return (
+    <TVLayoutProvider>
+      <DashboardTVContent />
+    </TVLayoutProvider>
   );
 }

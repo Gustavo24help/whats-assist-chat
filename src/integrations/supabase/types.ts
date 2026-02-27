@@ -802,6 +802,54 @@ export type Database = {
           },
         ]
       }
+      mensagens_backup_27fev: {
+        Row: {
+          arquivo_url: string | null
+          cliente_id: string | null
+          data_hora: string | null
+          enviado_por_id: string | null
+          ficha_id: string | null
+          id: string | null
+          message_sid: string | null
+          remetente: string | null
+          reply_to_message_id: string | null
+          status: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          status_atualizado_em: string | null
+          texto: string | null
+          tipo: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+        }
+        Insert: {
+          arquivo_url?: string | null
+          cliente_id?: string | null
+          data_hora?: string | null
+          enviado_por_id?: string | null
+          ficha_id?: string | null
+          id?: string | null
+          message_sid?: string | null
+          remetente?: string | null
+          reply_to_message_id?: string | null
+          status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          status_atualizado_em?: string | null
+          texto?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+        }
+        Update: {
+          arquivo_url?: string | null
+          cliente_id?: string | null
+          data_hora?: string | null
+          enviado_por_id?: string | null
+          ficha_id?: string | null
+          id?: string | null
+          message_sid?: string | null
+          remetente?: string | null
+          reply_to_message_id?: string | null
+          status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          status_atualizado_em?: string | null
+          texto?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+        }
+        Relationships: []
+      }
       mensagens_backup_queue: {
         Row: {
           cliente_id: string
