@@ -684,7 +684,7 @@ export const ConversationList = ({
         .from('mensagens')
         .select('cliente_id, data_hora')
         .in('cliente_id', telefones)
-        .eq('remetente', 'cliente')
+        .neq('remetente', 'whatsapp:+554138911555')
         .order('data_hora', { ascending: false })
         .limit(1000);
 

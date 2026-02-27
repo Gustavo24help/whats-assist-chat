@@ -518,7 +518,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
       const nowMs = Date.now();
       for (const f of fichasAbertasList) {
         const ultima = clienteUltima.get(f.telefone_cliente);
-        if (ultima && ultima.remetente === 'cliente') {
+        if (ultima && ultima.remetente !== 'whatsapp:+554138911555' && ultima.remetente !== 'atendente' && ultima.remetente !== 'bot') {
           const tempoMin = (nowMs - new Date(ultima.data_hora).getTime()) / (1000 * 60);
           rankingSemResposta.push({
             telefone: f.telefone_cliente,

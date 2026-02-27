@@ -40,13 +40,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const NUMERO_24HELP = 'whatsapp:+554138911555';
+
+const isAtendente = (remetente: string): boolean =>
+  remetente === NUMERO_24HELP || remetente === 'atendente' || remetente === 'bot';
+
 interface Mensagem {
   id: string;
   texto: string;
   tipo: "texto" | "arquivo" | "imagem" | "video" | "audio";
   arquivo_url: string | null;
   data_hora: string;
-  remetente: "cliente" | "atendente" | "bot";
+  remetente: string;
   status: "enviado" | "recebido" | "lido";
   status_atualizado_em?: string;
   reply_to_message_id?: string | null;
@@ -73,11 +78,9 @@ const QuotedMessage = React.memo(({
   });
   
   const getSenderName = (remetente: string) => {
-    switch (remetente) {
-      case "atendente": return "Você";
-      case "bot": return "Bot";
-      default: return "Cliente";
-    }
+    if (remetente === 'bot') return "Bot";
+    if (isAtendente(remetente)) return "Você";
+    return "Cliente";
   };
 
   const getPreview = () => {
@@ -122,7 +125,7 @@ const QuotedMessage = React.memo(({
 
 const MessageStatusIndicator = React.memo(({ status, remetente }: { status: string | null, remetente: string }) => {
   // Só mostrar para mensagens do atendente
-  if (remetente !== 'atendente') return null;
+  if (!isAtendente(remetente)) return null;
   
   switch (status) {
     case 'enviado':
@@ -1289,7 +1292,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         tipo: "texto",
         arquivo_url: null,
         data_hora: new Date().toISOString(),
-        remetente: "atendente",
+        remetente: NUMERO_24HELP,
         status: "enviado",
         reply_to_message_id: replyingTo?.id || null,
         reply_to: replyingTo || null
@@ -2136,16 +2139,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   <div
                     className={cn(
                       "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-200",
-                      msg.remetente === "atendente" ? "justify-end" : "justify-start"
+                      isAtendente(msg.remetente) ? "justify-end" : "justify-start"
                     )}
                   >
                     <div
                       className={cn(
                         "max-w-[85%] sm:max-w-[75%] md:max-w-[65%] rounded-2xl px-3 py-2 md:px-3.5 md:py-2.5 shadow-sm transition-all hover:shadow-md cursor-context-menu",
-                        msg.remetente === "atendente"
+                        isAtendente(msg.remetente)
                           ? "bg-primary text-primary-foreground rounded-br-sm"
-                          : msg.remetente === "bot"
-                          ? "bg-accent/50 text-accent-foreground border border-accent/60 rounded-bl-sm"
                           : "bg-card border rounded-bl-sm",
                         highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]",
                         searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30"
@@ -2174,13 +2175,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     <MessageStatusIndicator status={msg.status} remetente={msg.remetente} />
                     <p className={cn(
                       "text-xs opacity-70",
-                      msg.remetente === "atendente" 
+                      isAtendente(msg.remetente) 
                         ? "text-primary-foreground" 
                         : "text-muted-foreground"
                     )}>
                       {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
                     </p>
-                    {msg.remetente === "atendente" && msg.enviado_por?.full_name && (
+                    {isAtendente(msg.remetente) && msg.enviado_por?.full_name && (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>

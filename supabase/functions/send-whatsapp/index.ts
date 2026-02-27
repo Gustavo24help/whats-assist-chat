@@ -169,7 +169,7 @@ serve(async (req) => {
     // Salvar mensagem
     const { error: insertError } = await supabase.from('mensagens').insert({
       cliente_id: to,
-      remetente: 'atendente',
+      remetente: 'whatsapp:+554138911555',
       texto: message,
       tipo: mediaUrl ? getMediaType(mediaUrl) : 'texto',
       arquivo_url: mediaUrl || null,
