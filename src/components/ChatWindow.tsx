@@ -1292,7 +1292,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         tipo: "texto",
         arquivo_url: null,
         data_hora: new Date().toISOString(),
-        remetente: "atendente",
+        remetente: NUMERO_24HELP,
         status: "enviado",
         reply_to_message_id: replyingTo?.id || null,
         reply_to: replyingTo || null
