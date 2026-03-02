@@ -6,12 +6,12 @@ import { MetasModal } from '@/components/dashboard/tv/MetasModal';
 import { TVFreeformProvider, useTVFreeform } from '@/contexts/TVFreeformContext';
 import { TVFreeformCanvas } from '@/components/dashboard/tv/TVFreeformCanvas';
 import { TVWidgetProperties } from '@/components/dashboard/tv/TVWidgetProperties';
-import { MetasResultadosSection } from '@/components/dashboard/tv/MetasResultadosSection';
+// MetasResultadosSection removed — replaced by independent widgets
 import { TVCelebration } from '@/components/dashboard/tv/TVCelebration';
 import { TVAutoSizeWidget } from '@/components/dashboard/tv/TVAutoSizeWidget';
 import { TVMonitorSettings, useMonitorSettings } from '@/components/dashboard/tv/TVMonitorSettings';
 import { playPaymentDing, playCelebrationFanfare } from '@/lib/tvSounds';
-import { format, differenceInCalendarDays, startOfMonth, endOfMonth, subDays, subMonths } from 'date-fns';
+import { format, differenceInCalendarDays, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -190,6 +190,34 @@ function DashboardTVContent() {
       return data || [];
     },
     staleTime: 60000,
+  });
+
+  // Query independent: OS e Receita do dia e do mês
+  const { data: metasIndependentes } = useQuery({
+    queryKey: ['tv-metas-independentes'],
+    queryFn: async () => {
+      const now = new Date();
+      const diaFrom = startOfDay(now).toISOString();
+      const diaTo = endOfDay(now).toISOString();
+      const mesFrom = startOfMonth(now).toISOString();
+      const mesTo = endOfMonth(now).toISOString();
+
+      const [osDia, osMes, recDia, recMes] = await Promise.all([
+        supabase.from('fichas_de_servico').select('*', { count: 'exact', head: true }).eq('status', 'Finalizado').gte('created_at', diaFrom).lte('created_at', diaTo),
+        supabase.from('fichas_de_servico').select('*', { count: 'exact', head: true }).eq('status', 'Finalizado').gte('created_at', mesFrom).lte('created_at', mesTo),
+        supabase.from('fichas_de_servico').select('valor_total').eq('status', 'Finalizado').eq('pagamento_realizado', true).gte('created_at', diaFrom).lte('created_at', diaTo),
+        supabase.from('fichas_de_servico').select('valor_total').eq('status', 'Finalizado').eq('pagamento_realizado', true).gte('created_at', mesFrom).lte('created_at', mesTo),
+      ]);
+
+      return {
+        osDiaCount: osDia.count ?? 0,
+        osMesCount: osMes.count ?? 0,
+        receitaDia: (recDia.data || []).reduce((s, f) => s + (f.valor_total || 0), 0),
+        receitaMes: (recMes.data || []).reduce((s, f) => s + (f.valor_total || 0), 0),
+      };
+    },
+    refetchInterval: REFRESH_INTERVAL,
+    staleTime: 15000,
   });
 
   if (isLoading || !data) {
@@ -398,11 +426,42 @@ function DashboardTVContent() {
           'border-indigo-500/30',
         );
 
-      // Metas
-      case 'meta-diaria':
-        return renderGoalBar('🎯 Meta do Dia', data?.receitaTotal ?? 0, metas?.valor_os ?? 0);
-      case 'meta-mensal':
-        return renderGoalBar('📅 Meta do Mês', data?.receitaTotal ?? 0, (metas?.valor_os ?? 0) * 22);
+      // Metas individuais (8 widgets independentes)
+      case 'meta-diaria-os': {
+        const actual = metasIndependentes?.osDiaCount ?? 0;
+        const target = metas?.quantidade_servicos ?? 10;
+        return renderGoalBar('🎯 Meta Diária — Qtd OS', actual, target);
+      }
+      case 'meta-mensal-os': {
+        const actual = metasIndependentes?.osMesCount ?? 0;
+        const target = (metas?.quantidade_servicos ?? 10) * 22;
+        return renderGoalBar('📅 Meta Mensal — Qtd OS', actual, target);
+      }
+      case 'meta-diaria-receita':
+        return renderGoalBar('💰 Meta Diária — Receita', metasIndependentes?.receitaDia ?? 0, metas?.valor_os ?? 0);
+      case 'meta-mensal-receita':
+        return renderGoalBar('📊 Meta Mensal — Receita', metasIndependentes?.receitaMes ?? 0, (metas?.valor_os ?? 0) * 22);
+
+      case 'resultado-hoje-os':
+        return renderKPIWidget(
+          'Resultado Hoje — Qtd OS', fmtNum(metasIndependentes?.osDiaCount ?? 0),
+          null, '—', 'Serviços finalizados hoje', 'border-cyan-500/30',
+        );
+      case 'resultado-mensal-os':
+        return renderKPIWidget(
+          'Resultado Mensal — Qtd OS', fmtNum(metasIndependentes?.osMesCount ?? 0),
+          null, '—', 'Serviços finalizados no mês', 'border-violet-500/30',
+        );
+      case 'resultado-hoje-receita':
+        return renderKPIWidget(
+          'Resultado Hoje — Receita', fmtCurrency(metasIndependentes?.receitaDia ?? 0),
+          null, '—', 'Receita do dia', 'border-emerald-500/30',
+        );
+      case 'resultado-mensal-receita':
+        return renderKPIWidget(
+          'Resultado Mensal — Receita', fmtCurrency(metasIndependentes?.receitaMes ?? 0),
+          null, '—', 'Receita do mês', 'border-amber-500/30',
+        );
 
       // Funil
       case 'funil-cliques':
@@ -496,18 +555,6 @@ function DashboardTVContent() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </TVAutoSizeWidget>
-        );
-
-      // Metas & Resultados
-      case 'metas-resultados':
-        return (
-          <TVAutoSizeWidget neonBorder="border-purple-500/20">
-            {() => (
-              <div className="w-full h-full overflow-auto">
-                <MetasResultadosSection isLayoutEditing={isEditing} />
               </div>
             )}
           </TVAutoSizeWidget>

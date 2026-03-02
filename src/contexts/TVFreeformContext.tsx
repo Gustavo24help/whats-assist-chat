@@ -33,9 +33,15 @@ const DEFAULT_WIDGETS: TVWidgetLayout[] = [
   { id: 'margem-media',        label: 'Margem Média',          icon: '📊', enabled: true,  x: 1310, y: 0,   width: 300, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'conversao-total',     label: 'Conversão Total',       icon: '🔄', enabled: true,  x: 1620, y: 0,   width: 300, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 2 — Metas
-  { id: 'meta-diaria',         label: 'Meta Diária',           icon: '🎯', enabled: true,  x: 0,    y: 190, width: 960, height: 100, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'meta-mensal',         label: 'Meta Mensal',           icon: '📅', enabled: true,  x: 970,  y: 190, width: 950, height: 100, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 2 — Metas e Resultados individuais (8 widgets)
+  { id: 'meta-diaria-os',        label: 'Meta Diária — Qtd OS',     icon: '🎯', enabled: true,  x: 0,    y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-mensal-os',        label: 'Meta Mensal — Qtd OS',     icon: '📅', enabled: true,  x: 250,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-diaria-receita',   label: 'Meta Diária — Receita',    icon: '💰', enabled: true,  x: 500,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-mensal-receita',   label: 'Meta Mensal — Receita',    icon: '📊', enabled: true,  x: 750,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-hoje-os',     label: 'Resultado Hoje — Qtd OS',  icon: '📋', enabled: true,  x: 1000, y: 190, width: 230, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-mensal-os',   label: 'Resultado Mensal — Qtd OS',icon: '📋', enabled: true,  x: 1240, y: 190, width: 230, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-hoje-receita',label: 'Resultado Hoje — Receita', icon: '💵', enabled: true,  x: 1480, y: 190, width: 220, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-mensal-receita',label:'Resultado Mensal — Receita',icon:'💵', enabled: true,  x: 1710, y: 190, width: 210, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
   // Row 3 — Funil de vendas (cada etapa é um widget)
   { id: 'funil-cliques',       label: 'Cliques',               icon: '🎯', enabled: true,  x: 0,    y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
@@ -61,8 +67,7 @@ const DEFAULT_WIDGETS: TVWidgetLayout[] = [
   { id: 'tempo-ciclo',         label: 'Ciclo Completo',        icon: '🎪', enabled: true,  x: 1550, y: 630, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
   // Row 6 — Blocos maiores
-  { id: 'conversas-abertas',   label: 'Conversas em Aberto',   icon: '📞', enabled: true,  x: 0,    y: 780, width: 960, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'metas-resultados',    label: 'Metas & Resultados',    icon: '🏆', enabled: true,  x: 970,  y: 780, width: 950, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'conversas-abertas',   label: 'Conversas em Aberto',   icon: '📞', enabled: true,  x: 0,    y: 780, width: 1920, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 ];
 
 const PRESETS: { name: string; widgets: TVWidgetLayout[] }[] = [
