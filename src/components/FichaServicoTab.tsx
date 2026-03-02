@@ -49,6 +49,7 @@ interface Ficha {
   motivo_perda: string | null;
   preferencia_horario_cliente: string | null;
   recibo_url: string | null;
+  comparecimento_prestador: string | null;
   created_at: string;
   updated_at: string;
   data_version: number | null; // 1=formato antigo, 2=formato novo com timezone
@@ -86,6 +87,14 @@ const VALID_PAGAMENTO_TIPOS = [
   "transferencia"
 ];
 
+const COMPARECIMENTO_PRESTADOR_OPTIONS = [
+  "Foi",
+  "Atrasou",
+  "Atrasou e avisou",
+  "Não foi",
+  "Não foi e avisou"
+];
+
 export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
@@ -108,6 +117,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     
     if (fichaData.pagamento_tipo && !VALID_PAGAMENTO_TIPOS.includes(fichaData.pagamento_tipo)) {
       errors.push(`Tipo de pagamento inválido: ${fichaData.pagamento_tipo}`);
+    }
+
+    if (
+      fichaData.comparecimento_prestador &&
+      !COMPARECIMENTO_PRESTADOR_OPTIONS.includes(fichaData.comparecimento_prestador)
+    ) {
+      errors.push(`Comparecimento do prestador inválido: ${fichaData.comparecimento_prestador}`);
     }
     
     if (fichaData.motivo_perda && fichaData.motivo_perda.length > 500) {
@@ -219,6 +235,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         id_zoho: fichaData.id_zoho,
         notas: fichaData.notas,
         motivo_perda: fichaData.motivo_perda,
+        comparecimento_prestador: fichaData.comparecimento_prestador,
         // Timestamps
         created_at: fichaData.created_at,
         updated_at: fichaData.updated_at,
@@ -327,6 +344,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         data_visita_tecnica: fichaData.data_visita_tecnica,
         horario_visita_tecnica: visitaTecnicaISO,
         motivo_perda: fichaData.motivo_perda?.trim()?.substring(0, 500) || null,
+        comparecimento_prestador: fichaData.comparecimento_prestador,
       };
 
       const { error } = await supabase
@@ -1065,6 +1083,42 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="comparecimento-prestador" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
+          <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              <span className="font-medium text-sm text-gray-700">Comparecimento do Prestador</span>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-2.5 pb-2.5">
+            <div className="space-y-2 w-full">
+              <div>
+                <Label htmlFor="comparecimento_prestador" className="text-xs font-medium text-gray-600">
+                  Resultado da visita
+                </Label>
+                <Select
+                  value={ficha?.comparecimento_prestador || "nao_informado"}
+                  onValueChange={(value) =>
+                    updateFicha({ comparecimento_prestador: value === "nao_informado" ? null : value })
+                  }
+                >
+                  <SelectTrigger id="comparecimento_prestador" className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20">
+                    <SelectValue placeholder="Selecione o comparecimento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nao_informado">Não informado</SelectItem>
+                    {COMPARECIMENTO_PRESTADOR_OPTIONS.map((opcao) => (
+                      <SelectItem key={opcao} value={opcao}>
+                        {opcao}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </AccordionContent>
