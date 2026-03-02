@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import debounce from "lodash-es/debounce";
 import { ReciboGenerator } from "@/components/ReciboGenerator";
 import { ResumoConversaDialog } from "@/components/ResumoConversaDialog";
+import { PopupConfirmacaoFinanceira } from "@/components/PopupConfirmacaoFinanceira";
 
 interface FichaServicoTabProps {
   fichaId: string;
@@ -95,6 +96,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
   const [horaVisitaTecnica, setHoraVisitaTecnica] = useState<string>('');
   const [nomeCliente, setNomeCliente] = useState<string>('');
+  const [financeiroOpen, setFinanceiroOpen] = useState(false);
 
   // Função de validação de dados
   const validarDadosFicha = (fichaData: Ficha): { valid: boolean; errors: string[] } => {
@@ -1445,6 +1447,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         </AccordionItem>
       </Accordion>
 
+      {ficha && (ficha.status === 'Finalizado' || ficha.status === 'Em andamento') && ficha.prestador_id && (
+        <Button 
+          onClick={() => setFinanceiroOpen(true)}
+          variant="outline"
+          className="fixed bottom-6 right-24 shadow-2xl z-50 hover:scale-[0.98] active:scale-95 transition-all h-10 text-sm border-green-500 text-green-700 hover:bg-green-50"
+        >
+          <DollarSign className="mr-2 h-4 w-4" />
+          Confirmar Financeiro
+        </Button>
+      )}
+
       <Button 
         onClick={salvarManualmente} 
         className="fixed bottom-6 right-6 shadow-2xl z-50 hover:scale-[0.98] active:scale-95 active:animate-pulse transition-all h-10 text-sm"
@@ -1452,6 +1465,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         <Save className="mr-2 h-4 w-4" />
         Salvar Ficha
       </Button>
+
+      {ficha && (
+        <PopupConfirmacaoFinanceira
+          open={financeiroOpen}
+          onOpenChange={setFinanceiroOpen}
+          fichaId={fichaId}
+          onConfirm={() => fetchFicha()}
+        />
+      )}
     </div>
   );
 };
