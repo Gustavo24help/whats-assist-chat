@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboardTV, TVFilters, TVPeriod, TVComparison } from '@/hooks/useDashboardTV';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -6,7 +6,11 @@ import { MetasModal } from '@/components/dashboard/tv/MetasModal';
 import { TVLayoutProvider, useTVLayout } from '@/contexts/TVLayoutContext';
 import { TVLayoutCustomizer } from '@/components/dashboard/tv/TVLayoutCustomizer';
 import { MetasResultadosSection } from '@/components/dashboard/tv/MetasResultadosSection';
-import { format, differenceInCalendarDays, startOfMonth, subDays, subMonths, endOfMonth } from 'date-fns';
+import { TVCelebration } from '@/components/dashboard/tv/TVCelebration';
+import { TVGoalBars } from '@/components/dashboard/tv/TVGoalBars';
+import { TVMonitorSettings, useMonitorSettings } from '@/components/dashboard/tv/TVMonitorSettings';
+import { playPaymentDing, playCelebrationFanfare } from '@/lib/tvSounds';
+import { format, differenceInCalendarDays, startOfDay, startOfMonth, endOfMonth, subDays, subMonths, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -18,7 +22,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { getWeekdayName, isBusinessDay, getBusinessDaysInRange } from '@/lib/businessDays2026';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Settings } from 'lucide-react';
 import logoGreen from '@/assets/logo-green.png';
 
 // ---- Helpers ----
@@ -75,8 +79,13 @@ function applyPeriodShortcut(shortcut: string): { from: Date; to: Date } {
 
 const businessDayModifier = (date: Date) => isBusinessDay(date);
 
+const REFRESH_INTERVAL = 600000; // 10 minutes
+const CELEBRATION_KEY = 'tv-celebration-log-v1';
+
 function DashboardTVContent() {
   const { blocks, isEditing } = useTVLayout();
+  const [monitorSettings, setMonitorSettings] = useMonitorSettings();
+  const [monitorOpen, setMonitorOpen] = useState(false);
   const now = new Date();
   const [periodRange, setPeriodRange] = useState<{ from: Date; to?: Date }>({ from: now, to: now });
   const [comparisonRange, setComparisonRange] = useState<{ from: Date; to?: Date } | undefined>(undefined);
@@ -92,10 +101,32 @@ function DashboardTVContent() {
   const [metasOpen, setMetasOpen] = useState(false);
   const [clock, setClock] = useState(new Date());
 
+  // Celebration & payment alert state
+  const [celebrationActive, setCelebrationActive] = useState(false);
+  const [celebrationMessage, setCelebrationMessage] = useState('');
+  const [paymentFlash, setPaymentFlash] = useState(false);
+  const [paymentBadge, setPaymentBadge] = useState<string | null>(null);
+  const prevPagosRef = useRef<number | null>(null);
+  const prevReceitaRef = useRef<number | null>(null);
+
+  // Last update tracking
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [countdown, setCountdown] = useState(REFRESH_INTERVAL / 1000);
+
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Countdown timer
+  useEffect(() => {
+    const t = setInterval(() => {
+      const elapsed = Date.now() - lastUpdate.getTime();
+      const remaining = Math.max(0, Math.ceil((REFRESH_INTERVAL - elapsed) / 1000));
+      setCountdown(remaining);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [lastUpdate]);
 
   useEffect(() => {
     if (periodRange.from && periodRange.to) {
@@ -109,7 +140,53 @@ function DashboardTVContent() {
     }
   }, [comparisonRange]);
 
-  const { data, isLoading } = useDashboardTV(filters);
+  const { data, isLoading, dataUpdatedAt } = useDashboardTV(filters);
+
+  // Track last update time
+  useEffect(() => {
+    if (dataUpdatedAt) setLastUpdate(new Date(dataUpdatedAt));
+  }, [dataUpdatedAt]);
+
+  // Payment detection
+  useEffect(() => {
+    if (!data) return;
+    const currentPagos = data.pagos ?? 0;
+    const currentReceita = data.receitaTotal ?? 0;
+
+    if (prevPagosRef.current !== null && currentPagos > prevPagosRef.current) {
+      const diff = currentReceita - (prevReceitaRef.current ?? 0);
+      playPaymentDing();
+      setPaymentFlash(true);
+      setPaymentBadge(`💰 +${fmtCurrency(diff)}`);
+      setTimeout(() => setPaymentFlash(false), 3000);
+      setTimeout(() => setPaymentBadge(null), 4000);
+    }
+    prevPagosRef.current = currentPagos;
+    prevReceitaRef.current = currentReceita;
+  }, [data?.pagos, data?.receitaTotal]);
+
+  // Goal celebration detection
+  useEffect(() => {
+    if (!data?.metas) return;
+    const metas = data.metas;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const month = format(new Date(), 'yyyy-MM');
+
+    let celebrated: Record<string, boolean> = {};
+    try {
+      celebrated = JSON.parse(localStorage.getItem(CELEBRATION_KEY) || '{}');
+    } catch {}
+
+    // Daily goal check
+    if (metas.valor_os > 0 && (data.receitaTotal ?? 0) >= metas.valor_os && !celebrated[`daily-${today}`]) {
+      celebrated[`daily-${today}`] = true;
+      localStorage.setItem(CELEBRATION_KEY, JSON.stringify(celebrated));
+      setCelebrationMessage('META DIÁRIA ATINGIDA!');
+      setCelebrationActive(true);
+      playCelebrationFanfare();
+    }
+    // Monthly goal (simplified: check if monthly target exists in metas section goals)
+  }, [data?.receitaTotal, data?.metas]);
 
   const { data: prestadores } = useQuery({
     queryKey: ['prestadores-list'],
@@ -130,14 +207,14 @@ function DashboardTVContent() {
 
   if (isLoading || !data) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white p-6 space-y-4">
-        <Skeleton className="h-16 w-full bg-gray-800" />
+      <div className="min-h-screen bg-[#050D1A] text-white p-6 space-y-4">
+        <Skeleton className="h-16 w-full bg-gray-800/50" />
         <div className="grid grid-cols-3 gap-4">
-          <Skeleton className="h-40 bg-gray-800" />
-          <Skeleton className="h-40 bg-gray-800" />
-          <Skeleton className="h-40 bg-gray-800" />
+          <Skeleton className="h-40 bg-gray-800/50" />
+          <Skeleton className="h-40 bg-gray-800/50" />
+          <Skeleton className="h-40 bg-gray-800/50" />
         </div>
-        <Skeleton className="h-32 bg-gray-800" />
+        <Skeleton className="h-32 bg-gray-800/50" />
       </div>
     );
   }
@@ -155,12 +232,12 @@ function DashboardTVContent() {
   const conversaoTotal = (data?.cliquesAnuncios ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.cliquesAnuncios) * 100 : ((data?.conversasIniciadas ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.conversasIniciadas) * 100 : 0);
 
   const funnelSteps = [
-    { label: 'Cliques', icon: '🎯', value: data?.cliquesAnuncios ?? 0, variation: variations.cliquesAnuncios ?? null, prev: previous.cliquesAnuncios ?? 0, color: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30' },
-    { label: 'Conversas', icon: '💬', value: data?.conversasIniciadas ?? 0, variation: variations.conversasIniciadas ?? null, prev: previous.conversasIniciadas ?? 0, color: 'from-blue-500/20 to-blue-500/5 border-blue-500/30' },
-    { label: 'FS Criadas', icon: '📋', value: data?.fsCriadas ?? 0, variation: variations.fsCriadas ?? null, prev: previous.fsCriadas ?? 0, color: 'from-violet-500/20 to-violet-500/5 border-violet-500/30' },
-    { label: 'Agendados', icon: '📅', value: data?.agendados ?? 0, variation: variations.agendados ?? null, prev: previous.agendados ?? 0, color: 'from-amber-500/20 to-amber-500/5 border-amber-500/30' },
-    { label: 'Executados', icon: '✅', value: data?.executados ?? 0, variation: variations.executados ?? null, prev: previous.executados ?? 0, color: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/30' },
-    { label: 'Pagos', icon: '💰', value: data?.pagos ?? 0, variation: variations.pagos ?? null, prev: previous.pagos ?? 0, color: 'from-green-500/20 to-green-500/5 border-green-500/30' },
+    { label: 'Cliques', icon: '🎯', value: data?.cliquesAnuncios ?? 0, variation: variations.cliquesAnuncios ?? null, prev: previous.cliquesAnuncios ?? 0, color: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/40' },
+    { label: 'Conversas', icon: '💬', value: data?.conversasIniciadas ?? 0, variation: variations.conversasIniciadas ?? null, prev: previous.conversasIniciadas ?? 0, color: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/40' },
+    { label: 'FS Criadas', icon: '📋', value: data?.fsCriadas ?? 0, variation: variations.fsCriadas ?? null, prev: previous.fsCriadas ?? 0, color: 'from-violet-500/20 to-violet-500/5 border-violet-500/40' },
+    { label: 'Agendados', icon: '📅', value: data?.agendados ?? 0, variation: variations.agendados ?? null, prev: previous.agendados ?? 0, color: 'from-amber-500/20 to-amber-500/5 border-amber-500/40' },
+    { label: 'Executados', icon: '✅', value: data?.executados ?? 0, variation: variations.executados ?? null, prev: previous.executados ?? 0, color: 'from-blue-500/20 to-blue-500/5 border-blue-500/40' },
+    { label: 'Pagos', icon: '💰', value: data?.pagos ?? 0, variation: variations.pagos ?? null, prev: previous.pagos ?? 0, color: 'from-green-500/20 to-green-500/5 border-green-500/40' },
   ];
 
   const conversionCards = [
@@ -202,13 +279,15 @@ function DashboardTVContent() {
   };
 
   const enabledBlocks = [...blocks].filter(b => b.enabled).sort((a, b) => a.order - b.order);
-  const isBlockEnabled = (id: string) => enabledBlocks.some(b => b.id === id);
+
+  // Neon card class
+  const neonCard = 'bg-[#0A1628]/80 backdrop-blur-md border border-cyan-500/15 rounded-xl shadow-[0_0_15px_rgba(0,212,255,0.05)]';
 
   const renderBlock = (blockId: string) => {
     switch (blockId) {
       case 'kpis-principais':
         return (
-          <section key={blockId} className="grid grid-cols-3 gap-3 px-4 py-3">
+          <section key={blockId} className="grid grid-cols-3 gap-3 p-4">
             {[
               {
                 label: 'Receita Total', value: fmtCurrency(data?.receitaTotal ?? 0),
@@ -216,6 +295,7 @@ function DashboardTVContent() {
                 prevValue: fmtCurrency(previous.receitaTotal ?? 0),
                 meta: metas?.valor_os, progress: metas?.valor_os ? Math.min(((data?.receitaTotal ?? 0) / metas.valor_os) * 100, 100) : null,
                 sub: `Ticket Médio: ${fmtCurrency(data?.ticketMedio ?? 0)}`,
+                accent: 'border-cyan-500/30',
               },
               {
                 label: 'Lucro Bruto', value: fmtCurrency(data?.lucroBruto ?? 0),
@@ -223,6 +303,7 @@ function DashboardTVContent() {
                 prevValue: fmtCurrency(previous.lucroBruto ?? 0),
                 meta: metas?.lucro_bruto, progress: metas?.lucro_bruto ? Math.min(((data?.lucroBruto ?? 0) / metas.lucro_bruto) * 100, 100) : null,
                 sub: `Margem: ${(data?.margemMedia ?? 0).toFixed(1)}%`,
+                accent: 'border-emerald-500/30',
               },
               {
                 label: 'Serviços Fechados', value: fmtNum(data?.servicosFechados ?? 0),
@@ -230,11 +311,12 @@ function DashboardTVContent() {
                 prevValue: fmtNum(previous.servicosFechados ?? 0),
                 meta: metas?.quantidade_servicos, progress: metas?.quantidade_servicos ? Math.min(((data?.servicosFechados ?? 0) / metas.quantidade_servicos) * 100, 100) : null,
                 sub: `Conv. Total: ${conversaoTotal.toFixed(1)}%`,
+                accent: 'border-violet-500/30',
               },
             ].map((kpi, i) => (
-              <div key={i} className="bg-gray-900/60 backdrop-blur border border-gray-800 rounded-xl p-4">
+              <div key={i} className={cn(neonCard, kpi.accent, 'p-4 transition-all duration-500')}>
                 <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">{kpi.label}</div>
-                <div className="text-2xl font-bold">{kpi.value}</div>
+                <div className="text-2xl font-bold text-white">{kpi.value}</div>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={cn('text-sm font-semibold', kpi.variation !== null && kpi.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                     {kpi.variation !== null ? (kpi.variation >= 0 ? '↑' : '↓') : ''} {fmtPct(kpi.variation)}
@@ -263,9 +345,9 @@ function DashboardTVContent() {
             <div className="flex items-center gap-1">
               {funnelSteps.map((step, i) => (
                 <React.Fragment key={i}>
-                  <div className={cn('flex-1 bg-gradient-to-b border rounded-lg p-2 text-center', step.color)}>
+                  <div className={cn('flex-1 bg-gradient-to-b border rounded-lg p-2 text-center backdrop-blur-sm', step.color)}>
                     <div className="text-lg">{step.icon}</div>
-                    <div className="text-xl font-bold">{fmtNum(step.value)}</div>
+                    <div className="text-xl font-bold text-white">{fmtNum(step.value)}</div>
                     <div className="text-[10px] text-gray-300">{step.label}</div>
                     <div className="flex items-center justify-center gap-1">
                       <span className={cn('text-[10px] font-semibold', step.variation !== null && step.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
@@ -274,7 +356,7 @@ function DashboardTVContent() {
                       <span className="text-[9px] text-gray-500">({fmtNum(step.prev)})</span>
                     </div>
                   </div>
-                  {i < funnelSteps.length - 1 && <span className="text-gray-600 text-lg">→</span>}
+                  {i < funnelSteps.length - 1 && <span className="text-cyan-500/40 text-lg">→</span>}
                 </React.Fragment>
               ))}
             </div>
@@ -293,7 +375,7 @@ function DashboardTVContent() {
                 const pct = c.value;
                 const status = pct >= c.meta * 0.9 ? 'emerald' : pct >= c.meta * 0.7 ? 'amber' : 'red';
                 return (
-                  <div key={i} className="bg-gray-900/60 border border-gray-800 rounded-lg p-2 text-center">
+                  <div key={i} className={cn(neonCard, 'p-2 text-center')}>
                     <div className="text-[10px] text-gray-400 truncate">{c.label}</div>
                     <div className={cn('text-lg font-bold', `text-${status}-400`)}>{pct.toFixed(1)}%</div>
                     <div className="text-[9px] text-gray-500">{c.calc}</div>
@@ -315,7 +397,7 @@ function DashboardTVContent() {
                 const hasValue = t.value !== null;
                 const emoji = hasValue ? statusEmoji(t.value!, t.target, false) : '—';
                 return (
-                  <div key={i} className="bg-gray-900/60 border border-gray-800 rounded-lg p-2 text-center">
+                  <div key={i} className={cn(neonCard, 'p-2 text-center')}>
                     <div className="text-lg">{t.icon}</div>
                     <div className="text-[10px] text-gray-400">{t.label}</div>
                     <div className={cn('text-lg font-bold', hasValue ? statusColor(t.value!, t.target, false) : 'text-gray-500')}>
@@ -337,7 +419,7 @@ function DashboardTVContent() {
               📞 Conversas em Aberto — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+              <div className={cn(neonCard, 'p-3')}>
                 <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Quantidade por Status</div>
                 <div className="space-y-1.5">
                   {(data.conversasAbertas.porStatus || []).map((s, i) => {
@@ -346,7 +428,7 @@ function DashboardTVContent() {
                       <div key={i} className="flex items-center gap-2">
                         <div className="flex-1 flex items-center gap-2 min-w-0">
                           <span className="text-xs text-gray-300 truncate w-[140px]">{s.status}</span>
-                          <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+                          <div className="flex-1 bg-gray-800/60 rounded-full h-2 overflow-hidden">
                             <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                           </div>
                         </div>
@@ -359,7 +441,7 @@ function DashboardTVContent() {
                   )}
                 </div>
               </div>
-              <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+              <div className={cn(neonCard, 'p-3')}>
                 <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">🔥 Aguardando Resposta — Mais Tempo</div>
                 <div className="space-y-1 max-h-[160px] overflow-y-auto">
                   {(data.conversasAbertas.rankingSemResposta || []).map((c, i) => {
@@ -404,31 +486,52 @@ function DashboardTVContent() {
     }
   };
 
+  const countdownMin = Math.floor(countdown / 60);
+  const countdownSec = countdown % 60;
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white overflow-hidden">
+    <div
+      className={cn(
+        'min-h-screen bg-[#050D1A] text-white overflow-hidden transition-all',
+        paymentFlash && 'ring-4 ring-emerald-400/60 ring-inset animate-pulse'
+      )}
+      style={{
+        padding: `${monitorSettings.safeZone * 0.5}%`,
+        fontSize: `${monitorSettings.fontSize}%`,
+        filter: `brightness(${monitorSettings.brightness}%)`,
+      }}
+    >
       {/* HEADER */}
-      <header className="bg-gray-900/80 backdrop-blur border-b border-gray-800 px-4 py-2">
+      <header className="bg-[#0A1628]/90 backdrop-blur-md border-b border-cyan-500/10 px-4 py-2">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <img src={logoGreen} alt="24Help" className="h-7" />
-            <span className="text-sm font-bold tracking-wider text-gray-300 uppercase">Centro de Comando de Vendas</span>
+            <span className="text-sm font-bold tracking-wider text-cyan-300 uppercase">Centro de Comando de Vendas</span>
           </div>
           <div className="flex items-center gap-3">
             <TVLayoutCustomizer />
+            <Button variant="outline" size="sm" onClick={() => setMonitorOpen(true)} className="h-7 text-xs bg-gray-800/80 border-gray-700 gap-1 hover:bg-gray-700 text-gray-300">
+              <Settings className="h-3 w-3" />
+            </Button>
             <span className="flex items-center gap-1.5 text-xs">
               <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
               <span className="text-red-400 font-medium">AO VIVO</span>
             </span>
-            <span className="text-xs text-gray-400 font-mono">
-              {format(clock, "dd MMM yyyy HH:mm:ss", { locale: ptBR }).toUpperCase()}
-            </span>
+            <div className="text-right">
+              <span className="text-xs text-gray-400 font-mono block">
+                {format(clock, "dd MMM yyyy HH:mm:ss", { locale: ptBR }).toUpperCase()}
+              </span>
+              <span className="text-[9px] text-gray-500">
+                Atualizado: {format(lastUpdate, 'HH:mm')} · Próx: {countdownMin}:{String(countdownSec).padStart(2, '0')}
+              </span>
+            </div>
           </div>
         </div>
         {/* FILTERS ROW */}
         <div className="flex items-center gap-2 flex-wrap">
           <Popover open={periodOpen} onOpenChange={setPeriodOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="h-7 bg-gray-800 border-gray-700 text-xs gap-1.5">
+              <Button variant="outline" className="h-7 bg-gray-800/80 border-cyan-500/20 text-xs gap-1.5 text-gray-300">
                 <CalendarIcon className="h-3 w-3" />
                 <span>Período: {formatRangeLabel(periodRange)}</span>
               </Button>
@@ -466,7 +569,7 @@ function DashboardTVContent() {
 
           <Popover open={comparisonOpen} onOpenChange={setComparisonOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="h-7 bg-gray-800 border-gray-700 text-xs gap-1.5">
+              <Button variant="outline" className="h-7 bg-gray-800/80 border-cyan-500/20 text-xs gap-1.5 text-gray-300">
                 <CalendarIcon className="h-3 w-3" />
                 <span>{comparisonRange?.from && comparisonRange?.to ? `Comparar: ${formatRangeLabel(comparisonRange)}` : 'Comparar...'}</span>
               </Button>
@@ -521,14 +624,14 @@ function DashboardTVContent() {
           </Popover>
 
           {periodInfo && (
-            <Badge variant="outline" className="h-6 text-[10px] border-gray-600 text-gray-300 font-normal">
+            <Badge variant="outline" className="h-6 text-[10px] border-cyan-500/20 text-gray-300 font-normal">
               {periodInfo.corridos}d | {periodInfo.uteis} DU
             </Badge>
           )}
           {compInfo && (
             <>
               <span className="text-[10px] text-gray-500">vs</span>
-              <Badge variant="outline" className="h-6 text-[10px] border-gray-600 text-gray-300 font-normal">
+              <Badge variant="outline" className="h-6 text-[10px] border-cyan-500/20 text-gray-300 font-normal">
                 {compInfo.corridos}d | {compInfo.uteis} DU
               </Badge>
             </>
@@ -543,7 +646,7 @@ function DashboardTVContent() {
             <span className="text-[10px] text-gray-400">Dias úteis</span>
           </div>
           <Select value={filters.prestadorCpf || '__all'} onValueChange={v => setFilters(f => ({ ...f, prestadorCpf: v === '__all' ? undefined : v }))}>
-            <SelectTrigger className="h-7 w-[160px] bg-gray-800 border-gray-700 text-xs"><SelectValue placeholder="Todos Prestadores" /></SelectTrigger>
+            <SelectTrigger className="h-7 w-[160px] bg-gray-800/80 border-cyan-500/15 text-xs text-gray-300"><SelectValue placeholder="Todos Prestadores" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all">Todos Prestadores</SelectItem>
               {(prestadores || []).map(p => (
@@ -552,7 +655,7 @@ function DashboardTVContent() {
             </SelectContent>
           </Select>
           <Select value={filters.categoriaId?.toString() || '__all'} onValueChange={v => setFilters(f => ({ ...f, categoriaId: v === '__all' ? undefined : Number(v) }))}>
-            <SelectTrigger className="h-7 w-[150px] bg-gray-800 border-gray-700 text-xs"><SelectValue placeholder="Todas Categorias" /></SelectTrigger>
+            <SelectTrigger className="h-7 w-[150px] bg-gray-800/80 border-cyan-500/15 text-xs text-gray-300"><SelectValue placeholder="Todas Categorias" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all">Todas Categorias</SelectItem>
               {(categorias || []).map(c => (
@@ -560,7 +663,7 @@ function DashboardTVContent() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" className="h-7 text-xs bg-gray-800 border-gray-700" onClick={() => setMetasOpen(true)}>
+          <Button variant="outline" size="sm" className="h-7 text-xs bg-gray-800/80 border-cyan-500/20 text-gray-300" onClick={() => setMetasOpen(true)}>
             🎯 Metas
           </Button>
           {data?.comparisonLabel && (
@@ -569,15 +672,49 @@ function DashboardTVContent() {
         </div>
       </header>
 
-      {/* DYNAMIC BLOCKS */}
-      {enabledBlocks.map(block => (
-        <div key={block.id} className="transition-all origin-top-left" style={{ zoom: block.scale }}>
-          {renderBlock(block.id)}
+      {/* GOAL BARS */}
+      <TVGoalBars
+        dailyActual={data?.receitaTotal ?? 0}
+        dailyTarget={metas?.valor_os ?? 0}
+        monthlyActual={data?.receitaTotal ?? 0}
+        monthlyTarget={(metas?.valor_os ?? 0) * 22}
+        onEditMetas={() => setMetasOpen(true)}
+      />
+
+      {/* DYNAMIC BLOCKS - CSS GRID */}
+      <div className="grid grid-cols-6 gap-0">
+        {enabledBlocks.map(block => (
+          <div
+            key={block.id}
+            className="transition-all"
+            style={{
+              gridColumn: `span ${block.cols}`,
+              minHeight: block.minHeight > 0 ? `${block.minHeight}px` : undefined,
+            }}
+          >
+            {renderBlock(block.id)}
+          </div>
+        ))}
+      </div>
+
+      {/* PAYMENT BADGE */}
+      {paymentBadge && (
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none animate-bounce">
+          <div className="text-4xl font-black text-emerald-400 bg-emerald-500/10 backdrop-blur-sm px-8 py-4 rounded-2xl border-2 border-emerald-400/50 shadow-[0_0_40px_rgba(16,185,129,0.4)]">
+            {paymentBadge}
+          </div>
         </div>
-      ))}
+      )}
+
+      {/* CELEBRATION */}
+      <TVCelebration
+        active={celebrationActive}
+        message={celebrationMessage}
+        onComplete={() => setCelebrationActive(false)}
+      />
 
       {/* TICKER */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-gray-900/90 backdrop-blur border-t border-gray-800 px-4 py-2">
+      <footer className="fixed bottom-0 left-0 right-0 bg-[#0A1628]/90 backdrop-blur-md border-t border-cyan-500/10 px-4 py-2">
         <div className="overflow-hidden">
           <div className="animate-marquee whitespace-nowrap text-xs text-gray-300">
             {tickerItems || 'Carregando alertas...'}
@@ -586,6 +723,7 @@ function DashboardTVContent() {
       </footer>
 
       <MetasModal open={metasOpen} onClose={() => setMetasOpen(false)} />
+      <TVMonitorSettings open={monitorOpen} onClose={() => setMonitorOpen(false)} settings={monitorSettings} onUpdate={setMonitorSettings} />
 
       <style>{`
         @keyframes marquee {
@@ -604,7 +742,7 @@ function DashboardTVContent() {
           width: 4px;
           height: 4px;
           border-radius: 50%;
-          background-color: #22c55e;
+          background-color: #00FF88;
         }
       `}</style>
     </div>

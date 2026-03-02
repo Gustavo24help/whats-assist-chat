@@ -14,16 +14,17 @@ export interface TVBlock {
   icon: string;
   enabled: boolean;
   order: number;
-  scale: number; // free-form scale factor, default 1
+  cols: number; // 1-6 grid columns
+  minHeight: number; // min height in px, 0 = auto
 }
 
 const DEFAULT_TV_BLOCKS: TVBlock[] = [
-  { id: 'kpis-principais', label: 'KPIs Principais', icon: '📊', enabled: true, order: 0, scale: 1 },
-  { id: 'funil-vendas', label: 'Funil de Vendas', icon: '🔄', enabled: true, order: 1, scale: 1 },
-  { id: 'taxas-conversao', label: 'Taxas de Conversão', icon: '📈', enabled: true, order: 2, scale: 1 },
-  { id: 'metricas-tempo', label: 'Métricas de Tempo', icon: '⏱️', enabled: true, order: 3, scale: 1 },
-  { id: 'conversas-abertas', label: 'Conversas em Aberto', icon: '📞', enabled: true, order: 4, scale: 1 },
-  { id: 'metas-resultados', label: 'Metas & Resultados', icon: '🏆', enabled: true, order: 5, scale: 1 },
+  { id: 'kpis-principais', label: 'KPIs Principais', icon: '📊', enabled: true, order: 0, cols: 6, minHeight: 0 },
+  { id: 'funil-vendas', label: 'Funil de Vendas', icon: '🔄', enabled: true, order: 1, cols: 6, minHeight: 0 },
+  { id: 'taxas-conversao', label: 'Taxas de Conversão', icon: '📈', enabled: true, order: 2, cols: 6, minHeight: 0 },
+  { id: 'metricas-tempo', label: 'Métricas de Tempo', icon: '⏱️', enabled: true, order: 3, cols: 6, minHeight: 0 },
+  { id: 'conversas-abertas', label: 'Conversas em Aberto', icon: '📞', enabled: true, order: 4, cols: 6, minHeight: 0 },
+  { id: 'metas-resultados', label: 'Metas & Resultados', icon: '🏆', enabled: true, order: 5, cols: 6, minHeight: 0 },
 ];
 
 interface TVLayoutContextType {
@@ -32,12 +33,13 @@ interface TVLayoutContextType {
   setIsEditing: (v: boolean) => void;
   toggleBlock: (id: TVBlockId) => void;
   reorderBlocks: (fromIndex: number, toIndex: number) => void;
-  setBlockScale: (id: TVBlockId, scale: number) => void;
+  setBlockCols: (id: TVBlockId, cols: number) => void;
+  setBlockMinHeight: (id: TVBlockId, h: number) => void;
   resetLayout: () => void;
 }
 
 const TVLayoutContext = createContext<TVLayoutContextType | undefined>(undefined);
-const STORAGE_KEY = 'tv-dashboard-layout-v1';
+const STORAGE_KEY = 'tv-dashboard-layout-v2';
 
 export function TVLayoutProvider({ children }: { children: ReactNode }) {
   const [blocks, setBlocks] = useState<TVBlock[]>(() => {
@@ -47,7 +49,7 @@ export function TVLayoutProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(saved);
         return DEFAULT_TV_BLOCKS.map(def => {
           const s = parsed.find((b: TVBlock) => b.id === def.id);
-          return s ? { ...def, enabled: s.enabled, order: s.order } : def;
+          return s ? { ...def, enabled: s.enabled, order: s.order, cols: s.cols ?? def.cols, minHeight: s.minHeight ?? 0 } : def;
         }).sort((a, b) => a.order - b.order);
       }
     } catch {}
@@ -73,8 +75,12 @@ export function TVLayoutProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const setBlockScale = (id: TVBlockId, scale: number) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, scale: Math.max(0.5, Math.min(2.5, scale)) } : b));
+  const setBlockCols = (id: TVBlockId, cols: number) => {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, cols: Math.max(1, Math.min(6, cols)) } : b));
+  };
+
+  const setBlockMinHeight = (id: TVBlockId, h: number) => {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, minHeight: Math.max(0, h) } : b));
   };
 
   const resetLayout = () => {
@@ -83,7 +89,7 @@ export function TVLayoutProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <TVLayoutContext.Provider value={{ blocks, isEditing, setIsEditing, toggleBlock, reorderBlocks, setBlockScale, resetLayout }}>
+    <TVLayoutContext.Provider value={{ blocks, isEditing, setIsEditing, toggleBlock, reorderBlocks, setBlockCols, setBlockMinHeight, resetLayout }}>
       {children}
     </TVLayoutContext.Provider>
   );
