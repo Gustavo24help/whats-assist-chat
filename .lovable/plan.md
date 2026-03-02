@@ -1,65 +1,127 @@
 
-# Plano: Corrigir persistencia do layout TV e clarificar metricas
+# Plano: Atualizar DOCUMENTACAO.md
 
-## Problemas Identificados
+## Resumo
+Reescrever completamente o arquivo `DOCUMENTACAO.md` para refletir o estado atual do sistema, incluindo todos os modulos, paginas, componentes, edge functions, tabelas e integrações que foram adicionados desde a versao original.
 
-### 1. Layout reseta ao mudar resolucao
-O layout e salvo em `localStorage`, porem quando o usuario aplica um preset de monitor (4:3, 16:9, 21:9) em `TVMonitorSettings`, isso NAO afeta os widgets diretamente. O problema real e que o contexto `TVFreeformContext` faz merge dos widgets salvos com `DEFAULT_WIDGETS` usando `map(def => ...)` — se novos widgets foram adicionados ao codigo (como os recentes `meta-diaria-finalizados`) e nao existem no `localStorage` antigo, eles recebem posicoes default e bagunçam o layout. Alem disso, quando o usuario clica "Resetar" ou aplica um preset, **todo o layout customizado e perdido**.
+## O que sera atualizado
 
-**Solucao**: Persistir o layout no banco de dados (tabela `dashboard_metas` ou nova tabela) em vez de depender exclusivamente do `localStorage`. Isso garante que o layout sobrevive a limpeza de cache, troca de dispositivo e mudancas de codigo.
+### 1. Cabecalho e Visao Geral
+- Versao para 2.0, data para Marco 2026
+- Tabela de funcionalidades atualizada com novos modulos: Financeiro, Dashboard TV, Mensagens Internas, Avisos, Gerenciamento de Prestadores, Analise de Servicos, Manutencao, Avaliacao de Prestador, Acompanhamento de Prestador
 
-### 2. "Agendados = 3" no funil vs "Agendamentos Hoje = 2"
-Sao metricas diferentes:
-- **"Agendamentos Hoje" (widget meta)**: Conta transicoes para status 'Agendado' no dia via `ficha_status_historico` = **2 fichas** (FS3-260302 e FS4-260302). Correto.
-- **"Agendados" no funil**: Conta fichas com status ATUAL 'Agendado' ou 'Visita Tecnica' + finalizados (`agendadosRes.count + servicosFechados`). Isso inclui fichas que foram criadas no periodo filtrado e estao nesses status agora. E uma metrica diferente.
+### 2. Diagrama de Arquitetura
+- Adicionar modulo Financeiro (transacoes, adiantamentos, conta corrente)
+- Adicionar Dashboard TV com freeform canvas
+- Adicionar Mensagens Internas
+- Adicionar webhook-financeiro (Make)
+- Adicionar modulo de sincronizacao de mensagens Twilio
+- Atualizar storage buckets (chat-files + avisos-images)
 
-### 3. "Meta diaria finalizados = 2"
-Correto. Existem 2 transicoes para 'Finalizado' hoje: FGM4@260203 e FS4-260226.
+### 3. Estrutura de Diretorios
+- Adicionar `src/components/dashboard/tv/` (10 arquivos)
+- Adicionar `src/components/financeiro/` (5 arquivos)
+- Adicionar `src/components/internal-chat/` (3 arquivos)
+- Adicionar novos componentes raiz: `AcompanhamentoTab`, `AvaliacaoPrestadorFlowPanel`, `AvaliacaoPrestadorMetricsKPIs`, `FerramentasManutencao`, `PopupConfirmacaoFinanceira`, `TakeoverRequestDialog`, `TakeoverWaitingDialog`, `OrcamentosSemFichaNotification`
+- Adicionar novos contextos: `TVFreeformContext`, `TVLayoutContext`
+- Adicionar novos hooks: `useDashboardTV`
+- Adicionar novos utilitarios: `businessDays2026.ts`, `tvSounds.ts`
 
-## Solucao Tecnica
+### 4. Paginas da Aplicacao (Secao 4)
+Adicionar 8 paginas novas com rota, acesso e descricao:
+- `/dashboard-tv` - DashboardTV (Monitor TV com widgets freeform)
+- `/gerenciamento-prestadores` - GerenciamentoPrestadores
+- `/gerenciamento-prestadores/:cpf` - PrestadorDetalhes
+- `/analise-servicos` - AnaliseServicos
+- `/manutencao` - Manutencao (ferramentas de manutencao do sistema)
+- `/avisos` - Avisos (mural de avisos internos)
+- `/mensagens` - MensagensInternas (chat interno entre operadores)
+- `/financeiro` - Financeiro (gestao financeira completa)
 
-### Etapa 1: Persistir layout no banco de dados
+### 5. Componentes Principais (Secao 5)
+Adicionar documentacao para:
+- **Modulo Dashboard TV**: TVFreeformCanvas, TVAutoSizeWidget, TVLayoutCustomizer, TVWidgetProperties, TVMonitorSettings, TVGoalBars, TVCelebration, MetaGaugeCard, MetasModal, MetasResultadosSection
+- **Modulo Financeiro**: FinanceiroKPIs, HistoricoTransacoes, ContaCorrenteTab, AdiantamentosTab, NovoAdiantamentoDialog, PopupConfirmacaoFinanceira
+- **Modulo Mensagens Internas**: InternalChatList, InternalChatWindow, NewInternalChatDialog
+- **Acompanhamento do Prestador**: AcompanhamentoTab (comparecimento: Foi, Atrasou, Faltou)
+- **Avaliacao do Prestador**: AvaliacaoPrestadorFlowPanel, AvaliacaoPrestadorMetricsKPIs
+- **Takeover de Conversas**: TakeoverRequestDialog, TakeoverWaitingDialog
+- Atualizar FichaServicoTab com secao de comparecimento_prestador
 
-Criar tabela `tv_layouts` para salvar configuracoes de layout:
+### 6. Contextos React (Secao 6)
+Adicionar:
+- `TVFreeformContext` - layout freeform do Dashboard TV (widgets arrastáveis, presets, salvamento no banco via tabela tv_layouts)
+- `TVLayoutContext` - configuracoes gerais do TV
 
-```text
-tv_layouts
-  - id: uuid (PK)
-  - user_id: uuid (ref auth.users)
-  - nome: text
-  - widgets: jsonb
-  - is_default: boolean (default false)
-  - created_at: timestamptz
-  - updated_at: timestamptz
-```
+### 7. Hooks (Secao 7)
+Adicionar:
+- `useDashboardTV` - dados para o dashboard TV
 
-RLS: usuarios autenticados podem CRUD nos proprios layouts.
+### 8. Edge Functions (Secao 8)
+Adicionar 9 edge functions novas:
+- `monitor-mensagens` - monitoramento de mensagens
+- `sync-messages` - sincronizacao de mensagens
+- `sync-twilio-messages` - sync direto com Twilio
+- `sync-twilio-messages-com-recuperacao` - sync com recuperacao de falhas
+- `recover-message-sids` - recupera SIDs faltantes
+- `force-recover-message-sids` - forcas recuperacao de SIDs
+- `reprocess-backup-queue` - reprocessa fila de backup de mensagens
+- `update-message-status` - atualiza status de mensagens
+- `webhook-financeiro` - webhook para integracao financeira com Make
 
-### Etapa 2: Atualizar TVFreeformContext
+### 9. Modelo de Dados (Secao 9)
+Adicionar tabelas novas:
+- `transacoes_financeiras` (financeiro completo)
+- `descontos_ajustes`
+- `conta_corrente_prestador`
+- `adiantamentos`
+- `avaliacao_prestador`
+- `tv_layouts` (layouts do dashboard TV por usuario)
+- `avisos` e `aviso_leituras`
+- `internal_conversations`, `internal_conversation_members`, `internal_messages`
+- `takeover_requests`
+- `mensagens_backup_queue` e `mensagens_backup_27fev`
+- `twilio_sync_control`
+- `dashboard_metas` (metas diarias e mensais)
+- `webhook_debug_logs`
+- Atualizar `fichas_de_servico` com campo `comparecimento_prestador`
 
-- Ao iniciar, carregar o layout marcado como `is_default` do banco (fallback para `localStorage`, depois `DEFAULT_WIDGETS`)
-- Ao salvar/editar layout, gravar no banco automaticamente
-- `saveLayout` e `loadLayout` usam a tabela `tv_layouts`
-- Manter `localStorage` como cache local para carregamento instantaneo, mas a fonte de verdade passa a ser o banco
-- Ao sair do modo de edicao, auto-salvar o layout atual
+Adicionar funcoes do banco:
+- `calculate_conversas_iniciadas`
+- `is_internal_conversation_member`
+- `adicionar_dias_uteis`
+- `arredondar_para_8`
 
-### Etapa 3: Clarificar widgets do funil
+### 10. Fluxos de Negocio (Secao 10)
+Adicionar fluxos:
+- **Fluxo Financeiro**: criacao de transacao, calculo de margem, pagamento prestador/cliente, adiantamentos, conta corrente
+- **Fluxo de Takeover**: solicitacao, aprovacao, transferencia de conversa
+- **Fluxo de Acompanhamento**: registro de comparecimento do prestador
+- **Fluxo de Avaliacao do Prestador**: envio, resposta, classificacao
+- **Fluxo de Sincronizacao de Mensagens**: sync-twilio, backup queue, recuperacao
 
-Renomear o widget do funil de "Agendados" para algo como "Status Agendado" ou adicionar tooltip, para nao confundir com "Agendamentos" (transicoes). O funil conta fichas no **status atual**, enquanto as metas contam **transicoes** no dia.
+### 11. Integracoes Externas (Secao 11)
+Atualizar:
+- Adicionar webhook-financeiro (Make) para sincronizacao financeira
+- Detalhar fluxo de sincronizacao de mensagens Twilio (sync bidirecional)
+- Documentar storage bucket `avisos-images`
 
-### Etapa 4: Metas — garantir que save funciona
+### 12. Nova secao: Trocas de Informacoes
+Criar secao dedicada documentando:
+- **Entradas externas**: Twilio webhooks, formulario publico de orcamento, portal do prestador, Google Ads sync
+- **Saidas externas**: Envio de mensagens WhatsApp, webhooks para Make (orcamento + financeiro), templates WhatsApp
+- **Trocas internas**: Realtime subscriptions (mensagens, orcamentos, avisos), RLS policies por role, triggers do banco (status historico, bot reactivation, mark first orcamento)
 
-Verificar se o `upsert` no `MetasModal` funciona corretamente. O `onConflict: 'tipo'` exige que `tipo` tenha constraint UNIQUE. Verificar e criar se necessario.
+### 13. Utilitarios (Secao 12)
+Adicionar:
+- `businessDays2026.ts` - calculo de dias uteis 2026
+- `tvSounds.ts` - sons de celebracao para o Dashboard TV
+
+### 14. Atualizar secao de Troubleshooting
+Adicionar cenarios para novos modulos (financeiro, TV, mensagens internas)
 
 ## Arquivos a editar
+- `DOCUMENTACAO.md` (reescrita completa)
 
-1. **Migracao SQL**: Criar tabela `tv_layouts` + politicas RLS + indice unique em `dashboard_metas(tipo)`
-2. **`src/contexts/TVFreeformContext.tsx`**: Carregar/salvar layouts do banco, auto-save ao sair da edicao
-3. **`src/pages/DashboardTV.tsx`**: Ajustar labels dos widgets do funil para diferenciar de metas
-
-## O que NAO sera alterado
-
-- Logica de calculo das metas (ficha_status_historico)
-- Posicoes default dos widgets
-- Monitor settings (fontSize, brightness, safeZone)
-- Dados existentes no banco
+## Nenhum dado existente sera modificado
+Apenas o arquivo de documentacao sera atualizado. Nenhuma tabela, componente ou funcao sera alterada.
