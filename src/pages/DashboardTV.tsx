@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useDashboardTV, TVFilters, TVPeriod, TVComparison } from '@/hooks/useDashboardTV';
+import React, { useState, useEffect, useRef } from 'react';
+import { useDashboardTV, TVFilters } from '@/hooks/useDashboardTV';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { MetasModal } from '@/components/dashboard/tv/MetasModal';
@@ -8,10 +8,10 @@ import { TVFreeformCanvas } from '@/components/dashboard/tv/TVFreeformCanvas';
 import { TVWidgetProperties } from '@/components/dashboard/tv/TVWidgetProperties';
 import { MetasResultadosSection } from '@/components/dashboard/tv/MetasResultadosSection';
 import { TVCelebration } from '@/components/dashboard/tv/TVCelebration';
-import { TVGoalBars } from '@/components/dashboard/tv/TVGoalBars';
+import { TVAutoSizeWidget } from '@/components/dashboard/tv/TVAutoSizeWidget';
 import { TVMonitorSettings, useMonitorSettings } from '@/components/dashboard/tv/TVMonitorSettings';
 import { playPaymentDing, playCelebrationFanfare } from '@/lib/tvSounds';
-import { format, differenceInCalendarDays, startOfDay, startOfMonth, endOfMonth, subDays, subMonths, endOfDay } from 'date-fns';
+import { format, differenceInCalendarDays, startOfMonth, endOfMonth, subDays, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { getWeekdayName, isBusinessDay, getBusinessDaysInRange } from '@/lib/businessDays2026';
+import { isBusinessDay, getBusinessDaysInRange } from '@/lib/businessDays2026';
 import { Calendar as CalendarIcon, Settings, Pencil, X } from 'lucide-react';
 import logoGreen from '@/assets/logo-green.png';
 
@@ -196,10 +196,10 @@ function DashboardTVContent() {
     return (
       <div className="min-h-screen bg-[#050D1A] text-white p-6 space-y-4">
         <Skeleton className="h-16 w-full bg-gray-800/50" />
-        <div className="grid grid-cols-3 gap-4">
-          <Skeleton className="h-40 bg-gray-800/50" />
-          <Skeleton className="h-40 bg-gray-800/50" />
-          <Skeleton className="h-40 bg-gray-800/50" />
+        <div className="grid grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 bg-gray-800/50" />
+          ))}
         </div>
       </div>
     );
@@ -217,39 +217,309 @@ function DashboardTVContent() {
   const taxaExecAgend = (data?.agendados ?? 0) > 0 ? ((data?.executados ?? 0) / data!.agendados) * 100 : 0;
   const conversaoTotal = (data?.cliquesAnuncios ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.cliquesAnuncios) * 100 : ((data?.conversasIniciadas ?? 0) > 0 ? ((data?.pagos ?? 0) / data!.conversasIniciadas) * 100 : 0);
 
-  const funnelSteps = [
-    { label: 'Cliques', icon: '🎯', value: data?.cliquesAnuncios ?? 0, variation: variations.cliquesAnuncios ?? null, prev: previous.cliquesAnuncios ?? 0, color: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/40' },
-    { label: 'Conversas', icon: '💬', value: data?.conversasIniciadas ?? 0, variation: variations.conversasIniciadas ?? null, prev: previous.conversasIniciadas ?? 0, color: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/40' },
-    { label: 'FS Criadas', icon: '📋', value: data?.fsCriadas ?? 0, variation: variations.fsCriadas ?? null, prev: previous.fsCriadas ?? 0, color: 'from-violet-500/20 to-violet-500/5 border-violet-500/40' },
-    { label: 'Agendados', icon: '📅', value: data?.agendados ?? 0, variation: variations.agendados ?? null, prev: previous.agendados ?? 0, color: 'from-amber-500/20 to-amber-500/5 border-amber-500/40' },
-    { label: 'Executados', icon: '✅', value: data?.executados ?? 0, variation: variations.executados ?? null, prev: previous.executados ?? 0, color: 'from-blue-500/20 to-blue-500/5 border-blue-500/40' },
-    { label: 'Pagos', icon: '💰', value: data?.pagos ?? 0, variation: variations.pagos ?? null, prev: previous.pagos ?? 0, color: 'from-green-500/20 to-green-500/5 border-green-500/40' },
-  ];
+  // ----- Individual Widget Renderers -----
 
-  const conversionCards = [
-    { label: 'Agendados / FS', value: taxaAgendFS, meta: metas?.taxa_fs_agendado || 25, calc: `${data?.agendados ?? 0} / ${data?.fsCriadas ?? 0}` },
-    { label: 'Pagos / FS', value: taxaPagosFS, meta: 20, calc: `${data?.pagos ?? 0} / ${data?.fsCriadas ?? 0}` },
-    { label: 'Pagos / Agendados', value: taxaPagosAgend, meta: metas?.taxa_agendado_pago || 85, calc: `${data?.pagos ?? 0} / ${data?.agendados ?? 0}` },
-    { label: 'Pagos / Cliques', value: taxaPagosCliques, meta: metas?.taxa_conversao_total || 10, calc: `${data?.pagos ?? 0} / ${data?.cliquesAnuncios ?? 0}` },
-    { label: 'Conversas / Cliques', value: taxaConvCliques, meta: 60, calc: `${data?.conversasIniciadas ?? 0} / ${data?.cliquesAnuncios ?? 0}` },
-    { label: 'Executados / Agendados', value: taxaExecAgend, meta: 90, calc: `${data?.executados ?? 0} / ${data?.agendados ?? 0}` },
-  ];
+  const renderKPIWidget = (
+    label: string, value: string, variation: number | null, prevValue: string,
+    sub: string, accent: string, meta?: number, progress?: number | null, metaLabel?: string,
+  ) => (
+    <TVAutoSizeWidget neonBorder={accent}>
+      {(dims) => (
+        <div className="w-full h-full flex flex-col justify-center" style={{ padding: dims.padding }}>
+          <div className="text-gray-400 uppercase tracking-wider truncate" style={{ fontSize: dims.labelFontSize }}>{label}</div>
+          <div className="font-bold text-white leading-none mt-1" style={{ fontSize: dims.valueFontSize }}>{value}</div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={cn('font-semibold', variation !== null && variation >= 0 ? 'text-emerald-400' : 'text-red-400')} style={{ fontSize: dims.subFontSize }}>
+              {variation !== null ? (variation >= 0 ? '↑' : '↓') : ''} {fmtPct(variation)}
+            </span>
+            <span className="text-gray-500" style={{ fontSize: Math.max(7, dims.subFontSize * 0.8) }}>ant: {prevValue}</span>
+          </div>
+          <div className="text-gray-500 mt-0.5" style={{ fontSize: dims.subFontSize }}>{sub}</div>
+          {progress !== null && progress !== undefined && (
+            <div className="mt-auto pt-1">
+              <div className="flex justify-between text-gray-500" style={{ fontSize: Math.max(7, dims.subFontSize * 0.8) }}>
+                <span>Meta: {metaLabel || '—'}</span>
+                <span>{progress.toFixed(0)}%</span>
+              </div>
+              <Progress value={progress} className="h-1.5" />
+            </div>
+          )}
+        </div>
+      )}
+    </TVAutoSizeWidget>
+  );
 
-  const timeCards = [
-    { label: 'Tempo Resposta', value: data?.tempoRespostaMin ?? null, unit: 'min', target: metas?.tempo_resposta_max || 60, icon: '⚡' },
-    { label: 'Recebimento Orçamento', value: data?.tempoOrcamentoMin ?? null, unit: 'min', target: metas?.tempo_orcamento_max || 120, icon: '🎯' },
-    { label: 'FS → Agendado', value: data?.tempoFSAgendadoDias ?? null, unit: 'dias', target: 2, icon: '📅' },
-    { label: 'Agendado → Executado', value: data?.tempoAgendadoExecDias ?? null, unit: 'dias', target: 3, icon: '🔄' },
-    { label: 'Ciclo Completo', value: data?.tempoCicloCompletoDias ?? null, unit: 'dias', target: 7, icon: '🎪' },
-  ];
+  const renderFunnelWidget = (
+    label: string, icon: string, value: number, variation: number | null,
+    prev: number, borderColor: string,
+  ) => (
+    <TVAutoSizeWidget neonBorder={borderColor}>
+      {(dims) => (
+        <div className="w-full h-full flex flex-col items-center justify-center" style={{ padding: dims.padding }}>
+          <div style={{ fontSize: dims.iconSize }}>{icon}</div>
+          <div className="font-bold text-white leading-none mt-1" style={{ fontSize: dims.valueFontSize }}>{fmtNum(value)}</div>
+          <div className="text-gray-300 mt-1" style={{ fontSize: dims.labelFontSize }}>{label}</div>
+          <div className="flex items-center gap-1 mt-1">
+            <span className={cn('font-semibold', variation !== null && variation >= 0 ? 'text-emerald-400' : 'text-red-400')} style={{ fontSize: dims.subFontSize }}>
+              {fmtPct(variation)}
+            </span>
+            <span className="text-gray-500" style={{ fontSize: Math.max(7, dims.subFontSize * 0.85) }}>({fmtNum(prev)})</span>
+          </div>
+        </div>
+      )}
+    </TVAutoSizeWidget>
+  );
 
-  const tickerItems = [
-    (data?.orcamentosPendentes2h ?? 0) > 0 ? `🔥 ${data!.orcamentosPendentes2h} orçamentos pendentes >2h` : null,
-    data?.proximaMeta ? `🎯 ${data.proximaMeta}` : null,
-    data?.npsGeral != null ? `⭐ NPS Geral: ${data.npsGeral.toFixed(1)}` : null,
-    data?.avaliacaoMediaPrestadores != null ? `👷 Avaliação Prestadores: ${data.avaliacaoMediaPrestadores.toFixed(1)}` : null,
-  ].filter(Boolean).join('   |   ');
+  const renderConversionWidget = (
+    label: string, value: number, meta: number, calc: string,
+  ) => {
+    const pct = value;
+    const status = pct >= meta * 0.9 ? 'emerald' : pct >= meta * 0.7 ? 'amber' : 'red';
+    const borderColor = `border-${status}-500/30`;
+    return (
+      <TVAutoSizeWidget neonBorder={borderColor}>
+        {(dims) => (
+          <div className="w-full h-full flex flex-col items-center justify-center" style={{ padding: dims.padding }}>
+            <div className="text-gray-400 truncate text-center" style={{ fontSize: dims.labelFontSize }}>{label}</div>
+            <div className={cn('font-bold leading-none mt-1', `text-${status}-400`)} style={{ fontSize: dims.valueFontSize }}>
+              {pct.toFixed(1)}%
+            </div>
+            <div className="text-gray-500 mt-1" style={{ fontSize: dims.subFontSize }}>{calc}</div>
+            <div className="w-full mt-auto pt-1">
+              <Progress value={Math.min((pct / meta) * 100, 100)} className="h-1" />
+              <div className="text-gray-500 text-center mt-0.5" style={{ fontSize: Math.max(7, dims.subFontSize * 0.85) }}>Meta: {meta}%</div>
+            </div>
+          </div>
+        )}
+      </TVAutoSizeWidget>
+    );
+  };
 
+  const renderTimeWidget = (
+    label: string, icon: string, value: number | null, unit: string, target: number,
+  ) => {
+    const hasValue = value !== null;
+    const emoji = hasValue ? statusEmoji(value!, target, false) : '—';
+    return (
+      <TVAutoSizeWidget neonBorder={hasValue ? (value! <= target * 1.1 ? 'border-emerald-500/30' : 'border-red-500/30') : 'border-gray-500/20'}>
+        {(dims) => (
+          <div className="w-full h-full flex flex-col items-center justify-center" style={{ padding: dims.padding }}>
+            <div style={{ fontSize: dims.iconSize }}>{icon}</div>
+            <div className="text-gray-400 mt-1" style={{ fontSize: dims.labelFontSize }}>{label}</div>
+            <div className={cn('font-bold leading-none mt-1', hasValue ? statusColor(value!, target, false) : 'text-gray-500')} style={{ fontSize: dims.valueFontSize }}>
+              {hasValue ? `${value} ${unit}` : 'S/D'} {hasValue ? emoji : ''}
+            </div>
+            <div className="text-gray-500 mt-1" style={{ fontSize: dims.subFontSize }}>Meta: {'<'}{target} {unit}</div>
+          </div>
+        )}
+      </TVAutoSizeWidget>
+    );
+  };
+
+  const renderGoalBar = (label: string, actual: number, target: number) => {
+    const pct = target > 0 ? Math.min((actual / target) * 100, 120) : 0;
+    const barPct = Math.min(pct, 100);
+    const barColor = pct >= 100 ? 'from-emerald-400 to-emerald-500' : pct >= 80 ? 'from-amber-400 to-yellow-500' : pct >= 50 ? 'from-cyan-400 to-blue-500' : 'from-red-400 to-red-500';
+    const glowColor = pct >= 100 ? 'shadow-[0_0_15px_rgba(16,185,129,0.5)]' : pct >= 80 ? 'shadow-[0_0_15px_rgba(245,158,11,0.4)]' : '';
+    const borderColor = pct >= 100 ? 'border-emerald-500/30' : pct >= 80 ? 'border-amber-500/30' : 'border-cyan-500/15';
+
+    return (
+      <TVAutoSizeWidget neonBorder={borderColor}>
+        {(dims) => (
+          <div className="w-full h-full flex flex-col justify-center" style={{ padding: dims.padding }}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-semibold text-gray-300" style={{ fontSize: dims.labelFontSize }}>{label}</span>
+              <span className={cn('font-bold', pct >= 100 ? 'text-emerald-400' : pct >= 80 ? 'text-amber-400' : 'text-gray-400')} style={{ fontSize: dims.valueFontSize * 0.6 }}>
+                {pct.toFixed(0)}%
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-white font-bold" style={{ fontSize: dims.valueFontSize * 0.7 }}>{fmtCurrency(actual)}</span>
+              <span className="text-gray-500" style={{ fontSize: dims.subFontSize }}>/ {fmtCurrency(target)}</span>
+            </div>
+            <div className={cn('rounded-full bg-gray-800/80 overflow-hidden', glowColor)} style={{ height: Math.max(6, dims.height * 0.08) }}>
+              <div
+                className={cn('h-full rounded-full bg-gradient-to-r transition-all duration-1000 ease-out', barColor)}
+                style={{ width: `${barPct}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </TVAutoSizeWidget>
+    );
+  };
+
+  const renderBlock = (blockId: string) => {
+    switch (blockId) {
+      case 'receita-total':
+        return renderKPIWidget(
+          'Receita Total', fmtCurrency(data?.receitaTotal ?? 0),
+          variations.receitaTotal ?? null, fmtCurrency(previous.receitaTotal ?? 0),
+          `Ticket Médio: ${fmtCurrency(data?.ticketMedio ?? 0)}`, 'border-cyan-500/30',
+          metas?.valor_os,
+          metas?.valor_os ? Math.min(((data?.receitaTotal ?? 0) / metas.valor_os) * 100, 100) : null,
+          metas?.valor_os ? fmtCurrency(metas.valor_os) : undefined,
+        );
+      case 'lucro-bruto':
+        return renderKPIWidget(
+          'Lucro Bruto', fmtCurrency(data?.lucroBruto ?? 0),
+          variations.lucroBruto ?? null, fmtCurrency(previous.lucroBruto ?? 0),
+          `Margem: ${(data?.margemMedia ?? 0).toFixed(1)}%`, 'border-emerald-500/30',
+          metas?.lucro_bruto,
+          metas?.lucro_bruto ? Math.min(((data?.lucroBruto ?? 0) / metas.lucro_bruto) * 100, 100) : null,
+          metas?.lucro_bruto ? fmtCurrency(metas.lucro_bruto) : undefined,
+        );
+      case 'servicos-fechados':
+        return renderKPIWidget(
+          'Serviços Fechados', fmtNum(data?.servicosFechados ?? 0),
+          variations.servicosFechados ?? null, fmtNum(previous.servicosFechados ?? 0),
+          `Conv. Total: ${conversaoTotal.toFixed(1)}%`, 'border-violet-500/30',
+          metas?.quantidade_servicos,
+          metas?.quantidade_servicos ? Math.min(((data?.servicosFechados ?? 0) / metas.quantidade_servicos) * 100, 100) : null,
+          metas?.quantidade_servicos ? fmtNum(metas.quantidade_servicos) : undefined,
+        );
+      case 'ticket-medio':
+        return renderKPIWidget(
+          'Ticket Médio', fmtCurrency(data?.ticketMedio ?? 0),
+          null, '—', `Meta: ${metas?.ticket_medio ? fmtCurrency(metas.ticket_medio) : '—'}`,
+          'border-amber-500/30',
+        );
+      case 'margem-media':
+        return renderKPIWidget(
+          'Margem Média', `${(data?.margemMedia ?? 0).toFixed(1)}%`,
+          null, '—', `Lucro: ${fmtCurrency(data?.lucroBruto ?? 0)}`,
+          'border-pink-500/30',
+        );
+      case 'conversao-total':
+        return renderKPIWidget(
+          'Conversão Total', `${conversaoTotal.toFixed(1)}%`,
+          null, '—',
+          `${fmtNum(data?.pagos ?? 0)} pagos de ${fmtNum(data?.cliquesAnuncios || data?.conversasIniciadas || 0)}`,
+          'border-indigo-500/30',
+        );
+
+      // Metas
+      case 'meta-diaria':
+        return renderGoalBar('🎯 Meta do Dia', data?.receitaTotal ?? 0, metas?.valor_os ?? 0);
+      case 'meta-mensal':
+        return renderGoalBar('📅 Meta do Mês', data?.receitaTotal ?? 0, (metas?.valor_os ?? 0) * 22);
+
+      // Funil
+      case 'funil-cliques':
+        return renderFunnelWidget('Cliques', '🎯', data?.cliquesAnuncios ?? 0, variations.cliquesAnuncios ?? null, previous.cliquesAnuncios ?? 0, 'border-emerald-500/40');
+      case 'funil-conversas':
+        return renderFunnelWidget('Conversas', '💬', data?.conversasIniciadas ?? 0, variations.conversasIniciadas ?? null, previous.conversasIniciadas ?? 0, 'border-cyan-500/40');
+      case 'funil-fs':
+        return renderFunnelWidget('FS Criadas', '📋', data?.fsCriadas ?? 0, variations.fsCriadas ?? null, previous.fsCriadas ?? 0, 'border-violet-500/40');
+      case 'funil-agendados':
+        return renderFunnelWidget('Agendados', '📅', data?.agendados ?? 0, variations.agendados ?? null, previous.agendados ?? 0, 'border-amber-500/40');
+      case 'funil-executados':
+        return renderFunnelWidget('Executados', '✅', data?.executados ?? 0, variations.executados ?? null, previous.executados ?? 0, 'border-blue-500/40');
+      case 'funil-pagos':
+        return renderFunnelWidget('Pagos', '💰', data?.pagos ?? 0, variations.pagos ?? null, previous.pagos ?? 0, 'border-green-500/40');
+
+      // Taxas de conversão
+      case 'taxa-agend-fs':
+        return renderConversionWidget('Agendados / FS', taxaAgendFS, metas?.taxa_fs_agendado || 25, `${data?.agendados ?? 0} / ${data?.fsCriadas ?? 0}`);
+      case 'taxa-pagos-fs':
+        return renderConversionWidget('Pagos / FS', taxaPagosFS, 20, `${data?.pagos ?? 0} / ${data?.fsCriadas ?? 0}`);
+      case 'taxa-pagos-agend':
+        return renderConversionWidget('Pagos / Agendados', taxaPagosAgend, metas?.taxa_agendado_pago || 85, `${data?.pagos ?? 0} / ${data?.agendados ?? 0}`);
+      case 'taxa-pagos-cliques':
+        return renderConversionWidget('Pagos / Cliques', taxaPagosCliques, metas?.taxa_conversao_total || 10, `${data?.pagos ?? 0} / ${data?.cliquesAnuncios ?? 0}`);
+      case 'taxa-conv-cliques':
+        return renderConversionWidget('Conversas / Cliques', taxaConvCliques, 60, `${data?.conversasIniciadas ?? 0} / ${data?.cliquesAnuncios ?? 0}`);
+      case 'taxa-exec-agend':
+        return renderConversionWidget('Executados / Agendados', taxaExecAgend, 90, `${data?.executados ?? 0} / ${data?.agendados ?? 0}`);
+
+      // Métricas de tempo
+      case 'tempo-resposta':
+        return renderTimeWidget('Tempo Resposta', '⚡', data?.tempoRespostaMin ?? null, 'min', metas?.tempo_resposta_max || 60);
+      case 'tempo-orcamento':
+        return renderTimeWidget('Receb. Orçamento', '🎯', data?.tempoOrcamentoMin ?? null, 'min', metas?.tempo_orcamento_max || 120);
+      case 'tempo-fs-agendado':
+        return renderTimeWidget('FS → Agendado', '📅', data?.tempoFSAgendadoDias ?? null, 'dias', 2);
+      case 'tempo-agendado-exec':
+        return renderTimeWidget('Agendado → Executado', '🔄', data?.tempoAgendadoExecDias ?? null, 'dias', 3);
+      case 'tempo-ciclo':
+        return renderTimeWidget('Ciclo Completo', '🎪', data?.tempoCicloCompletoDias ?? null, 'dias', 7);
+
+      // Conversas abertas
+      case 'conversas-abertas':
+        if (!data?.conversasAbertas) return null;
+        return (
+          <TVAutoSizeWidget neonBorder="border-amber-500/20">
+            {(dims) => (
+              <div className="w-full h-full overflow-auto" style={{ padding: dims.padding }}>
+                <div className="text-gray-400 uppercase tracking-wider mb-2" style={{ fontSize: dims.labelFontSize }}>
+                  📞 Conversas em Aberto — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 h-[calc(100%-2rem)]">
+                  <div className="bg-[#0A1628]/60 rounded-lg p-2 overflow-auto">
+                    <div className="text-gray-400 uppercase tracking-wider mb-1" style={{ fontSize: Math.max(7, dims.subFontSize * 0.9) }}>Por Status</div>
+                    <div className="space-y-1">
+                      {(data.conversasAbertas.porStatus || []).map((s, i) => {
+                        const pct = data.conversasAbertas.total > 0 ? (s.count / data.conversasAbertas.total) * 100 : 0;
+                        return (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-gray-300 truncate" style={{ fontSize: dims.subFontSize, width: '40%' }}>{s.status}</span>
+                            <div className="flex-1 bg-gray-800/60 rounded-full overflow-hidden" style={{ height: Math.max(4, dims.height * 0.025) }}>
+                              <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="font-bold text-white" style={{ fontSize: dims.subFontSize }}>{s.count}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="bg-[#0A1628]/60 rounded-lg p-2 overflow-auto">
+                    <div className="text-gray-400 uppercase tracking-wider mb-1" style={{ fontSize: Math.max(7, dims.subFontSize * 0.9) }}>🔥 Aguardando Resposta</div>
+                    <div className="space-y-0.5">
+                      {(data.conversasAbertas.rankingSemResposta || []).map((c, i) => {
+                        const horas = Math.floor(c.tempoSemResposta / 60);
+                        const mins = c.tempoSemResposta % 60;
+                        const tempoStr = horas > 0 ? `${horas}h${mins}m` : `${mins}m`;
+                        const urgente = c.tempoSemResposta > 120;
+                        const muitoUrgente = c.tempoSemResposta > 480;
+                        return (
+                          <div key={i} className={cn(
+                            'flex items-center justify-between py-0.5 px-1 rounded',
+                            muitoUrgente ? 'bg-red-500/10' : urgente ? 'bg-amber-500/10' : 'bg-gray-800/40'
+                          )} style={{ fontSize: dims.subFontSize }}>
+                            <span className="text-gray-300 truncate flex-1">{i + 1}. {c.nome}</span>
+                            <span className={cn('font-mono font-bold shrink-0 ml-1', muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400')}>
+                              {tempoStr}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </TVAutoSizeWidget>
+        );
+
+      // Metas & Resultados
+      case 'metas-resultados':
+        return (
+          <TVAutoSizeWidget neonBorder="border-purple-500/20">
+            {() => (
+              <div className="w-full h-full overflow-auto">
+                <MetasResultadosSection isLayoutEditing={isEditing} />
+              </div>
+            )}
+          </TVAutoSizeWidget>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const countdownMin = Math.floor(countdown / 60);
+  const countdownSec = countdown % 60;
   const periodInfo = periodRange.from && periodRange.to ? countDaysInfo(periodRange.from, periodRange.to) : null;
   const compInfo = comparisonRange?.from && comparisonRange?.to ? countDaysInfo(comparisonRange.from, comparisonRange.to) : null;
 
@@ -264,213 +534,12 @@ function DashboardTVContent() {
     return `${format(range.from, 'dd/MM', { locale: ptBR })} - ${format(range.to, 'dd/MM', { locale: ptBR })}`;
   };
 
-  const neonCard = 'bg-[#0A1628]/80 backdrop-blur-md border border-cyan-500/15 rounded-xl shadow-[0_0_15px_rgba(0,212,255,0.05)]';
-
-  const renderBlock = (blockId: string) => {
-    switch (blockId) {
-      case 'kpis-principais':
-        return (
-          <section className="grid grid-cols-3 gap-3 p-4 h-full">
-            {[
-              {
-                label: 'Receita Total', value: fmtCurrency(data?.receitaTotal ?? 0),
-                variation: variations.receitaTotal ?? null,
-                prevValue: fmtCurrency(previous.receitaTotal ?? 0),
-                meta: metas?.valor_os, progress: metas?.valor_os ? Math.min(((data?.receitaTotal ?? 0) / metas.valor_os) * 100, 100) : null,
-                sub: `Ticket Médio: ${fmtCurrency(data?.ticketMedio ?? 0)}`,
-                accent: 'border-cyan-500/30',
-              },
-              {
-                label: 'Lucro Bruto', value: fmtCurrency(data?.lucroBruto ?? 0),
-                variation: variations.lucroBruto ?? null,
-                prevValue: fmtCurrency(previous.lucroBruto ?? 0),
-                meta: metas?.lucro_bruto, progress: metas?.lucro_bruto ? Math.min(((data?.lucroBruto ?? 0) / metas.lucro_bruto) * 100, 100) : null,
-                sub: `Margem: ${(data?.margemMedia ?? 0).toFixed(1)}%`,
-                accent: 'border-emerald-500/30',
-              },
-              {
-                label: 'Serviços Fechados', value: fmtNum(data?.servicosFechados ?? 0),
-                variation: variations.servicosFechados ?? null,
-                prevValue: fmtNum(previous.servicosFechados ?? 0),
-                meta: metas?.quantidade_servicos, progress: metas?.quantidade_servicos ? Math.min(((data?.servicosFechados ?? 0) / metas.quantidade_servicos) * 100, 100) : null,
-                sub: `Conv. Total: ${conversaoTotal.toFixed(1)}%`,
-                accent: 'border-violet-500/30',
-              },
-            ].map((kpi, i) => (
-              <div key={i} className={cn(neonCard, kpi.accent, 'p-4 transition-all duration-500')}>
-                <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">{kpi.label}</div>
-                <div className="text-2xl font-bold text-white">{kpi.value}</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={cn('text-sm font-semibold', kpi.variation !== null && kpi.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                    {kpi.variation !== null ? (kpi.variation >= 0 ? '↑' : '↓') : ''} {fmtPct(kpi.variation)}
-                  </span>
-                  <span className="text-[10px] text-gray-500">ant: {kpi.prevValue}</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-0.5">{kpi.sub}</div>
-                {kpi.progress !== null && (
-                  <div className="mt-2">
-                    <div className="flex justify-between text-[10px] text-gray-500 mb-0.5">
-                      <span>Meta: {kpi.meta ? (typeof kpi.meta === 'number' && kpi.label.includes('Serviço') ? fmtNum(kpi.meta) : fmtCurrency(kpi.meta)) : '—'}</span>
-                      <span>{kpi.progress.toFixed(0)}%</span>
-                    </div>
-                    <Progress value={kpi.progress} className="h-1.5" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </section>
-        );
-
-      case 'funil-vendas':
-        return (
-          <section className="px-4 pb-3 h-full">
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Funil de Vendas — Conversão ao Vivo</div>
-            <div className="flex items-center gap-1">
-              {funnelSteps.map((step, i) => (
-                <React.Fragment key={i}>
-                  <div className={cn('flex-1 bg-gradient-to-b border rounded-lg p-2 text-center backdrop-blur-sm', step.color)}>
-                    <div className="text-lg">{step.icon}</div>
-                    <div className="text-xl font-bold text-white">{fmtNum(step.value)}</div>
-                    <div className="text-[10px] text-gray-300">{step.label}</div>
-                    <div className="flex items-center justify-center gap-1">
-                      <span className={cn('text-[10px] font-semibold', step.variation !== null && step.variation >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                        {fmtPct(step.variation)}
-                      </span>
-                      <span className="text-[9px] text-gray-500">({fmtNum(step.prev)})</span>
-                    </div>
-                  </div>
-                  {i < funnelSteps.length - 1 && <span className="text-cyan-500/40 text-lg">→</span>}
-                </React.Fragment>
-              ))}
-            </div>
-            <div className="text-center text-xs text-gray-500 mt-1">
-              Conversão Total: {(data?.cliquesAnuncios ?? 0) > 0 ? `${fmtNum(data!.cliquesAnuncios)} → ${fmtNum(data?.pagos ?? 0)} = ${conversaoTotal.toFixed(1)}%` : `${fmtNum(data?.conversasIniciadas ?? 0)} → ${fmtNum(data?.pagos ?? 0)}`}
-            </div>
-          </section>
-        );
-
-      case 'taxas-conversao':
-        return (
-          <section className="px-4 pb-3 h-full">
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Taxas de Conversão</div>
-            <div className="grid grid-cols-6 gap-2">
-              {conversionCards.map((c, i) => {
-                const pct = c.value;
-                const status = pct >= c.meta * 0.9 ? 'emerald' : pct >= c.meta * 0.7 ? 'amber' : 'red';
-                return (
-                  <div key={i} className={cn(neonCard, 'p-2 text-center')}>
-                    <div className="text-[10px] text-gray-400 truncate">{c.label}</div>
-                    <div className={cn('text-lg font-bold', `text-${status}-400`)}>{pct.toFixed(1)}%</div>
-                    <div className="text-[9px] text-gray-500">{c.calc}</div>
-                    <Progress value={Math.min((pct / c.meta) * 100, 100)} className="h-1 mt-1" />
-                    <div className="text-[9px] text-gray-500 mt-0.5">Meta: {c.meta}%</div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-
-      case 'metricas-tempo':
-        return (
-          <section className="px-4 pb-3 h-full">
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Métricas de Tempo</div>
-            <div className="grid grid-cols-5 gap-2">
-              {timeCards.map((t, i) => {
-                const hasValue = t.value !== null;
-                const emoji = hasValue ? statusEmoji(t.value!, t.target, false) : '—';
-                return (
-                  <div key={i} className={cn(neonCard, 'p-2 text-center')}>
-                    <div className="text-lg">{t.icon}</div>
-                    <div className="text-[10px] text-gray-400">{t.label}</div>
-                    <div className={cn('text-lg font-bold', hasValue ? statusColor(t.value!, t.target, false) : 'text-gray-500')}>
-                      {hasValue ? `${t.value} ${t.unit}` : 'S/D'} {hasValue ? emoji : ''}
-                    </div>
-                    <div className="text-[9px] text-gray-500">Meta: {'<'}{t.target} {t.unit}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-
-      case 'conversas-abertas':
-        if (!data?.conversasAbertas) return null;
-        return (
-          <section className="px-4 pb-3 h-full">
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">
-              📞 Conversas em Aberto — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className={cn(neonCard, 'p-3')}>
-                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Quantidade por Status</div>
-                <div className="space-y-1.5">
-                  {(data.conversasAbertas.porStatus || []).map((s, i) => {
-                    const pct = data.conversasAbertas.total > 0 ? (s.count / data.conversasAbertas.total) * 100 : 0;
-                    return (
-                      <div key={i} className="flex items-center gap-2">
-                        <div className="flex-1 flex items-center gap-2 min-w-0">
-                          <span className="text-xs text-gray-300 truncate w-[140px]">{s.status}</span>
-                          <div className="flex-1 bg-gray-800/60 rounded-full h-2 overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                        <span className="text-sm font-bold text-white w-8 text-right">{s.count}</span>
-                      </div>
-                    );
-                  })}
-                  {(data.conversasAbertas.porStatus || []).length === 0 && (
-                    <div className="text-xs text-gray-500 text-center py-2">Nenhuma conversa em aberto</div>
-                  )}
-                </div>
-              </div>
-              <div className={cn(neonCard, 'p-3')}>
-                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">🔥 Aguardando Resposta — Mais Tempo</div>
-                <div className="space-y-1 max-h-[160px] overflow-y-auto">
-                  {(data.conversasAbertas.rankingSemResposta || []).map((c, i) => {
-                    const horas = Math.floor(c.tempoSemResposta / 60);
-                    const mins = c.tempoSemResposta % 60;
-                    const tempoStr = horas > 0 ? `${horas}h${mins}m` : `${mins}m`;
-                    const urgente = c.tempoSemResposta > 120;
-                    const muitoUrgente = c.tempoSemResposta > 480;
-                    return (
-                      <div key={i} className={cn(
-                        'flex items-center justify-between py-1 px-2 rounded text-xs',
-                        muitoUrgente ? 'bg-red-500/10 border border-red-500/30' : urgente ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-gray-800/40'
-                      )}>
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-gray-500 w-4 text-right">{i + 1}.</span>
-                          <span className="text-gray-300 truncate">{c.nome}</span>
-                          <span className="text-[9px] text-gray-500 shrink-0">{c.status}</span>
-                        </div>
-                        <span className={cn(
-                          'font-mono font-bold shrink-0 ml-2',
-                          muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400'
-                        )}>
-                          {muitoUrgente ? '🚨' : urgente ? '⚠️' : ''} {tempoStr}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {(data.conversasAbertas.rankingSemResposta || []).length === 0 && (
-                    <div className="text-xs text-gray-500 text-center py-2">Todas respondidas ✅</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-        );
-
-      case 'metas-resultados':
-        return <MetasResultadosSection isLayoutEditing={isEditing} />;
-
-      default:
-        return null;
-    }
-  };
-
-  const countdownMin = Math.floor(countdown / 60);
-  const countdownSec = countdown % 60;
+  const tickerItems = [
+    (data?.orcamentosPendentes2h ?? 0) > 0 ? `🔥 ${data!.orcamentosPendentes2h} orçamentos pendentes >2h` : null,
+    data?.proximaMeta ? `🎯 ${data.proximaMeta}` : null,
+    data?.npsGeral != null ? `⭐ NPS Geral: ${data.npsGeral.toFixed(1)}` : null,
+    data?.avaliacaoMediaPrestadores != null ? `👷 Avaliação Prestadores: ${data.avaliacaoMediaPrestadores.toFixed(1)}` : null,
+  ].filter(Boolean).join('   |   ');
 
   return (
     <div
@@ -667,15 +736,6 @@ function DashboardTVContent() {
           )}
         </div>
       </header>
-
-      {/* GOAL BARS */}
-      <TVGoalBars
-        dailyActual={data?.receitaTotal ?? 0}
-        dailyTarget={metas?.valor_os ?? 0}
-        monthlyActual={data?.receitaTotal ?? 0}
-        monthlyTarget={(metas?.valor_os ?? 0) * 22}
-        onEditMetas={() => setMetasOpen(true)}
-      />
 
       {/* FREE-FORM CANVAS */}
       <TVFreeformCanvas renderBlock={renderBlock} />
