@@ -1430,6 +1430,36 @@ export type Database = {
         }
         Relationships: []
       }
+      tv_layouts: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          nome: string
+          updated_at: string
+          user_id: string
+          widgets: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          nome?: string
+          updated_at?: string
+          user_id: string
+          widgets?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          nome?: string
+          updated_at?: string
+          user_id?: string
+          widgets?: Json
+        }
+        Relationships: []
+      }
       twilio_sync_control: {
         Row: {
           errors: number | null
