@@ -192,7 +192,7 @@ function DashboardTVContent() {
     staleTime: 60000,
   });
 
-  // Query independent: OS e Receita do dia e do mês
+  // Query independent: Agendamentos e Finalizados do dia e do mês (via ficha_status_historico)
   const { data: metasIndependentes } = useQuery({
     queryKey: ['tv-metas-independentes'],
     queryFn: async () => {
@@ -202,18 +202,51 @@ function DashboardTVContent() {
       const mesFrom = startOfMonth(now).toISOString();
       const mesTo = endOfMonth(now).toISOString();
 
-      const [osDia, osMes, recDia, recMes] = await Promise.all([
-        supabase.from('fichas_de_servico').select('*', { count: 'exact', head: true }).eq('status', 'Finalizado').gte('created_at', diaFrom).lte('created_at', diaTo),
-        supabase.from('fichas_de_servico').select('*', { count: 'exact', head: true }).eq('status', 'Finalizado').gte('created_at', mesFrom).lte('created_at', mesTo),
-        supabase.from('fichas_de_servico').select('valor_total').eq('status', 'Finalizado').eq('pagamento_realizado', true).gte('created_at', diaFrom).lte('created_at', diaTo),
-        supabase.from('fichas_de_servico').select('valor_total').eq('status', 'Finalizado').eq('pagamento_realizado', true).gte('created_at', mesFrom).lte('created_at', mesTo),
+      // Buscar fichas que entraram em "Agendado" (via histórico de status)
+      const [agendDia, agendMes, finDia, finMes] = await Promise.all([
+        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
+        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
+        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Finalizado').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
+        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Finalizado').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
       ]);
 
+      const agendDiaIds = [...new Set((agendDia.data || []).map(r => r.ficha_id))];
+      const agendMesIds = [...new Set((agendMes.data || []).map(r => r.ficha_id))];
+      const finDiaIds = [...new Set((finDia.data || []).map(r => r.ficha_id))];
+      const finMesIds = [...new Set((finMes.data || []).map(r => r.ficha_id))];
+
+      // Buscar valor_total das fichas agendadas
+      let valorAgendDia = 0;
+      let valorAgendMes = 0;
+      let valorFinDia = 0;
+      let valorFinMes = 0;
+
+      if (agendDiaIds.length > 0) {
+        const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', agendDiaIds);
+        valorAgendDia = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
+      }
+      if (agendMesIds.length > 0) {
+        const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', agendMesIds);
+        valorAgendMes = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
+      }
+      if (finDiaIds.length > 0) {
+        const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', finDiaIds);
+        valorFinDia = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
+      }
+      if (finMesIds.length > 0) {
+        const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', finMesIds);
+        valorFinMes = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
+      }
+
       return {
-        osDiaCount: osDia.count ?? 0,
-        osMesCount: osMes.count ?? 0,
-        receitaDia: (recDia.data || []).reduce((s, f) => s + (f.valor_total || 0), 0),
-        receitaMes: (recMes.data || []).reduce((s, f) => s + (f.valor_total || 0), 0),
+        agendamentosDia: agendDiaIds.length,
+        agendamentosMes: agendMesIds.length,
+        valorAgendDia,
+        valorAgendMes,
+        finalizadosDia: finDiaIds.length,
+        finalizadosMes: finMesIds.length,
+        valorFinDia,
+        valorFinMes,
       };
     },
     refetchInterval: REFRESH_INTERVAL,
@@ -454,40 +487,54 @@ function DashboardTVContent() {
         );
 
       // Metas individuais (8 widgets independentes)
+      // ── Metas de Agendamentos ──
       case 'meta-diaria-os': {
-        const actual = metasIndependentes?.osDiaCount ?? 0;
-        const target = metas?.quantidade_servicos ?? 10;
-        return renderGoalGauge('🎯 Meta Diária — Qtd OS', actual, target);
+        const actual = metasIndependentes?.agendamentosDia ?? 0;
+        const target = metas?.quantidade_agendados ?? metas?.quantidade_servicos ?? 5;
+        return renderGoalGauge('🎯 Meta Diária — Agendamentos', actual, target);
       }
       case 'meta-mensal-os': {
-        const actual = metasIndependentes?.osMesCount ?? 0;
-        const target = (metas?.quantidade_servicos ?? 10) * 22;
-        return renderGoalGauge('📅 Meta Mensal — Qtd OS', actual, target);
+        const actual = metasIndependentes?.agendamentosMes ?? 0;
+        const target = (metas?.quantidade_agendados ?? metas?.quantidade_servicos ?? 5) * 22;
+        return renderGoalGauge('📅 Meta Mensal — Agendamentos', actual, target);
       }
       case 'meta-diaria-receita':
-        return renderGoalGauge('💰 Meta Diária — Receita', metasIndependentes?.receitaDia ?? 0, metas?.valor_os ?? 0, true);
+        return renderGoalGauge('💰 Meta Diária — Valor OS Agendados', metasIndependentes?.valorAgendDia ?? 0, metas?.valor_os ?? 0, true);
       case 'meta-mensal-receita':
-        return renderGoalGauge('📊 Meta Mensal — Receita', metasIndependentes?.receitaMes ?? 0, (metas?.valor_os ?? 0) * 22, true);
+        return renderGoalGauge('📊 Meta Mensal — Valor OS Agendados', metasIndependentes?.valorAgendMes ?? 0, (metas?.valor_os ?? 0) * 22, true);
 
+      // ── Metas de Finalizados ──
+      case 'meta-diaria-finalizados': {
+        const actual = metasIndependentes?.finalizadosDia ?? 0;
+        const target = metas?.quantidade_servicos ?? 3;
+        return renderGoalGauge('✅ Meta Diária — Finalizados', actual, target);
+      }
+      case 'meta-mensal-finalizados': {
+        const actual = metasIndependentes?.finalizadosMes ?? 0;
+        const target = (metas?.quantidade_servicos ?? 3) * 22;
+        return renderGoalGauge('📋 Meta Mensal — Finalizados', actual, target);
+      }
+
+      // ── Resultados ──
       case 'resultado-hoje-os':
         return renderKPIWidget(
-          'Resultado Hoje — Qtd OS', fmtNum(metasIndependentes?.osDiaCount ?? 0),
-          null, '—', 'Serviços finalizados hoje', 'border-cyan-500/30',
+          'Agendamentos Hoje', fmtNum(metasIndependentes?.agendamentosDia ?? 0),
+          null, '—', `Valor: ${fmtCurrency(metasIndependentes?.valorAgendDia ?? 0)}`, 'border-cyan-500/30',
         );
       case 'resultado-mensal-os':
         return renderKPIWidget(
-          'Resultado Mensal — Qtd OS', fmtNum(metasIndependentes?.osMesCount ?? 0),
-          null, '—', 'Serviços finalizados no mês', 'border-violet-500/30',
+          'Agendamentos do Mês', fmtNum(metasIndependentes?.agendamentosMes ?? 0),
+          null, '—', `Valor: ${fmtCurrency(metasIndependentes?.valorAgendMes ?? 0)}`, 'border-violet-500/30',
         );
       case 'resultado-hoje-receita':
         return renderKPIWidget(
-          'Resultado Hoje — Receita', fmtCurrency(metasIndependentes?.receitaDia ?? 0),
-          null, '—', 'Receita do dia', 'border-emerald-500/30',
+          'Finalizados Hoje', fmtNum(metasIndependentes?.finalizadosDia ?? 0),
+          null, '—', `Valor: ${fmtCurrency(metasIndependentes?.valorFinDia ?? 0)}`, 'border-emerald-500/30',
         );
       case 'resultado-mensal-receita':
         return renderKPIWidget(
-          'Resultado Mensal — Receita', fmtCurrency(metasIndependentes?.receitaMes ?? 0),
-          null, '—', 'Receita do mês', 'border-amber-500/30',
+          'Finalizados do Mês', fmtNum(metasIndependentes?.finalizadosMes ?? 0),
+          null, '—', `Valor: ${fmtCurrency(metasIndependentes?.valorFinMes ?? 0)}`, 'border-amber-500/30',
         );
 
       // Funil
