@@ -3,8 +3,9 @@ import { useDashboardTV, TVFilters, TVPeriod, TVComparison } from '@/hooks/useDa
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { MetasModal } from '@/components/dashboard/tv/MetasModal';
-import { TVLayoutProvider, useTVLayout } from '@/contexts/TVLayoutContext';
-import { TVLayoutCustomizer } from '@/components/dashboard/tv/TVLayoutCustomizer';
+import { TVFreeformProvider, useTVFreeform } from '@/contexts/TVFreeformContext';
+import { TVFreeformCanvas } from '@/components/dashboard/tv/TVFreeformCanvas';
+import { TVWidgetProperties } from '@/components/dashboard/tv/TVWidgetProperties';
 import { MetasResultadosSection } from '@/components/dashboard/tv/MetasResultadosSection';
 import { TVCelebration } from '@/components/dashboard/tv/TVCelebration';
 import { TVGoalBars } from '@/components/dashboard/tv/TVGoalBars';
@@ -22,7 +23,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { getWeekdayName, isBusinessDay, getBusinessDaysInRange } from '@/lib/businessDays2026';
-import { Calendar as CalendarIcon, Settings } from 'lucide-react';
+import { Calendar as CalendarIcon, Settings, Pencil, X } from 'lucide-react';
 import logoGreen from '@/assets/logo-green.png';
 
 // ---- Helpers ----
@@ -79,11 +80,11 @@ function applyPeriodShortcut(shortcut: string): { from: Date; to: Date } {
 
 const businessDayModifier = (date: Date) => isBusinessDay(date);
 
-const REFRESH_INTERVAL = 600000; // 10 minutes
+const REFRESH_INTERVAL = 600000;
 const CELEBRATION_KEY = 'tv-celebration-log-v1';
 
 function DashboardTVContent() {
-  const { blocks, isEditing } = useTVLayout();
+  const { isEditing, setIsEditing } = useTVFreeform();
   const [monitorSettings, setMonitorSettings] = useMonitorSettings();
   const [monitorOpen, setMonitorOpen] = useState(false);
   const now = new Date();
@@ -101,7 +102,6 @@ function DashboardTVContent() {
   const [metasOpen, setMetasOpen] = useState(false);
   const [clock, setClock] = useState(new Date());
 
-  // Celebration & payment alert state
   const [celebrationActive, setCelebrationActive] = useState(false);
   const [celebrationMessage, setCelebrationMessage] = useState('');
   const [paymentFlash, setPaymentFlash] = useState(false);
@@ -109,7 +109,6 @@ function DashboardTVContent() {
   const prevPagosRef = useRef<number | null>(null);
   const prevReceitaRef = useRef<number | null>(null);
 
-  // Last update tracking
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL / 1000);
 
@@ -118,7 +117,6 @@ function DashboardTVContent() {
     return () => clearInterval(t);
   }, []);
 
-  // Countdown timer
   useEffect(() => {
     const t = setInterval(() => {
       const elapsed = Date.now() - lastUpdate.getTime();
@@ -142,17 +140,14 @@ function DashboardTVContent() {
 
   const { data, isLoading, dataUpdatedAt } = useDashboardTV(filters);
 
-  // Track last update time
   useEffect(() => {
     if (dataUpdatedAt) setLastUpdate(new Date(dataUpdatedAt));
   }, [dataUpdatedAt]);
 
-  // Payment detection
   useEffect(() => {
     if (!data) return;
     const currentPagos = data.pagos ?? 0;
     const currentReceita = data.receitaTotal ?? 0;
-
     if (prevPagosRef.current !== null && currentPagos > prevPagosRef.current) {
       const diff = currentReceita - (prevReceitaRef.current ?? 0);
       playPaymentDing();
@@ -165,19 +160,12 @@ function DashboardTVContent() {
     prevReceitaRef.current = currentReceita;
   }, [data?.pagos, data?.receitaTotal]);
 
-  // Goal celebration detection
   useEffect(() => {
     if (!data?.metas) return;
     const metas = data.metas;
     const today = format(new Date(), 'yyyy-MM-dd');
-    const month = format(new Date(), 'yyyy-MM');
-
     let celebrated: Record<string, boolean> = {};
-    try {
-      celebrated = JSON.parse(localStorage.getItem(CELEBRATION_KEY) || '{}');
-    } catch {}
-
-    // Daily goal check
+    try { celebrated = JSON.parse(localStorage.getItem(CELEBRATION_KEY) || '{}'); } catch {}
     if (metas.valor_os > 0 && (data.receitaTotal ?? 0) >= metas.valor_os && !celebrated[`daily-${today}`]) {
       celebrated[`daily-${today}`] = true;
       localStorage.setItem(CELEBRATION_KEY, JSON.stringify(celebrated));
@@ -185,7 +173,6 @@ function DashboardTVContent() {
       setCelebrationActive(true);
       playCelebrationFanfare();
     }
-    // Monthly goal (simplified: check if monthly target exists in metas section goals)
   }, [data?.receitaTotal, data?.metas]);
 
   const { data: prestadores } = useQuery({
@@ -214,7 +201,6 @@ function DashboardTVContent() {
           <Skeleton className="h-40 bg-gray-800/50" />
           <Skeleton className="h-40 bg-gray-800/50" />
         </div>
-        <Skeleton className="h-32 bg-gray-800/50" />
       </div>
     );
   }
@@ -278,16 +264,13 @@ function DashboardTVContent() {
     return `${format(range.from, 'dd/MM', { locale: ptBR })} - ${format(range.to, 'dd/MM', { locale: ptBR })}`;
   };
 
-  const enabledBlocks = [...blocks].filter(b => b.enabled).sort((a, b) => a.order - b.order);
-
-  // Neon card class
   const neonCard = 'bg-[#0A1628]/80 backdrop-blur-md border border-cyan-500/15 rounded-xl shadow-[0_0_15px_rgba(0,212,255,0.05)]';
 
   const renderBlock = (blockId: string) => {
     switch (blockId) {
       case 'kpis-principais':
         return (
-          <section key={blockId} className="grid grid-cols-3 gap-3 p-4">
+          <section className="grid grid-cols-3 gap-3 p-4 h-full">
             {[
               {
                 label: 'Receita Total', value: fmtCurrency(data?.receitaTotal ?? 0),
@@ -340,7 +323,7 @@ function DashboardTVContent() {
 
       case 'funil-vendas':
         return (
-          <section key={blockId} className="px-4 pb-3">
+          <section className="px-4 pb-3 h-full">
             <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Funil de Vendas — Conversão ao Vivo</div>
             <div className="flex items-center gap-1">
               {funnelSteps.map((step, i) => (
@@ -368,7 +351,7 @@ function DashboardTVContent() {
 
       case 'taxas-conversao':
         return (
-          <section key={blockId} className="px-4 pb-3">
+          <section className="px-4 pb-3 h-full">
             <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Taxas de Conversão</div>
             <div className="grid grid-cols-6 gap-2">
               {conversionCards.map((c, i) => {
@@ -390,7 +373,7 @@ function DashboardTVContent() {
 
       case 'metricas-tempo':
         return (
-          <section key={blockId} className="px-4 pb-3">
+          <section className="px-4 pb-3 h-full">
             <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Métricas de Tempo</div>
             <div className="grid grid-cols-5 gap-2">
               {timeCards.map((t, i) => {
@@ -414,7 +397,7 @@ function DashboardTVContent() {
       case 'conversas-abertas':
         if (!data?.conversasAbertas) return null;
         return (
-          <section key={blockId} className="px-4 pb-3">
+          <section className="px-4 pb-3 h-full">
             <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">
               📞 Conversas em Aberto — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
             </div>
@@ -479,7 +462,7 @@ function DashboardTVContent() {
         );
 
       case 'metas-resultados':
-        return <MetasResultadosSection key={blockId} isLayoutEditing={isEditing} />;
+        return <MetasResultadosSection isLayoutEditing={isEditing} />;
 
       default:
         return null;
@@ -496,20 +479,33 @@ function DashboardTVContent() {
         paymentFlash && 'ring-4 ring-emerald-400/60 ring-inset animate-pulse'
       )}
       style={{
-        padding: `${monitorSettings.safeZone * 0.5}%`,
+        paddingRight: isEditing ? 280 : 0,
         fontSize: `${monitorSettings.fontSize}%`,
         filter: `brightness(${monitorSettings.brightness}%)`,
       }}
     >
       {/* HEADER */}
-      <header className="bg-[#0A1628]/90 backdrop-blur-md border-b border-cyan-500/10 px-4 py-2">
+      <header className="bg-[#0A1628]/90 backdrop-blur-md border-b border-cyan-500/10 px-4 py-2 relative z-40">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <img src={logoGreen} alt="24Help" className="h-7" />
             <span className="text-sm font-bold tracking-wider text-cyan-300 uppercase">Centro de Comando de Vendas</span>
           </div>
           <div className="flex items-center gap-3">
-            <TVLayoutCustomizer />
+            <Button
+              variant={isEditing ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setIsEditing(!isEditing)}
+              className={cn(
+                'h-7 text-xs gap-1.5',
+                isEditing
+                  ? 'bg-cyan-600 hover:bg-cyan-700 text-white'
+                  : 'bg-gray-800/80 border-cyan-500/30 hover:bg-gray-700 hover:border-cyan-400/50 text-cyan-300'
+              )}
+            >
+              {isEditing ? <X className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+              {isEditing ? 'Sair da Edição' : 'Editar Layout'}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setMonitorOpen(true)} className="h-7 text-xs bg-gray-800/80 border-gray-700 gap-1 hover:bg-gray-700 text-gray-300">
               <Settings className="h-3 w-3" />
             </Button>
@@ -681,21 +677,11 @@ function DashboardTVContent() {
         onEditMetas={() => setMetasOpen(true)}
       />
 
-      {/* DYNAMIC BLOCKS - CSS GRID */}
-      <div className="grid grid-cols-6 gap-0">
-        {enabledBlocks.map(block => (
-          <div
-            key={block.id}
-            className="transition-all"
-            style={{
-              gridColumn: `span ${block.cols}`,
-              minHeight: block.minHeight > 0 ? `${block.minHeight}px` : undefined,
-            }}
-          >
-            {renderBlock(block.id)}
-          </div>
-        ))}
-      </div>
+      {/* FREE-FORM CANVAS */}
+      <TVFreeformCanvas renderBlock={renderBlock} />
+
+      {/* WIDGET PROPERTIES PANEL */}
+      <TVWidgetProperties />
 
       {/* PAYMENT BADGE */}
       {paymentBadge && (
@@ -714,7 +700,7 @@ function DashboardTVContent() {
       />
 
       {/* TICKER */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-[#0A1628]/90 backdrop-blur-md border-t border-cyan-500/10 px-4 py-2">
+      <footer className="fixed bottom-0 left-0 right-0 bg-[#0A1628]/90 backdrop-blur-md border-t border-cyan-500/10 px-4 py-2 z-30">
         <div className="overflow-hidden">
           <div className="animate-marquee whitespace-nowrap text-xs text-gray-300">
             {tickerItems || 'Carregando alertas...'}
@@ -751,8 +737,8 @@ function DashboardTVContent() {
 
 export default function DashboardTV() {
   return (
-    <TVLayoutProvider>
+    <TVFreeformProvider>
       <DashboardTVContent />
-    </TVLayoutProvider>
+    </TVFreeformProvider>
   );
 }
