@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,15 +16,20 @@ import {
   CheckCircle2,
   XCircle,
   Info,
-  AlertTriangle,
   Loader2,
   Building2,
   CreditCard,
   Calendar,
-  Star,
+  History,
+  Banknote,
+  BookOpen,
 } from "lucide-react";
-import { format, isToday, parseISO, startOfDay, endOfDay } from "date-fns";
+import { format, parseISO, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { FinanceiroKPIs } from "@/components/financeiro/FinanceiroKPIs";
+import { HistoricoTransacoes } from "@/components/financeiro/HistoricoTransacoes";
+import { AdiantamentosTab } from "@/components/financeiro/AdiantamentosTab";
+import { ContaCorrenteTab } from "@/components/financeiro/ContaCorrenteTab";
 
 interface TransacaoPagamento {
   id: string;
@@ -88,8 +94,10 @@ function getAvatarColor(id: string): string {
   return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
-const Financeiro = () => {
-  const navigate = useNavigate();
+// ═══════════════════════════════════════════════
+// Sub-component: Pagamentos do Dia (existing logic, untouched)
+// ═══════════════════════════════════════════════
+const PagamentosDoDia = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [transacoes, setTransacoes] = useState<TransacaoPagamento[]>([]);
@@ -97,8 +105,6 @@ const Financeiro = () => {
   const [detalhesOpen, setDetalhesOpen] = useState(false);
   const [detalhesSelecionado, setDetalhesSelecionado] = useState<TransacaoPagamento | null>(null);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
-
-  // Avaliações e NPS por prestador
   const [avaliacoes, setAvaliacoes] = useState<Record<string, { nota: number; count: number }>>({});
   const [npsScores, setNpsScores] = useState<Record<string, { nota: number; count: number }>>({});
 
@@ -107,8 +113,6 @@ const Financeiro = () => {
   const fetchPagamentos = useCallback(async () => {
     try {
       setLoading(true);
-
-      // Buscar transações com pagamento previsto para hoje
       const inicioHoje = startOfDay(hoje).toISOString();
       const fimHoje = endOfDay(hoje).toISOString();
 
@@ -122,7 +126,6 @@ const Financeiro = () => {
       if (error) throw error;
       setTransacoes((data as TransacaoPagamento[]) || []);
 
-      // Buscar avaliações e NPS para os prestadores
       if (data && data.length > 0) {
         const prestadorIds = [...new Set(data.map((t: any) => t.prestador_id))];
 
@@ -193,7 +196,6 @@ const Financeiro = () => {
     try {
       setMarkingPaid("bulk");
       const agora = new Date().toISOString();
-
       for (const id of ids) {
         await supabase
           .from("transacoes_financeiras")
@@ -203,7 +205,6 @@ const Financeiro = () => {
           } as any)
           .eq("id", id);
       }
-
       toast({ title: "✅ Pagamento(s) marcado(s) como pago(s)!" });
       setSelectedIds(new Set());
       fetchPagamentos();
@@ -237,7 +238,6 @@ const Financeiro = () => {
   };
 
   const pendentes = transacoes.filter((t) => t.status_pagamento_prestador === "pendente");
-  const pagos = transacoes.filter((t) => t.status_pagamento_prestador === "pago");
   const totalValor = transacoes.reduce((s, t) => s + t.valor_a_pagar_prestador, 0);
   const selectedTotal = transacoes
     .filter((t) => selectedIds.has(t.id))
@@ -260,55 +260,29 @@ const Financeiro = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b shadow-sm">
-        <div className="flex items-center justify-between px-4 py-3 md:px-6">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-lg md:text-xl font-bold text-foreground">Pagamentos</h1>
-              <p className="text-xs text-muted-foreground">
-                {format(hoje, "dd/MM/yyyy", { locale: ptBR })}
-              </p>
-            </div>
+    <>
+      {/* Summary Cards */}
+      <div className="flex gap-3 overflow-x-auto mb-4">
+        <Card className="min-w-[140px] bg-primary text-primary-foreground p-3 shrink-0">
+          <div className="text-xs opacity-80">Pagamentos</div>
+          <div className="text-2xl font-bold">{transacoes.length}</div>
+          <div className="text-xs opacity-70">
+            {pendentes.length} pendente{pendentes.length !== 1 ? "s" : ""}
           </div>
-          <Logo />
-        </div>
+        </Card>
+        <Card className="min-w-[140px] bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 p-3 shrink-0">
+          <div className="text-xs text-blue-600 dark:text-blue-400">Valor Total</div>
+          <div className="text-xl font-bold text-blue-900 dark:text-blue-300">{formatMoeda(totalValor)}</div>
+        </Card>
+        <Card className="min-w-[140px] bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 p-3 shrink-0">
+          <div className="text-xs text-green-600 dark:text-green-400">Selecionados</div>
+          <div className="text-xl font-bold text-green-900 dark:text-green-300">{selectedIds.size}</div>
+          <div className="text-xs text-green-600 dark:text-green-400">{formatMoeda(selectedTotal)}</div>
+        </Card>
+      </div>
 
-        {/* Summary Cards */}
-        <div className="px-4 pb-3 flex gap-3 overflow-x-auto md:px-6">
-          <Card className="min-w-[140px] bg-primary text-primary-foreground p-3 shrink-0">
-            <div className="text-xs opacity-80">Pagamentos</div>
-            <div className="text-2xl font-bold">{transacoes.length}</div>
-            <div className="text-xs opacity-70">
-              {pendentes.length} pendente{pendentes.length !== 1 ? "s" : ""}
-            </div>
-          </Card>
-
-          <Card className="min-w-[140px] bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 p-3 shrink-0">
-            <div className="text-xs text-blue-600 dark:text-blue-400">Valor Total</div>
-            <div className="text-xl font-bold text-blue-900 dark:text-blue-300">
-              {formatMoeda(totalValor)}
-            </div>
-          </Card>
-
-          <Card className="min-w-[140px] bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 p-3 shrink-0">
-            <div className="text-xs text-green-600 dark:text-green-400">Selecionados</div>
-            <div className="text-xl font-bold text-green-900 dark:text-green-300">
-              {selectedIds.size}
-            </div>
-            <div className="text-xs text-green-600 dark:text-green-400">
-              {formatMoeda(selectedTotal)}
-            </div>
-          </Card>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="flex-1 px-4 py-4 md:px-6 space-y-3 pb-28">
+      {/* Transaction Cards */}
+      <div className="space-y-3 pb-28">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -345,9 +319,7 @@ const Financeiro = () => {
                       className="mt-1"
                     />
                   )}
-
                   <div className="flex-1 min-w-0">
-                    {/* Prestador + Valor */}
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <div
@@ -361,42 +333,29 @@ const Financeiro = () => {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-xl font-bold text-primary">
-                          {formatMoeda(t.valor_a_pagar_prestador)}
-                        </div>
+                        <div className="text-xl font-bold text-primary">{formatMoeda(t.valor_a_pagar_prestador)}</div>
                       </div>
                     </div>
 
-                    {/* Badges */}
                     <div className="flex flex-wrap gap-1 mb-3">
-                      <Badge variant="secondary" className="text-xs">
-                        {t.ficha_id}
-                      </Badge>
-                      {t.categoria && (
-                        <Badge variant="outline" className="text-xs">
-                          {t.categoria}
-                        </Badge>
-                      )}
+                      <Badge variant="secondary" className="text-xs">{t.ficha_id}</Badge>
+                      {t.categoria && <Badge variant="outline" className="text-xs">{t.categoria}</Badge>}
                       {clientePagou ? (
                         <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Cliente Pagou
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Cliente Pagou
                         </Badge>
                       ) : (
                         <Badge variant="destructive" className="text-xs">
-                          <XCircle className="h-3 w-3 mr-1" />
-                          Cliente NÃO Pagou
+                          <XCircle className="h-3 w-3 mr-1" /> Cliente NÃO Pagou
                         </Badge>
                       )}
                       {isPago && (
                         <Badge className="bg-green-600 text-white text-xs">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Prestador Pago
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Prestador Pago
                         </Badge>
                       )}
                     </div>
 
-                    {/* Banco / PIX */}
                     {(t.banco_prestador || t.pix_prestador) && (
                       <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 mb-3 text-xs">
                         {t.banco_prestador && (
@@ -414,38 +373,29 @@ const Financeiro = () => {
                         )}
                         {t.pix_prestador && (
                           <div className="flex items-center gap-2 mt-1 font-medium pl-5">
-                            <CreditCard className="h-3 w-3 text-green-600" />
-                            PIX: {t.pix_prestador}
+                            <CreditCard className="h-3 w-3 text-green-600" /> PIX: {t.pix_prestador}
                           </div>
                         )}
                       </div>
                     )}
 
-                    {/* Avaliação + NPS */}
                     {(avaliacao || nps !== null) && (
                       <div className="flex gap-2 mb-3 flex-wrap">
                         {avaliacao && (
                           <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-950/30 dark:to-amber-950/30 border-2 border-amber-400 dark:border-amber-600 px-2.5 py-1 rounded-lg">
                             <span className="text-sm">{renderStars(parseFloat(avaliacao))}</span>
-                            <span className="text-base font-bold text-amber-800 dark:text-amber-300">
-                              {avaliacao}
-                            </span>
+                            <span className="text-base font-bold text-amber-800 dark:text-amber-300">{avaliacao}</span>
                           </div>
                         )}
                         {nps !== null && (
                           <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-2 border-emerald-500 dark:border-emerald-600 px-2.5 py-1 rounded-lg">
-                            <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase">
-                              NPS
-                            </span>
-                            <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300 leading-none">
-                              {nps}
-                            </span>
+                            <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase">NPS</span>
+                            <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300 leading-none">{nps}</span>
                           </div>
                         )}
                       </div>
                     )}
 
-                    {/* Datas */}
                     <div className="text-xs text-muted-foreground space-y-0.5 mb-3">
                       {t.data_contratacao && (
                         <div>
@@ -459,7 +409,6 @@ const Financeiro = () => {
                       </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex gap-2">
                       <Button
                         variant="secondary"
@@ -470,8 +419,7 @@ const Financeiro = () => {
                           setDetalhesOpen(true);
                         }}
                       >
-                        <Info className="h-3.5 w-3.5 mr-1" />
-                        Detalhes
+                        <Info className="h-3.5 w-3.5 mr-1" /> Detalhes
                       </Button>
                       {!isPago ? (
                         <Button
@@ -498,8 +446,7 @@ const Financeiro = () => {
                           className="flex-1 text-muted-foreground"
                           onClick={() => desmarcarPago([t.id])}
                         >
-                          <XCircle className="h-3.5 w-3.5 mr-1" />
-                          Desfazer
+                          <XCircle className="h-3.5 w-3.5 mr-1" /> Desfazer
                         </Button>
                       )}
                     </div>
@@ -509,7 +456,7 @@ const Financeiro = () => {
             );
           })
         )}
-      </main>
+      </div>
 
       {/* Bottom Actions Bar */}
       {selectedIds.size > 0 && (
@@ -545,8 +492,7 @@ const Financeiro = () => {
               disabled={markingPaid === "bulk"}
               onClick={() => desmarcarPago([...selectedIds])}
             >
-              <XCircle className="h-4 w-4 mr-2" />
-              Desmarcar
+              <XCircle className="h-4 w-4 mr-2" /> Desmarcar
             </Button>
           </div>
         </div>
@@ -560,116 +506,51 @@ const Financeiro = () => {
           </DialogHeader>
           {detalhesSelecionado && (
             <div className="space-y-3">
-              {/* Serviço */}
               <Card className="p-3 bg-blue-50 dark:bg-blue-950/20">
                 <h3 className="font-semibold text-sm mb-2">📋 Serviço</h3>
                 <div className="space-y-1 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Ficha:</span>{" "}
-                    <span className="font-medium">{detalhesSelecionado.ficha_id}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Categoria:</span>{" "}
-                    <span className="font-medium">{detalhesSelecionado.categoria || "—"}</span>
-                  </div>
+                  <div><span className="text-muted-foreground">Ficha:</span> <span className="font-medium">{detalhesSelecionado.ficha_id}</span></div>
+                  <div><span className="text-muted-foreground">Categoria:</span> <span className="font-medium">{detalhesSelecionado.categoria || "—"}</span></div>
                   {detalhesSelecionado.data_contratacao && (
-                    <div>
-                      <span className="text-muted-foreground">Contratação:</span>{" "}
-                      <span className="font-medium">
-                        {format(parseISO(detalhesSelecionado.data_contratacao), "dd/MM HH:mm")}
-                      </span>
-                    </div>
+                    <div><span className="text-muted-foreground">Contratação:</span> <span className="font-medium">{format(parseISO(detalhesSelecionado.data_contratacao), "dd/MM HH:mm")}</span></div>
                   )}
-                  <div>
-                    <span className="text-muted-foreground">Execução:</span>{" "}
-                    <span className="font-medium">
-                      {format(parseISO(detalhesSelecionado.data_execucao), "dd/MM HH:mm")}
-                    </span>
-                  </div>
+                  <div><span className="text-muted-foreground">Execução:</span> <span className="font-medium">{format(parseISO(detalhesSelecionado.data_execucao), "dd/MM HH:mm")}</span></div>
                 </div>
               </Card>
 
-              {/* Prestador */}
               <Card className="p-3 bg-green-50 dark:bg-green-950/20">
                 <h3 className="font-semibold text-sm mb-2">🔧 Prestador</h3>
                 <div className="space-y-1 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Nome:</span>{" "}
-                    <span className="font-medium">{detalhesSelecionado.prestador_nome}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Código:</span>{" "}
-                    <span className="font-medium">{detalhesSelecionado.prestador_codigo || "—"}</span>
-                  </div>
+                  <div><span className="text-muted-foreground">Nome:</span> <span className="font-medium">{detalhesSelecionado.prestador_nome}</span></div>
+                  <div><span className="text-muted-foreground">Código:</span> <span className="font-medium">{detalhesSelecionado.prestador_codigo || "—"}</span></div>
                   {detalhesSelecionado.banco_prestador && (
-                    <div>
-                      <span className="text-muted-foreground">Banco:</span>{" "}
-                      <span className="font-medium">{detalhesSelecionado.banco_prestador}</span>
-                    </div>
+                    <div><span className="text-muted-foreground">Banco:</span> <span className="font-medium">{detalhesSelecionado.banco_prestador}</span></div>
                   )}
                   {(detalhesSelecionado.agencia_prestador || detalhesSelecionado.conta_prestador) && (
-                    <div>
-                      <span className="text-muted-foreground">Ag/Conta:</span>{" "}
-                      <span className="font-medium">
-                        {detalhesSelecionado.agencia_prestador || "—"} / {detalhesSelecionado.conta_prestador || "—"}
-                      </span>
-                    </div>
+                    <div><span className="text-muted-foreground">Ag/Conta:</span> <span className="font-medium">{detalhesSelecionado.agencia_prestador || "—"} / {detalhesSelecionado.conta_prestador || "—"}</span></div>
                   )}
                   {detalhesSelecionado.pix_prestador && (
-                    <div>
-                      <span className="text-muted-foreground">PIX:</span>{" "}
-                      <span className="font-medium">{detalhesSelecionado.pix_prestador}</span>
-                    </div>
+                    <div><span className="text-muted-foreground">PIX:</span> <span className="font-medium">{detalhesSelecionado.pix_prestador}</span></div>
                   )}
                 </div>
               </Card>
 
-              {/* Valores */}
               <Card className="p-3 bg-muted">
                 <h3 className="font-semibold text-sm mb-2">💰 Valores</h3>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Mão de Obra:</span>
-                    <span className="font-medium">{formatMoeda(detalhesSelecionado.valor_mao_obra)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Material:</span>
-                    <span className="font-medium">{formatMoeda(detalhesSelecionado.valor_material)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Taxa Visita:</span>
-                    <span className="font-medium">{formatMoeda(detalhesSelecionado.taxa_visita)}</span>
-                  </div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Mão de Obra:</span><span className="font-medium">{formatMoeda(detalhesSelecionado.valor_mao_obra)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Material:</span><span className="font-medium">{formatMoeda(detalhesSelecionado.valor_material)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Taxa Visita:</span><span className="font-medium">{formatMoeda(detalhesSelecionado.taxa_visita)}</span></div>
                   <Separator className="my-1" />
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal:</span>
-                    <span className="font-bold">{formatMoeda(detalhesSelecionado.valor_subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Valor Cliente Final:</span>
-                    <span className="font-bold text-green-700 dark:text-green-400">
-                      {formatMoeda(detalhesSelecionado.valor_cliente_final)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lucro Bruto:</span>
-                    <span className="font-medium">{formatMoeda(detalhesSelecionado.valor_lucro_bruto)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Margem Real:</span>
-                    <span className="font-medium">{detalhesSelecionado.margem_operacional_real.toFixed(1)}%</span>
-                  </div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal:</span><span className="font-bold">{formatMoeda(detalhesSelecionado.valor_subtotal)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Valor Cliente Final:</span><span className="font-bold text-green-700 dark:text-green-400">{formatMoeda(detalhesSelecionado.valor_cliente_final)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Lucro Bruto:</span><span className="font-medium">{formatMoeda(detalhesSelecionado.valor_lucro_bruto)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Margem Real:</span><span className="font-medium">{detalhesSelecionado.margem_operacional_real.toFixed(1)}%</span></div>
                   <Separator className="my-1" />
-                  <div className="flex justify-between text-base">
-                    <span className="font-semibold">A Pagar Prestador:</span>
-                    <span className="font-bold text-primary">
-                      {formatMoeda(detalhesSelecionado.valor_a_pagar_prestador)}
-                    </span>
-                  </div>
+                  <div className="flex justify-between text-base"><span className="font-semibold">A Pagar Prestador:</span><span className="font-bold text-primary">{formatMoeda(detalhesSelecionado.valor_a_pagar_prestador)}</span></div>
                 </div>
               </Card>
 
-              {/* Avaliação */}
               {(() => {
                 const av = getAvaliacao(detalhesSelecionado.prestador_id);
                 const np = getNps(detalhesSelecionado.prestador_id);
@@ -695,7 +576,6 @@ const Financeiro = () => {
                 );
               })()}
 
-              {/* Observações */}
               {detalhesSelecionado.observacoes && (
                 <Card className="p-3">
                   <h3 className="font-semibold text-sm mb-1">📝 Observações</h3>
@@ -706,6 +586,77 @@ const Financeiro = () => {
           )}
         </DialogContent>
       </Dialog>
+    </>
+  );
+};
+
+// ═══════════════════════════════════════════════
+// Main Financeiro page with tabs
+// ═══════════════════════════════════════════════
+const Financeiro = () => {
+  const navigate = useNavigate();
+  const hoje = new Date();
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b shadow-sm">
+        <div className="flex items-center justify-between px-4 py-3 md:px-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-lg md:text-xl font-bold text-foreground">Financeiro</h1>
+              <p className="text-xs text-muted-foreground">
+                {format(hoje, "dd/MM/yyyy", { locale: ptBR })}
+              </p>
+            </div>
+          </div>
+          <Logo />
+        </div>
+      </header>
+
+      {/* KPIs */}
+      <div className="px-4 py-4 md:px-6">
+        <FinanceiroKPIs />
+      </div>
+
+      {/* Tabs */}
+      <main className="flex-1 px-4 md:px-6 pb-6">
+        <Tabs defaultValue="pagamentos" className="w-full">
+          <TabsList className="w-full justify-start overflow-x-auto mb-4">
+            <TabsTrigger value="pagamentos" className="gap-1.5">
+              <Calendar className="h-4 w-4" /> Pagamentos do Dia
+            </TabsTrigger>
+            <TabsTrigger value="historico" className="gap-1.5">
+              <History className="h-4 w-4" /> Histórico
+            </TabsTrigger>
+            <TabsTrigger value="adiantamentos" className="gap-1.5">
+              <Banknote className="h-4 w-4" /> Adiantamentos
+            </TabsTrigger>
+            <TabsTrigger value="conta-corrente" className="gap-1.5">
+              <BookOpen className="h-4 w-4" /> Conta Corrente
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="pagamentos">
+            <PagamentosDoDia />
+          </TabsContent>
+
+          <TabsContent value="historico">
+            <HistoricoTransacoes />
+          </TabsContent>
+
+          <TabsContent value="adiantamentos">
+            <AdiantamentosTab />
+          </TabsContent>
+
+          <TabsContent value="conta-corrente">
+            <ContaCorrenteTab />
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 };
