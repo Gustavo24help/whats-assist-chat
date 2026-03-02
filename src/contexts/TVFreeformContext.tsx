@@ -33,41 +33,43 @@ const DEFAULT_WIDGETS: TVWidgetLayout[] = [
   { id: 'margem-media',        label: 'Margem Média',          icon: '📊', enabled: true,  x: 1310, y: 0,   width: 300, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'conversao-total',     label: 'Conversão Total',       icon: '🔄', enabled: true,  x: 1620, y: 0,   width: 300, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 2 — Metas e Resultados individuais (8 widgets)
-  { id: 'meta-diaria-os',        label: 'Meta Diária — Qtd OS',     icon: '🎯', enabled: true,  x: 0,    y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'meta-mensal-os',        label: 'Meta Mensal — Qtd OS',     icon: '📅', enabled: true,  x: 250,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'meta-diaria-receita',   label: 'Meta Diária — Receita',    icon: '💰', enabled: true,  x: 500,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'meta-mensal-receita',   label: 'Meta Mensal — Receita',    icon: '📊', enabled: true,  x: 750,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'resultado-hoje-os',     label: 'Resultado Hoje — Qtd OS',  icon: '📋', enabled: true,  x: 1000, y: 190, width: 230, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'resultado-mensal-os',   label: 'Resultado Mensal — Qtd OS',icon: '📋', enabled: true,  x: 1240, y: 190, width: 230, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'resultado-hoje-receita',label: 'Resultado Hoje — Receita', icon: '💵', enabled: true,  x: 1480, y: 190, width: 220, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'resultado-mensal-receita',label:'Resultado Mensal — Receita',icon:'💵', enabled: true,  x: 1710, y: 190, width: 210, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 2 — Metas e Resultados individuais (10 widgets)
+  { id: 'meta-diaria-os',        label: 'Meta Diária — Agendamentos',   icon: '🎯', enabled: true,  x: 0,    y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-mensal-os',        label: 'Meta Mensal — Agendamentos',   icon: '📅', enabled: true,  x: 250,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-diaria-receita',   label: 'Meta Diária — Valor OS Agend.',icon: '💰', enabled: true,  x: 500,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-mensal-receita',   label: 'Meta Mensal — Valor OS Agend.',icon: '📊', enabled: true,  x: 750,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-diaria-finalizados',label:'Meta Diária — Finalizados',    icon: '✅', enabled: true,  x: 1000, y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-mensal-finalizados',label:'Meta Mensal — Finalizados',    icon: '📋', enabled: true,  x: 1250, y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-hoje-os',     label: 'Agendamentos Hoje',            icon: '📋', enabled: true,  x: 0,    y: 370, width: 230, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-mensal-os',   label: 'Agendamentos do Mês',          icon: '📋', enabled: true,  x: 240,  y: 370, width: 230, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-hoje-receita',label: 'Finalizados Hoje',             icon: '✅', enabled: true,  x: 480,  y: 370, width: 220, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-mensal-receita',label:'Finalizados do Mês',          icon: '✅', enabled: true,  x: 710,  y: 370, width: 210, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 3 — Funil de vendas (cada etapa é um widget)
-  { id: 'funil-cliques',       label: 'Cliques',               icon: '🎯', enabled: true,  x: 0,    y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-conversas',     label: 'Conversas',             icon: '💬', enabled: true,  x: 320,  y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-fs',            label: 'FS Criadas',            icon: '📋', enabled: true,  x: 640,  y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-agendados',     label: 'Agendados',             icon: '📅', enabled: true,  x: 960,  y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-executados',    label: 'Executados',            icon: '✅', enabled: true,  x: 1280, y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-pagos',         label: 'Pagos',                 icon: '💰', enabled: true,  x: 1600, y: 300, width: 320, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 4 — Funil de vendas (cada etapa é um widget)
+  { id: 'funil-cliques',       label: 'Cliques',               icon: '🎯', enabled: true,  x: 0,    y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-conversas',     label: 'Conversas',             icon: '💬', enabled: true,  x: 320,  y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-fs',            label: 'FS Criadas',            icon: '📋', enabled: true,  x: 640,  y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-agendados',     label: 'Agendados',             icon: '📅', enabled: true,  x: 960,  y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-executados',    label: 'Executados',            icon: '✅', enabled: true,  x: 1280, y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-pagos',         label: 'Pagos',                 icon: '💰', enabled: true,  x: 1600, y: 530, width: 320, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 4 — Taxas de conversão
-  { id: 'taxa-agend-fs',       label: 'Agendados / FS',        icon: '📊', enabled: true,  x: 0,    y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-pagos-fs',       label: 'Pagos / FS',            icon: '📊', enabled: true,  x: 320,  y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-pagos-agend',    label: 'Pagos / Agendados',     icon: '📊', enabled: true,  x: 640,  y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-pagos-cliques',  label: 'Pagos / Cliques',       icon: '📊', enabled: true,  x: 960,  y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-conv-cliques',   label: 'Conversas / Cliques',   icon: '📊', enabled: true,  x: 1280, y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-exec-agend',     label: 'Executados / Agendados',icon: '📊', enabled: true,  x: 1600, y: 470, width: 320, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 5 — Taxas de conversão
+  { id: 'taxa-agend-fs',       label: 'Agendados / FS',        icon: '📊', enabled: true,  x: 0,    y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-pagos-fs',       label: 'Pagos / FS',            icon: '📊', enabled: true,  x: 320,  y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-pagos-agend',    label: 'Pagos / Agendados',     icon: '📊', enabled: true,  x: 640,  y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-pagos-cliques',  label: 'Pagos / Cliques',       icon: '📊', enabled: true,  x: 960,  y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-conv-cliques',   label: 'Conversas / Cliques',   icon: '📊', enabled: true,  x: 1280, y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-exec-agend',     label: 'Executados / Agendados',icon: '📊', enabled: true,  x: 1600, y: 700, width: 320, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 5 — Métricas de tempo
-  { id: 'tempo-resposta',      label: 'Tempo Resposta',        icon: '⚡', enabled: true,  x: 0,    y: 630, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'tempo-orcamento',     label: 'Receb. Orçamento',      icon: '🎯', enabled: true,  x: 390,  y: 630, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'tempo-fs-agendado',   label: 'FS → Agendado',         icon: '📅', enabled: true,  x: 780,  y: 630, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'tempo-agendado-exec', label: 'Agendado → Executado',  icon: '🔄', enabled: true,  x: 1170, y: 630, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'tempo-ciclo',         label: 'Ciclo Completo',        icon: '🎪', enabled: true,  x: 1550, y: 630, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 6 — Métricas de tempo
+  { id: 'tempo-resposta',      label: 'Tempo Resposta',        icon: '⚡', enabled: true,  x: 0,    y: 860, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-orcamento',     label: 'Receb. Orçamento',      icon: '🎯', enabled: true,  x: 390,  y: 860, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-fs-agendado',   label: 'FS → Agendado',         icon: '📅', enabled: true,  x: 780,  y: 860, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-agendado-exec', label: 'Agendado → Executado',  icon: '🔄', enabled: true,  x: 1170, y: 860, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-ciclo',         label: 'Ciclo Completo',        icon: '🎪', enabled: true,  x: 1550, y: 860, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 6 — Blocos maiores
-  { id: 'conversas-abertas',   label: 'Conversas em Aberto',   icon: '📞', enabled: true,  x: 0,    y: 780, width: 1920, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 7 — Blocos maiores
+  { id: 'conversas-abertas',   label: 'Conversas em Aberto',   icon: '📞', enabled: true,  x: 0,    y: 1010, width: 1920, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 ];
 
 const PRESETS: { name: string; widgets: TVWidgetLayout[] }[] = [

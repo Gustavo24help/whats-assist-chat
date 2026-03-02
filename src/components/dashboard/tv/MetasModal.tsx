@@ -105,12 +105,12 @@ export function MetasModal({ open, onClose }: MetasModalProps) {
           </TabsList>
           <TabsContent value={tab} className="space-y-3 mt-4">
             <div className="grid grid-cols-2 gap-3">
-              {field('Valor OS (Receita)', 'valor_os', 'R$')}
+              {field('Valor OS Agendados', 'valor_os', 'R$')}
               {field('Lucro Bruto', 'lucro_bruto', 'R$')}
               {field('Ticket Médio', 'ticket_medio', 'R$')}
-              {field('Qtd Serviços', 'quantidade_servicos')}
+              {field('Qtd Agendamentos', 'quantidade_agendados')}
+              {field('Qtd Finalizados', 'quantidade_servicos')}
               {field('Qtd FS', 'quantidade_fs')}
-              {field('Qtd Agendados', 'quantidade_agendados')}
               {field('Taxa FS → Agendado', 'taxa_fs_agendado', undefined, '%')}
               {field('Taxa Agendado → Pago', 'taxa_agendado_pago', undefined, '%')}
               {field('Taxa Conversão Total', 'taxa_conversao_total', undefined, '%')}
