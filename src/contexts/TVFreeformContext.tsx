@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface TVWidgetLayout {
   id: string;
@@ -19,13 +20,14 @@ export interface TVSavedLayout {
   name: string;
   widgets: TVWidgetLayout[];
   createdAt: string;
+  dbId?: string; // id from tv_layouts table
 }
 
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 
 const DEFAULT_WIDGETS: TVWidgetLayout[] = [
-  // Row 1 — KPIs principais (cada um independente)
+  // Row 1 — KPIs principais
   { id: 'receita-total',       label: 'Receita Total',         icon: '💰', enabled: true,  x: 0,    y: 0,   width: 320, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'lucro-bruto',         label: 'Lucro Bruto',           icon: '📈', enabled: true,  x: 330,  y: 0,   width: 320, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'servicos-fechados',   label: 'Serviços Fechados',     icon: '✅', enabled: true,  x: 660,  y: 0,   width: 320, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
@@ -33,41 +35,43 @@ const DEFAULT_WIDGETS: TVWidgetLayout[] = [
   { id: 'margem-media',        label: 'Margem Média',          icon: '📊', enabled: true,  x: 1310, y: 0,   width: 300, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'conversao-total',     label: 'Conversão Total',       icon: '🔄', enabled: true,  x: 1620, y: 0,   width: 300, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 2 — Metas e Resultados individuais (8 widgets)
-  { id: 'meta-diaria-os',        label: 'Meta Diária — Qtd OS',     icon: '🎯', enabled: true,  x: 0,    y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'meta-mensal-os',        label: 'Meta Mensal — Qtd OS',     icon: '📅', enabled: true,  x: 250,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'meta-diaria-receita',   label: 'Meta Diária — Receita',    icon: '💰', enabled: true,  x: 500,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'meta-mensal-receita',   label: 'Meta Mensal — Receita',    icon: '📊', enabled: true,  x: 750,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'resultado-hoje-os',     label: 'Resultado Hoje — Qtd OS',  icon: '📋', enabled: true,  x: 1000, y: 190, width: 230, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'resultado-mensal-os',   label: 'Resultado Mensal — Qtd OS',icon: '📋', enabled: true,  x: 1240, y: 190, width: 230, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'resultado-hoje-receita',label: 'Resultado Hoje — Receita', icon: '💵', enabled: true,  x: 1480, y: 190, width: 220, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'resultado-mensal-receita',label:'Resultado Mensal — Receita',icon:'💵', enabled: true,  x: 1710, y: 190, width: 210, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 2 — Metas individuais
+  { id: 'meta-diaria-os',        label: 'Meta Diária — Agendamentos',   icon: '🎯', enabled: true,  x: 0,    y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-mensal-os',        label: 'Meta Mensal — Agendamentos',   icon: '📅', enabled: true,  x: 250,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-diaria-receita',   label: 'Meta Diária — Valor OS Agend.',icon: '💰', enabled: true,  x: 500,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-mensal-receita',   label: 'Meta Mensal — Valor OS Agend.',icon: '📊', enabled: true,  x: 750,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-diaria-finalizados',label:'Meta Diária — Finalizados',    icon: '✅', enabled: true,  x: 1000, y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-mensal-finalizados',label:'Meta Mensal — Finalizados',    icon: '📋', enabled: true,  x: 1250, y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-hoje-os',     label: 'Agendamentos Hoje',            icon: '📋', enabled: true,  x: 0,    y: 370, width: 230, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-mensal-os',   label: 'Agendamentos do Mês',          icon: '📋', enabled: true,  x: 240,  y: 370, width: 230, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-hoje-receita',label: 'Finalizados Hoje',             icon: '✅', enabled: true,  x: 480,  y: 370, width: 220, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'resultado-mensal-receita',label:'Finalizados do Mês',          icon: '✅', enabled: true,  x: 710,  y: 370, width: 210, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 3 — Funil de vendas (cada etapa é um widget)
-  { id: 'funil-cliques',       label: 'Cliques',               icon: '🎯', enabled: true,  x: 0,    y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-conversas',     label: 'Conversas',             icon: '💬', enabled: true,  x: 320,  y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-fs',            label: 'FS Criadas',            icon: '📋', enabled: true,  x: 640,  y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-agendados',     label: 'Agendados',             icon: '📅', enabled: true,  x: 960,  y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-executados',    label: 'Executados',            icon: '✅', enabled: true,  x: 1280, y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-pagos',         label: 'Pagos',                 icon: '💰', enabled: true,  x: 1600, y: 300, width: 320, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 4 — Funil de vendas
+  { id: 'funil-cliques',       label: 'Cliques',               icon: '🎯', enabled: true,  x: 0,    y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-conversas',     label: 'Conversas',             icon: '💬', enabled: true,  x: 320,  y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-fs',            label: 'FS Criadas',            icon: '📋', enabled: true,  x: 640,  y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-agendados',     label: 'Status Agendado',       icon: '📅', enabled: true,  x: 960,  y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-executados',    label: 'Executados',            icon: '✅', enabled: true,  x: 1280, y: 530, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-pagos',         label: 'Pagos',                 icon: '💰', enabled: true,  x: 1600, y: 530, width: 320, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 4 — Taxas de conversão
-  { id: 'taxa-agend-fs',       label: 'Agendados / FS',        icon: '📊', enabled: true,  x: 0,    y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-pagos-fs',       label: 'Pagos / FS',            icon: '📊', enabled: true,  x: 320,  y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-pagos-agend',    label: 'Pagos / Agendados',     icon: '📊', enabled: true,  x: 640,  y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-pagos-cliques',  label: 'Pagos / Cliques',       icon: '📊', enabled: true,  x: 960,  y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-conv-cliques',   label: 'Conversas / Cliques',   icon: '📊', enabled: true,  x: 1280, y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxa-exec-agend',     label: 'Executados / Agendados',icon: '📊', enabled: true,  x: 1600, y: 470, width: 320, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 5 — Taxas de conversão
+  { id: 'taxa-agend-fs',       label: 'Agendados / FS',        icon: '📊', enabled: true,  x: 0,    y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-pagos-fs',       label: 'Pagos / FS',            icon: '📊', enabled: true,  x: 320,  y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-pagos-agend',    label: 'Pagos / Agendados',     icon: '📊', enabled: true,  x: 640,  y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-pagos-cliques',  label: 'Pagos / Cliques',       icon: '📊', enabled: true,  x: 960,  y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-conv-cliques',   label: 'Conversas / Cliques',   icon: '📊', enabled: true,  x: 1280, y: 700, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-exec-agend',     label: 'Executados / Agendados',icon: '📊', enabled: true,  x: 1600, y: 700, width: 320, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 5 — Métricas de tempo
-  { id: 'tempo-resposta',      label: 'Tempo Resposta',        icon: '⚡', enabled: true,  x: 0,    y: 630, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'tempo-orcamento',     label: 'Receb. Orçamento',      icon: '🎯', enabled: true,  x: 390,  y: 630, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'tempo-fs-agendado',   label: 'FS → Agendado',         icon: '📅', enabled: true,  x: 780,  y: 630, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'tempo-agendado-exec', label: 'Agendado → Executado',  icon: '🔄', enabled: true,  x: 1170, y: 630, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'tempo-ciclo',         label: 'Ciclo Completo',        icon: '🎪', enabled: true,  x: 1550, y: 630, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 6 — Métricas de tempo
+  { id: 'tempo-resposta',      label: 'Tempo Resposta',        icon: '⚡', enabled: true,  x: 0,    y: 860, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-orcamento',     label: 'Receb. Orçamento',      icon: '🎯', enabled: true,  x: 390,  y: 860, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-fs-agendado',   label: 'FS → Agendado',         icon: '📅', enabled: true,  x: 780,  y: 860, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-agendado-exec', label: 'Agendado → Executado',  icon: '🔄', enabled: true,  x: 1170, y: 860, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-ciclo',         label: 'Ciclo Completo',        icon: '🎪', enabled: true,  x: 1550, y: 860, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 6 — Blocos maiores
-  { id: 'conversas-abertas',   label: 'Conversas em Aberto',   icon: '📞', enabled: true,  x: 0,    y: 780, width: 1920, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 7 — Blocos maiores
+  { id: 'conversas-abertas',   label: 'Conversas em Aberto',   icon: '📞', enabled: true,  x: 0,    y: 1010, width: 1920, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 ];
 
 const PRESETS: { name: string; widgets: TVWidgetLayout[] }[] = [
@@ -84,6 +88,15 @@ const PRESETS: { name: string; widgets: TVWidgetLayout[] }[] = [
 
 const STORAGE_KEY = 'tv-freeform-layout-v2';
 const SAVED_LAYOUTS_KEY = 'tv-freeform-saved-layouts-v2';
+
+/** Merge saved widgets with defaults: keeps saved positions, adds any new widgets from code */
+function mergeWithDefaults(saved: TVWidgetLayout[]): TVWidgetLayout[] {
+  const savedMap = new Map(saved.map(w => [w.id, w]));
+  return DEFAULT_WIDGETS.map(def => {
+    const s = savedMap.get(def.id);
+    return s ? { ...def, ...s } : def;
+  });
+}
 
 interface TVFreeformContextType {
   widgets: TVWidgetLayout[];
@@ -112,21 +125,17 @@ interface TVFreeformContextType {
   centerVertical: (id: string) => void;
   resetWidgetSize: (id: string) => void;
   duplicateWidget: (id: string) => void;
+  dbSaving: boolean;
 }
 
 const TVFreeformContext = createContext<TVFreeformContextType | undefined>(undefined);
 
 export function TVFreeformProvider({ children }: { children: ReactNode }) {
+  // Initialize from localStorage cache for instant load
   const [widgets, setWidgets] = useState<TVWidgetLayout[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return DEFAULT_WIDGETS.map(def => {
-          const s = parsed.find((w: TVWidgetLayout) => w.id === def.id);
-          return s ? { ...def, ...s } : def;
-        });
-      }
+      if (saved) return mergeWithDefaults(JSON.parse(saved));
     } catch {}
     return DEFAULT_WIDGETS;
   });
@@ -138,12 +147,101 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
     } catch { return []; }
   });
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditingRaw] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
+  const [dbSaving, setDbSaving] = useState(false);
+  const dbLoaded = useRef(false);
 
+  // ---- DB: Load default layout on mount ----
+  useEffect(() => {
+    async function loadFromDB() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const db = supabase as any;
+
+      // Load default layout
+      const { data: defaultLayout } = await db
+        .from('tv_layouts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_default', true)
+        .maybeSingle();
+
+      if (defaultLayout?.widgets) {
+        const dbWidgets = mergeWithDefaults(defaultLayout.widgets as TVWidgetLayout[]);
+        setWidgets(dbWidgets);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dbWidgets));
+      }
+
+      // Load saved layouts list
+      const { data: allLayouts } = await db
+        .from('tv_layouts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (allLayouts) {
+        setSavedLayouts(allLayouts.map((l: any) => ({
+          name: l.nome,
+          widgets: l.widgets as TVWidgetLayout[],
+          createdAt: l.created_at,
+          dbId: l.id,
+        })));
+      }
+
+      dbLoaded.current = true;
+    }
+    loadFromDB();
+  }, []);
+
+  // ---- Persist to localStorage as cache ----
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(widgets)); }, [widgets]);
-  useEffect(() => { localStorage.setItem(SAVED_LAYOUTS_KEY, JSON.stringify(savedLayouts)); }, [savedLayouts]);
+
+  // ---- DB: Auto-save when exiting edit mode ----
+  const setIsEditing = useCallback((v: boolean) => {
+    setIsEditingRaw(prev => {
+      // Was editing, now stopping → auto-save to DB
+      if (prev && !v) {
+        saveDefaultToDB(widgets);
+      }
+      return v;
+    });
+  }, [widgets]);
+
+  async function saveDefaultToDB(widgetsToSave: TVWidgetLayout[]) {
+    setDbSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const db = supabase as any;
+
+      const { data: existing } = await db
+        .from('tv_layouts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_default', true)
+        .maybeSingle();
+
+      if (existing) {
+        await db.from('tv_layouts').update({
+          widgets: JSON.parse(JSON.stringify(widgetsToSave)),
+        }).eq('id', existing.id);
+      } else {
+        await db.from('tv_layouts').insert({
+          user_id: user.id,
+          nome: 'default',
+          widgets: JSON.parse(JSON.stringify(widgetsToSave)),
+          is_default: true,
+        });
+      }
+    } catch (e) {
+      console.error('Error saving layout to DB:', e);
+    } finally {
+      setDbSaving(false);
+    }
+  }
 
   const updateWidget = useCallback((id: string, partial: Partial<TVWidgetLayout>) => {
     setWidgets(prev => prev.map(w => w.id === id ? { ...w, ...partial } : w));
@@ -170,14 +268,62 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
   const resetLayout = useCallback(() => {
     setWidgets(DEFAULT_WIDGETS);
     localStorage.removeItem(STORAGE_KEY);
+    // Also save reset to DB
+    saveDefaultToDB(DEFAULT_WIDGETS);
   }, []);
 
   const applyPreset = useCallback((name: string) => {
     const preset = PRESETS.find(p => p.name === name);
-    if (preset) setWidgets(preset.widgets);
+    if (preset) {
+      setWidgets(preset.widgets);
+      // Save preset to DB
+      saveDefaultToDB(preset.widgets);
+    }
   }, []);
 
-  const saveLayout = useCallback((name: string) => {
+  const saveLayout = useCallback(async (name: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const db = supabase as any;
+    
+    if (user) {
+      const { data: existing } = await db
+        .from('tv_layouts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('nome', name)
+        .maybeSingle();
+
+      if (existing) {
+        await db.from('tv_layouts').update({
+          widgets: JSON.parse(JSON.stringify(widgets)),
+        }).eq('id', existing.id);
+      } else {
+        await db.from('tv_layouts').insert({
+          user_id: user.id,
+          nome: name,
+          widgets: JSON.parse(JSON.stringify(widgets)),
+          is_default: false,
+        });
+      }
+
+      // Reload saved layouts
+      const { data: allLayouts } = await db
+        .from('tv_layouts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (allLayouts) {
+        setSavedLayouts(allLayouts.map((l: any) => ({
+          name: l.nome,
+          widgets: l.widgets as TVWidgetLayout[],
+          createdAt: l.created_at,
+          dbId: l.id,
+        })));
+      }
+    }
+
+    // Also keep in localStorage as fallback
     setSavedLayouts(prev => {
       const filtered = prev.filter(l => l.name !== name);
       return [...filtered, { name, widgets: [...widgets], createdAt: new Date().toISOString() }];
@@ -186,12 +332,19 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
 
   const loadLayout = useCallback((name: string) => {
     const layout = savedLayouts.find(l => l.name === name);
-    if (layout) setWidgets(layout.widgets);
+    if (layout) {
+      const merged = mergeWithDefaults(layout.widgets);
+      setWidgets(merged);
+    }
   }, [savedLayouts]);
 
-  const deleteLayout = useCallback((name: string) => {
+  const deleteLayout = useCallback(async (name: string) => {
+    const layout = savedLayouts.find(l => l.name === name);
+    if (layout?.dbId) {
+      await (supabase as any).from('tv_layouts').delete().eq('id', layout.dbId);
+    }
     setSavedLayouts(prev => prev.filter(l => l.name !== name));
-  }, []);
+  }, [savedLayouts]);
 
   const exportLayout = useCallback(() => {
     return JSON.stringify({ widgets, exportedAt: new Date().toISOString() }, null, 2);
@@ -201,7 +354,7 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
     try {
       const parsed = JSON.parse(json);
       if (parsed.widgets && Array.isArray(parsed.widgets)) {
-        setWidgets(parsed.widgets);
+        setWidgets(mergeWithDefaults(parsed.widgets));
         return true;
       }
     } catch {}
@@ -237,6 +390,7 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
       exportLayout, importLayout,
       canvasWidth: CANVAS_W, canvasHeight: CANVAS_H,
       centerHorizontal, centerVertical, resetWidgetSize, duplicateWidget,
+      dbSaving,
     }}>
       {children}
     </TVFreeformContext.Provider>
