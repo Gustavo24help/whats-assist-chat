@@ -587,8 +587,8 @@ export function useDashboardTV(filters: TVFilters) {
   return useQuery({
     queryKey: ['dashboard-tv', filters],
     queryFn: () => fetchTVData(filters),
-    staleTime: 25000,
-    refetchInterval: 30000,
+    staleTime: 300000,
+    refetchInterval: 600000, // 10 minutes
     refetchOnWindowFocus: false,
   });
 }

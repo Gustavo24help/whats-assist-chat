@@ -2,12 +2,19 @@ import { useTVLayout } from '@/contexts/TVLayoutContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
-import { GripVertical, Pencil, RotateCcw } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { GripVertical, Pencil, RotateCcw, Columns, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const COL_OPTIONS = [
+  { value: 2, label: '2/6' },
+  { value: 3, label: '3/6' },
+  { value: 4, label: '4/6' },
+  { value: 6, label: '6/6' },
+];
+
 export function TVLayoutCustomizer() {
-  const { blocks, isEditing, setIsEditing, toggleBlock, reorderBlocks, setBlockScale, resetLayout } = useTVLayout();
+  const { blocks, isEditing, setIsEditing, toggleBlock, reorderBlocks, setBlockCols, setBlockMinHeight, resetLayout } = useTVLayout();
 
   const sorted = [...blocks].sort((a, b) => a.order - b.order);
 
@@ -23,12 +30,12 @@ export function TVLayoutCustomizer() {
   return (
     <Sheet open={isEditing} onOpenChange={setIsEditing}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="h-7 text-xs bg-gray-800 border-gray-700 gap-1.5 hover:bg-gray-700">
+        <Button variant="outline" size="sm" className="h-7 text-xs bg-gray-800/80 border-cyan-500/30 gap-1.5 hover:bg-gray-700 hover:border-cyan-400/50 text-cyan-300">
           <Pencil className="h-3 w-3" />
           Editar Layout
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-[340px] bg-gray-900 border-gray-700 text-white">
+      <SheetContent className="w-[360px] bg-gray-900 border-gray-700 text-white overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center justify-between text-white">
             <span>Personalizar Dashboard TV</span>
@@ -50,8 +57,8 @@ export function TVLayoutCustomizer() {
               onDrop={e => handleDrop(e, idx)}
               onDragOver={e => e.preventDefault()}
               className={cn(
-                'flex flex-col gap-2 p-3 rounded-lg border border-gray-700 bg-gray-800/50 transition-all',
-                'hover:border-gray-500 cursor-grab active:cursor-grabbing',
+                'flex flex-col gap-2.5 p-3 rounded-lg border border-gray-700 bg-gray-800/50 transition-all',
+                'hover:border-cyan-500/30 cursor-grab active:cursor-grabbing',
                 !block.enabled && 'opacity-40'
               )}
             >
@@ -65,17 +72,41 @@ export function TVLayoutCustomizer() {
                 />
               </div>
               {block.enabled && (
-                <div className="flex items-center gap-2 ml-8">
-                  <span className="text-[10px] text-gray-500 mr-1">Escala:</span>
-                  <Slider
-                    value={[block.scale]}
-                    onValueChange={([v]) => setBlockScale(block.id, v)}
-                    min={0.5}
-                    max={2.5}
-                    step={0.1}
-                    className="flex-1"
-                  />
-                  <span className="text-[10px] text-gray-400 w-8 text-right">{(block.scale * 100).toFixed(0)}%</span>
+                <div className="ml-8 space-y-2">
+                  {/* Column span */}
+                  <div className="flex items-center gap-2">
+                    <Columns className="h-3 w-3 text-gray-500" />
+                    <span className="text-[10px] text-gray-500 w-12">Largura:</span>
+                    <div className="flex gap-1">
+                      {COL_OPTIONS.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setBlockCols(block.id, opt.value)}
+                          className={cn(
+                            'text-[10px] px-2 py-0.5 rounded border transition-all',
+                            block.cols === opt.value
+                              ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                              : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-gray-200'
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Min height */}
+                  <div className="flex items-center gap-2">
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                    <span className="text-[10px] text-gray-500 w-12">Altura:</span>
+                    <Input
+                      type="number"
+                      value={block.minHeight || ''}
+                      onChange={e => setBlockMinHeight(block.id, Number(e.target.value) || 0)}
+                      placeholder="Auto"
+                      className="h-6 w-20 text-[10px] bg-gray-800 border-gray-600 text-white"
+                    />
+                    <span className="text-[9px] text-gray-500">px (0=auto)</span>
+                  </div>
                 </div>
               )}
             </div>
