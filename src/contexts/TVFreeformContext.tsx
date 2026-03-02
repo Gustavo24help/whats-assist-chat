@@ -5,14 +5,14 @@ export interface TVWidgetLayout {
   label: string;
   icon: string;
   enabled: boolean;
-  x: number;       // px
-  y: number;       // px
-  width: number;   // px
-  height: number;  // px
+  x: number;
+  y: number;
+  width: number;
+  height: number;
   zIndex: number;
-  locked: boolean;       // lock aspect ratio
-  autoHeight: boolean;   // height auto by content
-  scaleMode: 'fixed' | 'fluid'; // px vs %
+  locked: boolean;
+  autoHeight: boolean;
+  scaleMode: 'fixed' | 'fluid';
 }
 
 export interface TVSavedLayout {
@@ -25,41 +25,60 @@ const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 
 const DEFAULT_WIDGETS: TVWidgetLayout[] = [
-  { id: 'kpis-principais',  label: 'KPIs Principais',       icon: '📊', enabled: true,  x: 0,   y: 0,   width: 1920, height: 200, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'funil-vendas',     label: 'Funil de Vendas',       icon: '🔄', enabled: true,  x: 0,   y: 210, width: 1920, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'taxas-conversao',  label: 'Taxas de Conversão',    icon: '📈', enabled: true,  x: 0,   y: 400, width: 1920, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'metricas-tempo',   label: 'Métricas de Tempo',     icon: '⏱️', enabled: true,  x: 0,   y: 590, width: 1920, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'conversas-abertas', label: 'Conversas em Aberto',  icon: '📞', enabled: true,  x: 0,   y: 770, width: 1920, height: 250, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
-  { id: 'metas-resultados', label: 'Metas & Resultados',    icon: '🏆', enabled: true,  x: 0,   y: 1030, width: 1920, height: 200, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 1 — KPIs principais (cada um independente)
+  { id: 'receita-total',       label: 'Receita Total',         icon: '💰', enabled: true,  x: 0,    y: 0,   width: 320, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'lucro-bruto',         label: 'Lucro Bruto',           icon: '📈', enabled: true,  x: 330,  y: 0,   width: 320, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'servicos-fechados',   label: 'Serviços Fechados',     icon: '✅', enabled: true,  x: 660,  y: 0,   width: 320, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'ticket-medio',        label: 'Ticket Médio',          icon: '🎫', enabled: true,  x: 990,  y: 0,   width: 310, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'margem-media',        label: 'Margem Média',          icon: '📊', enabled: true,  x: 1310, y: 0,   width: 300, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'conversao-total',     label: 'Conversão Total',       icon: '🔄', enabled: true,  x: 1620, y: 0,   width: 300, height: 180, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+
+  // Row 2 — Metas
+  { id: 'meta-diaria',         label: 'Meta Diária',           icon: '🎯', enabled: true,  x: 0,    y: 190, width: 960, height: 100, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-mensal',         label: 'Meta Mensal',           icon: '📅', enabled: true,  x: 970,  y: 190, width: 950, height: 100, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+
+  // Row 3 — Funil de vendas (cada etapa é um widget)
+  { id: 'funil-cliques',       label: 'Cliques',               icon: '🎯', enabled: true,  x: 0,    y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-conversas',     label: 'Conversas',             icon: '💬', enabled: true,  x: 320,  y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-fs',            label: 'FS Criadas',            icon: '📋', enabled: true,  x: 640,  y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-agendados',     label: 'Agendados',             icon: '📅', enabled: true,  x: 960,  y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-executados',    label: 'Executados',            icon: '✅', enabled: true,  x: 1280, y: 300, width: 310, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'funil-pagos',         label: 'Pagos',                 icon: '💰', enabled: true,  x: 1600, y: 300, width: 320, height: 160, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+
+  // Row 4 — Taxas de conversão
+  { id: 'taxa-agend-fs',       label: 'Agendados / FS',        icon: '📊', enabled: true,  x: 0,    y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-pagos-fs',       label: 'Pagos / FS',            icon: '📊', enabled: true,  x: 320,  y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-pagos-agend',    label: 'Pagos / Agendados',     icon: '📊', enabled: true,  x: 640,  y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-pagos-cliques',  label: 'Pagos / Cliques',       icon: '📊', enabled: true,  x: 960,  y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-conv-cliques',   label: 'Conversas / Cliques',   icon: '📊', enabled: true,  x: 1280, y: 470, width: 310, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'taxa-exec-agend',     label: 'Executados / Agendados',icon: '📊', enabled: true,  x: 1600, y: 470, width: 320, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+
+  // Row 5 — Métricas de tempo
+  { id: 'tempo-resposta',      label: 'Tempo Resposta',        icon: '⚡', enabled: true,  x: 0,    y: 630, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-orcamento',     label: 'Receb. Orçamento',      icon: '🎯', enabled: true,  x: 390,  y: 630, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-fs-agendado',   label: 'FS → Agendado',         icon: '📅', enabled: true,  x: 780,  y: 630, width: 380, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-agendado-exec', label: 'Agendado → Executado',  icon: '🔄', enabled: true,  x: 1170, y: 630, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'tempo-ciclo',         label: 'Ciclo Completo',        icon: '🎪', enabled: true,  x: 1550, y: 630, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+
+  // Row 6 — Blocos maiores
+  { id: 'conversas-abertas',   label: 'Conversas em Aberto',   icon: '📞', enabled: true,  x: 0,    y: 780, width: 960, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'metas-resultados',    label: 'Metas & Resultados',    icon: '🏆', enabled: true,  x: 970,  y: 780, width: 950, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 ];
 
 const PRESETS: { name: string; widgets: TVWidgetLayout[] }[] = [
-  {
-    name: 'Monitor 16:9',
-    widgets: DEFAULT_WIDGETS,
-  },
+  { name: 'Monitor 16:9', widgets: DEFAULT_WIDGETS },
   {
     name: 'TV Antiga (4:3)',
-    widgets: DEFAULT_WIDGETS.map(w => ({
-      ...w,
-      x: Math.round(w.x * 0.75) + 240,
-      width: Math.round(w.width * 0.75),
-    })),
+    widgets: DEFAULT_WIDGETS.map(w => ({ ...w, x: Math.round(w.x * 0.7) + 290, width: Math.round(w.width * 0.7) })),
   },
   {
     name: 'Widescreen 21:9',
-    widgets: DEFAULT_WIDGETS.map((w, i) => ({
-      ...w,
-      width: i < 3 ? 640 : 960,
-      x: i < 3 ? i * 640 : (i - 3) * 960,
-      y: i < 3 ? 0 : 320,
-      height: i < 3 ? 310 : 280,
-    })),
+    widgets: DEFAULT_WIDGETS.map(w => ({ ...w, width: Math.round(w.width * 1.1) })),
   },
 ];
 
-const STORAGE_KEY = 'tv-freeform-layout-v1';
-const SAVED_LAYOUTS_KEY = 'tv-freeform-saved-layouts-v1';
+const STORAGE_KEY = 'tv-freeform-layout-v2';
+const SAVED_LAYOUTS_KEY = 'tv-freeform-saved-layouts-v2';
 
 interface TVFreeformContextType {
   widgets: TVWidgetLayout[];
@@ -98,7 +117,6 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Merge with defaults for new widgets
         return DEFAULT_WIDGETS.map(def => {
           const s = parsed.find((w: TVWidgetLayout) => w.id === def.id);
           return s ? { ...def, ...s } : def;
@@ -119,13 +137,8 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(widgets));
-  }, [widgets]);
-
-  useEffect(() => {
-    localStorage.setItem(SAVED_LAYOUTS_KEY, JSON.stringify(savedLayouts));
-  }, [savedLayouts]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(widgets)); }, [widgets]);
+  useEffect(() => { localStorage.setItem(SAVED_LAYOUTS_KEY, JSON.stringify(savedLayouts)); }, [savedLayouts]);
 
   const updateWidget = useCallback((id: string, partial: Partial<TVWidgetLayout>) => {
     setWidgets(prev => prev.map(w => w.id === id ? { ...w, ...partial } : w));
@@ -205,13 +218,8 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const duplicateWidget = useCallback((id: string) => {
-    setWidgets(prev => {
-      const w = prev.find(w => w.id === id);
-      if (!w) return prev;
-      // Can't truly duplicate since IDs map to render blocks, so just inform user
-      return prev;
-    });
+  const duplicateWidget = useCallback((_id: string) => {
+    // IDs map to render blocks, can't truly duplicate
   }, []);
 
   return (
