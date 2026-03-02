@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus } from "lucide-react";
+import { X, FileText, DollarSign, Plus, ClipboardCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
 import { OrcamentosTab } from "./OrcamentosTab";
+import { AcompanhamentoTab } from "./AcompanhamentoTab";
 import { CriarFichaDialog } from "./CriarFichaDialog";
 
 interface Ficha {
@@ -168,6 +169,10 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
                 <FileText className="mr-1 h-3 w-3" />
                 Ficha
               </TabsTrigger>
+              <TabsTrigger value="acompanhamento" className="flex-1 text-xs h-7">
+                <ClipboardCheck className="mr-1 h-3 w-3" />
+                Acompanhamento
+              </TabsTrigger>
               <TabsTrigger value="orcamentos" className="flex-1 text-xs h-7">
                 <DollarSign className="mr-1 h-3 w-3" />
                 Orçamentos
@@ -175,6 +180,9 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
             </TabsList>
             <TabsContent value="ficha" className="flex-1 overflow-y-auto p-2.5 m-0 animate-in fade-in-50 duration-200">
               <FichaServicoTab fichaId={fichaAtual} />
+            </TabsContent>
+            <TabsContent value="acompanhamento" className="flex-1 overflow-y-auto p-2.5 m-0 animate-in fade-in-50 duration-200">
+              <AcompanhamentoTab fichaId={fichaAtual} />
             </TabsContent>
             <TabsContent value="orcamentos" className="flex-1 overflow-y-auto p-2.5 m-0 animate-in fade-in-50 duration-200">
               <OrcamentosTab fichaId={fichaAtual} />
