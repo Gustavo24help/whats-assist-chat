@@ -1,18 +1,13 @@
-import { useTVLayout, TVBlockSize } from '@/contexts/TVLayoutContext';
+import { useTVLayout } from '@/contexts/TVLayoutContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { GripVertical, Pencil, RotateCcw, Minus, Square, Maximize2 } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { GripVertical, Pencil, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const SIZE_OPTIONS: { value: TVBlockSize; label: string; icon: React.ReactNode }[] = [
-  { value: 'compact', label: 'P', icon: <Minus className="h-3 w-3" /> },
-  { value: 'normal', label: 'M', icon: <Square className="h-3 w-3" /> },
-  { value: 'large', label: 'G', icon: <Maximize2 className="h-3 w-3" /> },
-];
-
 export function TVLayoutCustomizer() {
-  const { blocks, isEditing, setIsEditing, toggleBlock, reorderBlocks, setBlockSize, resetLayout } = useTVLayout();
+  const { blocks, isEditing, setIsEditing, toggleBlock, reorderBlocks, setBlockScale, resetLayout } = useTVLayout();
 
   const sorted = [...blocks].sort((a, b) => a.order - b.order);
 
@@ -70,23 +65,17 @@ export function TVLayoutCustomizer() {
                 />
               </div>
               {block.enabled && (
-                <div className="flex items-center gap-1 ml-8">
-                  <span className="text-[10px] text-gray-500 mr-1">Tamanho:</span>
-                  {SIZE_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setBlockSize(block.id, opt.value)}
-                      className={cn(
-                        'flex items-center gap-1 px-2 py-0.5 rounded text-[10px] border transition-all',
-                        block.size === opt.value
-                          ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
-                          : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
-                      )}
-                    >
-                      {opt.icon}
-                      {opt.label}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2 ml-8">
+                  <span className="text-[10px] text-gray-500 mr-1">Escala:</span>
+                  <Slider
+                    value={[block.scale]}
+                    onValueChange={([v]) => setBlockScale(block.id, v)}
+                    min={0.5}
+                    max={2.5}
+                    step={0.1}
+                    className="flex-1"
+                  />
+                  <span className="text-[10px] text-gray-400 w-8 text-right">{(block.scale * 100).toFixed(0)}%</span>
                 </div>
               )}
             </div>

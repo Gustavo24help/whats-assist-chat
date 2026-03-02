@@ -3,7 +3,7 @@ import { useDashboardTV, TVFilters, TVPeriod, TVComparison } from '@/hooks/useDa
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { MetasModal } from '@/components/dashboard/tv/MetasModal';
-import { TVLayoutProvider, useTVLayout, TVBlockSize } from '@/contexts/TVLayoutContext';
+import { TVLayoutProvider, useTVLayout } from '@/contexts/TVLayoutContext';
 import { TVLayoutCustomizer } from '@/components/dashboard/tv/TVLayoutCustomizer';
 import { MetasResultadosSection } from '@/components/dashboard/tv/MetasResultadosSection';
 import { format, differenceInCalendarDays, startOfMonth, subDays, subMonths, endOfMonth } from 'date-fns';
@@ -203,14 +203,6 @@ function DashboardTVContent() {
 
   const enabledBlocks = [...blocks].filter(b => b.enabled).sort((a, b) => a.order - b.order);
   const isBlockEnabled = (id: string) => enabledBlocks.some(b => b.id === id);
-
-  const getSizeClasses = (size: TVBlockSize) => {
-    switch (size) {
-      case 'compact': return 'text-[85%] [&_.text-2xl]:text-lg [&_.text-xl]:text-base [&_.text-lg]:text-sm [&_.p-4]:p-2 [&_.p-3]:p-1.5 [&_.gap-3]:gap-1.5 [&_.gap-2]:gap-1';
-      case 'large': return 'text-[120%] [&_.text-2xl]:text-4xl [&_.text-xl]:text-2xl [&_.text-lg]:text-xl [&_.p-4]:p-6 [&_.p-3]:p-4 [&_.p-2]:p-3 [&_.gap-3]:gap-4 [&_.gap-2]:gap-3 [&_.h-2]:h-3 [&_.h-1]:h-2 [&_.h-1\\.5]:h-2.5';
-      default: return '';
-    }
-  };
 
   const renderBlock = (blockId: string) => {
     switch (blockId) {
@@ -579,7 +571,7 @@ function DashboardTVContent() {
 
       {/* DYNAMIC BLOCKS */}
       {enabledBlocks.map(block => (
-        <div key={block.id} className={cn(getSizeClasses(block.size), 'transition-all')}>
+        <div key={block.id} className="transition-all origin-top-left" style={{ zoom: block.scale }}>
           {renderBlock(block.id)}
         </div>
       ))}

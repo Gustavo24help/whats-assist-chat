@@ -8,24 +8,22 @@ export type TVBlockId =
   | 'conversas-abertas'
   | 'metas-resultados';
 
-export type TVBlockSize = 'compact' | 'normal' | 'large';
-
 export interface TVBlock {
   id: TVBlockId;
   label: string;
   icon: string;
   enabled: boolean;
   order: number;
-  size: TVBlockSize;
+  scale: number; // free-form scale factor, default 1
 }
 
 const DEFAULT_TV_BLOCKS: TVBlock[] = [
-  { id: 'kpis-principais', label: 'KPIs Principais', icon: '📊', enabled: true, order: 0, size: 'normal' },
-  { id: 'funil-vendas', label: 'Funil de Vendas', icon: '🔄', enabled: true, order: 1, size: 'normal' },
-  { id: 'taxas-conversao', label: 'Taxas de Conversão', icon: '📈', enabled: true, order: 2, size: 'normal' },
-  { id: 'metricas-tempo', label: 'Métricas de Tempo', icon: '⏱️', enabled: true, order: 3, size: 'normal' },
-  { id: 'conversas-abertas', label: 'Conversas em Aberto', icon: '📞', enabled: true, order: 4, size: 'normal' },
-  { id: 'metas-resultados', label: 'Metas & Resultados', icon: '🏆', enabled: true, order: 5, size: 'normal' },
+  { id: 'kpis-principais', label: 'KPIs Principais', icon: '📊', enabled: true, order: 0, scale: 1 },
+  { id: 'funil-vendas', label: 'Funil de Vendas', icon: '🔄', enabled: true, order: 1, scale: 1 },
+  { id: 'taxas-conversao', label: 'Taxas de Conversão', icon: '📈', enabled: true, order: 2, scale: 1 },
+  { id: 'metricas-tempo', label: 'Métricas de Tempo', icon: '⏱️', enabled: true, order: 3, scale: 1 },
+  { id: 'conversas-abertas', label: 'Conversas em Aberto', icon: '📞', enabled: true, order: 4, scale: 1 },
+  { id: 'metas-resultados', label: 'Metas & Resultados', icon: '🏆', enabled: true, order: 5, scale: 1 },
 ];
 
 interface TVLayoutContextType {
@@ -34,7 +32,7 @@ interface TVLayoutContextType {
   setIsEditing: (v: boolean) => void;
   toggleBlock: (id: TVBlockId) => void;
   reorderBlocks: (fromIndex: number, toIndex: number) => void;
-  setBlockSize: (id: TVBlockId, size: TVBlockSize) => void;
+  setBlockScale: (id: TVBlockId, scale: number) => void;
   resetLayout: () => void;
 }
 
@@ -75,8 +73,8 @@ export function TVLayoutProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const setBlockSize = (id: TVBlockId, size: TVBlockSize) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, size } : b));
+  const setBlockScale = (id: TVBlockId, scale: number) => {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, scale: Math.max(0.5, Math.min(2.5, scale)) } : b));
   };
 
   const resetLayout = () => {
@@ -85,7 +83,7 @@ export function TVLayoutProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <TVLayoutContext.Provider value={{ blocks, isEditing, setIsEditing, toggleBlock, reorderBlocks, setBlockSize, resetLayout }}>
+    <TVLayoutContext.Provider value={{ blocks, isEditing, setIsEditing, toggleBlock, reorderBlocks, setBlockScale, resetLayout }}>
       {children}
     </TVLayoutContext.Provider>
   );
