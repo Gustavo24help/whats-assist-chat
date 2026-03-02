@@ -600,6 +600,7 @@ export type Database = {
           bairro: string | null
           categoria_id: number | null
           cidade: string | null
+          comparecimento_prestador: string | null
           cpf: string | null
           created_at: string | null
           data_version: number | null
@@ -640,6 +641,7 @@ export type Database = {
           bairro?: string | null
           categoria_id?: number | null
           cidade?: string | null
+          comparecimento_prestador?: string | null
           cpf?: string | null
           created_at?: string | null
           data_version?: number | null
@@ -680,6 +682,7 @@ export type Database = {
           bairro?: string | null
           categoria_id?: number | null
           cidade?: string | null
+          comparecimento_prestador?: string | null
           cpf?: string | null
           created_at?: string | null
           data_version?: number | null
