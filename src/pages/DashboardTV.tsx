@@ -344,35 +344,62 @@ function DashboardTVContent() {
     );
   };
 
-  const renderGoalBar = (label: string, actual: number, target: number) => {
-    const pct = target > 0 ? Math.min((actual / target) * 100, 120) : 0;
-    const barPct = Math.min(pct, 100);
-    const barColor = pct >= 100 ? 'from-emerald-400 to-emerald-500' : pct >= 80 ? 'from-amber-400 to-yellow-500' : pct >= 50 ? 'from-cyan-400 to-blue-500' : 'from-red-400 to-red-500';
-    const glowColor = pct >= 100 ? 'shadow-[0_0_15px_rgba(16,185,129,0.5)]' : pct >= 80 ? 'shadow-[0_0_15px_rgba(245,158,11,0.4)]' : '';
-    const borderColor = pct >= 100 ? 'border-emerald-500/30' : pct >= 80 ? 'border-amber-500/30' : 'border-cyan-500/15';
+  const renderGoalGauge = (label: string, actual: number, target: number, isCurrency = false) => {
+    const pct = target > 0 ? (actual / target) * 100 : 0;
+    const clampPct = Math.min(pct, 120);
+    const arcColor = pct >= 100 ? '#a855f7' : pct >= 80 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444';
+    const borderColor = pct >= 100 ? 'border-purple-500/30' : pct >= 80 ? 'border-emerald-500/30' : pct >= 50 ? 'border-amber-500/30' : 'border-red-500/30';
+    const pctColor = pct >= 100 ? 'text-purple-400' : pct >= 80 ? 'text-emerald-400' : pct >= 50 ? 'text-amber-400' : 'text-red-400';
+    const statusText = pct >= 100 ? 'Meta atingida!' : pct >= 80 ? 'Quase lá!' : pct >= 50 ? 'Em progresso' : 'Atenção';
+    const fmtVal = isCurrency ? fmtCurrency : fmtNum;
+
+    const describeArc = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
+      const x1 = cx + r * Math.cos(startAngle);
+      const y1 = cy - r * Math.sin(startAngle);
+      const x2 = cx + r * Math.cos(endAngle);
+      const y2 = cy - r * Math.sin(endAngle);
+      const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
+      return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 0 ${x2} ${y2}`;
+    };
 
     return (
       <TVAutoSizeWidget neonBorder={borderColor}>
-        {(dims) => (
-          <div className="w-full h-full flex flex-col justify-center" style={{ padding: dims.padding }}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-semibold text-gray-300" style={{ fontSize: dims.labelFontSize }}>{label}</span>
-              <span className={cn('font-bold', pct >= 100 ? 'text-emerald-400' : pct >= 80 ? 'text-amber-400' : 'text-gray-400')} style={{ fontSize: dims.valueFontSize * 0.6 }}>
-                {pct.toFixed(0)}%
-              </span>
+        {(dims) => {
+          const gaugeSize = Math.min(dims.width * 0.9, dims.height * 0.65);
+          const radius = gaugeSize * 0.4;
+          const strokeWidth = gaugeSize * 0.09;
+          const cx = gaugeSize / 2;
+          const cy = gaugeSize * 0.46;
+          const startAngle = Math.PI;
+          const fillAngle = startAngle - (clampPct / 120) * Math.PI;
+          const bgPath = describeArc(cx, cy, radius, 0, startAngle);
+          const fillPath = describeArc(cx, cy, radius, fillAngle, startAngle);
+          const gradId = `grad-${arcColor.replace('#', '')}-${label.replace(/\s/g, '')}`;
+
+          return (
+            <div className="w-full h-full flex flex-col items-center justify-center" style={{ padding: dims.padding }}>
+              <span className="font-semibold text-gray-300 text-center" style={{ fontSize: dims.labelFontSize }}>{label}</span>
+              <svg viewBox={`0 0 ${gaugeSize} ${gaugeSize * 0.55}`} className="mx-auto" style={{ width: gaugeSize, maxWidth: '100%' }}>
+                <defs>
+                  <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor={arcColor} stopOpacity={0.4} />
+                    <stop offset="100%" stopColor={arcColor} stopOpacity={1} />
+                  </linearGradient>
+                </defs>
+                <path d={bgPath} fill="none" stroke="#374151" strokeWidth={strokeWidth} strokeLinecap="round" />
+                <path d={fillPath} fill="none" stroke={`url(#${gradId})`} strokeWidth={strokeWidth} strokeLinecap="round" />
+                <text x={cx} y={cy - 2} textAnchor="middle" className="fill-white font-bold" style={{ fontSize: gaugeSize * 0.18 }}>
+                  {pct.toFixed(0)}%
+                </text>
+              </svg>
+              <div className="text-center -mt-1">
+                <span className="text-white font-bold" style={{ fontSize: dims.valueFontSize * 0.55 }}>{fmtVal(actual)}</span>
+                <span className="text-gray-500" style={{ fontSize: dims.subFontSize }}> / {fmtVal(target)}</span>
+              </div>
+              <span className={cn('text-center mt-0.5', pctColor)} style={{ fontSize: dims.subFontSize }}>{statusText}</span>
             </div>
-            <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-white font-bold" style={{ fontSize: dims.valueFontSize * 0.7 }}>{fmtCurrency(actual)}</span>
-              <span className="text-gray-500" style={{ fontSize: dims.subFontSize }}>/ {fmtCurrency(target)}</span>
-            </div>
-            <div className={cn('rounded-full bg-gray-800/80 overflow-hidden', glowColor)} style={{ height: Math.max(6, dims.height * 0.08) }}>
-              <div
-                className={cn('h-full rounded-full bg-gradient-to-r transition-all duration-1000 ease-out', barColor)}
-                style={{ width: `${barPct}%` }}
-              />
-            </div>
-          </div>
-        )}
+          );
+        }}
       </TVAutoSizeWidget>
     );
   };
@@ -430,17 +457,17 @@ function DashboardTVContent() {
       case 'meta-diaria-os': {
         const actual = metasIndependentes?.osDiaCount ?? 0;
         const target = metas?.quantidade_servicos ?? 10;
-        return renderGoalBar('🎯 Meta Diária — Qtd OS', actual, target);
+        return renderGoalGauge('🎯 Meta Diária — Qtd OS', actual, target);
       }
       case 'meta-mensal-os': {
         const actual = metasIndependentes?.osMesCount ?? 0;
         const target = (metas?.quantidade_servicos ?? 10) * 22;
-        return renderGoalBar('📅 Meta Mensal — Qtd OS', actual, target);
+        return renderGoalGauge('📅 Meta Mensal — Qtd OS', actual, target);
       }
       case 'meta-diaria-receita':
-        return renderGoalBar('💰 Meta Diária — Receita', metasIndependentes?.receitaDia ?? 0, metas?.valor_os ?? 0);
+        return renderGoalGauge('💰 Meta Diária — Receita', metasIndependentes?.receitaDia ?? 0, metas?.valor_os ?? 0, true);
       case 'meta-mensal-receita':
-        return renderGoalBar('📊 Meta Mensal — Receita', metasIndependentes?.receitaMes ?? 0, (metas?.valor_os ?? 0) * 22);
+        return renderGoalGauge('📊 Meta Mensal — Receita', metasIndependentes?.receitaMes ?? 0, (metas?.valor_os ?? 0) * 22, true);
 
       case 'resultado-hoje-os':
         return renderKPIWidget(
