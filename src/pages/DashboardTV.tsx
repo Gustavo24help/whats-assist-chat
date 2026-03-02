@@ -545,7 +545,7 @@ function DashboardTVContent() {
       case 'funil-fs':
         return renderFunnelWidget('FS Criadas', '📋', data?.fsCriadas ?? 0, variations.fsCriadas ?? null, previous.fsCriadas ?? 0, 'border-violet-500/40');
       case 'funil-agendados':
-        return renderFunnelWidget('Agendados', '📅', data?.agendados ?? 0, variations.agendados ?? null, previous.agendados ?? 0, 'border-amber-500/40');
+        return renderFunnelWidget('Status Agendado', '📅', data?.agendados ?? 0, variations.agendados ?? null, previous.agendados ?? 0, 'border-amber-500/40');
       case 'funil-executados':
         return renderFunnelWidget('Executados', '✅', data?.executados ?? 0, variations.executados ?? null, previous.executados ?? 0, 'border-blue-500/40');
       case 'funil-pagos':
