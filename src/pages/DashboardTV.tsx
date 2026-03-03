@@ -87,6 +87,7 @@ function DashboardTVContent() {
   const { isEditing, setIsEditing } = useTVFreeform();
   const [monitorSettings, setMonitorSettings] = useMonitorSettings();
   const [monitorOpen, setMonitorOpen] = useState(false);
+  const [rotatingWidgetIndex, setRotatingWidgetIndex] = useState(0);
   const now = new Date();
   const [periodRange, setPeriodRange] = useState<{ from: Date; to?: Date }>({ from: now, to: now });
   const [comparisonRange, setComparisonRange] = useState<{ from: Date; to?: Date } | undefined>(undefined);
@@ -137,6 +138,23 @@ function DashboardTVContent() {
       setFilters(f => ({ ...f, comparison: 'custom', comparisonRange: { from: comparisonRange.from, to: comparisonRange.to! } }));
     }
   }, [comparisonRange]);
+
+  useEffect(() => {
+    setRotatingWidgetIndex(0);
+
+    const items = monitorSettings.rotatingWidgetItems?.length
+      ? monitorSettings.rotatingWidgetItems
+      : ['conversas-abertas'];
+
+    if (items.length <= 1) return;
+
+    const intervalSec = Math.max(5, monitorSettings.rotatingWidgetIntervalSec || 20);
+    const t = window.setInterval(() => {
+      setRotatingWidgetIndex(prev => (prev + 1) % items.length);
+    }, intervalSec * 1000);
+
+    return () => window.clearInterval(t);
+  }, [monitorSettings.rotatingWidgetIntervalSec, monitorSettings.rotatingWidgetItems]);
 
   const { data, isLoading, dataUpdatedAt } = useDashboardTV(filters);
 
@@ -472,6 +490,74 @@ function DashboardTVContent() {
     );
   };
 
+  const rotatingItems = monitorSettings.rotatingWidgetItems?.length
+    ? monitorSettings.rotatingWidgetItems
+    : ['conversas-abertas'];
+  const activeRotatingWidget = rotatingItems[rotatingWidgetIndex % rotatingItems.length] || 'conversas-abertas';
+
+  const renderOpenConversationsWidget = () => {
+    if (!data?.conversasAbertas) return null;
+    return (
+      <TVAutoSizeWidget neonBorder="border-amber-500/20">
+        {() => (
+          <div className="w-full h-full overflow-auto p-3">
+            <div className="text-gray-400 uppercase tracking-wider mb-2 text-sm font-semibold">
+              📞 Ficha Criada / Orçamento Enviado — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
+            </div>
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-gray-700/50">
+                  <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Nome</th>
+                  <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Telefone</th>
+                  <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Status</th>
+                  <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium text-right">Tempo no Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.conversasAbertas.lista || []).map((c, i) => {
+                  const dias = Math.floor(c.tempoNoStatus / (60 * 24));
+                  const horas = Math.floor((c.tempoNoStatus % (60 * 24)) / 60);
+                  const mins = c.tempoNoStatus % 60;
+                  const tempoStr = dias > 0 ? `${dias}d ${horas}h` : horas > 0 ? `${horas}h ${mins}m` : `${mins}m`;
+                  const urgente = c.tempoNoStatus > 120;
+                  const muitoUrgente = c.tempoNoStatus > 480;
+                  return (
+                    <tr key={i} className={cn(
+                      'border-b border-gray-800/30',
+                      muitoUrgente ? 'bg-red-500/10' : urgente ? 'bg-amber-500/10' : ''
+                    )}>
+                      <td className="py-1 px-2 text-sm text-gray-200 truncate max-w-[200px]">{c.nome}</td>
+                      <td className="py-1 px-2 text-sm text-gray-400 font-mono">{c.telefone}</td>
+                      <td className="py-1 px-2 text-sm">
+                        <span className={cn(
+                          'inline-block px-2 py-0.5 rounded text-xs font-medium',
+                          c.status === 'Ficha Criada' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'
+                        )}>
+                          {c.status}
+                        </span>
+                      </td>
+                      <td className={cn(
+                        'py-1 px-2 text-sm font-mono font-bold text-right',
+                        muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400'
+                      )}>
+                        {tempoStr}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {(data.conversasAbertas.lista || []).length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-center text-sm text-gray-500">Nenhuma ficha nestes status</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </TVAutoSizeWidget>
+    );
+  };
+
   const renderBlock = (blockId: string) => {
     switch (blockId) {
       case 'receita-total':
@@ -626,66 +712,13 @@ function DashboardTVContent() {
 
       // Conversas abertas
       case 'conversas-abertas':
-        if (!data?.conversasAbertas) return null;
-        return (
-          <TVAutoSizeWidget neonBorder="border-amber-500/20">
-            {() => (
-              <div className="w-full h-full overflow-auto p-3">
-                <div className="text-gray-400 uppercase tracking-wider mb-2 text-sm font-semibold">
-                  📞 Ficha Criada / Orçamento Enviado — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
-                </div>
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-gray-700/50">
-                      <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Nome</th>
-                      <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Telefone</th>
-                      <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Status</th>
-                      <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium text-right">Tempo no Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(data.conversasAbertas.lista || []).map((c, i) => {
-                      const dias = Math.floor(c.tempoNoStatus / (60 * 24));
-                      const horas = Math.floor((c.tempoNoStatus % (60 * 24)) / 60);
-                      const mins = c.tempoNoStatus % 60;
-                      const tempoStr = dias > 0 ? `${dias}d ${horas}h` : horas > 0 ? `${horas}h ${mins}m` : `${mins}m`;
-                      const urgente = c.tempoNoStatus > 120;
-                      const muitoUrgente = c.tempoNoStatus > 480;
-                      return (
-                        <tr key={i} className={cn(
-                          'border-b border-gray-800/30',
-                          muitoUrgente ? 'bg-red-500/10' : urgente ? 'bg-amber-500/10' : ''
-                        )}>
-                          <td className="py-1 px-2 text-sm text-gray-200 truncate max-w-[200px]">{c.nome}</td>
-                          <td className="py-1 px-2 text-sm text-gray-400 font-mono">{c.telefone}</td>
-                          <td className="py-1 px-2 text-sm">
-                            <span className={cn(
-                              'inline-block px-2 py-0.5 rounded text-xs font-medium',
-                              c.status === 'Ficha Criada' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'
-                            )}>
-                              {c.status}
-                            </span>
-                          </td>
-                          <td className={cn(
-                            'py-1 px-2 text-sm font-mono font-bold text-right',
-                            muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400'
-                          )}>
-                            {tempoStr}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {(data.conversasAbertas.lista || []).length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="py-4 text-center text-sm text-gray-500">Nenhuma ficha nestes status</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </TVAutoSizeWidget>
-        );
+        return renderOpenConversationsWidget();
+
+      case 'widget-rotativo':
+        if (activeRotatingWidget === 'conversas-abertas') {
+          return renderOpenConversationsWidget();
+        }
+        return null;
 
       default:
         return null;
