@@ -629,53 +629,59 @@ function DashboardTVContent() {
         if (!data?.conversasAbertas) return null;
         return (
           <TVAutoSizeWidget neonBorder="border-amber-500/20">
-            {(dims) => (
-              <div className="w-full h-full overflow-auto" style={{ padding: dims.padding }}>
-                <div className="text-gray-400 uppercase tracking-wider mb-2" style={{ fontSize: dims.labelFontSize }}>
-                  📞 Conversas em Aberto — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
+            {() => (
+              <div className="w-full h-full overflow-auto p-3">
+                <div className="text-gray-400 uppercase tracking-wider mb-2 text-sm font-semibold">
+                  📞 Ficha Criada / Orçamento Enviado — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 h-[calc(100%-2rem)]">
-                  <div className="bg-[#0A1628]/60 rounded-lg p-2 overflow-auto">
-                    <div className="text-gray-400 uppercase tracking-wider mb-1" style={{ fontSize: Math.max(7, dims.subFontSize * 0.9) }}>Por Status</div>
-                    <div className="space-y-1">
-                      {(data.conversasAbertas.porStatus || []).map((s, i) => {
-                        const pct = data.conversasAbertas.total > 0 ? (s.count / data.conversasAbertas.total) * 100 : 0;
-                        return (
-                          <div key={i} className="flex items-center gap-2">
-                            <span className="text-gray-300 truncate" style={{ fontSize: dims.subFontSize, width: '40%' }}>{s.status}</span>
-                            <div className="flex-1 bg-gray-800/60 rounded-full overflow-hidden" style={{ height: Math.max(4, dims.height * 0.025) }}>
-                              <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full" style={{ width: `${pct}%` }} />
-                            </div>
-                            <span className="font-bold text-white" style={{ fontSize: dims.subFontSize }}>{s.count}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="bg-[#0A1628]/60 rounded-lg p-2 overflow-auto">
-                    <div className="text-gray-400 uppercase tracking-wider mb-1" style={{ fontSize: Math.max(7, dims.subFontSize * 0.9) }}>🔥 Aguardando Resposta</div>
-                    <div className="space-y-0.5">
-                      {(data.conversasAbertas.rankingSemResposta || []).map((c, i) => {
-                        const horas = Math.floor(c.tempoSemResposta / 60);
-                        const mins = c.tempoSemResposta % 60;
-                        const tempoStr = horas > 0 ? `${horas}h${mins}m` : `${mins}m`;
-                        const urgente = c.tempoSemResposta > 120;
-                        const muitoUrgente = c.tempoSemResposta > 480;
-                        return (
-                          <div key={i} className={cn(
-                            'flex items-center justify-between py-0.5 px-1 rounded',
-                            muitoUrgente ? 'bg-red-500/10' : urgente ? 'bg-amber-500/10' : 'bg-gray-800/40'
-                          )} style={{ fontSize: dims.subFontSize }}>
-                            <span className="text-gray-300 truncate flex-1">{i + 1}. {c.nome}</span>
-                            <span className={cn('font-mono font-bold shrink-0 ml-1', muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400')}>
-                              {tempoStr}
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-gray-700/50">
+                      <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Nome</th>
+                      <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Telefone</th>
+                      <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Status</th>
+                      <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium text-right">Tempo no Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.conversasAbertas.lista || []).map((c, i) => {
+                      const dias = Math.floor(c.tempoNoStatus / (60 * 24));
+                      const horas = Math.floor((c.tempoNoStatus % (60 * 24)) / 60);
+                      const mins = c.tempoNoStatus % 60;
+                      const tempoStr = dias > 0 ? `${dias}d ${horas}h` : horas > 0 ? `${horas}h ${mins}m` : `${mins}m`;
+                      const urgente = c.tempoNoStatus > 120;
+                      const muitoUrgente = c.tempoNoStatus > 480;
+                      return (
+                        <tr key={i} className={cn(
+                          'border-b border-gray-800/30',
+                          muitoUrgente ? 'bg-red-500/10' : urgente ? 'bg-amber-500/10' : ''
+                        )}>
+                          <td className="py-1 px-2 text-sm text-gray-200 truncate max-w-[200px]">{c.nome}</td>
+                          <td className="py-1 px-2 text-sm text-gray-400 font-mono">{c.telefone}</td>
+                          <td className="py-1 px-2 text-sm">
+                            <span className={cn(
+                              'inline-block px-2 py-0.5 rounded text-xs font-medium',
+                              c.status === 'Ficha Criada' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'
+                            )}>
+                              {c.status}
                             </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+                          </td>
+                          <td className={cn(
+                            'py-1 px-2 text-sm font-mono font-bold text-right',
+                            muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400'
+                          )}>
+                            {tempoStr}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {(data.conversasAbertas.lista || []).length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-4 text-center text-sm text-gray-500">Nenhuma ficha nestes status</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             )}
           </TVAutoSizeWidget>
