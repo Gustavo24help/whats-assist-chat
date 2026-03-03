@@ -32,20 +32,24 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const db = supabase as any;
-    const { data, error } = await db
-      .from("notificacoes")
-      .select("id, tipo, referencia_id, titulo, descricao, lida, created_at")
-      .eq("usuario_destino", user.id)
-      .eq("lida", false)
-      .order("created_at", { ascending: false });
+    try {
+      const db = supabase as any;
+      const { data, error } = await db
+        .from("notificacoes")
+        .select("id, tipo, referencia_id, titulo, descricao, lida, created_at")
+        .eq("usuario_destino", user.id)
+        .eq("lida", false)
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Erro ao carregar notificações:", error);
-      return;
+      if (error) {
+        // Tabela notificacoes ainda não existe — silenciar
+        return;
+      }
+
+      setNotifications((data ?? []) as Notification[]);
+    } catch {
+      // Silenciar erros — tabela pode não existir ainda
     }
-
-    setNotifications((data ?? []) as Notification[]);
   }, [user?.id]);
 
   useEffect(() => {
