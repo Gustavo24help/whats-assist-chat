@@ -32,7 +32,8 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const { data, error } = await supabase
+    const db = supabase as any;
+    const { data, error } = await db
       .from("notificacoes")
       .select("id, tipo, referencia_id, titulo, descricao, lida, created_at")
       .eq("usuario_destino", user.id)
