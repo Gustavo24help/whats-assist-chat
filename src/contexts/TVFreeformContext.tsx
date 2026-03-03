@@ -42,6 +42,8 @@ const DEFAULT_WIDGETS: TVWidgetLayout[] = [
   { id: 'meta-mensal-receita',   label: 'Meta Mensal — Valor OS Agend.',icon: '📊', enabled: true,  x: 750,  y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'meta-diaria-finalizados',label:'Meta Diária — Finalizados',    icon: '✅', enabled: true,  x: 1000, y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'meta-mensal-finalizados',label:'Meta Mensal — Finalizados',    icon: '📋', enabled: true,  x: 1250, y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-acumulada-os',      label:'Acumulado Mês — Agendamentos', icon: '📈', enabled: true,  x: 1500, y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'meta-acumulada-receita', label:'Acumulado Mês — Valor OS',     icon: '📈', enabled: true,  x: 1750, y: 190, width: 240, height: 170, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'resultado-hoje-os',     label: 'Agendamentos Hoje',            icon: '📋', enabled: true,  x: 0,    y: 370, width: 230, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'resultado-mensal-os',   label: 'Agendamentos do Mês',          icon: '📋', enabled: true,  x: 240,  y: 370, width: 230, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
   { id: 'resultado-hoje-receita',label: 'Finalizados Hoje',             icon: '✅', enabled: true,  x: 480,  y: 370, width: 220, height: 150, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
