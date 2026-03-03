@@ -37,6 +37,8 @@ interface ConversationCardProps {
   pagamentoLink?: string | null;
   pagamentoRealizado?: boolean;
   semOrcamento?: boolean;
+  statusAlertColor?: string | null;
+  tempoNoStatusMinutos?: number;
 }
 
 const getStatusColor = (status: string) => {
@@ -87,7 +89,9 @@ export const ConversationCard = memo(({
   temServicoParaFinalizar = false,
   pagamentoLink,
   pagamentoRealizado = false,
-  semOrcamento = false
+  semOrcamento = false,
+  statusAlertColor = null,
+  tempoNoStatusMinutos
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -96,14 +100,23 @@ export const ConversationCard = memo(({
     onDelete();
   };
 
+  const alertBackgroundStyle = statusAlertColor
+    ? {
+        background: `linear-gradient(90deg, rgba(251,146,60,0.24) 0%, ${statusAlertColor}40 100%)`,
+        borderLeftColor: statusAlertColor,
+      }
+    : undefined;
+
   return (
     <>
     <div
       className={cn(
         "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
-        semOrcamento && !isSelected && "bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-400 animate-pulse"
+        semOrcamento && !isSelected && "bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-400 animate-pulse",
+        statusAlertColor && !isSelected && "border-l-4"
       )}
+      style={alertBackgroundStyle}
       onClick={onClick}
     >
       {/* Linha 1: Tag, Avatar do Atendente e Menu */}
@@ -238,6 +251,11 @@ export const ConversationCard = memo(({
           {semOrcamento && (
             <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
               💰 Sem orçamento
+            </span>
+          )}
+          {statusAlertColor && (
+            <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-300 shrink-0">
+              ⏰ Status atrasado{typeof tempoNoStatusMinutos === "number" ? ` (${Math.floor(tempoNoStatusMinutos)}min)` : ""}
             </span>
           )}
           {temServicoParaFinalizar && (
