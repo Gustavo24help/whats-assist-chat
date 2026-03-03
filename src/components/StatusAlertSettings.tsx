@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,35 @@ export const StatusAlertSettings = () => {
   const { toast } = useToast();
   const [rules, setRules] = useState<StatusAlertRule[]>(DEFAULT_STATUS_ALERT_RULES);
   const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const persistRules = useCallback(async (rulesToSave: StatusAlertRule[]) => {
+    const payload = JSON.stringify(rulesToSave);
+    const { error } = await supabase.from("configuracoes").upsert(
+      {
+        chave: STATUS_ALERT_CONFIG_KEY,
+        valor: payload,
+        descricao: "Regras de alerta por status da ficha (limite em minutos e cor)",
+      },
+      { onConflict: "chave" }
+    );
+    if (error) {
+      console.error("Erro ao salvar regras de alerta:", error);
+    }
+  }, []);
+
+  // Auto-save com debounce de 800ms após carregamento inicial
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      persistRules(rules);
+    }, 800);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [rules, persistRules]);
 
   useEffect(() => {
     const fetchRules = async () => {
@@ -30,6 +59,8 @@ export const StatusAlertSettings = () => {
 
       setRules(parseStatusAlertRules(data?.valor));
       setLoading(false);
+      // Marcar como carregado DEPOIS de setar rules para não disparar auto-save no load
+      setTimeout(() => { hasLoadedRef.current = true; }, 100);
     };
 
     fetchRules();
@@ -60,21 +91,7 @@ export const StatusAlertSettings = () => {
   };
 
   const handleSave = async () => {
-    const payload = JSON.stringify(rules);
-    const { error } = await supabase.from("configuracoes").upsert(
-      {
-        chave: STATUS_ALERT_CONFIG_KEY,
-        valor: payload,
-        descricao: "Regras de alerta por status da ficha (limite em minutos e cor)",
-      },
-      { onConflict: "chave" }
-    );
-
-    if (error) {
-      toast({ title: "Erro", description: "Não foi possível salvar as regras de alerta.", variant: "destructive" });
-      return;
-    }
-
+    await persistRules(rules);
     toast({ title: "Regras salvas", description: "As regras de alerta de status foram atualizadas." });
   };
 
