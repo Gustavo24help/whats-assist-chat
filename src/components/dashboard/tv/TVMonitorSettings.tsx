@@ -34,6 +34,20 @@ const PRESETS = [
   { id: 'tablet', label: '📱 Tablet (vertical)', safeZone: 2, fontSize: 110 },
 ];
 
+const ROTATING_WIDGET_OPTIONS = [
+  { id: 'conversas-abertas', icon: '📞', label: 'Conversas em Aberto', description: 'Ficha Criada / Orçamento Enviado' },
+  { id: 'funil-conversas', icon: '💬', label: 'Funil: Conversas', description: 'Total de conversas iniciadas' },
+  { id: 'funil-fs', icon: '📋', label: 'Funil: FS Criadas', description: 'Fichas de serviço criadas' },
+  { id: 'funil-agendados', icon: '📅', label: 'Funil: Agendados', description: 'Serviços com agendamento' },
+  { id: 'funil-executados', icon: '✅', label: 'Funil: Executados', description: 'Serviços executados' },
+  { id: 'funil-pagos', icon: '💰', label: 'Funil: Pagos', description: 'Serviços pagos' },
+  { id: 'taxa-agend-fs', icon: '📊', label: 'Taxa Agendados/FS', description: 'Conversão FS → Agendado' },
+  { id: 'taxa-pagos-agend', icon: '📊', label: 'Taxa Pagos/Agendados', description: 'Conversão Agendado → Pago' },
+  { id: 'tempo-resposta', icon: '⚡', label: 'Tempo Resposta', description: 'Tempo médio de resposta' },
+  { id: 'tempo-orcamento', icon: '🎯', label: 'Tempo Orçamento', description: 'Tempo até receber orçamento' },
+  { id: 'tempo-ciclo', icon: '🎪', label: 'Ciclo Completo', description: 'Tempo total do ciclo' },
+];
+
 export function useMonitorSettings(): [MonitorSettings, (s: MonitorSettings) => void] {
   const [settings, setSettings] = useState<MonitorSettings>(() => {
     try {
@@ -174,29 +188,31 @@ export function TVMonitorSettings({ open, onClose, settings, onUpdate }: Props) 
               />
             </div>
 
-            <div className="flex items-center justify-between rounded-md border border-gray-700/80 bg-gray-900/40 px-2.5 py-2">
-              <div>
-                <p className="text-xs text-gray-200">📞 Conversas em Aberto</p>
-                <p className="text-[11px] text-gray-500">Ficha Criada / Orçamento Enviado</p>
+            {ROTATING_WIDGET_OPTIONS.map(opt => (
+              <div key={opt.id} className="flex items-center justify-between rounded-md border border-gray-700/80 bg-gray-900/40 px-2.5 py-2">
+                <div>
+                  <p className="text-xs text-gray-200">{opt.icon} {opt.label}</p>
+                  <p className="text-[11px] text-gray-500">{opt.description}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={local.rotatingWidgetItems.includes(opt.id)}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setLocal(s => {
+                      const next = enabled
+                        ? [...new Set([...s.rotatingWidgetItems, opt.id])]
+                        : s.rotatingWidgetItems.filter(item => item !== opt.id);
+                      return {
+                        ...s,
+                        rotatingWidgetItems: next.length > 0 ? next : ['conversas-abertas'],
+                      };
+                    });
+                  }}
+                  className="h-4 w-4 cursor-pointer border-gray-500 bg-gray-900"
+                />
               </div>
-              <input
-                type="checkbox"
-                checked={local.rotatingWidgetItems.includes('conversas-abertas')}
-                onChange={(e) => {
-                  const enabled = e.target.checked;
-                  setLocal(s => {
-                    const next = enabled
-                      ? [...new Set([...s.rotatingWidgetItems, 'conversas-abertas'])]
-                      : s.rotatingWidgetItems.filter(item => item !== 'conversas-abertas');
-                    return {
-                      ...s,
-                      rotatingWidgetItems: next.length > 0 ? next : ['conversas-abertas'],
-                    };
-                  });
-                }}
-                className="h-4 w-4 cursor-pointer border-gray-500 bg-gray-900"
-              />
-            </div>
+            ))}
           </div>
 
           <Button onClick={save} className="w-full bg-cyan-600 hover:bg-cyan-700 text-white">
