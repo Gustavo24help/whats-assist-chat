@@ -109,7 +109,8 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   }, [loadUnreadNotifications, user?.id]);
 
   const markAsRead = useCallback(async (id: string) => {
-    const { error } = await supabase
+    const db = supabase as any;
+    const { error } = await db
       .from("notificacoes")
       .update({ lida: true })
       .eq("id", id);
@@ -127,7 +128,8 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
 
     const ids = notifications.map((item) => item.id);
 
-    const { error } = await supabase
+    const db = supabase as any;
+    const { error } = await db
       .from("notificacoes")
       .update({ lida: true })
       .in("id", ids)
