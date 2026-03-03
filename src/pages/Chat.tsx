@@ -84,13 +84,20 @@ const Chat = () => {
     setFichaOpen(false);
   };
 
-  const handleOrcamentoNotification = async (fichaId: string, telefoneCliente: string) => {
-    // Buscar o cliente pelo telefone
+  const handleOrcamentoNotification = async (fichaId: string) => {
+    const { data: ficha } = await supabase
+      .from('fichas_de_servico')
+      .select('telefone_cliente')
+      .eq('id', fichaId)
+      .maybeSingle();
+
+    if (!ficha?.telefone_cliente) return;
+
     const { data: cliente } = await supabase
       .from('clientes')
       .select('*')
-      .eq('telefone', telefoneCliente)
-      .single();
+      .eq('telefone', ficha.telefone_cliente)
+      .maybeSingle();
 
     if (cliente) {
       await handleSelectCliente(cliente);

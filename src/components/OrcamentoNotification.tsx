@@ -1,130 +1,34 @@
-import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-interface OrcamentoNotificacao {
-  id: string;
-  ficha_id: string;
-  ficha_nome: string | null;
-  telefone_cliente: string;
-  cliente_nome: string;
-  valor_total: number | null;
-  data_criacao: string;
-}
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface OrcamentoNotificationProps {
-  onSelectFicha: (fichaId: string, telefoneCliente: string) => void;
+  onSelectFicha: (fichaId: string) => void;
 }
 
-// Som de notificação suave de sino (MP3 base64 - som de sino curto)
-const BUDGET_NOTIFICATION_SOUND = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD////////////////////////////////////////////////////////////AAAAAExhdmM1OC4xMzQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
-
 export function OrcamentoNotification({ onSelectFicha }: OrcamentoNotificationProps) {
-  const [notifications, setNotifications] = useState<OrcamentoNotificacao[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { notifications, markAsRead, markAllAsRead } = useNotifications();
 
-  useEffect(() => {
-    // Criar elemento de áudio
-    audioRef.current = new Audio(BUDGET_NOTIFICATION_SOUND);
-  }, []);
+  const orcamentoNotifications = notifications.filter((item) => item.tipo === "orcamento");
 
-  const playNotificationSound = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(err => console.error("Erro ao tocar som:", err));
-    }
-  };
+  const handleNotificationClick = async (notificationId: string, fichaId: string | null) => {
+    if (!fichaId) return;
 
-  useEffect(() => {
-    // Escutar novos orçamentos em tempo real
-    const channel = supabase
-      .channel('orcamentos-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'orcamentos'
-        },
-        async (payload) => {
-          const novoOrcamento = payload.new as any;
-          
-          // Buscar informações da ficha e cliente
-          const { data: ficha } = await supabase
-            .from('fichas_de_servico')
-            .select('id, nome_ficha, telefone_cliente, status')
-            .eq('id', novoOrcamento.ficha_nome)
-            .single();
-
-          // Só notificar se a ficha estiver com status "Ficha Criada"
-          if (ficha && ficha.status === 'Ficha Criada') {
-            const { data: cliente } = await supabase
-              .from('clientes')
-              .select('nome')
-              .eq('telefone', ficha.telefone_cliente)
-              .single();
-
-            const notificacao: OrcamentoNotificacao = {
-              id: novoOrcamento.id,
-              ficha_id: novoOrcamento.ficha_nome,
-              ficha_nome: ficha.nome_ficha,
-              telefone_cliente: ficha.telefone_cliente,
-              cliente_nome: cliente?.nome || 'Cliente',
-              valor_total: novoOrcamento.valor_total,
-              data_criacao: novoOrcamento.data_criacao
-            };
-
-            setNotifications(prev => [notificacao, ...prev]);
-            playNotificationSound();
-            
-            toast.success(
-              `Novo orçamento recebido!`,
-              {
-                description: `${notificacao.ficha_id} - ${notificacao.cliente_nome}`,
-                duration: 5000,
-              }
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const handleNotificationClick = (notificacao: OrcamentoNotificacao) => {
-    onSelectFicha(notificacao.ficha_id, notificacao.telefone_cliente);
-    // Remove da lista ao clicar
-    setNotifications(prev => prev.filter(n => n.id !== notificacao.id));
+    await markAsRead(notificationId);
+    onSelectFicha(fichaId);
     setIsOpen(false);
-  };
-
-  const handleClearAll = () => {
-    setNotifications([]);
-    setIsOpen(false);
-  };
-
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "R$ 0,00";
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
   };
 
   const formatTimeAgo = (date: string) => {
     return formatDistanceToNow(new Date(date), {
       addSuffix: true,
-      locale: ptBR
+      locale: ptBR,
     });
   };
 
@@ -134,18 +38,12 @@ export function OrcamentoNotification({ onSelectFicha }: OrcamentoNotificationPr
         <Button
           variant="outline"
           size="sm"
-          className={cn(
-            "relative",
-            notifications.length > 0 && "animate-notification-glow"
-          )}
+          className={cn("relative", orcamentoNotifications.length > 0 && "animate-notification-glow")}
         >
-          <Bell className={cn(
-            "h-4 w-4",
-            notifications.length > 0 && "animate-notification-ring"
-          )} />
-          {notifications.length > 0 && (
+          <Bell className={cn("h-4 w-4", orcamentoNotifications.length > 0 && "animate-notification-ring")} />
+          {orcamentoNotifications.length > 0 && (
             <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-semibold animate-pulse">
-              {notifications.length}
+              {orcamentoNotifications.length}
             </span>
           )}
         </Button>
@@ -157,48 +55,40 @@ export function OrcamentoNotification({ onSelectFicha }: OrcamentoNotificationPr
             Novos Orçamentos
           </h3>
         </div>
-        
-        {notifications.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            Nenhum orçamento novo
-          </div>
+
+        {orcamentoNotifications.length === 0 ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">Nenhum orçamento novo</div>
         ) : (
           <>
             <div className="max-h-96 overflow-y-auto">
-              {notifications.map((notificacao) => (
+              {orcamentoNotifications.map((notification) => (
                 <button
-                  key={notificacao.id}
-                  onClick={() => handleNotificationClick(notificacao)}
+                  key={notification.id}
+                  onClick={() => handleNotificationClick(notification.id, notification.referencia_id)}
                   className="w-full p-3 border-b hover:bg-accent/50 transition-colors text-left"
                 >
                   <div className="flex items-start gap-2">
                     <div className="h-2 w-2 rounded-full bg-green-500 mt-1.5 shrink-0 animate-pulse" />
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {notificacao.ficha_id}
-                      </div>
-                      <div className="text-sm text-muted-foreground truncate">
-                        {notificacao.cliente_nome}
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-sm font-semibold text-primary">
-                          {formatCurrency(notificacao.valor_total)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatTimeAgo(notificacao.data_criacao)}
-                        </span>
+                      <div className="font-medium text-sm truncate">{notification.titulo}</div>
+                      <div className="text-sm text-muted-foreground truncate">{notification.descricao || ""}</div>
+                      <div className="flex items-center justify-end mt-1">
+                        <span className="text-xs text-muted-foreground">{formatTimeAgo(notification.created_at)}</span>
                       </div>
                     </div>
                   </div>
                 </button>
               ))}
             </div>
-            
+
             <div className="p-2 border-t bg-muted/30">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleClearAll}
+                onClick={async () => {
+                  await markAllAsRead();
+                  setIsOpen(false);
+                }}
                 className="w-full text-xs"
               >
                 Marcar todas como vistas
