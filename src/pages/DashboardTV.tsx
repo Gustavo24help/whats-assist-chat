@@ -252,9 +252,10 @@ function DashboardTVContent() {
       }
 
       // Buscar metas de daily_goals
-      const [metaDiariaRes, metasMesRes] = await Promise.all([
+      const [metaDiariaRes, metasMesRes, metasAcumuladaRes] = await Promise.all([
         supabase.from('daily_goals').select('meta_agendamento_quantidade, meta_agendamento_valor').eq('date', hojeDate).maybeSingle(),
         supabase.from('daily_goals').select('meta_agendamento_quantidade, meta_agendamento_valor').gte('date', mesFromDate).lte('date', mesEndDate),
+        supabase.from('daily_goals').select('meta_agendamento_quantidade, meta_agendamento_valor').gte('date', mesFromDate).lte('date', hojeDate),
       ]);
 
       const metaDiariaQtd = (metaDiariaRes.data as any)?.meta_agendamento_quantidade ?? 0;
@@ -262,6 +263,9 @@ function DashboardTVContent() {
       const metasMesData = (metasMesRes.data as any[]) || [];
       const metaMensalQtd = metasMesData.reduce((s: number, r: any) => s + (r.meta_agendamento_quantidade || 0), 0);
       const metaMensalValor = metasMesData.reduce((s: number, r: any) => s + (r.meta_agendamento_valor || 0), 0);
+      const metasAcumuladaData = (metasAcumuladaRes.data as any[]) || [];
+      const metaAcumuladaQtd = metasAcumuladaData.reduce((s: number, r: any) => s + (r.meta_agendamento_quantidade || 0), 0);
+      const metaAcumuladaValor = metasAcumuladaData.reduce((s: number, r: any) => s + (r.meta_agendamento_valor || 0), 0);
 
       return {
         agendamentosDia: agendDiaIds.length,
@@ -276,6 +280,8 @@ function DashboardTVContent() {
         metaDiariaValor,
         metaMensalQtd,
         metaMensalValor,
+        metaAcumuladaQtd,
+        metaAcumuladaValor,
       };
     },
     refetchInterval: REFRESH_INTERVAL,
@@ -542,6 +548,18 @@ function DashboardTVContent() {
         const actual = metasIndependentes?.finalizadosMes ?? 0;
         const target = (metas?.quantidade_servicos ?? 3) * 22;
         return renderGoalGauge('📋 Meta Mensal — Finalizados', actual, target);
+      }
+
+      // ── Metas Acumuladas (dia 1 até hoje) ──
+      case 'meta-acumulada-os': {
+        const actual = metasIndependentes?.agendamentosMes ?? 0;
+        const target = metasIndependentes?.metaAcumuladaQtd ?? 0;
+        return renderGoalGauge('📈 Acumulado Mês — Agendamentos', actual, target);
+      }
+      case 'meta-acumulada-receita': {
+        const actual = metasIndependentes?.valorAgendMes ?? 0;
+        const target = metasIndependentes?.metaAcumuladaValor ?? 0;
+        return renderGoalGauge('📈 Acumulado Mês — Valor OS', actual, target, true);
       }
 
       // ── Resultados ──
