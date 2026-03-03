@@ -714,11 +714,13 @@ function DashboardTVContent() {
       case 'conversas-abertas':
         return renderOpenConversationsWidget();
 
-      case 'widget-rotativo':
-        if (activeRotatingWidget === 'conversas-abertas') {
-          return renderOpenConversationsWidget();
+      case 'widget-rotativo': {
+        // Renderizar o widget ativo do ciclo rotativo reutilizando renderBlock
+        if (activeRotatingWidget && activeRotatingWidget !== 'widget-rotativo') {
+          return renderBlock(activeRotatingWidget);
         }
-        return null;
+        return renderOpenConversationsWidget();
+      }
 
       default:
         return null;
