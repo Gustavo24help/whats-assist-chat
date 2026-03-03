@@ -19,6 +19,7 @@ export const StatusAlertSettings = () => {
   const { toast } = useToast();
   const [rules, setRules] = useState<StatusAlertRule[]>(DEFAULT_STATUS_ALERT_RULES);
   const [loading, setLoading] = useState(true);
+  const [statusToAdd, setStatusToAdd] = useState<string>("");
   const hasLoadedRef = useRef(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -71,6 +72,17 @@ export const StatusAlertSettings = () => {
     [rules]
   );
 
+  useEffect(() => {
+    if (availableStatuses.length === 0) {
+      setStatusToAdd("");
+      return;
+    }
+
+    if (!statusToAdd || !availableStatuses.includes(statusToAdd)) {
+      setStatusToAdd(availableStatuses[0]);
+    }
+  }, [availableStatuses, statusToAdd]);
+
   const updateRule = (index: number, patch: Partial<StatusAlertRule>) => {
     setRules((prev) => {
       if (patch.status && prev.some((rule, idx) => idx !== index && rule.status === patch.status)) {
@@ -82,8 +94,8 @@ export const StatusAlertSettings = () => {
   };
 
   const addRule = () => {
-    if (availableStatuses.length === 0) return;
-    setRules((prev) => [...prev, { status: availableStatuses[0], maxMinutes: 60, color: "#DC2626" }]);
+    if (!statusToAdd) return;
+    setRules((prev) => [...prev, { status: statusToAdd, maxMinutes: 60, color: "#DC2626" }]);
   };
 
   const removeRule = (index: number) => {
@@ -109,6 +121,12 @@ export const StatusAlertSettings = () => {
         ) : (
           <>
             <div className="space-y-3">
+              {rules.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum status configurado. Adicione os status que devem gerar alerta.
+                </p>
+              )}
+
               {rules.map((rule, index) => {
                 const statusOptions = [rule.status, ...availableStatuses];
 
@@ -158,10 +176,27 @@ export const StatusAlertSettings = () => {
               })}
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={addRule} disabled={availableStatuses.length === 0}>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[260px] space-y-1">
+                <Label>Adicionar status</Label>
+                <Select value={statusToAdd} onValueChange={setStatusToAdd} disabled={availableStatuses.length === 0}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableStatuses.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button type="button" variant="outline" onClick={addRule} disabled={!statusToAdd}>
                 <Plus className="mr-2 h-4 w-4" /> Adicionar status
               </Button>
+
               <Button type="button" onClick={handleSave}>
                 <Save className="mr-2 h-4 w-4" /> Salvar regras
               </Button>

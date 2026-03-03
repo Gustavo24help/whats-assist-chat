@@ -23,11 +23,7 @@ export const ALERTABLE_STATUSES = [
   "Perdido"
 ];
 
-export const DEFAULT_STATUS_ALERT_RULES: StatusAlertRule[] = ALERTABLE_STATUSES.map((status) => ({
-  status,
-  maxMinutes: 60,
-  color: "#DC2626"
-}));
+export const DEFAULT_STATUS_ALERT_RULES: StatusAlertRule[] = [];
 
 export const parseStatusAlertRules = (value?: string | null): StatusAlertRule[] => {
   if (!value) return DEFAULT_STATUS_ALERT_RULES;
@@ -36,7 +32,7 @@ export const parseStatusAlertRules = (value?: string | null): StatusAlertRule[] 
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return DEFAULT_STATUS_ALERT_RULES;
 
-    const sanitized = parsed
+    return parsed
       .filter((rule) => rule && typeof rule.status === "string")
       .map((rule) => ({
         status: rule.status,
@@ -47,8 +43,6 @@ export const parseStatusAlertRules = (value?: string | null): StatusAlertRule[] 
             : 60,
         color: typeof rule.color === "string" && rule.color.startsWith("#") ? rule.color : "#DC2626",
       }));
-
-    return sanitized.length > 0 ? sanitized : DEFAULT_STATUS_ALERT_RULES;
   } catch {
     return DEFAULT_STATUS_ALERT_RULES;
   }
