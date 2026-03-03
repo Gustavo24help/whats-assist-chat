@@ -715,9 +715,9 @@ function DashboardTVContent() {
         return renderOpenConversationsWidget();
 
       case 'widget-rotativo': {
-        // Renderizar o widget ativo do ciclo rotativo reutilizando renderWidgetContent
+        // Renderizar o widget ativo do ciclo rotativo reutilizando renderBlock
         if (activeRotatingWidget && activeRotatingWidget !== 'widget-rotativo') {
-          return renderWidgetContent(activeRotatingWidget);
+          return renderBlock(activeRotatingWidget);
         }
         return renderOpenConversationsWidget();
       }
