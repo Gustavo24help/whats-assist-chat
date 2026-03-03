@@ -73,7 +73,7 @@ const DEFAULT_WIDGETS: TVWidgetLayout[] = [
   { id: 'tempo-ciclo',         label: 'Ciclo Completo',        icon: '🎪', enabled: true,  x: 1550, y: 860, width: 370, height: 140, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
   // Row 7 — Blocos maiores
-  { id: 'conversas-abertas',   label: 'Conversas em Aberto',   icon: '📞', enabled: true,  x: 0,    y: 1010, width: 1920, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  { id: 'widget-rotativo',    label: 'Widget Rotativo',       icon: '🔁', enabled: true,  x: 0,    y: 1010, width: 1920, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 ];
 
 const PRESETS: { name: string; widgets: TVWidgetLayout[] }[] = [
