@@ -201,8 +201,11 @@ function DashboardTVContent() {
       const diaTo = endOfDay(now).toISOString();
       const mesFrom = startOfMonth(now).toISOString();
       const mesTo = endOfMonth(now).toISOString();
+      const hojeDate = format(now, 'yyyy-MM-dd');
+      const mesFromDate = format(startOfMonth(now), 'yyyy-MM-dd');
+      const mesEndDate = format(endOfMonth(now), 'yyyy-MM-dd');
 
-      // Buscar fichas que entraram em "Agendado" (via histórico de status)
+      // Buscar fichas que entraram em "Agendado" e "Finalizado" (via histórico de status)
       const [agendDia, agendMes, finDia, finMes] = await Promise.all([
         supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
         supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
@@ -215,9 +218,8 @@ function DashboardTVContent() {
       const finDiaIds = [...new Set((finDia.data || []).map(r => r.ficha_id))];
       const finMesIds = [...new Set((finMes.data || []).map(r => r.ficha_id))];
 
-      // Buscar valor_total das fichas agendadas
+      // Buscar valor_total das fichas agendadas HOJE (sem filtro de Perdido — são do dia)
       let valorAgendDia = 0;
-      let valorAgendMes = 0;
       let valorFinDia = 0;
       let valorFinMes = 0;
 
@@ -225,10 +227,21 @@ function DashboardTVContent() {
         const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', agendDiaIds);
         valorAgendDia = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
       }
+
+      // MENSAL: filtrar fichas cujo status atual ≠ "Perdido"
+      let agendamentosMes = 0;
+      let valorAgendMes = 0;
       if (agendMesIds.length > 0) {
-        const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', agendMesIds);
-        valorAgendMes = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
+        const { data: fichasMes } = await supabase
+          .from('fichas_de_servico')
+          .select('id, status, valor_total')
+          .in('id', agendMesIds)
+          .neq('status', 'Perdido');
+        const agendMesFiltrados = fichasMes || [];
+        agendamentosMes = agendMesFiltrados.length;
+        valorAgendMes = agendMesFiltrados.reduce((s, f) => s + (f.valor_total || 0), 0);
       }
+
       if (finDiaIds.length > 0) {
         const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', finDiaIds);
         valorFinDia = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
@@ -238,15 +251,31 @@ function DashboardTVContent() {
         valorFinMes = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
       }
 
+      // Buscar metas de daily_goals
+      const [metaDiariaRes, metasMesRes] = await Promise.all([
+        supabase.from('daily_goals').select('meta_agendamento_quantidade, meta_agendamento_valor').eq('date', hojeDate).maybeSingle(),
+        supabase.from('daily_goals').select('meta_agendamento_quantidade, meta_agendamento_valor').gte('date', mesFromDate).lte('date', mesEndDate),
+      ]);
+
+      const metaDiariaQtd = (metaDiariaRes.data as any)?.meta_agendamento_quantidade ?? 0;
+      const metaDiariaValor = (metaDiariaRes.data as any)?.meta_agendamento_valor ?? 0;
+      const metasMesData = (metasMesRes.data as any[]) || [];
+      const metaMensalQtd = metasMesData.reduce((s: number, r: any) => s + (r.meta_agendamento_quantidade || 0), 0);
+      const metaMensalValor = metasMesData.reduce((s: number, r: any) => s + (r.meta_agendamento_valor || 0), 0);
+
       return {
         agendamentosDia: agendDiaIds.length,
-        agendamentosMes: agendMesIds.length,
+        agendamentosMes,
         valorAgendDia,
         valorAgendMes,
         finalizadosDia: finDiaIds.length,
         finalizadosMes: finMesIds.length,
         valorFinDia,
         valorFinMes,
+        metaDiariaQtd,
+        metaDiariaValor,
+        metaMensalQtd,
+        metaMensalValor,
       };
     },
     refetchInterval: REFRESH_INTERVAL,
@@ -490,18 +519,18 @@ function DashboardTVContent() {
       // ── Metas de Agendamentos ──
       case 'meta-diaria-os': {
         const actual = metasIndependentes?.agendamentosDia ?? 0;
-        const target = metas?.quantidade_agendados ?? metas?.quantidade_servicos ?? 5;
+        const target = metasIndependentes?.metaDiariaQtd ?? 0;
         return renderGoalGauge('🎯 Meta Diária — Agendamentos', actual, target);
       }
       case 'meta-mensal-os': {
         const actual = metasIndependentes?.agendamentosMes ?? 0;
-        const target = (metas?.quantidade_agendados ?? metas?.quantidade_servicos ?? 5) * 22;
+        const target = metasIndependentes?.metaMensalQtd ?? 0;
         return renderGoalGauge('📅 Meta Mensal — Agendamentos', actual, target);
       }
       case 'meta-diaria-receita':
-        return renderGoalGauge('💰 Meta Diária — Valor OS Agendados', metasIndependentes?.valorAgendDia ?? 0, metas?.valor_os ?? 0, true);
+        return renderGoalGauge('💰 Meta Diária — Valor OS Agendados', metasIndependentes?.valorAgendDia ?? 0, metasIndependentes?.metaDiariaValor ?? 0, true);
       case 'meta-mensal-receita':
-        return renderGoalGauge('📊 Meta Mensal — Valor OS Agendados', metasIndependentes?.valorAgendMes ?? 0, (metas?.valor_os ?? 0) * 22, true);
+        return renderGoalGauge('📊 Meta Mensal — Valor OS Agendados', metasIndependentes?.valorAgendMes ?? 0, metasIndependentes?.metaMensalValor ?? 0, true);
 
       // ── Metas de Finalizados ──
       case 'meta-diaria-finalizados': {

@@ -462,6 +462,33 @@ export type Database = {
           },
         ]
       }
+      daily_goals: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          meta_agendamento_quantidade: number
+          meta_agendamento_valor: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          meta_agendamento_quantidade?: number
+          meta_agendamento_valor?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          meta_agendamento_quantidade?: number
+          meta_agendamento_valor?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       dashboard_metas: {
         Row: {
           created_at: string | null
