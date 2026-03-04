@@ -40,13 +40,13 @@ function fmtNum(v: number) {
 function statusColor(value: number, target: number, higherIsBetter = true): string {
   const ratio = value / target;
   if (higherIsBetter) {
-    if (ratio >= 0.9) return 'text-emerald-400';
-    if (ratio >= 0.7) return 'text-amber-400';
-    return 'text-red-400';
+    if (ratio >= 0.9) return 'text-[#276749]';
+    if (ratio >= 0.7) return 'text-[#DD6B20]';
+    return 'text-[#E53E3E]';
   }
-  if (ratio <= 1.1) return 'text-emerald-400';
-  if (ratio <= 1.3) return 'text-amber-400';
-  return 'text-red-400';
+  if (ratio <= 1.1) return 'text-[#276749]';
+  if (ratio <= 1.3) return 'text-[#DD6B20]';
+  return 'text-[#E53E3E]';
 }
 function statusEmoji(value: number, target: number, higherIsBetter = true): string {
   const ratio = value / target;
@@ -308,11 +308,11 @@ function DashboardTVContent() {
 
   if (isLoading || !data) {
     return (
-      <div className="min-h-screen bg-[#050D1A] text-white p-6 space-y-4">
-        <Skeleton className="h-16 w-full bg-gray-800/50" />
+      <div className="min-h-screen bg-[#F0F2F5] text-[#111827] p-6 space-y-4">
+        <Skeleton className="h-16 w-full bg-gray-200" />
         <div className="grid grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 bg-gray-800/50" />
+            <Skeleton key={i} className="h-32 bg-gray-200" />
           ))}
         </div>
       </div>
@@ -340,18 +340,18 @@ function DashboardTVContent() {
     <TVAutoSizeWidget neonBorder={accent}>
       {(dims) => (
         <div className="w-full h-full flex flex-col justify-center" style={{ padding: dims.padding }}>
-          <div className="text-gray-400 uppercase tracking-wider truncate" style={{ fontSize: dims.labelFontSize }}>{label}</div>
-          <div className="font-bold text-white leading-none mt-1" style={{ fontSize: dims.valueFontSize }}>{value}</div>
+          <div className="text-[#374151] uppercase tracking-wider truncate" style={{ fontSize: dims.labelFontSize }}>{label}</div>
+          <div className="font-bold text-[#1A56DB] leading-none mt-1" style={{ fontSize: dims.valueFontSize }}>{value}</div>
           <div className="flex items-center gap-2 mt-1">
-            <span className={cn('font-semibold', variation !== null && variation >= 0 ? 'text-emerald-400' : 'text-red-400')} style={{ fontSize: dims.subFontSize }}>
+            <span className={cn('font-semibold', variation !== null && variation >= 0 ? 'text-[#276749]' : 'text-[#E53E3E]')} style={{ fontSize: dims.subFontSize }}>
               {variation !== null ? (variation >= 0 ? '↑' : '↓') : ''} {fmtPct(variation)}
             </span>
-            <span className="text-gray-500" style={{ fontSize: Math.max(7, dims.subFontSize * 0.8) }}>ant: {prevValue}</span>
+            <span className="text-[#6B7280]" style={{ fontSize: Math.max(7, dims.subFontSize * 0.8) }}>ant: {prevValue}</span>
           </div>
-          <div className="text-gray-500 mt-0.5" style={{ fontSize: dims.subFontSize }}>{sub}</div>
+          <div className="text-[#6B7280] mt-0.5" style={{ fontSize: dims.subFontSize }}>{sub}</div>
           {progress !== null && progress !== undefined && (
             <div className="mt-auto pt-1">
-              <div className="flex justify-between text-gray-500" style={{ fontSize: Math.max(7, dims.subFontSize * 0.8) }}>
+              <div className="flex justify-between text-[#6B7280]" style={{ fontSize: Math.max(7, dims.subFontSize * 0.8) }}>
                 <span>Meta: {metaLabel || '—'}</span>
                 <span>{progress.toFixed(0)}%</span>
               </div>
@@ -371,13 +371,13 @@ function DashboardTVContent() {
       {(dims) => (
         <div className="w-full h-full flex flex-col items-center justify-center" style={{ padding: dims.padding }}>
           <div style={{ fontSize: dims.iconSize }}>{icon}</div>
-          <div className="font-bold text-white leading-none mt-1" style={{ fontSize: dims.valueFontSize }}>{fmtNum(value)}</div>
-          <div className="text-gray-300 mt-1" style={{ fontSize: dims.labelFontSize }}>{label}</div>
+          <div className="font-bold text-[#111827] leading-none mt-1" style={{ fontSize: dims.valueFontSize }}>{fmtNum(value)}</div>
+          <div className="text-[#374151] mt-1" style={{ fontSize: dims.labelFontSize }}>{label}</div>
           <div className="flex items-center gap-1 mt-1">
-            <span className={cn('font-semibold', variation !== null && variation >= 0 ? 'text-emerald-400' : 'text-red-400')} style={{ fontSize: dims.subFontSize }}>
+            <span className={cn('font-semibold', variation !== null && variation >= 0 ? 'text-[#276749]' : 'text-[#E53E3E]')} style={{ fontSize: dims.subFontSize }}>
               {fmtPct(variation)}
             </span>
-            <span className="text-gray-500" style={{ fontSize: Math.max(7, dims.subFontSize * 0.85) }}>({fmtNum(prev)})</span>
+            <span className="text-[#6B7280]" style={{ fontSize: Math.max(7, dims.subFontSize * 0.85) }}>({fmtNum(prev)})</span>
           </div>
         </div>
       )}
@@ -388,20 +388,19 @@ function DashboardTVContent() {
     label: string, value: number, meta: number, calc: string,
   ) => {
     const pct = value;
-    const status = pct >= meta * 0.9 ? 'emerald' : pct >= meta * 0.7 ? 'amber' : 'red';
-    const borderColor = `border-${status}-500/30`;
+    const statusClr = pct >= meta * 0.9 ? 'text-[#276749]' : pct >= meta * 0.7 ? 'text-[#DD6B20]' : 'text-[#E53E3E]';
     return (
-      <TVAutoSizeWidget neonBorder={borderColor}>
+      <TVAutoSizeWidget>
         {(dims) => (
           <div className="w-full h-full flex flex-col items-center justify-center" style={{ padding: dims.padding }}>
-            <div className="text-gray-400 truncate text-center" style={{ fontSize: dims.labelFontSize }}>{label}</div>
-            <div className={cn('font-bold leading-none mt-1', `text-${status}-400`)} style={{ fontSize: dims.valueFontSize }}>
+            <div className="text-[#374151] truncate text-center" style={{ fontSize: dims.labelFontSize }}>{label}</div>
+            <div className={cn('font-bold leading-none mt-1', statusClr)} style={{ fontSize: dims.valueFontSize }}>
               {pct.toFixed(1)}%
             </div>
-            <div className="text-gray-500 mt-1" style={{ fontSize: dims.subFontSize }}>{calc}</div>
+            <div className="text-[#6B7280] mt-1" style={{ fontSize: dims.subFontSize }}>{calc}</div>
             <div className="w-full mt-auto pt-1">
               <Progress value={Math.min((pct / meta) * 100, 100)} className="h-1" />
-              <div className="text-gray-500 text-center mt-0.5" style={{ fontSize: Math.max(7, dims.subFontSize * 0.85) }}>Meta: {meta}%</div>
+              <div className="text-[#6B7280] text-center mt-0.5" style={{ fontSize: Math.max(7, dims.subFontSize * 0.85) }}>Meta: {meta}%</div>
             </div>
           </div>
         )}
@@ -415,15 +414,15 @@ function DashboardTVContent() {
     const hasValue = value !== null;
     const emoji = hasValue ? statusEmoji(value!, target, false) : '—';
     return (
-      <TVAutoSizeWidget neonBorder={hasValue ? (value! <= target * 1.1 ? 'border-emerald-500/30' : 'border-red-500/30') : 'border-gray-500/20'}>
+      <TVAutoSizeWidget>
         {(dims) => (
           <div className="w-full h-full flex flex-col items-center justify-center" style={{ padding: dims.padding }}>
             <div style={{ fontSize: dims.iconSize }}>{icon}</div>
-            <div className="text-gray-400 mt-1" style={{ fontSize: dims.labelFontSize }}>{label}</div>
-            <div className={cn('font-bold leading-none mt-1', hasValue ? statusColor(value!, target, false) : 'text-gray-500')} style={{ fontSize: dims.valueFontSize }}>
+            <div className="text-[#374151] mt-1" style={{ fontSize: dims.labelFontSize }}>{label}</div>
+            <div className={cn('font-bold leading-none mt-1', hasValue ? statusColor(value!, target, false) : 'text-[#6B7280]')} style={{ fontSize: dims.valueFontSize }}>
               {hasValue ? `${value} ${unit}` : 'S/D'} {hasValue ? emoji : ''}
             </div>
-            <div className="text-gray-500 mt-1" style={{ fontSize: dims.subFontSize }}>Meta: {'<'}{target} {unit}</div>
+            <div className="text-[#6B7280] mt-1" style={{ fontSize: dims.subFontSize }}>Meta: {'<'}{target} {unit}</div>
           </div>
         )}
       </TVAutoSizeWidget>
@@ -433,9 +432,8 @@ function DashboardTVContent() {
   const renderGoalGauge = (label: string, actual: number, target: number, isCurrency = false) => {
     const pct = target > 0 ? (actual / target) * 100 : 0;
     const clampPct = Math.min(pct, 120);
-    const arcColor = pct >= 100 ? '#a855f7' : pct >= 80 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444';
-    const borderColor = pct >= 100 ? 'border-purple-500/30' : pct >= 80 ? 'border-emerald-500/30' : pct >= 50 ? 'border-amber-500/30' : 'border-red-500/30';
-    const pctColor = pct >= 100 ? 'text-purple-400' : pct >= 80 ? 'text-emerald-400' : pct >= 50 ? 'text-amber-400' : 'text-red-400';
+    const arcColor = pct >= 100 ? '#276749' : pct >= 80 ? '#2B6CB0' : pct >= 50 ? '#DD6B20' : '#E53E3E';
+    const pctColor = pct >= 100 ? 'text-[#276749]' : pct >= 80 ? 'text-[#2B6CB0]' : pct >= 50 ? 'text-[#DD6B20]' : 'text-[#E53E3E]';
     const statusText = pct >= 100 ? 'Meta atingida!' : pct >= 80 ? 'Quase lá!' : pct >= 50 ? 'Em progresso' : 'Atenção';
     const fmtVal = isCurrency ? fmtCurrency : fmtNum;
 
@@ -449,7 +447,7 @@ function DashboardTVContent() {
     };
 
     return (
-      <TVAutoSizeWidget neonBorder={borderColor}>
+      <TVAutoSizeWidget>
         {(dims) => {
           const gaugeSize = Math.min(dims.width * 0.9, dims.height * 0.65);
           const radius = gaugeSize * 0.4;
@@ -464,7 +462,7 @@ function DashboardTVContent() {
 
           return (
             <div className="w-full h-full flex flex-col items-center justify-center" style={{ padding: dims.padding }}>
-              <span className="font-semibold text-gray-300 text-center" style={{ fontSize: dims.labelFontSize }}>{label}</span>
+              <span className="font-semibold text-[#374151] text-center" style={{ fontSize: dims.labelFontSize }}>{label}</span>
               <svg viewBox={`0 0 ${gaugeSize} ${gaugeSize * 0.55}`} className="mx-auto" style={{ width: gaugeSize, maxWidth: '100%' }}>
                 <defs>
                   <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
@@ -472,15 +470,15 @@ function DashboardTVContent() {
                     <stop offset="100%" stopColor={arcColor} stopOpacity={1} />
                   </linearGradient>
                 </defs>
-                <path d={bgPath} fill="none" stroke="#374151" strokeWidth={strokeWidth} strokeLinecap="round" />
+                <path d={bgPath} fill="none" stroke="#E2E8F0" strokeWidth={strokeWidth} strokeLinecap="round" />
                 <path d={fillPath} fill="none" stroke={`url(#${gradId})`} strokeWidth={strokeWidth} strokeLinecap="round" />
-                <text x={cx} y={cy - 2} textAnchor="middle" className="fill-white font-bold" style={{ fontSize: gaugeSize * 0.18 }}>
+                <text x={cx} y={cy - 2} textAnchor="middle" className="fill-[#111827] font-bold" style={{ fontSize: gaugeSize * 0.18 }}>
                   {pct.toFixed(0)}%
                 </text>
               </svg>
               <div className="text-center -mt-1">
-                <span className="text-white font-bold" style={{ fontSize: dims.valueFontSize * 0.55 }}>{fmtVal(actual)}</span>
-                <span className="text-gray-500" style={{ fontSize: dims.subFontSize }}> / {fmtVal(target)}</span>
+                <span className="text-[#111827] font-bold" style={{ fontSize: dims.valueFontSize * 0.55 }}>{fmtVal(actual)}</span>
+                <span className="text-[#6B7280]" style={{ fontSize: dims.subFontSize }}> / {fmtVal(target)}</span>
               </div>
               <span className={cn('text-center mt-0.5', pctColor)} style={{ fontSize: dims.subFontSize }}>{statusText}</span>
             </div>
@@ -498,19 +496,19 @@ function DashboardTVContent() {
   const renderOpenConversationsWidget = () => {
     if (!data?.conversasAbertas) return null;
     return (
-      <TVAutoSizeWidget neonBorder="border-amber-500/20">
+      <TVAutoSizeWidget>
         {() => (
           <div className="w-full h-full overflow-auto p-3">
-            <div className="text-gray-400 uppercase tracking-wider mb-2 text-sm font-semibold">
-              📞 Ficha Criada / Orçamento Enviado — <span className="text-amber-400 font-bold">{data.conversasAbertas.total}</span>
+            <div className="text-[#374151] uppercase tracking-wider mb-2 text-sm font-semibold">
+              📞 Ficha Criada / Orçamento Enviado — <span className="text-[#DD6B20] font-bold">{data.conversasAbertas.total}</span>
             </div>
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-gray-700/50">
-                  <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Nome</th>
-                  <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Telefone</th>
-                  <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium">Status</th>
-                  <th className="py-1.5 px-2 text-xs text-gray-500 uppercase font-medium text-right">Tempo no Status</th>
+                <tr className="border-b border-[#E2E8F0]">
+                  <th className="py-1.5 px-2 text-xs text-[#6B7280] uppercase font-medium">Nome</th>
+                  <th className="py-1.5 px-2 text-xs text-[#6B7280] uppercase font-medium">Telefone</th>
+                  <th className="py-1.5 px-2 text-xs text-[#6B7280] uppercase font-medium">Status</th>
+                  <th className="py-1.5 px-2 text-xs text-[#6B7280] uppercase font-medium text-right">Tempo no Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -523,22 +521,22 @@ function DashboardTVContent() {
                   const muitoUrgente = c.tempoNoStatus > 480;
                   return (
                     <tr key={i} className={cn(
-                      'border-b border-gray-800/30',
-                      muitoUrgente ? 'bg-red-500/10' : urgente ? 'bg-amber-500/10' : ''
+                      'border-b border-[#E2E8F0]/50',
+                      muitoUrgente ? 'bg-red-50' : urgente ? 'bg-amber-50' : ''
                     )}>
-                      <td className="py-1 px-2 text-sm text-gray-200 truncate max-w-[200px]">{c.nome}</td>
-                      <td className="py-1 px-2 text-sm text-gray-400 font-mono">{c.telefone}</td>
+                      <td className="py-1 px-2 text-sm text-[#111827] truncate max-w-[200px]">{c.nome}</td>
+                      <td className="py-1 px-2 text-sm text-[#6B7280] font-mono">{c.telefone}</td>
                       <td className="py-1 px-2 text-sm">
                         <span className={cn(
                           'inline-block px-2 py-0.5 rounded text-xs font-medium',
-                          c.status === 'Ficha Criada' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'
+                          c.status === 'Ficha Criada' ? 'bg-blue-100 text-[#2B6CB0]' : 'bg-amber-100 text-[#DD6B20]'
                         )}>
                           {c.status}
                         </span>
                       </td>
                       <td className={cn(
                         'py-1 px-2 text-sm font-mono font-bold text-right',
-                        muitoUrgente ? 'text-red-400' : urgente ? 'text-amber-400' : 'text-gray-400'
+                        muitoUrgente ? 'text-[#E53E3E]' : urgente ? 'text-[#DD6B20]' : 'text-[#6B7280]'
                       )}>
                         {tempoStr}
                       </td>
@@ -547,7 +545,7 @@ function DashboardTVContent() {
                 })}
                 {(data.conversasAbertas.lista || []).length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-sm text-gray-500">Nenhuma ficha nestes status</td>
+                    <td colSpan={4} className="py-4 text-center text-sm text-[#6B7280]">Nenhuma ficha nestes status</td>
                   </tr>
                 )}
               </tbody>
@@ -753,7 +751,7 @@ function DashboardTVContent() {
   return (
     <div
       className={cn(
-        'min-h-screen bg-[#050D1A] text-white overflow-hidden transition-all',
+        'min-h-screen bg-[#F0F2F5] text-[#111827] overflow-hidden transition-all',
         paymentFlash && 'ring-4 ring-emerald-400/60 ring-inset animate-pulse'
       )}
       style={{
@@ -763,11 +761,11 @@ function DashboardTVContent() {
       }}
     >
       {/* HEADER */}
-      <header className="bg-[#0A1628]/90 backdrop-blur-md border-b border-cyan-500/10 px-4 py-2 relative z-40">
+      <header className="bg-[#1E3A5F] border-b border-[#1E3A5F] px-4 py-2 relative z-40">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <img src={logoGreen} alt="24Help" className="h-7" />
-            <span className="text-sm font-bold tracking-wider text-cyan-300 uppercase">Centro de Comando de Vendas</span>
+            <span className="text-sm font-bold tracking-wider text-white uppercase">Centro de Comando de Vendas</span>
           </div>
           <div className="flex items-center gap-3">
             <Button
@@ -776,50 +774,50 @@ function DashboardTVContent() {
               onClick={() => setIsEditing(!isEditing)}
               className={cn(
                 'h-7 text-xs gap-1.5',
-                isEditing
-                  ? 'bg-cyan-600 hover:bg-cyan-700 text-white'
-                  : 'bg-gray-800/80 border-cyan-500/30 hover:bg-gray-700 hover:border-cyan-400/50 text-cyan-300'
-              )}
-            >
-              {isEditing ? <X className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
-              {isEditing ? 'Sair da Edição' : 'Editar Layout'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setMonitorOpen(true)} className="h-7 text-xs bg-gray-800/80 border-gray-700 gap-1 hover:bg-gray-700 text-gray-300">
-              <Settings className="h-3 w-3" />
-            </Button>
-            <span className="flex items-center gap-1.5 text-xs">
-              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-red-400 font-medium">AO VIVO</span>
-            </span>
-            <div className="text-right">
-              <span className="text-xs text-gray-400 font-mono block">
-                {format(clock, "dd MMM yyyy HH:mm:ss", { locale: ptBR }).toUpperCase()}
-              </span>
-              <span className="text-[9px] text-gray-500">
-                Atualizado: {format(lastUpdate, 'HH:mm')} · Próx: {countdownMin}:{String(countdownSec).padStart(2, '0')}
-              </span>
-            </div>
-          </div>
+                    isEditing
+                      ? 'bg-cyan-600 hover:bg-cyan-700 text-white'
+                      : 'bg-white/20 border-white/30 hover:bg-white/30 text-white'
+                  )}
+                >
+                  {isEditing ? <X className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+                  {isEditing ? 'Sair da Edição' : 'Editar Layout'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setMonitorOpen(true)} className="h-7 text-xs bg-white/20 border-white/30 gap-1 hover:bg-white/30 text-white">
+                  <Settings className="h-3 w-3" />
+                </Button>
+                <span className="flex items-center gap-1.5 text-xs">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-red-300 font-medium">AO VIVO</span>
+                </span>
+                <div className="text-right">
+                  <span className="text-xs text-white/80 font-mono block">
+                    {format(clock, "dd MMM yyyy HH:mm:ss", { locale: ptBR }).toUpperCase()}
+                  </span>
+                  <span className="text-[9px] text-white/60">
+                    Atualizado: {format(lastUpdate, 'HH:mm')} · Próx: {countdownMin}:{String(countdownSec).padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
         </div>
         {/* FILTERS ROW */}
         <div className="flex items-center gap-2 flex-wrap">
           <Popover open={periodOpen} onOpenChange={setPeriodOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="h-7 bg-gray-800/80 border-cyan-500/20 text-xs gap-1.5 text-gray-300">
+              <Button variant="outline" className="h-7 bg-white/20 border-white/30 text-xs gap-1.5 text-white">
                 <CalendarIcon className="h-3 w-3" />
                 <span>Período: {formatRangeLabel(periodRange)}</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 bg-gray-900 border-gray-700" align="start">
-              <div className="flex gap-1 p-2 border-b border-gray-800 flex-wrap">
+              <div className="flex gap-1 p-2 border-b border-gray-200 flex-wrap">
                 {[
                   { label: 'Hoje', value: 'today' },
                   { label: '7 dias', value: '7days' },
                   { label: '30 dias', value: '30days' },
                   { label: 'Mês', value: 'month' },
                   { label: 'Mês Ant.', value: 'last_month' },
-                ].map(s => (
-                  <Button key={s.value} variant="ghost" size="sm" className="h-6 text-[10px] text-gray-300 hover:text-white hover:bg-gray-700" onClick={() => handlePeriodShortcut(s.value)}>
+                 ].map(s => (
+                  <Button key={s.value} variant="ghost" size="sm" className="h-6 text-[10px] text-[#374151] hover:text-[#111827] hover:bg-gray-100" onClick={() => handlePeriodShortcut(s.value)}>
                     {s.label}
                   </Button>
                 ))}
@@ -843,18 +841,18 @@ function DashboardTVContent() {
 
           <Popover open={comparisonOpen} onOpenChange={setComparisonOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="h-7 bg-gray-800/80 border-cyan-500/20 text-xs gap-1.5 text-gray-300">
+              <Button variant="outline" className="h-7 bg-white/20 border-white/30 text-xs gap-1.5 text-white">
                 <CalendarIcon className="h-3 w-3" />
                 <span>{comparisonRange?.from && comparisonRange?.to ? `Comparar: ${formatRangeLabel(comparisonRange)}` : 'Comparar...'}</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 bg-gray-900 border-gray-700" align="start">
-              <div className="flex gap-1 p-2 border-b border-gray-800 flex-wrap">
+              <div className="flex gap-1 p-2 border-b border-gray-200 flex-wrap">
                 {periodRange.from && periodRange.to && [
                   { label: 'Período anterior', value: 'prev_period' },
                   { label: 'Mês anterior', value: 'prev_month' },
-                ].map(s => (
-                  <Button key={s.value} variant="ghost" size="sm" className="h-6 text-[10px] text-gray-300 hover:text-white hover:bg-gray-700" onClick={() => {
+                 ].map(s => (
+                  <Button key={s.value} variant="ghost" size="sm" className="h-6 text-[10px] text-[#374151] hover:text-[#111827] hover:bg-gray-100" onClick={() => {
                     const days = differenceInCalendarDays(periodRange.to!, periodRange.from) + 1;
                     if (s.value === 'prev_period') {
                       const to = subDays(periodRange.from, 1);
@@ -871,7 +869,7 @@ function DashboardTVContent() {
                   </Button>
                 ))}
                 {comparisonRange && (
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-red-400 hover:text-red-300 hover:bg-gray-700" onClick={() => {
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-[#E53E3E] hover:text-red-700 hover:bg-gray-100" onClick={() => {
                     setComparisonRange(undefined);
                     setFilters(f => ({ ...f, comparison: 'yesterday', comparisonRange: undefined }));
                     setComparisonOpen(false);
@@ -898,14 +896,14 @@ function DashboardTVContent() {
           </Popover>
 
           {periodInfo && (
-            <Badge variant="outline" className="h-6 text-[10px] border-cyan-500/20 text-gray-300 font-normal">
+            <Badge variant="outline" className="h-6 text-[10px] border-white/30 text-white font-normal">
               {periodInfo.corridos}d | {periodInfo.uteis} DU
             </Badge>
           )}
           {compInfo && (
             <>
-              <span className="text-[10px] text-gray-500">vs</span>
-              <Badge variant="outline" className="h-6 text-[10px] border-cyan-500/20 text-gray-300 font-normal">
+              <span className="text-[10px] text-white/60">vs</span>
+              <Badge variant="outline" className="h-6 text-[10px] border-white/30 text-white font-normal">
                 {compInfo.corridos}d | {compInfo.uteis} DU
               </Badge>
             </>
@@ -917,10 +915,10 @@ function DashboardTVContent() {
               onCheckedChange={v => setFilters(f => ({ ...f, onlyBusinessDays: v }))}
               className="h-4 w-7"
             />
-            <span className="text-[10px] text-gray-400">Dias úteis</span>
+            <span className="text-[10px] text-white/70">Dias úteis</span>
           </div>
           <Select value={filters.prestadorCpf || '__all'} onValueChange={v => setFilters(f => ({ ...f, prestadorCpf: v === '__all' ? undefined : v }))}>
-            <SelectTrigger className="h-7 w-[160px] bg-gray-800/80 border-cyan-500/15 text-xs text-gray-300"><SelectValue placeholder="Todos Prestadores" /></SelectTrigger>
+            <SelectTrigger className="h-7 w-[160px] bg-white/20 border-white/30 text-xs text-white"><SelectValue placeholder="Todos Prestadores" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all">Todos Prestadores</SelectItem>
               {(prestadores || []).map(p => (
@@ -929,7 +927,7 @@ function DashboardTVContent() {
             </SelectContent>
           </Select>
           <Select value={filters.categoriaId?.toString() || '__all'} onValueChange={v => setFilters(f => ({ ...f, categoriaId: v === '__all' ? undefined : Number(v) }))}>
-            <SelectTrigger className="h-7 w-[150px] bg-gray-800/80 border-cyan-500/15 text-xs text-gray-300"><SelectValue placeholder="Todas Categorias" /></SelectTrigger>
+            <SelectTrigger className="h-7 w-[150px] bg-white/20 border-white/30 text-xs text-white"><SelectValue placeholder="Todas Categorias" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all">Todas Categorias</SelectItem>
               {(categorias || []).map(c => (
@@ -937,11 +935,11 @@ function DashboardTVContent() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" className="h-7 text-xs bg-gray-800/80 border-cyan-500/20 text-gray-300" onClick={() => setMetasOpen(true)}>
+          <Button variant="outline" size="sm" className="h-7 text-xs bg-white/20 border-white/30 text-white" onClick={() => setMetasOpen(true)}>
             🎯 Metas
           </Button>
           {data?.comparisonLabel && (
-            <span className="text-[10px] text-amber-400 font-medium ml-1">{data.comparisonLabel}</span>
+            <span className="text-[10px] text-amber-200 font-medium ml-1">{data.comparisonLabel}</span>
           )}
         </div>
       </header>
@@ -969,9 +967,9 @@ function DashboardTVContent() {
       />
 
       {/* TICKER */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-[#0A1628]/90 backdrop-blur-md border-t border-cyan-500/10 px-4 py-2 z-30">
+      <footer className="fixed bottom-0 left-0 right-0 bg-[#1E3A5F] border-t border-[#1E3A5F] px-4 py-2 z-30">
         <div className="overflow-hidden">
-          <div className="animate-marquee whitespace-nowrap text-xs text-gray-300">
+          <div className="animate-marquee whitespace-nowrap text-xs text-white">
             {tickerItems || 'Carregando alertas...'}
           </div>
         </div>

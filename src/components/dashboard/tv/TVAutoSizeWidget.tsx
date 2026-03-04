@@ -56,9 +56,8 @@ export function TVAutoSizeWidget({ children, className, neonBorder = 'border-cya
     <div
       ref={ref}
       className={cn(
-        'w-full h-full bg-[#0A1628]/80 backdrop-blur-md border rounded-xl',
-        'shadow-[0_0_15px_rgba(0,212,255,0.05)] overflow-hidden',
-        neonBorder,
+        'w-full h-full bg-white border border-[#E2E8F0] rounded-xl',
+        'shadow-[0_2px_8px_rgba(0,0,0,0.08)] overflow-hidden',
         className,
       )}
     >

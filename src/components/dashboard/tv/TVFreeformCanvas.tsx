@@ -147,7 +147,7 @@ function WidgetWrapper({ widget, children, canvasScale }: WidgetWrapperProps) {
     >
       {/* Scale mode indicator */}
       {isEditing && (
-        <div className="absolute top-1 right-1 z-10 text-[8px] px-1 py-0.5 rounded bg-gray-900/80 text-gray-400 pointer-events-none">
+        <div className="absolute top-1 right-1 z-10 text-[8px] px-1 py-0.5 rounded bg-white/80 text-[#6B7280] pointer-events-none">
           {widget.scaleMode === 'fixed' ? '📌 px' : '📐 %'}
         </div>
       )}
