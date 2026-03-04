@@ -35,16 +35,32 @@ const PRESETS = [
 ];
 
 const ROTATING_WIDGET_OPTIONS = [
-  { id: 'conversas-abertas', icon: '📞', label: 'Conversas em Aberto', description: 'Ficha Criada / Orçamento Enviado' },
+  // Alertas
+  { id: 'conversas-abertas', icon: '🚨', label: 'Alertas Ficha Criada', description: 'Fichas em "Ficha Criada" há mais de 20 min' },
+  // KPIs principais
+  { id: 'receita-total', icon: '💰', label: 'Receita Total', description: 'Receita total do período' },
+  { id: 'lucro-bruto', icon: '📈', label: 'Lucro Bruto', description: 'Lucro bruto e margem' },
+  { id: 'servicos-fechados', icon: '✅', label: 'Serviços Fechados', description: 'Qtd de serviços finalizados e pagos' },
+  { id: 'conversao-total', icon: '🎯', label: 'Conversão Total', description: 'Taxa de conversão geral' },
+  // Funil
+  { id: 'funil-cliques', icon: '🖱️', label: 'Funil: Cliques', description: 'Total de cliques em anúncios' },
   { id: 'funil-conversas', icon: '💬', label: 'Funil: Conversas', description: 'Total de conversas iniciadas' },
   { id: 'funil-fs', icon: '📋', label: 'Funil: FS Criadas', description: 'Fichas de serviço criadas' },
   { id: 'funil-agendados', icon: '📅', label: 'Funil: Agendados', description: 'Serviços com agendamento' },
-  { id: 'funil-executados', icon: '✅', label: 'Funil: Executados', description: 'Serviços executados' },
-  { id: 'funil-pagos', icon: '💰', label: 'Funil: Pagos', description: 'Serviços pagos' },
+  { id: 'funil-executados', icon: '🔧', label: 'Funil: Executados', description: 'Serviços executados' },
+  { id: 'funil-pagos', icon: '💵', label: 'Funil: Pagos', description: 'Serviços pagos' },
+  // Taxas de conversão
   { id: 'taxa-agend-fs', icon: '📊', label: 'Taxa Agendados/FS', description: 'Conversão FS → Agendado' },
-  { id: 'taxa-pagos-agend', icon: '📊', label: 'Taxa Pagos/Agendados', description: 'Conversão Agendado → Pago' },
+  { id: 'taxa-pagos-agend', icon: '📊', label: 'Taxa Pagos/Agend.', description: 'Conversão Agendado → Pago' },
+  { id: 'taxa-pagos-fs', icon: '📊', label: 'Taxa Pagos/FS', description: 'Conversão FS → Pago' },
+  { id: 'taxa-pagos-cliques', icon: '📊', label: 'Taxa Pagos/Cliques', description: 'Conversão Clique → Pago' },
+  { id: 'taxa-conv-cliques', icon: '📊', label: 'Taxa Conv./Cliques', description: 'Conversão Clique → Conversa' },
+  { id: 'taxa-exec-agend', icon: '📊', label: 'Taxa Exec./Agend.', description: 'Conversão Agendado → Executado' },
+  // Métricas de tempo
   { id: 'tempo-resposta', icon: '⚡', label: 'Tempo Resposta', description: 'Tempo médio de resposta' },
   { id: 'tempo-orcamento', icon: '🎯', label: 'Tempo Orçamento', description: 'Tempo até receber orçamento' },
+  { id: 'tempo-fs-agendado', icon: '📅', label: 'FS → Agendado', description: 'Tempo de FS até agendamento' },
+  { id: 'tempo-agendado-exec', icon: '🔄', label: 'Agend. → Executado', description: 'Tempo de agendado até execução' },
   { id: 'tempo-ciclo', icon: '🎪', label: 'Ciclo Completo', description: 'Tempo total do ciclo' },
 ];
 
