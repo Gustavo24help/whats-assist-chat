@@ -766,16 +766,22 @@ export const ConversationList = ({
         orcamentosCountMap.set(orc.ficha_nome, count + 1);
       });
 
-      const statusHistoricoMap = new Map();
+      const statusHistoricoAtivoMap = new Map();
+      const statusHistoricoFallbackMap = new Map();
       if (todasFichasIds.length > 0) {
         const { data: statusHistoricoData } = await supabase
           .from('ficha_status_historico')
           .select('ficha_id, data_inicio, status_novo, data_fim')
           .in('ficha_id', todasFichasIds)
-          .is('data_fim', null);
+          .order('data_inicio', { ascending: false });
 
         statusHistoricoData?.forEach((item) => {
-          statusHistoricoMap.set(item.ficha_id, item);
+          if (!statusHistoricoFallbackMap.has(item.ficha_id)) {
+            statusHistoricoFallbackMap.set(item.ficha_id, item);
+          }
+          if (item.data_fim === null && !statusHistoricoAtivoMap.has(item.ficha_id)) {
+            statusHistoricoAtivoMap.set(item.ficha_id, item);
+          }
         });
       }
 
@@ -806,9 +812,17 @@ export const ConversationList = ({
           ? orcamentosCountMap.get(fichaIdParaOrcamentos) || 0 
           : 0;
 
-        const historicoAtual = fichaIdParaOrcamentos ? statusHistoricoMap.get(fichaIdParaOrcamentos) : null;
-        const minutosNoStatus = historicoAtual?.data_inicio
-          ? (Date.now() - new Date(historicoAtual.data_inicio).getTime()) / (1000 * 60)
+        const historicoAtual = fichaIdParaOrcamentos ? statusHistoricoAtivoMap.get(fichaIdParaOrcamentos) : null;
+        const historicoFallback = fichaIdParaOrcamentos ? statusHistoricoFallbackMap.get(fichaIdParaOrcamentos) : null;
+        const inicioStatus =
+          historicoAtual?.data_inicio ||
+          (historicoFallback?.status_novo === fichaData?.status ? historicoFallback?.data_inicio : null) ||
+          (fichaData as any)?.updated_at ||
+          (fichaData as any)?.created_at ||
+          null;
+
+        const minutosNoStatus = inicioStatus
+          ? (Date.now() - new Date(inicioStatus).getTime()) / (1000 * 60)
           : undefined;
 
         const regraAlerta = activeRules.find((rule) => rule.status === fichaData?.status);
