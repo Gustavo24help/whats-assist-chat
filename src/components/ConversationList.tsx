@@ -88,6 +88,7 @@ export const ConversationList = ({
   const [clientesSemOrcamento, setClientesSemOrcamento] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
+  const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
   const isFirstLoadRef = useRef(true);
   
   // Toggle "Meus Tickets" / "Todos" - padrão em "todos" para evitar perda de sincronização visual
@@ -660,7 +661,7 @@ export const ConversationList = ({
   };
 
   const fetchClientes = async (rulesOverride?: StatusAlertRule[]) => {
-    const activeRules = rulesOverride ?? statusAlertRules;
+    const activeRules = rulesOverride ?? statusAlertRulesRef.current;
     try {
     // Buscar clientes arquivados para o contador
     const { count } = await supabase
