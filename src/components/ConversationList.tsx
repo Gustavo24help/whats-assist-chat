@@ -123,9 +123,9 @@ export const ConversationList = ({
     const loadInitialData = async () => {
       setIsLoading(true);
       try {
-        await fetchStatusAlertRules();
+        const rules = await fetchStatusAlertRules();
         await Promise.all([
-          fetchClientes(),
+          fetchClientes(rules),
           fetchTagsWithColors(),
           fetchServicosParaFinalizar(),
           fetchAtendentes(),
@@ -659,7 +659,8 @@ export const ConversationList = ({
     setClientesSemOrcamento(new Set(telefonesSemOrcamento));
   };
 
-  const fetchClientes = async () => {
+  const fetchClientes = async (rulesOverride?: StatusAlertRule[]) => {
+    const activeRules = rulesOverride ?? statusAlertRules;
     try {
     // Buscar clientes arquivados para o contador
     const { count } = await supabase
@@ -810,7 +811,7 @@ export const ConversationList = ({
           ? (Date.now() - new Date(historicoAtual.data_inicio).getTime()) / (1000 * 60)
           : undefined;
 
-        const regraAlerta = statusAlertRules.find((rule) => rule.status === fichaData?.status);
+        const regraAlerta = activeRules.find((rule) => rule.status === fichaData?.status);
         const escalatedAlertColor = regraAlerta && minutosNoStatus !== undefined
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
@@ -842,21 +843,20 @@ export const ConversationList = ({
   };
 
 
-  const fetchStatusAlertRules = async () => {
+  const fetchStatusAlertRules = async (): Promise<StatusAlertRule[]> => {
     const { data } = await supabase
       .from("configuracoes")
       .select("valor")
       .eq("chave", STATUS_ALERT_CONFIG_KEY)
       .maybeSingle();
 
-    setStatusAlertRules(parseStatusAlertRules(data?.valor));
+    const rules = parseStatusAlertRules(data?.valor);
+    setStatusAlertRules(rules);
+    return rules;
   };
 
-  useEffect(() => {
-    if (statusAlertRules.length > 0) {
-      fetchClientes();
-    }
-  }, [statusAlertRules]);
+  // Nota: regras são passadas diretamente para fetchClientes no load inicial,
+  // não precisamos mais de useEffect separado para statusAlertRules
 
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
