@@ -18,6 +18,7 @@ import { NovaConversaDialog } from "./NovaConversaDialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY, type StatusAlertRule } from "@/lib/statusAlertConfig";
 
 interface Cliente {
   telefone: string;
@@ -37,6 +38,8 @@ interface Cliente {
   pagamento_link?: string | null;
   pagamento_realizado?: boolean;
   atendente_id?: string | null;
+  tempoNoStatusMinutos?: number;
+  statusAlertColor?: string | null;
 }
 
 interface ConversationListProps {
@@ -84,6 +87,7 @@ export const ConversationList = ({
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [clientesSemOrcamento, setClientesSemOrcamento] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const isFirstLoadRef = useRef(true);
   
   // Toggle "Meus Tickets" / "Todos" - padrão em "todos" para evitar perda de sincronização visual
@@ -119,6 +123,7 @@ export const ConversationList = ({
     const loadInitialData = async () => {
       setIsLoading(true);
       try {
+        await fetchStatusAlertRules();
         await Promise.all([
           fetchClientes(),
           fetchTagsWithColors(),
@@ -703,7 +708,7 @@ export const ConversationList = ({
       
       const { data: fichasAtivas } = await supabase
         .from('fichas_de_servico')
-        .select('id, nome_ficha, status, pagamento_link, pagamento_realizado')
+        .select('id, nome_ficha, status, pagamento_link, pagamento_realizado, created_at, updated_at')
         .in('id', fichasAtivasIds);
 
       const fichasAtivasMap = new Map();
@@ -716,7 +721,7 @@ export const ConversationList = ({
       
       const { data: ultimasFichas } = await supabase
         .from('fichas_de_servico')
-        .select('id, telefone_cliente, nome_ficha, status, created_at, pagamento_link, pagamento_realizado')
+        .select('id, telefone_cliente, nome_ficha, status, created_at, updated_at, pagamento_link, pagamento_realizado')
         .in('telefone_cliente', telefonesSeficha)
         .order('created_at', { ascending: false })
         .limit(500);
@@ -760,6 +765,19 @@ export const ConversationList = ({
         orcamentosCountMap.set(orc.ficha_nome, count + 1);
       });
 
+      const statusHistoricoMap = new Map();
+      if (todasFichasIds.length > 0) {
+        const { data: statusHistoricoData } = await supabase
+          .from('ficha_status_historico')
+          .select('ficha_id, data_inicio, status_novo, data_fim')
+          .in('ficha_id', todasFichasIds)
+          .is('data_fim', null);
+
+        statusHistoricoData?.forEach((item) => {
+          statusHistoricoMap.set(item.ficha_id, item);
+        });
+      }
+
       // ✅ Combinar tudo SEM QUERIES EXTRAS
       const clientesComFicha = clientesData.map(cliente => {
         // Calcular janela 24h
@@ -787,6 +805,19 @@ export const ConversationList = ({
           ? orcamentosCountMap.get(fichaIdParaOrcamentos) || 0 
           : 0;
 
+        const historicoAtual = fichaIdParaOrcamentos ? statusHistoricoMap.get(fichaIdParaOrcamentos) : null;
+        const dataInicioStatus = historicoAtual?.data_inicio
+          || (fichaData as any)?.updated_at
+          || (fichaData as any)?.created_at;
+        const minutosNoStatus = dataInicioStatus
+          ? (Date.now() - new Date(dataInicioStatus).getTime()) / (1000 * 60)
+          : undefined;
+
+        const regraAlerta = statusAlertRules.find((rule) => rule.status === fichaData?.status);
+        const escalatedAlertColor = regraAlerta && minutosNoStatus !== undefined
+          ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
+          : null;
+
         return {
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
@@ -800,7 +831,9 @@ export const ConversationList = ({
           orcamentos_count: orcamentosCount,
           pagamento_link: (fichaData as any)?.pagamento_link || null,
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
-          atendente_id: cliente.atendente_id || null
+          atendente_id: cliente.atendente_id || null,
+          tempoNoStatusMinutos: minutosNoStatus,
+          statusAlertColor: escalatedAlertColor
         };
       });
 
@@ -810,6 +843,23 @@ export const ConversationList = ({
       console.error('Erro ao buscar clientes:', err);
     }
   };
+
+
+  const fetchStatusAlertRules = async () => {
+    const { data } = await supabase
+      .from("configuracoes")
+      .select("valor")
+      .eq("chave", STATUS_ALERT_CONFIG_KEY)
+      .maybeSingle();
+
+    setStatusAlertRules(parseStatusAlertRules(data?.valor));
+  };
+
+  useEffect(() => {
+    if (statusAlertRules.length > 0) {
+      fetchClientes();
+    }
+  }, [statusAlertRules]);
 
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
@@ -1314,6 +1364,8 @@ export const ConversationList = ({
                       semOrcamento={clientesSemOrcamento.has(cliente.telefone)}
                       pagamentoLink={cliente.pagamento_link}
                       pagamentoRealizado={cliente.pagamento_realizado}
+                      statusAlertColor={cliente.statusAlertColor}
+                      tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
                     />
                   </div>
                 </div>

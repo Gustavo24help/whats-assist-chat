@@ -16,6 +16,7 @@ import { MensagensPadronizadas } from "@/components/MensagensPadronizadas";
 import { TemplateManagement } from "@/components/TemplateManagement";
 import { FerramentasManutencao } from "@/components/FerramentasManutencao";
 import { DailyGoalsManager } from "@/components/DailyGoalsManager";
+import { StatusAlertSettings } from "@/components/StatusAlertSettings";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -218,6 +219,7 @@ const Settings = () => {
               <TabsTrigger value="templates">Templates WhatsApp</TabsTrigger>
               <TabsTrigger value="twilio">Twilio API</TabsTrigger>
               <TabsTrigger value="geral">Geral</TabsTrigger>
+              {isAdmin && <TabsTrigger value="alertas">Alertas de Status</TabsTrigger>}
               {isAdmin && <TabsTrigger value="metas">Metas Diárias</TabsTrigger>}
               {isAdmin && <TabsTrigger value="ferramentas">Ferramentas</TabsTrigger>}
             </TabsList>
@@ -449,6 +451,12 @@ const Settings = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="alertas" className="space-y-4">
+              <StatusAlertSettings />
+            </TabsContent>
+          )}
 
           {isAdmin && (
             <TabsContent value="metas" className="space-y-4">
