@@ -867,11 +867,14 @@ export const ConversationList = ({
 
     const rules = parseStatusAlertRules(data?.valor);
     setStatusAlertRules(rules);
+    statusAlertRulesRef.current = rules;
     return rules;
   };
 
-  // Nota: regras são passadas diretamente para fetchClientes no load inicial,
-  // não precisamos mais de useEffect separado para statusAlertRules
+  // Manter ref sincronizado com state para que closures antigas usem regras atuais
+  useEffect(() => {
+    statusAlertRulesRef.current = statusAlertRules;
+  }, [statusAlertRules]);
 
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
