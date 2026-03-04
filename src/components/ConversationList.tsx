@@ -766,16 +766,22 @@ export const ConversationList = ({
         orcamentosCountMap.set(orc.ficha_nome, count + 1);
       });
 
-      const statusHistoricoMap = new Map();
+      const statusHistoricoAtivoMap = new Map();
+      const statusHistoricoFallbackMap = new Map();
       if (todasFichasIds.length > 0) {
         const { data: statusHistoricoData } = await supabase
           .from('ficha_status_historico')
           .select('ficha_id, data_inicio, status_novo, data_fim')
           .in('ficha_id', todasFichasIds)
-          .is('data_fim', null);
+          .order('data_inicio', { ascending: false });
 
         statusHistoricoData?.forEach((item) => {
-          statusHistoricoMap.set(item.ficha_id, item);
+          if (!statusHistoricoFallbackMap.has(item.ficha_id)) {
+            statusHistoricoFallbackMap.set(item.ficha_id, item);
+          }
+          if (item.data_fim === null && !statusHistoricoAtivoMap.has(item.ficha_id)) {
+            statusHistoricoAtivoMap.set(item.ficha_id, item);
+          }
         });
       }
 
