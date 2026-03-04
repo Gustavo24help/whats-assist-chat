@@ -89,7 +89,7 @@ export function TVMonitorSettings({ open, onClose, settings, onUpdate }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md bg-gray-900 border-gray-700 text-white">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto bg-gray-900 border-gray-700 text-white">
         <DialogHeader>
           <DialogTitle className="text-white">⚙️ Configurações de Monitor</DialogTitle>
         </DialogHeader>
