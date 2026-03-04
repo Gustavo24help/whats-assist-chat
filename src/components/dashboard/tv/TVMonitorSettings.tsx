@@ -13,6 +13,8 @@ export interface MonitorSettings {
   fontSize: number;     // 80-150%
   brightness: number;   // 50-120%
   presetName: string;
+  rotatingWidgetIntervalSec: number;
+  rotatingWidgetItems: string[];
 }
 
 const DEFAULT_SETTINGS: MonitorSettings = {
@@ -21,6 +23,8 @@ const DEFAULT_SETTINGS: MonitorSettings = {
   fontSize: 100,
   brightness: 100,
   presetName: '',
+  rotatingWidgetIntervalSec: 20,
+  rotatingWidgetItems: ['conversas-abertas'],
 };
 
 const PRESETS = [
@@ -28,6 +32,20 @@ const PRESETS = [
   { id: 'hd', label: '📺 TV HD (16:9)', safeZone: 0, fontSize: 100 },
   { id: 'widescreen', label: '🖥️ Monitor Widescreen (21:9)', safeZone: 0, fontSize: 95 },
   { id: 'tablet', label: '📱 Tablet (vertical)', safeZone: 2, fontSize: 110 },
+];
+
+const ROTATING_WIDGET_OPTIONS = [
+  { id: 'conversas-abertas', icon: '📞', label: 'Conversas em Aberto', description: 'Ficha Criada / Orçamento Enviado' },
+  { id: 'funil-conversas', icon: '💬', label: 'Funil: Conversas', description: 'Total de conversas iniciadas' },
+  { id: 'funil-fs', icon: '📋', label: 'Funil: FS Criadas', description: 'Fichas de serviço criadas' },
+  { id: 'funil-agendados', icon: '📅', label: 'Funil: Agendados', description: 'Serviços com agendamento' },
+  { id: 'funil-executados', icon: '✅', label: 'Funil: Executados', description: 'Serviços executados' },
+  { id: 'funil-pagos', icon: '💰', label: 'Funil: Pagos', description: 'Serviços pagos' },
+  { id: 'taxa-agend-fs', icon: '📊', label: 'Taxa Agendados/FS', description: 'Conversão FS → Agendado' },
+  { id: 'taxa-pagos-agend', icon: '📊', label: 'Taxa Pagos/Agendados', description: 'Conversão Agendado → Pago' },
+  { id: 'tempo-resposta', icon: '⚡', label: 'Tempo Resposta', description: 'Tempo médio de resposta' },
+  { id: 'tempo-orcamento', icon: '🎯', label: 'Tempo Orçamento', description: 'Tempo até receber orçamento' },
+  { id: 'tempo-ciclo', icon: '🎪', label: 'Ciclo Completo', description: 'Tempo total do ciclo' },
 ];
 
 export function useMonitorSettings(): [MonitorSettings, (s: MonitorSettings) => void] {
@@ -71,7 +89,7 @@ export function TVMonitorSettings({ open, onClose, settings, onUpdate }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md bg-gray-900 border-gray-700 text-white">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto bg-gray-900 border-gray-700 text-white">
         <DialogHeader>
           <DialogTitle className="text-white">⚙️ Configurações de Monitor</DialogTitle>
         </DialogHeader>
@@ -149,6 +167,52 @@ export function TVMonitorSettings({ open, onClose, settings, onUpdate }: Props) 
               placeholder="Ex: Minha TV Samsung"
               className="h-8 text-xs bg-gray-800 border-gray-600 text-white"
             />
+          </div>
+
+          <div className="rounded-lg border border-gray-700 bg-gray-800/60 p-3 space-y-3">
+            <div>
+              <label className="text-xs text-gray-300 font-medium block">Widget rotativo</label>
+              <p className="text-[11px] text-gray-500 mt-0.5">Define o tempo de alternância e quais widgets entram no ciclo.</p>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs text-gray-400">Intervalo de alternância</label>
+                <span className="text-xs text-cyan-400 font-mono">{local.rotatingWidgetIntervalSec}s</span>
+              </div>
+              <Slider
+                value={[local.rotatingWidgetIntervalSec]}
+                onValueChange={([v]) => setLocal(s => ({ ...s, rotatingWidgetIntervalSec: v }))}
+                min={5} max={120} step={5}
+                className="w-full"
+              />
+            </div>
+
+            {ROTATING_WIDGET_OPTIONS.map(opt => (
+              <div key={opt.id} className="flex items-center justify-between rounded-md border border-gray-700/80 bg-gray-900/40 px-2.5 py-2">
+                <div>
+                  <p className="text-xs text-gray-200">{opt.icon} {opt.label}</p>
+                  <p className="text-[11px] text-gray-500">{opt.description}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={local.rotatingWidgetItems.includes(opt.id)}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setLocal(s => {
+                      const next = enabled
+                        ? [...new Set([...s.rotatingWidgetItems, opt.id])]
+                        : s.rotatingWidgetItems.filter(item => item !== opt.id);
+                      return {
+                        ...s,
+                        rotatingWidgetItems: next.length > 0 ? next : ['conversas-abertas'],
+                      };
+                    });
+                  }}
+                  className="h-4 w-4 cursor-pointer border-gray-500 bg-gray-900"
+                />
+              </div>
+            ))}
           </div>
 
           <Button onClick={save} className="w-full bg-cyan-600 hover:bg-cyan-700 text-white">

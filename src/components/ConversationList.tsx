@@ -806,11 +806,8 @@ export const ConversationList = ({
           : 0;
 
         const historicoAtual = fichaIdParaOrcamentos ? statusHistoricoMap.get(fichaIdParaOrcamentos) : null;
-        const dataInicioStatus = historicoAtual?.data_inicio
-          || (fichaData as any)?.updated_at
-          || (fichaData as any)?.created_at;
-        const minutosNoStatus = dataInicioStatus
-          ? (Date.now() - new Date(dataInicioStatus).getTime()) / (1000 * 60)
+        const minutosNoStatus = historicoAtual?.data_inicio
+          ? (Date.now() - new Date(historicoAtual.data_inicio).getTime()) / (1000 * 60)
           : undefined;
 
         const regraAlerta = statusAlertRules.find((rule) => rule.status === fichaData?.status);

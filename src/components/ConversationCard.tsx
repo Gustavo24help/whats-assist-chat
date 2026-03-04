@@ -102,9 +102,8 @@ export const ConversationCard = memo(({
 
   const alertBackgroundStyle = statusAlertColor
     ? {
-        background: `linear-gradient(90deg, rgba(249,115,22,0.55) 0%, ${statusAlertColor}99 100%)`,
+        background: `linear-gradient(90deg, rgba(251,146,60,0.24) 0%, ${statusAlertColor}40 100%)`,
         borderLeftColor: statusAlertColor,
-        boxShadow: `inset 0 0 0 1px ${statusAlertColor}55`,
       }
     : undefined;
 
@@ -115,7 +114,7 @@ export const ConversationCard = memo(({
         "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
         semOrcamento && !isSelected && "bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-400 animate-pulse",
-        statusAlertColor && !isSelected && "border-l-4 animate-pulse"
+        statusAlertColor && !isSelected && "border-l-4"
       )}
       style={alertBackgroundStyle}
       onClick={onClick}

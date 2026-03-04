@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,36 @@ export const StatusAlertSettings = () => {
   const { toast } = useToast();
   const [rules, setRules] = useState<StatusAlertRule[]>(DEFAULT_STATUS_ALERT_RULES);
   const [loading, setLoading] = useState(true);
+  const [statusToAdd, setStatusToAdd] = useState<string>("");
+  const hasLoadedRef = useRef(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const persistRules = useCallback(async (rulesToSave: StatusAlertRule[]) => {
+    const payload = JSON.stringify(rulesToSave);
+    const { error } = await supabase.from("configuracoes").upsert(
+      {
+        chave: STATUS_ALERT_CONFIG_KEY,
+        valor: payload,
+        descricao: "Regras de alerta por status da ficha (limite em minutos e cor)",
+      },
+      { onConflict: "chave" }
+    );
+    if (error) {
+      console.error("Erro ao salvar regras de alerta:", error);
+    }
+  }, []);
+
+  // Auto-save com debounce de 800ms após carregamento inicial
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      persistRules(rules);
+    }, 800);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [rules, persistRules]);
 
   useEffect(() => {
     const fetchRules = async () => {
@@ -30,6 +60,8 @@ export const StatusAlertSettings = () => {
 
       setRules(parseStatusAlertRules(data?.valor));
       setLoading(false);
+      // Marcar como carregado DEPOIS de setar rules para não disparar auto-save no load
+      setTimeout(() => { hasLoadedRef.current = true; }, 100);
     };
 
     fetchRules();
@@ -39,6 +71,17 @@ export const StatusAlertSettings = () => {
     () => ALERTABLE_STATUSES.filter((status) => !rules.some((rule) => rule.status === status)),
     [rules]
   );
+
+  useEffect(() => {
+    if (availableStatuses.length === 0) {
+      setStatusToAdd("");
+      return;
+    }
+
+    if (!statusToAdd || !availableStatuses.includes(statusToAdd)) {
+      setStatusToAdd(availableStatuses[0]);
+    }
+  }, [availableStatuses, statusToAdd]);
 
   const updateRule = (index: number, patch: Partial<StatusAlertRule>) => {
     setRules((prev) => {
@@ -51,8 +94,8 @@ export const StatusAlertSettings = () => {
   };
 
   const addRule = () => {
-    if (availableStatuses.length === 0) return;
-    setRules((prev) => [...prev, { status: availableStatuses[0], maxMinutes: 60, color: "#DC2626" }]);
+    if (!statusToAdd) return;
+    setRules((prev) => [...prev, { status: statusToAdd, maxMinutes: 60, color: "#DC2626" }]);
   };
 
   const removeRule = (index: number) => {
@@ -60,21 +103,7 @@ export const StatusAlertSettings = () => {
   };
 
   const handleSave = async () => {
-    const payload = JSON.stringify(rules);
-    const { error } = await supabase.from("configuracoes").upsert(
-      {
-        chave: STATUS_ALERT_CONFIG_KEY,
-        valor: payload,
-        descricao: "Regras de alerta por status da ficha (limite em minutos e cor)",
-      },
-      { onConflict: "chave" }
-    );
-
-    if (error) {
-      toast({ title: "Erro", description: "Não foi possível salvar as regras de alerta.", variant: "destructive" });
-      return;
-    }
-
+    await persistRules(rules);
     toast({ title: "Regras salvas", description: "As regras de alerta de status foram atualizadas." });
   };
 
@@ -92,6 +121,12 @@ export const StatusAlertSettings = () => {
         ) : (
           <>
             <div className="space-y-3">
+              {rules.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum status configurado. Adicione os status que devem gerar alerta.
+                </p>
+              )}
+
               {rules.map((rule, index) => {
                 const statusOptions = [rule.status, ...availableStatuses];
 
@@ -141,10 +176,27 @@ export const StatusAlertSettings = () => {
               })}
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={addRule} disabled={availableStatuses.length === 0}>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[260px] space-y-1">
+                <Label>Adicionar status</Label>
+                <Select value={statusToAdd} onValueChange={setStatusToAdd} disabled={availableStatuses.length === 0}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableStatuses.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button type="button" variant="outline" onClick={addRule} disabled={!statusToAdd}>
                 <Plus className="mr-2 h-4 w-4" /> Adicionar status
               </Button>
+
               <Button type="button" onClick={handleSave}>
                 <Save className="mr-2 h-4 w-4" /> Salvar regras
               </Button>
