@@ -708,7 +708,7 @@ export const ConversationList = ({
       
       const { data: fichasAtivas } = await supabase
         .from('fichas_de_servico')
-        .select('id, nome_ficha, status, pagamento_link, pagamento_realizado')
+        .select('id, nome_ficha, status, pagamento_link, pagamento_realizado, created_at, updated_at')
         .in('id', fichasAtivasIds);
 
       const fichasAtivasMap = new Map();
@@ -721,7 +721,7 @@ export const ConversationList = ({
       
       const { data: ultimasFichas } = await supabase
         .from('fichas_de_servico')
-        .select('id, telefone_cliente, nome_ficha, status, created_at, pagamento_link, pagamento_realizado')
+        .select('id, telefone_cliente, nome_ficha, status, created_at, updated_at, pagamento_link, pagamento_realizado')
         .in('telefone_cliente', telefonesSeficha)
         .order('created_at', { ascending: false })
         .limit(500);
