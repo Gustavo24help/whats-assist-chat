@@ -495,61 +495,59 @@ function DashboardTVContent() {
 
   const renderOpenConversationsWidget = () => {
     if (!data?.conversasAbertas) return null;
+    const alertas = (data.conversasAbertas.lista || [])
+      .filter(c => c.status === 'Ficha Criada' && c.tempoNoStatus > 20);
     return (
       <TVAutoSizeWidget>
-        {() => (
-          <div className="w-full h-full overflow-auto p-3">
-            <div className="text-[#374151] uppercase tracking-wider mb-2 text-sm font-semibold">
-              📞 Ficha Criada / Orçamento Enviado — <span className="text-[#DD6B20] font-bold">{data.conversasAbertas.total}</span>
+        {(dims) => (
+          <div className="w-full h-full overflow-auto" style={{ padding: Math.max(4, dims.padding * 0.6) }}>
+            <div className="flex items-center gap-1 mb-1">
+              <span style={{ fontSize: Math.max(10, dims.labelFontSize) }}>🚨</span>
+              <span className="text-[#374151] uppercase tracking-wider font-semibold truncate" style={{ fontSize: Math.max(9, dims.labelFontSize * 0.9) }}>
+                Fichas Criadas {'>'} 20min
+              </span>
+              <span className={cn(
+                'ml-auto font-bold rounded-full flex items-center justify-center',
+                alertas.length > 0 ? 'bg-red-100 text-[#E53E3E]' : 'bg-green-100 text-[#276749]'
+              )} style={{
+                fontSize: Math.max(10, dims.valueFontSize * 0.5),
+                width: Math.max(20, dims.valueFontSize * 0.7),
+                height: Math.max(20, dims.valueFontSize * 0.7),
+              }}>
+                {alertas.length}
+              </span>
             </div>
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-[#E2E8F0]">
-                  <th className="py-1.5 px-2 text-xs text-[#6B7280] uppercase font-medium">Nome</th>
-                  <th className="py-1.5 px-2 text-xs text-[#6B7280] uppercase font-medium">Telefone</th>
-                  <th className="py-1.5 px-2 text-xs text-[#6B7280] uppercase font-medium">Status</th>
-                  <th className="py-1.5 px-2 text-xs text-[#6B7280] uppercase font-medium text-right">Tempo no Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data.conversasAbertas.lista || []).map((c, i) => {
-                  const dias = Math.floor(c.tempoNoStatus / (60 * 24));
-                  const horas = Math.floor((c.tempoNoStatus % (60 * 24)) / 60);
+            {alertas.length === 0 ? (
+              <div className="flex items-center justify-center h-[70%]">
+                <span className="text-[#276749]" style={{ fontSize: Math.max(10, dims.subFontSize) }}>✅ Nenhuma pendência</span>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {alertas.map((c, i) => {
+                  const horas = Math.floor(c.tempoNoStatus / 60);
                   const mins = c.tempoNoStatus % 60;
-                  const tempoStr = dias > 0 ? `${dias}d ${horas}h` : horas > 0 ? `${horas}h ${mins}m` : `${mins}m`;
-                  const urgente = c.tempoNoStatus > 120;
-                  const muitoUrgente = c.tempoNoStatus > 480;
+                  const tempoStr = horas > 0 ? `${horas}h${mins}m` : `${mins}m`;
+                  const muitoUrgente = c.tempoNoStatus > 60;
                   return (
-                    <tr key={i} className={cn(
-                      'border-b border-[#E2E8F0]/50',
-                      muitoUrgente ? 'bg-red-50' : urgente ? 'bg-amber-50' : ''
+                    <div key={i} className={cn(
+                      'rounded px-1.5 py-0.5 flex items-center justify-between',
+                      muitoUrgente ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'
                     )}>
-                      <td className="py-1 px-2 text-sm text-[#111827] truncate max-w-[200px]">{c.nome}</td>
-                      <td className="py-1 px-2 text-sm text-[#6B7280] font-mono">{c.telefone}</td>
-                      <td className="py-1 px-2 text-sm">
-                        <span className={cn(
-                          'inline-block px-2 py-0.5 rounded text-xs font-medium',
-                          c.status === 'Ficha Criada' ? 'bg-blue-100 text-[#2B6CB0]' : 'bg-amber-100 text-[#DD6B20]'
-                        )}>
-                          {c.status}
-                        </span>
-                      </td>
-                      <td className={cn(
-                        'py-1 px-2 text-sm font-mono font-bold text-right',
-                        muitoUrgente ? 'text-[#E53E3E]' : urgente ? 'text-[#DD6B20]' : 'text-[#6B7280]'
-                      )}>
+                      <div className="truncate" style={{ fontSize: Math.max(9, dims.subFontSize * 0.95), maxWidth: '65%' }}>
+                        <span className="text-[#111827] font-medium">{c.nome || c.telefone}</span>
+                        {c.nome && <span className="text-[#6B7280] ml-1 font-mono">{c.telefone}</span>}
+                      </div>
+                      <span className={cn(
+                        'font-mono font-bold shrink-0',
+                        muitoUrgente ? 'text-[#E53E3E]' : 'text-[#DD6B20]'
+                      )} style={{ fontSize: Math.max(9, dims.subFontSize * 0.95) }}>
                         {tempoStr}
-                      </td>
-                    </tr>
+                      </span>
+                    </div>
                   );
                 })}
-                {(data.conversasAbertas.lista || []).length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="py-4 text-center text-sm text-[#6B7280]">Nenhuma ficha nestes status</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
         )}
       </TVAutoSizeWidget>
