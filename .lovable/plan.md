@@ -1,26 +1,34 @@
 
 
-# Plano: Criar UI para inputar metas diárias (`daily_goals`)
+## Diagnóstico: Por que os alertas de status NÃO aparecem nos chats
 
-## Resumo
-Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
+### Dados confirmados no banco
+- Regra salva corretamente: `[{"status":"Ficha Criada","maxMinutes":2,"color":"#9900ff"}]`
+- Existem 5+ fichas com status "Ficha Criada" em uso ativo, algumas há horas (ex: FS4-260304 desde 13:35)
+- A maioria dessas fichas NÃO tem registro em `ficha_status_historico` com `data_fim IS NULL` (a trigger só dispara em UPDATE de status, não no INSERT inicial)
 
-## Abordagem
+### Bug identificado: Stale Closure
 
-### Opção recomendada: Adicionar seção na página Settings
-Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
+O problema principal esta em `ConversationList.tsx`. A funcao `fetchClientes` e definida no corpo do componente e le `statusAlertRules` do state via closure. Porem:
 
-### Funcionalidades
-- Seletor de data (calendário) para escolher o dia
-- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
-- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
-- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
-- Listagem das metas já cadastradas no mês selecionado
+1. **Carga inicial** (linha 126-128): Funciona corretamente -- `fetchStatusAlertRules()` retorna as regras e passa direto para `fetchClientes(rules)`.
 
-### Arquivos a criar/editar
-1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
-2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
+2. **Realtime e Polling** (linhas 148 e 172): Chamam `fetchClientes()` SEM passar regras. Essas callbacks foram capturadas no `useEffect([], [])` inicial, quando `statusAlertRules` ainda era `[]`. Como `fetchClientes` nao usa `useCallback`, a versao capturada fecha sobre o estado vazio.
 
-### Nenhuma alteração de banco necessária
-A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
+3. **Resultado**: Qualquer refresh via realtime ou polling (a cada 60s) sobrescreve os clientes com `statusAlertColor: null` porque `activeRules` e `[]`.
+
+### Plano de correcao
+
+**Arquivo: `src/components/ConversationList.tsx`**
+
+1. Criar um `useRef` para as regras de alerta (`statusAlertRulesRef`), atualizado sempre que o state mudar
+2. Em `fetchClientes`, ler de `rulesOverride ?? statusAlertRulesRef.current` em vez de `statusAlertRules` (state)
+3. Isso garante que realtime, polling e qualquer chamada futura sempre use as regras mais recentes, independente de closure
+
+Mudancas especificas:
+- Adicionar `const statusAlertRulesRef = useRef<StatusAlertRule[]>([])` junto aos outros refs
+- Adicionar `useEffect` para sincronizar: `statusAlertRulesRef.current = statusAlertRules`
+- Alterar linha 663 de `rulesOverride ?? statusAlertRules` para `rulesOverride ?? statusAlertRulesRef.current`
+
+Nenhuma outra alteracao necessaria -- o calculo de tempo ja faz fallback correto para `updated_at`/`created_at` quando nao ha historico.
 
