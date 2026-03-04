@@ -113,7 +113,7 @@ export const ConversationCard = memo(({
       className={cn(
         "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
-        semOrcamento && !isSelected && "bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-400 animate-pulse",
+        semOrcamento && !isSelected && !statusAlertColor && "bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-400 animate-pulse",
         statusAlertColor && !isSelected && "border-l-4"
       )}
       style={alertBackgroundStyle}

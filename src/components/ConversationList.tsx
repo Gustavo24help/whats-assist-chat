@@ -812,9 +812,17 @@ export const ConversationList = ({
           ? orcamentosCountMap.get(fichaIdParaOrcamentos) || 0 
           : 0;
 
-        const historicoAtual = fichaIdParaOrcamentos ? statusHistoricoMap.get(fichaIdParaOrcamentos) : null;
-        const minutosNoStatus = historicoAtual?.data_inicio
-          ? (Date.now() - new Date(historicoAtual.data_inicio).getTime()) / (1000 * 60)
+        const historicoAtual = fichaIdParaOrcamentos ? statusHistoricoAtivoMap.get(fichaIdParaOrcamentos) : null;
+        const historicoFallback = fichaIdParaOrcamentos ? statusHistoricoFallbackMap.get(fichaIdParaOrcamentos) : null;
+        const inicioStatus =
+          historicoAtual?.data_inicio ||
+          (historicoFallback?.status_novo === fichaData?.status ? historicoFallback?.data_inicio : null) ||
+          (fichaData as any)?.updated_at ||
+          (fichaData as any)?.created_at ||
+          null;
+
+        const minutosNoStatus = inicioStatus
+          ? (Date.now() - new Date(inicioStatus).getTime()) / (1000 * 60)
           : undefined;
 
         const regraAlerta = activeRules.find((rule) => rule.status === fichaData?.status);
