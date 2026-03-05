@@ -83,7 +83,8 @@ export const ContactsTab = ({ onSelectCliente, selectedClienteTelefone }: Contac
         .from("clientes")
         .select("telefone, nome, tags, ultima_interacao, status_conversa, bot_habilitado, ficha_ativa_id, created_at, arquivado")
         .eq("arquivado", false)
-        .order("nome", { ascending: true });
+        .order("nome", { ascending: true })
+        .limit(5000);
 
       if (error) throw error;
       setClientes(data || []);

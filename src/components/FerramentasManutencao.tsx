@@ -68,13 +68,14 @@ export const FerramentasManutencao = () => {
       });
 
       if (error) {
+        const errorMsg = error.message || error.name || 'Erro desconhecido na execução';
         setResults((prev) => ({
           ...prev,
-          [tool.id]: { success: false, data: null, error: error.message },
+          [tool.id]: { success: false, data: null, error: errorMsg },
         }));
         toast({
           title: "Erro",
-          description: `Erro ao executar ${tool.name}: ${error.message}`,
+          description: `Erro ao executar ${tool.name}: ${errorMsg}`,
           variant: "destructive",
         });
       } else {

@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { CalendarIcon, Save, Copy, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,6 +24,7 @@ interface DailyGoal {
 
 export const DailyGoalsManager = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [quantidade, setQuantidade] = useState("");
   const [valor, setValor] = useState("");
@@ -93,6 +95,7 @@ export const DailyGoalsManager = () => {
       toast({ title: "Erro ao salvar meta", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Meta salva!", description: `Meta do dia ${format(selectedDate, "dd/MM/yyyy")} salva.` });
+      queryClient.invalidateQueries({ queryKey: ['tv-metas-independentes'] });
       fetchMonthGoals();
     }
     setSaving(false);
@@ -123,6 +126,7 @@ export const DailyGoalsManager = () => {
       toast({ title: "Erro ao copiar metas", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Metas copiadas!", description: `${bulkDays.length} dias atualizados.` });
+      queryClient.invalidateQueries({ queryKey: ['tv-metas-independentes'] });
       setShowBulkCopy(false);
       setBulkDays([]);
       fetchMonthGoals();
