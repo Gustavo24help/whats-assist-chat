@@ -222,8 +222,11 @@ function DashboardTVContent() {
       const now = new Date();
       // Use Brazil timezone to avoid date drift on devices with different TZ
       const hojeDate = getDateInBrazil(now);
-      const mesFromDate = getDateInBrazil(startOfMonth(now));
-      const mesEndDate = getDateInBrazil(endOfMonth(now));
+      // Derivar mês a partir da string já correta, sem depender de Date objects do date-fns
+      const mesFromDate = hojeDate.substring(0, 7) + '-01';
+      const [_y, _m] = hojeDate.substring(0, 7).split('-').map(Number);
+      const lastDay = new Date(_y, _m, 0).getDate();
+      const mesEndDate = hojeDate.substring(0, 7) + '-' + String(lastDay).padStart(2, '0');
       const diaFrom = `${hojeDate}T00:00:00-03:00`;
       const diaTo = `${hojeDate}T23:59:59-03:00`;
       const mesFrom = `${mesFromDate}T00:00:00-03:00`;

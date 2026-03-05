@@ -1,41 +1,26 @@
 
 
-## Diagnóstico: Por que a correção anterior não resolveu
+# Plano: Criar UI para inputar metas diárias (`daily_goals`)
 
-### O problema real
+## Resumo
+Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
 
-A função `getDateInBrazil` converte corretamente uma `Date` para o fuso de São Paulo. Porém, `startOfMonth(now)` e `endOfMonth(now)` do date-fns criam objetos `Date` baseados no timezone **local do browser**. Quando o browser está em UTC:
+## Abordagem
 
-- `startOfMonth(new Date('2026-03-05T01:00Z'))` → `2026-03-01T00:00:00Z`
-- `getDateInBrazil(acima)` → `2026-02-28` (porque 00:00 UTC = 21:00 do dia anterior no Brasil)
+### Opção recomendada: Adicionar seção na página Settings
+Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
 
-Resultado: a query de metas acumuladas busca `date >= '2026-02-28'` em vez de `'2026-03-01'`, quebrando o cálculo.
+### Funcionalidades
+- Seletor de data (calendário) para escolher o dia
+- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
+- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
+- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
+- Listagem das metas já cadastradas no mês selecionado
 
-### Correção
+### Arquivos a criar/editar
+1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
+2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
 
-Em vez de usar `startOfMonth`/`endOfMonth` do date-fns e depois converter, derivar as datas do mês diretamente da string `hojeDate` que já está correta:
-
-**Arquivo: `src/pages/DashboardTV.tsx`**, dentro do queryFn de `tv-metas-independentes`:
-
-Substituir:
-```typescript
-const hojeDate = getDateInBrazil(now);
-const mesFromDate = getDateInBrazil(startOfMonth(now));
-const mesEndDate = getDateInBrazil(endOfMonth(now));
-```
-
-Por:
-```typescript
-const hojeDate = getDateInBrazil(now);
-// Derivar mês a partir da string já correta, sem depender de Date objects
-const mesFromDate = hojeDate.substring(0, 7) + '-01';  // '2026-03-01'
-// Calcular último dia do mês
-const [y, m] = hojeDate.substring(0, 7).split('-').map(Number);
-const lastDay = new Date(y, m, 0).getDate(); // getDate do dia 0 do mês seguinte = último dia
-const mesEndDate = hojeDate.substring(0, 7) + '-' + String(lastDay).padStart(2, '0');
-```
-
-E os timestamps `diaFrom`, `diaTo`, `mesFrom`, `mesTo` continuam usando o offset `-03:00` como está.
-
-Isso é uma alteração cirúrgica de ~6 linhas no mesmo bloco que foi editado antes, sem impacto em dados existentes.
+### Nenhuma alteração de banco necessária
+A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
 
