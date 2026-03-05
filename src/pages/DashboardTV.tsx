@@ -563,6 +563,67 @@ function DashboardTVContent() {
     );
   };
 
+  const renderOrcamentoEnviadoWidget = () => {
+    if (!data?.conversasAbertas) return null;
+    const alertas = (data.conversasAbertas.lista || [])
+      .filter(c => c.status === 'Orçamento Enviado' && c.tempoNoStatus > 30);
+    return (
+      <TVAutoSizeWidget>
+        {(dims) => (
+          <div className="w-full h-full overflow-auto" style={{ padding: Math.max(4, dims.padding * 0.6) }}>
+            <div className="flex items-center gap-1 mb-1">
+              <span style={{ fontSize: Math.max(10, dims.labelFontSize) }}>📋</span>
+              <span className="text-[#374151] uppercase tracking-wider font-semibold truncate" style={{ fontSize: Math.max(9, dims.labelFontSize * 0.9) }}>
+                Orçamento Enviado {'>'} 30min
+              </span>
+              <span className={cn(
+                'ml-auto font-bold rounded-full flex items-center justify-center',
+                alertas.length > 0 ? 'bg-red-100 text-[#E53E3E]' : 'bg-green-100 text-[#276749]'
+              )} style={{
+                fontSize: Math.max(10, dims.valueFontSize * 0.5),
+                width: Math.max(20, dims.valueFontSize * 0.7),
+                height: Math.max(20, dims.valueFontSize * 0.7),
+              }}>
+                {alertas.length}
+              </span>
+            </div>
+            {alertas.length === 0 ? (
+              <div className="flex items-center justify-center h-[70%]">
+                <span className="text-[#276749]" style={{ fontSize: Math.max(10, dims.subFontSize) }}>✅ Nenhuma pendência</span>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {alertas.map((c, i) => {
+                  const horas = Math.floor(c.tempoNoStatus / 60);
+                  const mins = c.tempoNoStatus % 60;
+                  const tempoStr = horas > 0 ? `${horas}h${mins}m` : `${mins}m`;
+                  const muitoUrgente = c.tempoNoStatus > 60;
+                  return (
+                    <div key={i} className={cn(
+                      'rounded px-1.5 py-0.5 flex items-center justify-between',
+                      muitoUrgente ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'
+                    )}>
+                      <div className="truncate" style={{ fontSize: Math.max(9, dims.subFontSize * 0.95), maxWidth: '65%' }}>
+                        <span className="text-[#111827] font-medium">{c.nome || c.telefone}</span>
+                        {c.nome && <span className="text-[#6B7280] ml-1 font-mono">{c.telefone}</span>}
+                      </div>
+                      <span className={cn(
+                        'font-mono font-bold shrink-0',
+                        muitoUrgente ? 'text-[#E53E3E]' : 'text-[#DD6B20]'
+                      )} style={{ fontSize: Math.max(9, dims.subFontSize * 0.95) }}>
+                        {tempoStr}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </TVAutoSizeWidget>
+    );
+  };
+
   const renderBlock = (blockId: string) => {
     switch (blockId) {
       case 'receita-total':
@@ -718,6 +779,9 @@ function DashboardTVContent() {
       // Conversas abertas
       case 'conversas-abertas':
         return renderOpenConversationsWidget();
+
+      case 'alerta-orcamento-enviado':
+        return renderOrcamentoEnviadoWidget();
 
       case 'widget-rotativo': {
         // Renderizar o widget ativo do ciclo rotativo reutilizando renderBlock
