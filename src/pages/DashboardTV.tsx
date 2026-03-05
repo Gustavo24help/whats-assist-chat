@@ -27,6 +27,11 @@ import { Calendar as CalendarIcon, Settings, Pencil, X } from 'lucide-react';
 import logoGreen from '@/assets/logo-green.png';
 
 // ---- Helpers ----
+/** Returns 'yyyy-MM-dd' string forced to America/Sao_Paulo timezone */
+function getDateInBrazil(date: Date): string {
+  return date.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+}
+
 function fmtCurrency(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
@@ -215,13 +220,14 @@ function DashboardTVContent() {
     queryKey: ['tv-metas-independentes'],
     queryFn: async () => {
       const now = new Date();
-      const diaFrom = startOfDay(now).toISOString();
-      const diaTo = endOfDay(now).toISOString();
-      const mesFrom = startOfMonth(now).toISOString();
-      const mesTo = endOfMonth(now).toISOString();
-      const hojeDate = format(now, 'yyyy-MM-dd');
-      const mesFromDate = format(startOfMonth(now), 'yyyy-MM-dd');
-      const mesEndDate = format(endOfMonth(now), 'yyyy-MM-dd');
+      // Use Brazil timezone to avoid date drift on devices with different TZ
+      const hojeDate = getDateInBrazil(now);
+      const mesFromDate = getDateInBrazil(startOfMonth(now));
+      const mesEndDate = getDateInBrazil(endOfMonth(now));
+      const diaFrom = `${hojeDate}T00:00:00-03:00`;
+      const diaTo = `${hojeDate}T23:59:59-03:00`;
+      const mesFrom = `${mesFromDate}T00:00:00-03:00`;
+      const mesTo = `${mesEndDate}T23:59:59-03:00`;
 
       // Buscar fichas que entraram em "Agendado" e "Finalizado" (via histórico de status)
       const [agendDia, agendMes, finDia, finMes] = await Promise.all([
