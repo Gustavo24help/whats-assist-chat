@@ -1,26 +1,55 @@
 
 
-# Plano: Criar UI para inputar metas diárias (`daily_goals`)
+## Diagnóstico: Metas Acumuladas no Dashboard TV
 
-## Resumo
-Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
+### Análise dos dados
 
-## Abordagem
+Dados em `daily_goals` para março/2026:
+- 02/03: qty=2, val=R$760
+- 03/03: qty=2, val=R$760
+- 04/03: qty=2, val=R$760
+- 05/03: qty=2, val=R$760
 
-### Opção recomendada: Adicionar seção na página Settings
-Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
+O acumulado até hoje (05/03) deveria ser: qty=8, val=R$3.040.
 
-### Funcionalidades
-- Seletor de data (calendário) para escolher o dia
-- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
-- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
-- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
-- Listagem das metas já cadastradas no mês selecionado
+### Código atual (linha 276 de DashboardTV.tsx)
 
-### Arquivos a criar/editar
-1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
-2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
+A query acumulada usa `.gte('date', mesFromDate).lte('date', hojeDate)` onde `hojeDate = format(new Date(), 'yyyy-MM-dd')`. Isso deveria incluir hoje.
 
-### Nenhuma alteração de banco necessária
-A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
+### Causa provável
+
+Se o dispositivo de TV (navegador) estiver com timezone diferente (ex: UTC em vez de UTC-3), `format(new Date(), 'yyyy-MM-dd')` pode retornar a data de "ontem" no horário local brasileiro, fazendo a query excluir o dia de hoje.
+
+### Plano de correção
+
+**Arquivo: `src/pages/DashboardTV.tsx`**
+
+1. Forçar o cálculo de `hojeDate` usando timezone explícita de São Paulo para evitar divergências entre o timezone do dispositivo e o esperado.
+
+2. Alternativa mais robusta e simples: em vez de confiar no `format()` local, usar `new Date().toLocaleDateString('sv-SE')` que retorna `YYYY-MM-DD` no timezone local do browser, ou manter `format` mas adicionar um `console.log` temporário para debug.
+
+3. Como medida definitiva: usar a timezone do Brasil explicitamente com `Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' })` para gerar `hojeDate`, `mesFromDate` e `mesEndDate`, garantindo que independente do timezone do dispositivo, as datas estejam corretas.
+
+**Alteração concreta:**
+
+Substituir:
+```typescript
+const hojeDate = format(now, 'yyyy-MM-dd');
+const mesFromDate = format(startOfMonth(now), 'yyyy-MM-dd');
+const mesEndDate = format(endOfMonth(now), 'yyyy-MM-dd');
+```
+
+Por uma helper function que calcula as datas no timezone `America/Sao_Paulo`:
+```typescript
+function getDateInBrazil(date: Date): string {
+  return date.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+}
+const hojeDate = getDateInBrazil(now);
+const mesFromDate = getDateInBrazil(startOfMonth(now));
+const mesEndDate = getDateInBrazil(endOfMonth(now));
+```
+
+Isso garante que mesmo em um monitor/TV com timezone UTC ou outro fuso, as metas acumuladas usem a data correta do Brasil.
+
+4. Aplicar a mesma correção de timezone para `diaFrom` e `diaTo` (usados para buscar agendamentos do dia), pois sofrem do mesmo risco.
 
