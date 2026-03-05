@@ -303,7 +303,7 @@ function DashboardTVContent() {
       };
     },
     refetchInterval: REFRESH_INTERVAL,
-    staleTime: 15000,
+    staleTime: 0,
   });
 
   if (isLoading || !data) {
