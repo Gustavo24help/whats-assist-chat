@@ -37,6 +37,7 @@ const PRESETS = [
 const ROTATING_WIDGET_OPTIONS = [
   // Alertas
   { id: 'conversas-abertas', icon: '🚨', label: 'Alertas Ficha Criada', description: 'Fichas em "Ficha Criada" há mais de 20 min' },
+  { id: 'alerta-orcamento-enviado', icon: '📋', label: 'Alertas Orçamento Enviado', description: 'Fichas em "Orçamento Enviado" há mais de 30 min' },
   // KPIs principais
   { id: 'receita-total', icon: '💰', label: 'Receita Total', description: 'Receita total do período' },
   { id: 'lucro-bruto', icon: '📈', label: 'Lucro Bruto', description: 'Lucro bruto e margem' },
