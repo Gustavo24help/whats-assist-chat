@@ -1,0 +1,1 @@
+UPDATE clientes SET arquivado = false WHERE telefone = 'whatsapp:+554195665182';
