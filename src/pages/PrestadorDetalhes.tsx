@@ -21,7 +21,6 @@ type Prestador = {
   nome_pix: string | null;
   chave_pix: string | null;
   pix_ativo: boolean;
-  ativo: boolean;
   created_at: string | null;
 };
 
@@ -101,7 +100,6 @@ const PrestadorDetalhes = () => {
         nome_pix: data.nome_pix,
         chave_pix: data.chave_pix,
         pix_ativo: data.pix_ativo ?? true,
-        ativo: data.ativo ?? true,
       });
       setLoading(false);
     };
@@ -117,9 +115,8 @@ const PrestadorDetalhes = () => {
   const handleSave = async () => {
     if (!formData) return;
 
-    const telefoneLimpo = sanitizeNumericField(formData.telefone);
 
-    if (!formData.nome || !telefoneLimpo) {
+    if (!formData.nome || !sanitizeNumericField(formData.telefone)) {
       toast({
         variant: "destructive",
         title: "Campos obrigatórios",
@@ -145,7 +142,18 @@ const PrestadorDetalhes = () => {
 
     let { error } = await supabase
       .from("prestadores")
-      .update(buildPrestadorPayload(formData, true))
+      .update({
+        nome: formData.nome,
+        telefone: telefoneLimpo,
+        categoria: formData.categoria || null,
+        especialidade: formData.especialidade || null,
+        id_crm: formData.id_crm || null,
+        id_azure: formData.id_azure || null,
+        cnpj: cnpjLimpo,
+        nome_pix: formData.nome_pix || null,
+        chave_pix: formData.chave_pix || null,
+        pix_ativo: formData.pix_ativo ?? true,
+      })
       .eq("cpf", formData.cpf);
 
     if (error && isMissingPixColumnsError(error)) {
@@ -328,21 +336,6 @@ const PrestadorDetalhes = () => {
                   className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={formData.pix_ativo ? "ativo" : "desativado"}
                   onChange={(e) => setFormData({ ...formData, pix_ativo: e.target.value === "ativo" })}
-                >
-                  <option value="ativo">Ativo</option>
-                  <option value="desativado">Desativado</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="ativo">Prestador ativo</Label>
-                <select
-                  id="ativo"
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={formData.ativo ? "ativo" : "desativado"}
-                  onChange={(e) => setFormData({ ...formData, ativo: e.target.value === "ativo" })}
                 >
                   <option value="ativo">Ativo</option>
                   <option value="desativado">Desativado</option>

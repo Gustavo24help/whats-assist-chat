@@ -50,43 +50,10 @@ interface Prestador {
   nome_pix: string | null;
   chave_pix: string | null;
   pix_ativo: boolean;
-  ativo: boolean;
   created_at?: string | null;
 }
 
-const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM", "Nome do Pix", "Pix Ativo", "Prestador Ativo"];
-
-const isMissingPixColumnsError = (error: { message?: string } | null) => {
-  if (!error?.message) return false;
-  const normalized = error.message.toLowerCase();
-  return normalized.includes("nome_pix") || normalized.includes("chave_pix") || normalized.includes("pix_ativo") || normalized.includes("ativo") || normalized.includes("column");
-};
-
-const buildPrestadorPayload = (formData: Prestador, options: { includePixFields: boolean; includeCpf: boolean }) => {
-  const payload: Record<string, string | boolean | null> = {
-    nome: formData.nome,
-    telefone: sanitizeNumericField(formData.telefone),
-    categoria: formData.categoria || null,
-    especialidade: formData.especialidade || null,
-    id_crm: formData.id_crm || null,
-    id_azure: formData.id_azure || null,
-    cnpj: sanitizeNumericField(formData.cnpj),
-  };
-
-  if (options.includeCpf) {
-    payload.cpf = sanitizeNumericField(formData.cpf);
-  }
-
-  if (options.includePixFields) {
-    payload.nome_pix = formData.nome_pix || null;
-    payload.chave_pix = formData.chave_pix || null;
-    payload.pix_ativo = formData.pix_ativo ?? true;
-  }
-
-  payload.ativo = formData.ativo ?? true;
-
-  return payload;
-};
+const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM", "Nome do Pix", "Pix Ativo"];
 
 export const PrestadorManagement = () => {
   const { toast } = useToast();
@@ -113,7 +80,6 @@ export const PrestadorManagement = () => {
     nome_pix: "",
     chave_pix: "",
     pix_ativo: true,
-    ativo: true,
   });
 
   useEffect(() => {
@@ -132,7 +98,6 @@ export const PrestadorManagement = () => {
       const prestadoresComPadrao = (data || []).map((prestador) => ({
         ...prestador,
         pix_ativo: prestador.pix_ativo ?? true,
-        ativo: prestador.ativo ?? true,
       }));
       setPrestadores(prestadoresComPadrao as Prestador[]);
     } catch (error) {
@@ -153,7 +118,6 @@ export const PrestadorManagement = () => {
       setFormData({
         ...prestador,
         pix_ativo: prestador.pix_ativo ?? true,
-        ativo: prestador.ativo ?? true,
       });
     } else {
       setEditingPrestador(null);
@@ -169,7 +133,6 @@ export const PrestadorManagement = () => {
         nome_pix: "",
         chave_pix: "",
         pix_ativo: true,
-        ativo: true,
       });
     }
     setIsDialogOpen(true);
@@ -223,7 +186,18 @@ export const PrestadorManagement = () => {
       if (editingPrestador) {
         let { error } = await supabase
           .from("prestadores")
-          .update(buildPrestadorPayload(formData, { includePixFields: true, includeCpf: false }))
+          .update({
+            nome: formData.nome,
+            telefone: telefoneLimpo,
+            categoria: formData.categoria || null,
+            especialidade: formData.especialidade || null,
+            id_crm: formData.id_crm || null,
+            id_azure: formData.id_azure || null,
+            cnpj: cnpjLimpo,
+            nome_pix: formData.nome_pix || null,
+            chave_pix: formData.chave_pix || null,
+            pix_ativo: formData.pix_ativo ?? true,
+          })
           .eq("cpf", editingPrestador.cpf);
 
         if (error && isMissingPixColumnsError(error)) {
@@ -244,17 +218,19 @@ export const PrestadorManagement = () => {
             : "Os dados foram atualizados com sucesso.",
         });
       } else {
-        let { error } = await supabase
-          .from("prestadores")
-          .insert(buildPrestadorPayload(formData, { includePixFields: true, includeCpf: true }));
-
-        if (error && isMissingPixColumnsError(error)) {
-          const fallback = await supabase
-            .from("prestadores")
-            .insert(buildPrestadorPayload(formData, { includePixFields: false, includeCpf: true }));
-          error = fallback.error;
-          salvouComFallbackSemPix = !error;
-        }
+        const { error } = await supabase.from("prestadores").insert({
+          cpf: cpfLimpo,
+          nome: formData.nome,
+          telefone: telefoneLimpo,
+          categoria: formData.categoria || null,
+          especialidade: formData.especialidade || null,
+          id_crm: formData.id_crm || null,
+          id_azure: formData.id_azure || null,
+          cnpj: cnpjLimpo,
+          nome_pix: formData.nome_pix || null,
+          chave_pix: formData.chave_pix || null,
+          pix_ativo: formData.pix_ativo ?? true,
+        });
 
         if (error) throw error;
 
@@ -515,9 +491,6 @@ export const PrestadorManagement = () => {
         prestador.pix_ativo = prestador.pix_ativo === null || prestador.pix_ativo === undefined
           ? true
           : String(prestador.pix_ativo).toLowerCase() === "ativo" || String(prestador.pix_ativo).toLowerCase() === "true";
-        prestador.ativo = prestador.ativo === null || prestador.ativo === undefined
-          ? true
-          : String(prestador.ativo).toLowerCase() === "ativo" || String(prestador.ativo).toLowerCase() === "true";
         prestadores.push(prestador);
       }
 
@@ -596,7 +569,6 @@ export const PrestadorManagement = () => {
       prestador.id_crm || "",
       prestador.nome_pix || "",
       prestador.pix_ativo ? "Ativo" : "Desativado",
-      prestador.ativo ? "Ativo" : "Desativado",
     ]);
 
     const csv = [
@@ -632,7 +604,6 @@ export const PrestadorManagement = () => {
         prestador.id_crm || "",
         prestador.nome_pix || "",
         prestador.pix_ativo ? "Ativo" : "Desativado",
-        prestador.ativo ? "Ativo" : "Desativado",
       ].join("\t")),
     ].join("\n");
 
@@ -787,7 +758,7 @@ export const PrestadorManagement = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="nome_pix">Nome do Pix</Label>
                         <Input
@@ -820,21 +791,6 @@ export const PrestadorManagement = () => {
                           value={formData.pix_ativo ? "ativo" : "desativado"}
                           onChange={(e) =>
                             setFormData({ ...formData, pix_ativo: e.target.value === "ativo" })
-                          }
-                        >
-                          <option value="ativo">Ativo</option>
-                          <option value="desativado">Desativado</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="ativo">Prestador ativo</Label>
-                        <select
-                          id="ativo"
-                          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          value={formData.ativo ? "ativo" : "desativado"}
-                          onChange={(e) =>
-                            setFormData({ ...formData, ativo: e.target.value === "ativo" })
                           }
                         >
                           <option value="ativo">Ativo</option>
@@ -923,9 +879,9 @@ export const PrestadorManagement = () => {
                   <p>O arquivo CSV deve seguir este formato exato:</p>
                   
                   <div className="bg-muted p-4 rounded-lg font-mono text-sm overflow-x-auto">
-                    <div className="text-primary font-semibold">cpf,nome,telefone,categoria,especialidade,id_crm,id_azure,cnpj,nome_pix,chave_pix,pix_ativo,ativo</div>
-                    <div className="text-muted-foreground">12345678900,João Silva,41999999999,Elétrica,Instalações,CRM001,AZ123,12345678000100,João Silva,joao@pix.com,Ativo,Ativo</div>
-                    <div className="text-muted-foreground">98765432100,Maria Santos,41988888888,Hidráulica,Reparos,CRM002,AZ124,98765432000100,Maria Santos,41988888888,Desativado,Desativado</div>
+                    <div className="text-primary font-semibold">cpf,nome,telefone,categoria,especialidade,id_crm,id_azure,cnpj,nome_pix,chave_pix,pix_ativo</div>
+                    <div className="text-muted-foreground">12345678900,João Silva,41999999999,Elétrica,Instalações,CRM001,AZ123,12345678000100,João Silva,joao@pix.com,Ativo</div>
+                    <div className="text-muted-foreground">98765432100,Maria Santos,41988888888,Hidráulica,Reparos,CRM002,AZ124,98765432000100,Maria Santos,41988888888,Desativado</div>
                   </div>
 
                   <div className="space-y-2">
@@ -948,7 +904,6 @@ export const PrestadorManagement = () => {
                       <li><span className="font-mono">nome_pix</span> - Nome vinculado ao Pix</li>
                       <li><span className="font-mono">chave_pix</span> - Chave Pix</li>
                       <li><span className="font-mono">pix_ativo</span> - Ativo, Desativado, true ou false</li>
-                      <li><span className="font-mono">ativo</span> - Status do prestador: Ativo, Desativado, true ou false</li>
                     </ul>
                   </div>
 
@@ -1010,7 +965,6 @@ export const PrestadorManagement = () => {
                     </div>
                   </TableHead>
                   <TableHead>Pix</TableHead>
-                  <TableHead>Prestador</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1039,7 +993,6 @@ export const PrestadorManagement = () => {
                     <TableCell>{prestador.id_crm || "-"}</TableCell>
                     <TableCell>{prestador.nome_pix || "-"}</TableCell>
                     <TableCell>{prestador.pix_ativo ? "Ativo" : "Desativado"}</TableCell>
-                    <TableCell>{prestador.ativo ? "Ativo" : "Desativado"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
