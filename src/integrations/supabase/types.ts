@@ -1235,6 +1235,7 @@ export type Database = {
       prestadores: {
         Row: {
           categoria: string | null
+          chave_pix: string | null
           cnpj: string | null
           cpf: string
           created_at: string | null
@@ -1242,10 +1243,13 @@ export type Database = {
           id_azure: string | null
           id_crm: string | null
           nome: string
+          nome_pix: string | null
+          pix_ativo: boolean
           telefone: string
         }
         Insert: {
           categoria?: string | null
+          chave_pix?: string | null
           cnpj?: string | null
           cpf: string
           created_at?: string | null
@@ -1253,10 +1257,13 @@ export type Database = {
           id_azure?: string | null
           id_crm?: string | null
           nome: string
+          nome_pix?: string | null
+          pix_ativo?: boolean
           telefone: string
         }
         Update: {
           categoria?: string | null
+          chave_pix?: string | null
           cnpj?: string | null
           cpf?: string
           created_at?: string | null
@@ -1264,6 +1271,8 @@ export type Database = {
           id_azure?: string | null
           id_crm?: string | null
           nome?: string
+          nome_pix?: string | null
+          pix_ativo?: boolean
           telefone?: string
         }
         Relationships: []
