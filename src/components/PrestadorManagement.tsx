@@ -117,7 +117,7 @@ export const PrestadorManagement = () => {
       setEditingPrestador(prestador);
       setFormData({
         ...prestador,
-        pix_ativo: prestador.pix_ativo ?? true,
+        ativo: prestador.ativo ?? true,
       });
     } else {
       setEditingPrestador(null);
@@ -555,7 +555,7 @@ export const PrestadorManagement = () => {
       prestador.categoria || "",
       prestador.id_crm || "",
       prestador.nome_pix || "",
-      prestador.pix_ativo ? "Ativo" : "Desativado",
+      prestador.ativo ? "Ativo" : "Desativado",
     ]);
 
     const csv = [
@@ -590,7 +590,7 @@ export const PrestadorManagement = () => {
         prestador.categoria || "",
         prestador.id_crm || "",
         prestador.nome_pix || "",
-        prestador.pix_ativo ? "Ativo" : "Desativado",
+        prestador.ativo ? "Ativo" : "Desativado",
       ].join("\t")),
     ].join("\n");
 
