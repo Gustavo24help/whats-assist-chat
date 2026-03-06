@@ -207,7 +207,7 @@ export const PrestadorManagement = () => {
           description: "Os dados foram atualizados com sucesso.",
         });
       } else {
-        const { error } = await supabase.from("prestadores").insert({
+        const { error } = await supabase.from("prestadores").upsert({
           cpf: cpfLimpo,
           nome: formData.nome,
           telefone: telefoneLimpo,
@@ -219,7 +219,7 @@ export const PrestadorManagement = () => {
           nome_pix: formData.nome_pix || null,
           chave_pix: formData.chave_pix || null,
           ativo: formData.ativo ?? true,
-        });
+        }, { onConflict: "cpf", ignoreDuplicates: false });
 
         if (error) throw error;
 
