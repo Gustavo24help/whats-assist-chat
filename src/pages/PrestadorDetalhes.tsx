@@ -30,11 +30,6 @@ const sanitizeNumericField = (value: string | null): string | null => {
   return cleaned || null;
 };
 
-const isMissingPixColumnsError = (error: { message?: string } | null) => {
-  if (!error?.message) return false;
-  const normalized = error.message.toLowerCase();
-  return normalized.includes("nome_pix") || normalized.includes("chave_pix") || normalized.includes("pix_ativo") || normalized.includes("ativo") || normalized.includes("column");
-};
 
 const buildPrestadorPayload = (formData: Omit<Prestador, "created_at">) => {
   const telefoneLimpo = sanitizeNumericField(formData.telefone);

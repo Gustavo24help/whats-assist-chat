@@ -53,7 +53,7 @@ interface Prestador {
   created_at?: string | null;
 }
 
-const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM", "Nome do Pix", "Pix Ativo"];
+const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM", "Nome do Pix", "Status"];
 
 export const PrestadorManagement = () => {
   const { toast } = useToast();
@@ -890,7 +890,7 @@ export const PrestadorManagement = () => {
                       <li><span className="font-mono">cnpj</span> - CNPJ (se aplicável)</li>
                       <li><span className="font-mono">nome_pix</span> - Nome vinculado ao Pix</li>
                       <li><span className="font-mono">chave_pix</span> - Chave Pix</li>
-                      <li><span className="font-mono">pix_ativo</span> - Ativo, Desativado, true ou false</li>
+                      <li><span className="font-mono">ativo</span> - Ativo, Desativado, true ou false (status do prestador)</li>
                     </ul>
                   </div>
 
