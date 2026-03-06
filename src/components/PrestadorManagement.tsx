@@ -621,7 +621,7 @@ export const PrestadorManagement = () => {
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} noValidate>
                   <DialogHeader>
                     <DialogTitle>
                       {editingPrestador ? "Editar Prestador" : "Novo Prestador"}
