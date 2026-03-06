@@ -475,9 +475,9 @@ export const PrestadorManagement = () => {
         }
 
         cpfsVistos.add(prestador.cpf);
-        prestador.pix_ativo = prestador.pix_ativo === null || prestador.pix_ativo === undefined
+        prestador.ativo = prestador.ativo === null || prestador.ativo === undefined
           ? true
-          : String(prestador.pix_ativo).toLowerCase() === "ativo" || String(prestador.pix_ativo).toLowerCase() === "true";
+          : String(prestador.ativo).toLowerCase() === "ativo" || String(prestador.ativo).toLowerCase() === "true";
         prestadores.push(prestador);
       }
 
@@ -866,7 +866,7 @@ export const PrestadorManagement = () => {
                   <p>O arquivo CSV deve seguir este formato exato:</p>
                   
                   <div className="bg-muted p-4 rounded-lg font-mono text-sm overflow-x-auto">
-                    <div className="text-primary font-semibold">cpf,nome,telefone,categoria,especialidade,id_crm,id_azure,cnpj,nome_pix,chave_pix,pix_ativo</div>
+                    <div className="text-primary font-semibold">cpf,nome,telefone,categoria,especialidade,id_crm,id_azure,cnpj,nome_pix,chave_pix,ativo</div>
                     <div className="text-muted-foreground">12345678900,João Silva,41999999999,Elétrica,Instalações,CRM001,AZ123,12345678000100,João Silva,joao@pix.com,Ativo</div>
                     <div className="text-muted-foreground">98765432100,Maria Santos,41988888888,Hidráulica,Reparos,CRM002,AZ124,98765432000100,Maria Santos,41988888888,Desativado</div>
                   </div>
