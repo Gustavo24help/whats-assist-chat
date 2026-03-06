@@ -18,6 +18,9 @@ type Prestador = {
   id_crm: string | null;
   id_azure: string | null;
   cnpj: string | null;
+  nome_pix: string | null;
+  chave_pix: string | null;
+  pix_ativo: boolean;
   created_at: string | null;
 };
 
@@ -63,6 +66,9 @@ const PrestadorDetalhes = () => {
         id_crm: data.id_crm,
         id_azure: data.id_azure,
         cnpj: data.cnpj,
+        nome_pix: data.nome_pix,
+        chave_pix: data.chave_pix,
+        pix_ativo: data.pix_ativo ?? true,
       });
       setLoading(false);
     };
@@ -110,6 +116,9 @@ const PrestadorDetalhes = () => {
         id_crm: formData.id_crm || null,
         id_azure: formData.id_azure || null,
         cnpj: cnpjLimpo,
+        nome_pix: formData.nome_pix || null,
+        chave_pix: formData.chave_pix || null,
+        pix_ativo: formData.pix_ativo ?? true,
       })
       .eq("cpf", formData.cpf);
 
@@ -257,6 +266,29 @@ const PrestadorDetalhes = () => {
               <div className="space-y-2">
                 <Label htmlFor="cnpj">CNPJ</Label>
                 <Input id="cnpj" value={formData.cnpj || ""} onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome_pix">Nome do Pix</Label>
+                <Input id="nome_pix" value={formData.nome_pix || ""} onChange={(e) => setFormData({ ...formData, nome_pix: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="chave_pix">Chave Pix</Label>
+                <Input id="chave_pix" value={formData.chave_pix || ""} onChange={(e) => setFormData({ ...formData, chave_pix: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pix_ativo">Pix ativo</Label>
+                <select
+                  id="pix_ativo"
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={formData.pix_ativo ? "ativo" : "desativado"}
+                  onChange={(e) => setFormData({ ...formData, pix_ativo: e.target.value === "ativo" })}
+                >
+                  <option value="ativo">Ativo</option>
+                  <option value="desativado">Desativado</option>
+                </select>
               </div>
             </div>
 

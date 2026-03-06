@@ -41,10 +41,13 @@ interface Prestador {
   id_crm: string | null;
   id_azure: string | null;
   cnpj: string | null;
+  nome_pix: string | null;
+  chave_pix: string | null;
+  pix_ativo: boolean;
   created_at?: string | null;
 }
 
-const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM"];
+const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM", "Nome do Pix", "Pix Ativo"];
 
 export const PrestadorManagement = () => {
   const { toast } = useToast();
@@ -56,7 +59,7 @@ export const PrestadorManagement = () => {
   const [showCsvHelp, setShowCsvHelp] = useState(false);
   const [selectedPrestadores, setSelectedPrestadores] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [sortField, setSortField] = useState<"nome" | "categoria" | null>("nome");
+  const [sortField, setSortField] = useState<"nome" | "categoria" | "nome_pix" | null>("nome");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   const [formData, setFormData] = useState<Prestador>({
@@ -68,6 +71,9 @@ export const PrestadorManagement = () => {
     id_crm: "",
     id_azure: "",
     cnpj: "",
+    nome_pix: "",
+    chave_pix: "",
+    pix_ativo: true,
   });
 
   useEffect(() => {
@@ -83,7 +89,11 @@ export const PrestadorManagement = () => {
         .order("nome");
 
       if (error) throw error;
-      setPrestadores(data || []);
+      const prestadoresComPadrao = (data || []).map((prestador) => ({
+        ...prestador,
+        pix_ativo: prestador.pix_ativo ?? true,
+      }));
+      setPrestadores(prestadoresComPadrao as Prestador[]);
     } catch (error) {
       console.error("Erro ao carregar prestadores:", error);
       toast({
@@ -99,7 +109,10 @@ export const PrestadorManagement = () => {
   const handleOpenDialog = (prestador?: Prestador) => {
     if (prestador) {
       setEditingPrestador(prestador);
-      setFormData(prestador);
+      setFormData({
+        ...prestador,
+        pix_ativo: prestador.pix_ativo ?? true,
+      });
     } else {
       setEditingPrestador(null);
       setFormData({
@@ -111,6 +124,9 @@ export const PrestadorManagement = () => {
         id_crm: "",
         id_azure: "",
         cnpj: "",
+        nome_pix: "",
+        chave_pix: "",
+        pix_ativo: true,
       });
     }
     setIsDialogOpen(true);
@@ -170,6 +186,9 @@ export const PrestadorManagement = () => {
             id_crm: formData.id_crm || null,
             id_azure: formData.id_azure || null,
             cnpj: cnpjLimpo,
+            nome_pix: formData.nome_pix || null,
+            chave_pix: formData.chave_pix || null,
+            pix_ativo: formData.pix_ativo ?? true,
           })
           .eq("cpf", editingPrestador.cpf);
 
@@ -189,6 +208,9 @@ export const PrestadorManagement = () => {
           id_crm: formData.id_crm || null,
           id_azure: formData.id_azure || null,
           cnpj: cnpjLimpo,
+          nome_pix: formData.nome_pix || null,
+          chave_pix: formData.chave_pix || null,
+          pix_ativo: formData.pix_ativo ?? true,
         });
 
         if (error) throw error;
@@ -362,7 +384,7 @@ export const PrestadorManagement = () => {
     });
   }, [prestadores, sortField, sortDirection]);
 
-  const handleSort = (field: "nome" | "categoria") => {
+  const handleSort = (field: "nome" | "categoria" | "nome_pix") => {
     if (sortField === field) {
       setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -371,7 +393,7 @@ export const PrestadorManagement = () => {
     }
   };
 
-  const SortIcon = ({ field }: { field: "nome" | "categoria" }) => {
+  const SortIcon = ({ field }: { field: "nome" | "categoria" | "nome_pix" }) => {
     if (sortField !== field) return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-50" />;
     return sortDirection === "asc" ? (
       <ArrowUp className="h-3.5 w-3.5 ml-1" />
@@ -452,6 +474,9 @@ export const PrestadorManagement = () => {
         }
 
         cpfsVistos.add(prestador.cpf);
+        prestador.pix_ativo = prestador.pix_ativo === null || prestador.pix_ativo === undefined
+          ? true
+          : String(prestador.pix_ativo).toLowerCase() === "ativo" || String(prestador.pix_ativo).toLowerCase() === "true";
         prestadores.push(prestador);
       }
 
@@ -528,6 +553,8 @@ export const PrestadorManagement = () => {
       prestador.telefone,
       prestador.categoria || "",
       prestador.id_crm || "",
+      prestador.nome_pix || "",
+      prestador.pix_ativo ? "Ativo" : "Desativado",
     ]);
 
     const csv = [
@@ -561,6 +588,8 @@ export const PrestadorManagement = () => {
         prestador.telefone,
         prestador.categoria || "",
         prestador.id_crm || "",
+        prestador.nome_pix || "",
+        prestador.pix_ativo ? "Ativo" : "Desativado",
       ].join("\t")),
     ].join("\n");
 
@@ -714,6 +743,47 @@ export const PrestadorManagement = () => {
                         />
                       </div>
                     </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="nome_pix">Nome do Pix</Label>
+                        <Input
+                          id="nome_pix"
+                          placeholder="Nome do recebedor"
+                          value={formData.nome_pix || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, nome_pix: e.target.value })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="chave_pix">Chave Pix</Label>
+                        <Input
+                          id="chave_pix"
+                          placeholder="CPF, e-mail, telefone ou aleatória"
+                          value={formData.chave_pix || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, chave_pix: e.target.value })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="pix_ativo">Pix ativo</Label>
+                        <select
+                          id="pix_ativo"
+                          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={formData.pix_ativo ? "ativo" : "desativado"}
+                          onChange={(e) =>
+                            setFormData({ ...formData, pix_ativo: e.target.value === "ativo" })
+                          }
+                        >
+                          <option value="ativo">Ativo</option>
+                          <option value="desativado">Desativado</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
 
                   <DialogFooter>
@@ -795,9 +865,9 @@ export const PrestadorManagement = () => {
                   <p>O arquivo CSV deve seguir este formato exato:</p>
                   
                   <div className="bg-muted p-4 rounded-lg font-mono text-sm overflow-x-auto">
-                    <div className="text-primary font-semibold">cpf,nome,telefone,categoria,especialidade,id_crm,id_azure,cnpj</div>
-                    <div className="text-muted-foreground">12345678900,João Silva,41999999999,Elétrica,Instalações,CRM001,AZ123,12345678000100</div>
-                    <div className="text-muted-foreground">98765432100,Maria Santos,41988888888,Hidráulica,Reparos,CRM002,AZ124,98765432000100</div>
+                    <div className="text-primary font-semibold">cpf,nome,telefone,categoria,especialidade,id_crm,id_azure,cnpj,nome_pix,chave_pix,pix_ativo</div>
+                    <div className="text-muted-foreground">12345678900,João Silva,41999999999,Elétrica,Instalações,CRM001,AZ123,12345678000100,João Silva,joao@pix.com,Ativo</div>
+                    <div className="text-muted-foreground">98765432100,Maria Santos,41988888888,Hidráulica,Reparos,CRM002,AZ124,98765432000100,Maria Santos,41988888888,Desativado</div>
                   </div>
 
                   <div className="space-y-2">
@@ -817,6 +887,9 @@ export const PrestadorManagement = () => {
                       <li><span className="font-mono">id_crm</span> - ID no sistema CRM</li>
                       <li><span className="font-mono">id_azure</span> - ID no Azure</li>
                       <li><span className="font-mono">cnpj</span> - CNPJ (se aplicável)</li>
+                      <li><span className="font-mono">nome_pix</span> - Nome vinculado ao Pix</li>
+                      <li><span className="font-mono">chave_pix</span> - Chave Pix</li>
+                      <li><span className="font-mono">pix_ativo</span> - Ativo, Desativado, true ou false</li>
                     </ul>
                   </div>
 
@@ -871,6 +944,13 @@ export const PrestadorManagement = () => {
                     </div>
                   </TableHead>
                   <TableHead>ID CRM</TableHead>
+                  <TableHead className="cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort("nome_pix")}>
+                    <div className="flex items-center">
+                      Nome do Pix
+                      <SortIcon field="nome_pix" />
+                    </div>
+                  </TableHead>
+                  <TableHead>Pix</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -897,6 +977,8 @@ export const PrestadorManagement = () => {
                     <TableCell>{prestador.telefone}</TableCell>
                     <TableCell>{prestador.categoria || "-"}</TableCell>
                     <TableCell>{prestador.id_crm || "-"}</TableCell>
+                    <TableCell>{prestador.nome_pix || "-"}</TableCell>
+                    <TableCell>{prestador.pix_ativo ? "Ativo" : "Desativado"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
