@@ -1234,6 +1234,7 @@ export type Database = {
       }
       prestadores: {
         Row: {
+          ativo: boolean
           categoria: string | null
           chave_pix: string | null
           cnpj: string | null
@@ -1248,6 +1249,7 @@ export type Database = {
           telefone: string
         }
         Insert: {
+          ativo?: boolean
           categoria?: string | null
           chave_pix?: string | null
           cnpj?: string | null
@@ -1262,6 +1264,7 @@ export type Database = {
           telefone: string
         }
         Update: {
+          ativo?: boolean
           categoria?: string | null
           chave_pix?: string | null
           cnpj?: string | null

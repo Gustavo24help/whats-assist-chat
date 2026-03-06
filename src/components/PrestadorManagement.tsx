@@ -32,6 +32,12 @@ import { Plus, Pencil, Trash2, Upload, HelpCircle, Download, Eye, ArrowUpDown, A
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+const sanitizeNumericField = (value: string | null): string | null => {
+  if (!value) return null;
+  const cleaned = value.replace(/\D/g, "");
+  return cleaned || null;
+};
+
 interface Prestador {
   cpf: string;
   nome: string;
@@ -175,8 +181,10 @@ export const PrestadorManagement = () => {
     }
 
     try {
+      let salvouComFallbackSemPix = false;
+
       if (editingPrestador) {
-        const { error } = await supabase
+        let { error } = await supabase
           .from("prestadores")
           .update({
             nome: formData.nome,
@@ -192,11 +200,22 @@ export const PrestadorManagement = () => {
           })
           .eq("cpf", editingPrestador.cpf);
 
+        if (error && isMissingPixColumnsError(error)) {
+          const fallback = await supabase
+            .from("prestadores")
+            .update(buildPrestadorPayload(formData, { includePixFields: false, includeCpf: false }))
+            .eq("cpf", editingPrestador.cpf);
+          error = fallback.error;
+          salvouComFallbackSemPix = !error;
+        }
+
         if (error) throw error;
 
         toast({
           title: "Prestador atualizado",
-          description: "Os dados foram atualizados com sucesso.",
+          description: salvouComFallbackSemPix
+            ? "Dados principais salvos. Campos de Pix serão habilitados após atualizar o banco."
+            : "Os dados foram atualizados com sucesso.",
         });
       } else {
         const { error } = await supabase.from("prestadores").insert({
@@ -217,7 +236,9 @@ export const PrestadorManagement = () => {
 
         toast({
           title: "Prestador adicionado",
-          description: "O prestador foi cadastrado com sucesso.",
+          description: salvouComFallbackSemPix
+            ? "Cadastro realizado. Campos de Pix serão habilitados após atualizar o banco."
+            : "O prestador foi cadastrado com sucesso.",
         });
       }
 
@@ -400,13 +421,6 @@ export const PrestadorManagement = () => {
     ) : (
       <ArrowDown className="h-3.5 w-3.5 ml-1" />
     );
-  };
-
-  // Função para sanitizar campos numéricos (remove tudo exceto números)
-  const sanitizeNumericField = (value: string | null): string | null => {
-    if (!value) return null;
-    const cleaned = value.replace(/\D/g, '');
-    return cleaned || null;
   };
 
   const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

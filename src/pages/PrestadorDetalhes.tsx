@@ -30,6 +30,37 @@ const sanitizeNumericField = (value: string | null): string | null => {
   return cleaned || null;
 };
 
+const isMissingPixColumnsError = (error: { message?: string } | null) => {
+  if (!error?.message) return false;
+  const normalized = error.message.toLowerCase();
+  return normalized.includes("nome_pix") || normalized.includes("chave_pix") || normalized.includes("pix_ativo") || normalized.includes("ativo") || normalized.includes("column");
+};
+
+const buildPrestadorPayload = (formData: Omit<Prestador, "created_at">, includePixFields: boolean) => {
+  const telefoneLimpo = sanitizeNumericField(formData.telefone);
+  const cnpjLimpo = sanitizeNumericField(formData.cnpj);
+
+  const payload: Record<string, string | boolean | null> = {
+    nome: formData.nome,
+    telefone: telefoneLimpo,
+    categoria: formData.categoria || null,
+    especialidade: formData.especialidade || null,
+    id_crm: formData.id_crm || null,
+    id_azure: formData.id_azure || null,
+    cnpj: cnpjLimpo,
+  };
+
+  if (includePixFields) {
+    payload.nome_pix = formData.nome_pix || null;
+    payload.chave_pix = formData.chave_pix || null;
+    payload.pix_ativo = formData.pix_ativo ?? true;
+  }
+
+  payload.ativo = formData.ativo ?? true;
+
+  return payload;
+};
+
 const PrestadorDetalhes = () => {
   const navigate = useNavigate();
   const { cpf } = useParams();
@@ -84,10 +115,8 @@ const PrestadorDetalhes = () => {
   const handleSave = async () => {
     if (!formData) return;
 
-    const telefoneLimpo = sanitizeNumericField(formData.telefone);
-    const cnpjLimpo = sanitizeNumericField(formData.cnpj);
 
-    if (!formData.nome || !telefoneLimpo) {
+    if (!formData.nome || !sanitizeNumericField(formData.telefone)) {
       toast({
         variant: "destructive",
         title: "Campos obrigatórios",
@@ -95,6 +124,8 @@ const PrestadorDetalhes = () => {
       });
       return;
     }
+
+    const cnpjLimpo = sanitizeNumericField(formData.cnpj);
 
     if (cnpjLimpo && cnpjLimpo.length !== 14) {
       toast({
@@ -106,7 +137,10 @@ const PrestadorDetalhes = () => {
     }
 
     setSaving(true);
-    const { error } = await supabase
+
+    let salvouComFallbackSemPix = false;
+
+    let { error } = await supabase
       .from("prestadores")
       .update({
         nome: formData.nome,
@@ -122,6 +156,18 @@ const PrestadorDetalhes = () => {
       })
       .eq("cpf", formData.cpf);
 
+    if (error && isMissingPixColumnsError(error)) {
+      const fallback = await supabase
+        .from("prestadores")
+        .update(buildPrestadorPayload(formData, false))
+        .eq("cpf", formData.cpf);
+      error = fallback.error;
+
+      if (!error) {
+        salvouComFallbackSemPix = true;
+      }
+    }
+
     setSaving(false);
 
     if (error) {
@@ -133,7 +179,12 @@ const PrestadorDetalhes = () => {
       return;
     }
 
-    toast({ title: "Prestador atualizado", description: "Dados salvos com sucesso." });
+    toast({
+      title: "Prestador atualizado",
+      description: salvouComFallbackSemPix
+        ? "Dados principais salvos. Campos de Pix serão habilitados após atualizar o banco."
+        : "Dados salvos com sucesso.",
+    });
   };
 
   const handleDelete = async () => {
