@@ -20,7 +20,7 @@ type Prestador = {
   cnpj: string | null;
   nome_pix: string | null;
   chave_pix: string | null;
-  pix_ativo: boolean;
+  ativo: boolean;
   created_at: string | null;
 };
 
@@ -30,17 +30,12 @@ const sanitizeNumericField = (value: string | null): string | null => {
   return cleaned || null;
 };
 
-const isMissingPixColumnsError = (error: { message?: string } | null) => {
-  if (!error?.message) return false;
-  const normalized = error.message.toLowerCase();
-  return normalized.includes("nome_pix") || normalized.includes("chave_pix") || normalized.includes("pix_ativo") || normalized.includes("ativo") || normalized.includes("column");
-};
 
-const buildPrestadorPayload = (formData: Omit<Prestador, "created_at">, includePixFields: boolean) => {
+const buildPrestadorPayload = (formData: Omit<Prestador, "created_at">) => {
   const telefoneLimpo = sanitizeNumericField(formData.telefone);
   const cnpjLimpo = sanitizeNumericField(formData.cnpj);
 
-  const payload: Record<string, string | boolean | null> = {
+  return {
     nome: formData.nome,
     telefone: telefoneLimpo,
     categoria: formData.categoria || null,
@@ -48,17 +43,10 @@ const buildPrestadorPayload = (formData: Omit<Prestador, "created_at">, includeP
     id_crm: formData.id_crm || null,
     id_azure: formData.id_azure || null,
     cnpj: cnpjLimpo,
+    nome_pix: formData.nome_pix || null,
+    chave_pix: formData.chave_pix || null,
+    ativo: formData.ativo ?? true,
   };
-
-  if (includePixFields) {
-    payload.nome_pix = formData.nome_pix || null;
-    payload.chave_pix = formData.chave_pix || null;
-    payload.pix_ativo = formData.pix_ativo ?? true;
-  }
-
-  payload.ativo = formData.ativo ?? true;
-
-  return payload;
 };
 
 const PrestadorDetalhes = () => {
@@ -97,9 +85,9 @@ const PrestadorDetalhes = () => {
         id_crm: data.id_crm,
         id_azure: data.id_azure,
         cnpj: data.cnpj,
-        nome_pix: data.nome_pix,
-        chave_pix: data.chave_pix,
-        pix_ativo: data.pix_ativo ?? true,
+        nome_pix: data.nome_pix ?? null,
+        chave_pix: data.chave_pix ?? null,
+        ativo: data.ativo ?? true,
       });
       setLoading(false);
     };
@@ -138,35 +126,12 @@ const PrestadorDetalhes = () => {
 
     setSaving(true);
 
-    let salvouComFallbackSemPix = false;
+    const payload = buildPrestadorPayload(formData);
 
-    let { error } = await supabase
+    const { error } = await supabase
       .from("prestadores")
-      .update({
-        nome: formData.nome,
-        telefone: telefoneLimpo,
-        categoria: formData.categoria || null,
-        especialidade: formData.especialidade || null,
-        id_crm: formData.id_crm || null,
-        id_azure: formData.id_azure || null,
-        cnpj: cnpjLimpo,
-        nome_pix: formData.nome_pix || null,
-        chave_pix: formData.chave_pix || null,
-        pix_ativo: formData.pix_ativo ?? true,
-      })
+      .update(payload)
       .eq("cpf", formData.cpf);
-
-    if (error && isMissingPixColumnsError(error)) {
-      const fallback = await supabase
-        .from("prestadores")
-        .update(buildPrestadorPayload(formData, false))
-        .eq("cpf", formData.cpf);
-      error = fallback.error;
-
-      if (!error) {
-        salvouComFallbackSemPix = true;
-      }
-    }
 
     setSaving(false);
 
@@ -181,9 +146,7 @@ const PrestadorDetalhes = () => {
 
     toast({
       title: "Prestador atualizado",
-      description: salvouComFallbackSemPix
-        ? "Dados principais salvos. Campos de Pix serão habilitados após atualizar o banco."
-        : "Dados salvos com sucesso.",
+      description: "Dados salvos com sucesso.",
     });
   };
 
@@ -330,12 +293,12 @@ const PrestadorDetalhes = () => {
                 <Input id="chave_pix" value={formData.chave_pix || ""} onChange={(e) => setFormData({ ...formData, chave_pix: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pix_ativo">Pix ativo</Label>
+                <Label htmlFor="ativo">Prestador ativo</Label>
                 <select
-                  id="pix_ativo"
+                  id="ativo"
                   className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={formData.pix_ativo ? "ativo" : "desativado"}
-                  onChange={(e) => setFormData({ ...formData, pix_ativo: e.target.value === "ativo" })}
+                  value={formData.ativo ? "ativo" : "desativado"}
+                  onChange={(e) => setFormData({ ...formData, ativo: e.target.value === "ativo" })}
                 >
                   <option value="ativo">Ativo</option>
                   <option value="desativado">Desativado</option>

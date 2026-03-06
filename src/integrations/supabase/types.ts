@@ -1245,7 +1245,6 @@ export type Database = {
           id_crm: string | null
           nome: string
           nome_pix: string | null
-          pix_ativo: boolean
           telefone: string
         }
         Insert: {
@@ -1260,7 +1259,6 @@ export type Database = {
           id_crm?: string | null
           nome: string
           nome_pix?: string | null
-          pix_ativo?: boolean
           telefone: string
         }
         Update: {
@@ -1275,7 +1273,6 @@ export type Database = {
           id_crm?: string | null
           nome?: string
           nome_pix?: string | null
-          pix_ativo?: boolean
           telefone?: string
         }
         Relationships: []

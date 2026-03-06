@@ -49,11 +49,11 @@ interface Prestador {
   cnpj: string | null;
   nome_pix: string | null;
   chave_pix: string | null;
-  pix_ativo: boolean;
+  ativo: boolean;
   created_at?: string | null;
 }
 
-const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM", "Nome do Pix", "Pix Ativo"];
+const EXPORT_HEADERS = ["Nome", "CPF", "Telefone", "Categoria", "ID CRM", "Nome do Pix", "Status"];
 
 export const PrestadorManagement = () => {
   const { toast } = useToast();
@@ -79,7 +79,7 @@ export const PrestadorManagement = () => {
     cnpj: "",
     nome_pix: "",
     chave_pix: "",
-    pix_ativo: true,
+    ativo: true,
   });
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export const PrestadorManagement = () => {
       if (error) throw error;
       const prestadoresComPadrao = (data || []).map((prestador) => ({
         ...prestador,
-        pix_ativo: prestador.pix_ativo ?? true,
+        ativo: prestador.ativo ?? true,
       }));
       setPrestadores(prestadoresComPadrao as Prestador[]);
     } catch (error) {
@@ -117,7 +117,7 @@ export const PrestadorManagement = () => {
       setEditingPrestador(prestador);
       setFormData({
         ...prestador,
-        pix_ativo: prestador.pix_ativo ?? true,
+        ativo: prestador.ativo ?? true,
       });
     } else {
       setEditingPrestador(null);
@@ -132,7 +132,7 @@ export const PrestadorManagement = () => {
         cnpj: "",
         nome_pix: "",
         chave_pix: "",
-        pix_ativo: true,
+        ativo: true,
       });
     }
     setIsDialogOpen(true);
@@ -184,7 +184,7 @@ export const PrestadorManagement = () => {
       let salvouComFallbackSemPix = false;
 
       if (editingPrestador) {
-        let { error } = await supabase
+        const { error } = await supabase
           .from("prestadores")
           .update({
             nome: formData.nome,
@@ -196,26 +196,15 @@ export const PrestadorManagement = () => {
             cnpj: cnpjLimpo,
             nome_pix: formData.nome_pix || null,
             chave_pix: formData.chave_pix || null,
-            pix_ativo: formData.pix_ativo ?? true,
+            ativo: formData.ativo ?? true,
           })
           .eq("cpf", editingPrestador.cpf);
-
-        if (error && isMissingPixColumnsError(error)) {
-          const fallback = await supabase
-            .from("prestadores")
-            .update(buildPrestadorPayload(formData, { includePixFields: false, includeCpf: false }))
-            .eq("cpf", editingPrestador.cpf);
-          error = fallback.error;
-          salvouComFallbackSemPix = !error;
-        }
 
         if (error) throw error;
 
         toast({
           title: "Prestador atualizado",
-          description: salvouComFallbackSemPix
-            ? "Dados principais salvos. Campos de Pix serão habilitados após atualizar o banco."
-            : "Os dados foram atualizados com sucesso.",
+          description: "Os dados foram atualizados com sucesso.",
         });
       } else {
         const { error } = await supabase.from("prestadores").insert({
@@ -229,16 +218,14 @@ export const PrestadorManagement = () => {
           cnpj: cnpjLimpo,
           nome_pix: formData.nome_pix || null,
           chave_pix: formData.chave_pix || null,
-          pix_ativo: formData.pix_ativo ?? true,
+          ativo: formData.ativo ?? true,
         });
 
         if (error) throw error;
 
         toast({
           title: "Prestador adicionado",
-          description: salvouComFallbackSemPix
-            ? "Cadastro realizado. Campos de Pix serão habilitados após atualizar o banco."
-            : "O prestador foi cadastrado com sucesso.",
+          description: "O prestador foi cadastrado com sucesso.",
         });
       }
 
@@ -488,9 +475,9 @@ export const PrestadorManagement = () => {
         }
 
         cpfsVistos.add(prestador.cpf);
-        prestador.pix_ativo = prestador.pix_ativo === null || prestador.pix_ativo === undefined
+        prestador.ativo = prestador.ativo === null || prestador.ativo === undefined
           ? true
-          : String(prestador.pix_ativo).toLowerCase() === "ativo" || String(prestador.pix_ativo).toLowerCase() === "true";
+          : String(prestador.ativo).toLowerCase() === "ativo" || String(prestador.ativo).toLowerCase() === "true";
         prestadores.push(prestador);
       }
 
@@ -568,7 +555,7 @@ export const PrestadorManagement = () => {
       prestador.categoria || "",
       prestador.id_crm || "",
       prestador.nome_pix || "",
-      prestador.pix_ativo ? "Ativo" : "Desativado",
+      prestador.ativo ? "Ativo" : "Desativado",
     ]);
 
     const csv = [
@@ -603,7 +590,7 @@ export const PrestadorManagement = () => {
         prestador.categoria || "",
         prestador.id_crm || "",
         prestador.nome_pix || "",
-        prestador.pix_ativo ? "Ativo" : "Desativado",
+        prestador.ativo ? "Ativo" : "Desativado",
       ].join("\t")),
     ].join("\n");
 
@@ -784,13 +771,13 @@ export const PrestadorManagement = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="pix_ativo">Pix ativo</Label>
+                        <Label htmlFor="ativo">Prestador ativo</Label>
                         <select
-                          id="pix_ativo"
+                          id="ativo"
                           className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          value={formData.pix_ativo ? "ativo" : "desativado"}
+                          value={formData.ativo ? "ativo" : "desativado"}
                           onChange={(e) =>
-                            setFormData({ ...formData, pix_ativo: e.target.value === "ativo" })
+                            setFormData({ ...formData, ativo: e.target.value === "ativo" })
                           }
                         >
                           <option value="ativo">Ativo</option>
@@ -879,7 +866,7 @@ export const PrestadorManagement = () => {
                   <p>O arquivo CSV deve seguir este formato exato:</p>
                   
                   <div className="bg-muted p-4 rounded-lg font-mono text-sm overflow-x-auto">
-                    <div className="text-primary font-semibold">cpf,nome,telefone,categoria,especialidade,id_crm,id_azure,cnpj,nome_pix,chave_pix,pix_ativo</div>
+                    <div className="text-primary font-semibold">cpf,nome,telefone,categoria,especialidade,id_crm,id_azure,cnpj,nome_pix,chave_pix,ativo</div>
                     <div className="text-muted-foreground">12345678900,João Silva,41999999999,Elétrica,Instalações,CRM001,AZ123,12345678000100,João Silva,joao@pix.com,Ativo</div>
                     <div className="text-muted-foreground">98765432100,Maria Santos,41988888888,Hidráulica,Reparos,CRM002,AZ124,98765432000100,Maria Santos,41988888888,Desativado</div>
                   </div>
@@ -903,7 +890,7 @@ export const PrestadorManagement = () => {
                       <li><span className="font-mono">cnpj</span> - CNPJ (se aplicável)</li>
                       <li><span className="font-mono">nome_pix</span> - Nome vinculado ao Pix</li>
                       <li><span className="font-mono">chave_pix</span> - Chave Pix</li>
-                      <li><span className="font-mono">pix_ativo</span> - Ativo, Desativado, true ou false</li>
+                      <li><span className="font-mono">ativo</span> - Ativo, Desativado, true ou false (status do prestador)</li>
                     </ul>
                   </div>
 
@@ -964,13 +951,13 @@ export const PrestadorManagement = () => {
                       <SortIcon field="nome_pix" />
                     </div>
                   </TableHead>
-                  <TableHead>Pix</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedPrestadores.map((prestador) => (
-                  <TableRow key={prestador.cpf}>
+                  <TableRow key={prestador.cpf} className={!prestador.ativo ? "opacity-60 bg-muted/40" : ""}>
                     <TableCell>
                       <input
                         type="checkbox"
@@ -992,7 +979,7 @@ export const PrestadorManagement = () => {
                     <TableCell>{prestador.categoria || "-"}</TableCell>
                     <TableCell>{prestador.id_crm || "-"}</TableCell>
                     <TableCell>{prestador.nome_pix || "-"}</TableCell>
-                    <TableCell>{prestador.pix_ativo ? "Ativo" : "Desativado"}</TableCell>
+                    <TableCell>{prestador.ativo ? "Ativo" : "Desativado"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
