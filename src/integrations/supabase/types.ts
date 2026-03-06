@@ -1097,6 +1097,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notificacoes: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          lida: boolean
+          referencia_id: string | null
+          tipo: string
+          titulo: string
+          usuario_destino: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          lida?: boolean
+          referencia_id?: string | null
+          tipo?: string
+          titulo: string
+          usuario_destino: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          lida?: boolean
+          referencia_id?: string | null
+          tipo?: string
+          titulo?: string
+          usuario_destino?: string
+        }
+        Relationships: []
+      }
       nps_respostas: {
         Row: {
           classificacao: string | null
