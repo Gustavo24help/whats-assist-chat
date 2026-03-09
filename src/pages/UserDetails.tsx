@@ -156,8 +156,8 @@ const UserDetails = () => {
 
   const addPositionOption = async () => {
     if (!newPositionOption.trim()) return;
-
-    const { error } = await supabase.from("user_position_options").insert({ name: newPositionOption.trim() });
+    const db = supabase as any;
+    const { error } = await db.from("user_position_options").insert({ name: newPositionOption.trim() });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
       return;
