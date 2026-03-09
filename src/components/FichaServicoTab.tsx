@@ -1322,14 +1322,18 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               {/* Botão para gerar link via Asaas direto */}
-              {ficha && !ficha.pagamento_link && ficha.valor_total > 0 && (
+              {ficha && (
                 <Button
-                  variant="outline"
+                  variant={ficha.pagamento_link ? "outline" : "default"}
                   size="sm"
-                  className="w-full gap-2 text-xs"
+                  className={`w-full gap-2 text-xs ${!ficha.pagamento_link ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
                   disabled={gerandoLink}
                   onClick={async () => {
                     if (!ficha) return;
+                    if (ficha.pagamento_link) {
+                      const confirm = window.confirm('Já existe um link de pagamento. Deseja gerar um novo link? O anterior será substituído.');
+                      if (!confirm) return;
+                    }
                     setGerandoLink(true);
                     try {
                       const { data: clienteData } = await supabase
@@ -1366,7 +1370,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   }}
                 >
                   {gerandoLink ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
-                  {gerandoLink ? 'Gerando...' : 'Gerar Link de Pagamento (Asaas)'}
+                  {gerandoLink ? 'Gerando...' : (ficha.pagamento_link ? 'Regerar Link (Asaas)' : 'Gerar Link de Pagamento (Asaas)')}
                 </Button>
               )}
 
