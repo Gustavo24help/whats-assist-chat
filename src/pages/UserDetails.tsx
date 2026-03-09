@@ -199,8 +199,9 @@ const UserDetails = () => {
     if (!userId || !newHistoryDescription.trim()) return;
 
     const { data: current } = await supabase.auth.getUser();
+    const db = supabase as any;
 
-    const { error } = await supabase.from("user_internal_history").insert({
+    const { error } = await db.from("user_internal_history").insert({
       user_id: userId,
       history_type: newHistoryType,
       description: newHistoryDescription.trim(),
