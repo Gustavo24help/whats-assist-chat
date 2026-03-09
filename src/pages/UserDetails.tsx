@@ -80,7 +80,9 @@ const UserDetails = () => {
     }
     setManagedUser(targetUser);
 
-    const detailResponse = await supabase
+    const db = supabase as any;
+
+    const detailResponse = await db
       .from("user_internal_profiles")
       .select("user_id, admission_date, position_name")
       .eq("user_id", userId)
@@ -92,7 +94,7 @@ const UserDetails = () => {
       setDetail({ user_id: userId, admission_date: null, position_name: null });
     }
 
-    const permissionsResponse = await supabase
+    const permissionsResponse = await db
       .from("user_custom_permissions")
       .select("id, permission_name")
       .eq("user_id", userId)
@@ -100,7 +102,7 @@ const UserDetails = () => {
 
     if (permissionsResponse.data) setPermissions(permissionsResponse.data);
 
-    const historyResponse = await supabase
+    const historyResponse = await db
       .from("user_internal_history")
       .select("id, history_type, description, reference_id, created_at")
       .eq("user_id", userId)
@@ -108,7 +110,7 @@ const UserDetails = () => {
 
     if (historyResponse.data) setHistoryItems(historyResponse.data);
 
-    const positionsResponse = await supabase
+    const positionsResponse = await db
       .from("user_position_options")
       .select("name")
       .order("name", { ascending: true });
