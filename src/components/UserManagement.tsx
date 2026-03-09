@@ -306,12 +306,14 @@ export const UserManagement = () => {
                 </TableCell>
                 <TableCell className="text-right space-x-1">
                   <Button
-                    variant="ghost"
-                    size="icon"
+                    variant="outline"
+                    size="sm"
                     onClick={() => navigate(`/settings/users/${user.id}`)}
                     title="Detalhes do usuário"
+                    className="mr-1"
                   >
-                    <ExternalLink className="h-4 w-4 text-primary" />
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Detalhes
                   </Button>
                   <Button
                     variant="ghost"

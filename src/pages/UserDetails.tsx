@@ -80,7 +80,9 @@ const UserDetails = () => {
     }
     setManagedUser(targetUser);
 
-    const detailResponse = await supabase
+    const db = supabase as any;
+
+    const detailResponse = await db
       .from("user_internal_profiles")
       .select("user_id, admission_date, position_name")
       .eq("user_id", userId)
@@ -92,7 +94,7 @@ const UserDetails = () => {
       setDetail({ user_id: userId, admission_date: null, position_name: null });
     }
 
-    const permissionsResponse = await supabase
+    const permissionsResponse = await db
       .from("user_custom_permissions")
       .select("id, permission_name")
       .eq("user_id", userId)
@@ -100,7 +102,7 @@ const UserDetails = () => {
 
     if (permissionsResponse.data) setPermissions(permissionsResponse.data);
 
-    const historyResponse = await supabase
+    const historyResponse = await db
       .from("user_internal_history")
       .select("id, history_type, description, reference_id, created_at")
       .eq("user_id", userId)
@@ -108,7 +110,7 @@ const UserDetails = () => {
 
     if (historyResponse.data) setHistoryItems(historyResponse.data);
 
-    const positionsResponse = await supabase
+    const positionsResponse = await db
       .from("user_position_options")
       .select("name")
       .order("name", { ascending: true });
@@ -135,7 +137,8 @@ const UserDetails = () => {
     if (!userId) return;
     setSavingProfile(true);
 
-    const { error } = await supabase.from("user_internal_profiles").upsert({
+    const db = supabase as any;
+    const { error } = await db.from("user_internal_profiles").upsert({
       user_id: userId,
       admission_date: detail.admission_date || null,
       position_name: detail.position_name || null,
@@ -153,8 +156,8 @@ const UserDetails = () => {
 
   const addPositionOption = async () => {
     if (!newPositionOption.trim()) return;
-
-    const { error } = await supabase.from("user_position_options").insert({ name: newPositionOption.trim() });
+    const db = supabase as any;
+    const { error } = await db.from("user_position_options").insert({ name: newPositionOption.trim() });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
       return;
@@ -167,8 +170,8 @@ const UserDetails = () => {
 
   const addPermission = async () => {
     if (!newPermission.trim() || !userId) return;
-
-    const { error } = await supabase
+    const db = supabase as any;
+    const { error } = await db
       .from("user_custom_permissions")
       .insert({ user_id: userId, permission_name: newPermission.trim() });
 
@@ -182,7 +185,8 @@ const UserDetails = () => {
   };
 
   const removePermission = async (permissionId: string) => {
-    const { error } = await supabase.from("user_custom_permissions").delete().eq("id", permissionId);
+    const db = supabase as any;
+    const { error } = await db.from("user_custom_permissions").delete().eq("id", permissionId);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
       return;
@@ -195,8 +199,9 @@ const UserDetails = () => {
     if (!userId || !newHistoryDescription.trim()) return;
 
     const { data: current } = await supabase.auth.getUser();
+    const db = supabase as any;
 
-    const { error } = await supabase.from("user_internal_history").insert({
+    const { error } = await db.from("user_internal_history").insert({
       user_id: userId,
       history_type: newHistoryType,
       description: newHistoryDescription.trim(),

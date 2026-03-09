@@ -135,7 +135,7 @@ interface TVFreeformContextType {
   layoutRotationIntervalSec: number;
   setLayoutRotationIntervalSec: (sec: number) => void;
   layoutRotationItems: string[];
-  setLayoutRotationItems: (names: string[]) => void;
+  setLayoutRotationItems: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 const TVFreeformContext = createContext<TVFreeformContextType | undefined>(undefined);
@@ -426,6 +426,32 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
   const duplicateWidget = useCallback((_id: string) => {
     // IDs map to render blocks, can't truly duplicate
   }, []);
+
+  // ---- Layout Rotation Loop ----
+  const rotationIndexRef = useRef(0);
+
+  useEffect(() => {
+    if (!layoutRotationEnabled || isEditing) return;
+
+    // Filter to only items that exist in savedLayouts
+    const activeItems = layoutRotationItems.filter(name =>
+      savedLayouts.some(l => l.name === name)
+    );
+
+    if (activeItems.length < 2) return;
+
+    const interval = setInterval(() => {
+      rotationIndexRef.current = (rotationIndexRef.current + 1) % activeItems.length;
+      const nextName = activeItems[rotationIndexRef.current];
+      const layout = savedLayouts.find(l => l.name === nextName);
+      if (layout) {
+        const merged = mergeWithDefaults(layout.widgets);
+        setWidgets(merged);
+      }
+    }, layoutRotationIntervalSec * 1000);
+
+    return () => clearInterval(interval);
+  }, [layoutRotationEnabled, layoutRotationIntervalSec, layoutRotationItems, savedLayouts, isEditing]);
 
   return (
     <TVFreeformContext.Provider value={{
