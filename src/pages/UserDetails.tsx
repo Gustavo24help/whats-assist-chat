@@ -185,7 +185,8 @@ const UserDetails = () => {
   };
 
   const removePermission = async (permissionId: string) => {
-    const { error } = await supabase.from("user_custom_permissions").delete().eq("id", permissionId);
+    const db = supabase as any;
+    const { error } = await db.from("user_custom_permissions").delete().eq("id", permissionId);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
       return;
