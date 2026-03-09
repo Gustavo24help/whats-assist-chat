@@ -170,8 +170,8 @@ const UserDetails = () => {
 
   const addPermission = async () => {
     if (!newPermission.trim() || !userId) return;
-
-    const { error } = await supabase
+    const db = supabase as any;
+    const { error } = await db
       .from("user_custom_permissions")
       .insert({ user_id: userId, permission_name: newPermission.trim() });
 
