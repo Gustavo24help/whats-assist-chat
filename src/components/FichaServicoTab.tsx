@@ -1322,7 +1322,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               {/* Botão para gerar link via Asaas direto */}
-              {ficha && ficha.valor_total > 0 && (
+              {ficha && (
                 <Button
                   variant={ficha.pagamento_link ? "outline" : "default"}
                   size="sm"
