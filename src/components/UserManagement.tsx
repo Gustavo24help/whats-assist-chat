@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Users, UserPlus, Trash2, KeyRound } from "lucide-react";
+import { Users, UserPlus, Trash2, KeyRound, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserProfile {
@@ -19,6 +20,7 @@ interface UserProfile {
 }
 
 export const UserManagement = () => {
+  const navigate = useNavigate();
   const { isAdmin, loading, refreshUserProfile } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -80,9 +82,9 @@ export const UserManagement = () => {
       setNewUserName('');
       setNewUserRole('user');
       fetchUsers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao criar usuário:', error);
-      toast.error(error.message || 'Erro ao criar usuário');
+      toast.error(error instanceof Error ? error.message : 'Erro ao criar usuário');
     }
   };
 
@@ -98,9 +100,9 @@ export const UserManagement = () => {
 
       toast.success('Usuário excluído com sucesso');
       fetchUsers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao excluir usuário:', error);
-      toast.error(error.message || 'Erro ao excluir usuário');
+      toast.error(error instanceof Error ? error.message : 'Erro ao excluir usuário');
     }
   };
 
@@ -119,9 +121,9 @@ export const UserManagement = () => {
       
       // Atualizar perfil do usuário atual se alterou a própria role
       await refreshUserProfile();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao atualizar permissão:', error);
-      toast.error(error.message || 'Erro ao atualizar permissão');
+      toast.error(error instanceof Error ? error.message : 'Erro ao atualizar permissão');
     }
   };
 
@@ -151,9 +153,9 @@ export const UserManagement = () => {
       setResetPasswordDialogOpen(false);
       setSelectedUserForReset(null);
       setNewPassword('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao resetar senha:', error);
-      toast.error(error.message || 'Erro ao resetar senha');
+      toast.error(error instanceof Error ? error.message : 'Erro ao resetar senha');
     }
   };
 
@@ -303,6 +305,14 @@ export const UserManagement = () => {
                   </Select>
                 </TableCell>
                 <TableCell className="text-right space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate(`/settings/users/${user.id}`)}
+                    title="Detalhes do usuário"
+                  >
+                    <ExternalLink className="h-4 w-4 text-primary" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"

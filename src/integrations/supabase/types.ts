@@ -1571,6 +1571,130 @@ export type Database = {
         }
         Relationships: []
       }
+      user_custom_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          permission_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permission_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permission_name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_custom_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_internal_history: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          history_type: string
+          id: string
+          reference_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description: string
+          history_type: string
+          id?: string
+          reference_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          history_type?: string
+          id?: string
+          reference_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_internal_history_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_internal_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_internal_profiles: {
+        Row: {
+          admission_date: string | null
+          created_at: string
+          position_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admission_date?: string | null
+          created_at?: string
+          position_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admission_date?: string | null
+          created_at?: string
+          position_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_internal_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_position_options: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
