@@ -1320,6 +1320,55 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 </div>
               </div>
 
+              {/* Botão para gerar link via Asaas direto */}
+              {ficha && !ficha.pagamento_link && ficha.valor_total > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 text-xs"
+                  disabled={gerandoLink}
+                  onClick={async () => {
+                    if (!ficha) return;
+                    setGerandoLink(true);
+                    try {
+                      const { data: clienteData } = await supabase
+                        .from('clientes')
+                        .select('nome')
+                        .eq('telefone', ficha.telefone_cliente)
+                        .maybeSingle();
+
+                      const { data, error } = await supabase.functions.invoke('create-payment-link', {
+                        body: {
+                          ficha_id: ficha.id,
+                          nome_cliente: clienteData?.nome || ficha.nome_cliente || 'Cliente',
+                          valor: ficha.valor_total,
+                          descricao: ficha.descricao || `Serviço ${ficha.id}`,
+                          forma_pagamento: ficha.pagamento_tipo,
+                          parcelas: ficha.pagamento_parcelas,
+                        },
+                      });
+
+                      if (error) throw error;
+
+                      if (data?.payment_url) {
+                        updateFicha({ pagamento_link: data.payment_url });
+                        toast.success("Link de pagamento criado com sucesso!");
+                      } else {
+                        throw new Error(data?.error || 'Resposta inesperada');
+                      }
+                    } catch (err: any) {
+                      console.error('Erro ao gerar link Asaas:', err);
+                      toast.error(`Erro ao gerar link: ${err.message || 'Erro desconhecido'}`);
+                    } finally {
+                      setGerandoLink(false);
+                    }
+                  }}
+                >
+                  {gerandoLink ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
+                  {gerandoLink ? 'Gerando...' : 'Gerar Link de Pagamento (Asaas)'}
+                </Button>
+              )}
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="pagamento_realizado"
@@ -1341,7 +1390,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   onCheckedChange={(checked) => updateFicha({ pagamento_gerar_link: checked as boolean })}
                 />
                 <Label htmlFor="pagamento_gerar_link" className="cursor-pointer text-xs font-medium text-gray-600">
-                  Gerar link de pagamento
+                  Gerar link de pagamento (webhook)
                 </Label>
               </div>
 
