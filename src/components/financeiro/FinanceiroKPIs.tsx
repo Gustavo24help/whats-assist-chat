@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, TrendingUp, ArrowDownUp, Wallet, AlertTriangle } from "lucide-react";
+import { DollarSign, TrendingUp, Clock, Wallet, AlertTriangle } from "lucide-react";
 import { startOfMonth, endOfMonth } from "date-fns";
 
 const formatMoeda = (valor: number) =>
@@ -9,18 +9,18 @@ const formatMoeda = (valor: number) =>
 
 interface KPIData {
   totalRecebido: number;
-  totalPago: number;
-  lucroBruto: number;
-  margemMedia: number;
+  pendentesClientes: number;
+  pendentesPrestadores: number;
+  fichasFinalizadas: number;
   adiantamentosPendentes: number;
 }
 
 export const FinanceiroKPIs = () => {
   const [data, setData] = useState<KPIData>({
     totalRecebido: 0,
-    totalPago: 0,
-    lucroBruto: 0,
-    margemMedia: 0,
+    pendentesClientes: 0,
+    pendentesPrestadores: 0,
+    fichasFinalizadas: 0,
     adiantamentosPendentes: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -32,33 +32,48 @@ export const FinanceiroKPIs = () => {
         const inicioMes = startOfMonth(now).toISOString();
         const fimMes = endOfMonth(now).toISOString();
 
-        const [transRes, adiantRes] = await Promise.all([
+        const [pagosRes, pendClientesRes, finalizadosRes, adiantRes] = await Promise.all([
+          // Fichas com pagamento realizado neste mês
           supabase
-            .from("transacoes_financeiras")
-            .select("valor_cliente_final, valor_a_pagar_prestador, valor_lucro_bruto, margem_operacional_real, status_pagamento_cliente, status_pagamento_prestador, data_execucao")
-            .gte("data_execucao", inicioMes)
-            .lte("data_execucao", fimMes),
+            .from("fichas_de_servico")
+            .select("valor_total")
+            .eq("pagamento_realizado", true)
+            .gt("valor_total", 0)
+            .gte("updated_at", inicioMes)
+            .lte("updated_at", fimMes),
+          // Fichas pendentes de pagamento do cliente
+          supabase
+            .from("fichas_de_servico")
+            .select("valor_total")
+            .eq("pagamento_realizado", false)
+            .in("status", ["Orçamento Aprovado / Agendamento" as any, "Agendado" as any, "Em andamento" as any, "Finalizado" as any])
+            .gt("valor_total", 0),
+          // Fichas finalizadas neste mês
+          supabase
+            .from("fichas_de_servico")
+            .select("id")
+            .eq("status", "Finalizado" as any)
+            .gte("updated_at", inicioMes)
+            .lte("updated_at", fimMes),
+          // Adiantamentos pendentes
           supabase
             .from("adiantamentos")
             .select("valor, status")
             .eq("status", "pendente"),
         ]);
 
-        const trans = transRes.data || [];
+        const pagos = pagosRes.data || [];
+        const pendClientes = pendClientesRes.data || [];
+        const finalizados = finalizadosRes.data || [];
         const adiant = adiantRes.data || [];
 
-        const clientesPagos = trans.filter((t: any) => t.status_pagamento_cliente === "pago");
-        const prestadoresPagos = trans.filter((t: any) => t.status_pagamento_prestador === "pago");
-
-        const totalRecebido = clientesPagos.reduce((s: number, t: any) => s + (t.valor_cliente_final || 0), 0);
-        const totalPago = prestadoresPagos.reduce((s: number, t: any) => s + (t.valor_a_pagar_prestador || 0), 0);
-        const lucroBruto = trans.reduce((s: number, t: any) => s + (t.valor_lucro_bruto || 0), 0);
-        const margemMedia = trans.length > 0
-          ? trans.reduce((s: number, t: any) => s + (t.margem_operacional_real || 0), 0) / trans.length
-          : 0;
-        const adiantamentosPendentes = adiant.reduce((s: number, a: any) => s + (a.valor || 0), 0);
-
-        setData({ totalRecebido, totalPago, lucroBruto, margemMedia, adiantamentosPendentes });
+        setData({
+          totalRecebido: pagos.reduce((s: number, f: any) => s + (f.valor_total || 0), 0),
+          pendentesClientes: pendClientes.reduce((s: number, f: any) => s + (f.valor_total || 0), 0),
+          pendentesPrestadores: 0, // Will be shown in the tab
+          fichasFinalizadas: finalizados.length,
+          adiantamentosPendentes: adiant.reduce((s: number, a: any) => s + (a.valor || 0), 0),
+        });
       } catch (e) {
         console.error("Erro ao carregar KPIs financeiros:", e);
       } finally {
@@ -71,14 +86,13 @@ export const FinanceiroKPIs = () => {
 
   const kpis = [
     { label: "Recebido (Mês)", value: formatMoeda(data.totalRecebido), icon: DollarSign, color: "text-green-600 dark:text-green-400" },
-    { label: "Pago Prestadores", value: formatMoeda(data.totalPago), icon: Wallet, color: "text-blue-600 dark:text-blue-400" },
-    { label: "Lucro Bruto", value: formatMoeda(data.lucroBruto), icon: TrendingUp, color: "text-emerald-600 dark:text-emerald-400" },
-    { label: "Margem Média", value: `${data.margemMedia.toFixed(1)}%`, icon: ArrowDownUp, color: "text-purple-600 dark:text-purple-400" },
+    { label: "Pendente Clientes", value: formatMoeda(data.pendentesClientes), icon: Clock, color: "text-amber-600 dark:text-amber-400" },
+    { label: "Finalizados (Mês)", value: String(data.fichasFinalizadas), icon: TrendingUp, color: "text-emerald-600 dark:text-emerald-400" },
     { label: "Adiant. Pendentes", value: formatMoeda(data.adiantamentosPendentes), icon: AlertTriangle, color: "text-amber-600 dark:text-amber-400" },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {kpis.map((kpi) => (
         <Card key={kpi.label} className="p-3">
           <div className="flex items-center gap-2 mb-1">
