@@ -135,7 +135,7 @@ interface TVFreeformContextType {
   layoutRotationIntervalSec: number;
   setLayoutRotationIntervalSec: (sec: number) => void;
   layoutRotationItems: string[];
-  setLayoutRotationItems: (names: string[]) => void;
+  setLayoutRotationItems: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 const TVFreeformContext = createContext<TVFreeformContextType | undefined>(undefined);
