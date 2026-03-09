@@ -12,16 +12,67 @@ function snap(v: number, enabled: boolean): number {
   return enabled ? Math.round(v / SNAP_SIZE) * SNAP_SIZE : v;
 }
 
+type GuideLine = { orientation: 'vertical' | 'horizontal'; position: number };
+
 interface WidgetWrapperProps {
   widget: TVWidgetLayout;
   children: React.ReactNode;
   canvasScale: number;
+  widgets: TVWidgetLayout[];
+  setGuides: React.Dispatch<React.SetStateAction<GuideLine[]>>;
 }
 
-function WidgetWrapper({ widget, children, canvasScale }: WidgetWrapperProps) {
+function WidgetWrapper({ widget, children, canvasScale, widgets, setGuides }: WidgetWrapperProps) {
   const { isEditing, selectedId, setSelectedId, updateWidget, snapEnabled, bringToFront } = useTVFreeform();
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ handle: HandleType; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number; locked: boolean } | null>(null);
+
+  const applyAlignment = useCallback((x: number, y: number, width = widget.width, height = widget.height) => {
+    if (!isEditing) return { x, y };
+    const threshold = 8;
+    const vertical = [x, x + width / 2, x + width];
+    const horizontal = [y, y + height / 2, y + height];
+    let bestDx = 0;
+    let bestDy = 0;
+    let bestV = Infinity;
+    let bestH = Infinity;
+    const guides: GuideLine[] = [];
+
+    widgets.filter(w => w.id !== widget.id && w.enabled).forEach(other => {
+      const otherV = [other.x, other.x + other.width / 2, other.x + other.width];
+      const otherH = [other.y, other.y + other.height / 2, other.y + other.height];
+
+      vertical.forEach(v => {
+        otherV.forEach(ov => {
+          const delta = ov - v;
+          if (Math.abs(delta) < Math.abs(bestDx) || bestV === Infinity) {
+            if (Math.abs(delta) <= threshold) {
+              bestDx = delta;
+              bestV = Math.abs(delta);
+              if (!guides.find(g => g.orientation === 'vertical' && g.position === ov)) guides.push({ orientation: 'vertical', position: ov });
+            }
+          }
+        });
+      });
+
+      horizontal.forEach(h => {
+        otherH.forEach(oh => {
+          const delta = oh - h;
+          if (Math.abs(delta) < Math.abs(bestDy) || bestH === Infinity) {
+            if (Math.abs(delta) <= threshold) {
+              bestDy = delta;
+              bestH = Math.abs(delta);
+              if (!guides.find(g => g.orientation === 'horizontal' && g.position === oh)) guides.push({ orientation: 'horizontal', position: oh });
+            }
+          }
+        });
+      });
+    });
+
+    setGuides(guides.slice(0, 2));
+    return { x: x + bestDx, y: y + bestDy };
+  }, [isEditing, widget.width, widget.height, widget.id, widgets, setGuides]);
+
 
   const handleMouseDownMove = useCallback((e: React.MouseEvent) => {
     if (!isEditing) return;
@@ -40,13 +91,17 @@ function WidgetWrapper({ widget, children, canvasScale }: WidgetWrapperProps) {
       if (!dragRef.current) return;
       const dx = (ev.clientX - dragRef.current.startX) / canvasScale;
       const dy = (ev.clientY - dragRef.current.startY) / canvasScale;
+      const nextX = dragRef.current.origX + dx;
+      const nextY = dragRef.current.origY + dy;
+      const aligned = applyAlignment(nextX, nextY);
       updateWidget(widget.id, {
-        x: snap(dragRef.current.origX + dx, snapEnabled),
-        y: snap(dragRef.current.origY + dy, snapEnabled),
+        x: snap(aligned.x, snapEnabled),
+        y: snap(aligned.y, snapEnabled),
       });
     };
     const onUp = () => {
       dragRef.current = null;
+      setGuides([]);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
@@ -99,15 +154,17 @@ function WidgetWrapper({ widget, children, canvasScale }: WidgetWrapperProps) {
         }
       }
 
+      const aligned = applyAlignment(newX, newY, newW, newH);
       updateWidget(widget.id, {
-        x: snap(newX, snapEnabled),
-        y: snap(newY, snapEnabled),
+        x: snap(aligned.x, snapEnabled),
+        y: snap(aligned.y, snapEnabled),
         width: snap(newW, snapEnabled),
         height: snap(newH, snapEnabled),
       });
     };
     const onUp = () => {
       resizeRef.current = null;
+      setGuides([]);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
@@ -186,6 +243,7 @@ export function TVFreeformCanvas({ renderBlock }: TVFreeformCanvasProps) {
   const { widgets, isEditing, setSelectedId, canvasWidth, canvasHeight } = useTVFreeform();
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasScale, setCanvasScale] = useState(1);
+  const [guides, setGuides] = useState<GuideLine[]>([]);
 
   useEffect(() => {
     const updateScale = () => {
@@ -224,9 +282,19 @@ export function TVFreeformCanvas({ renderBlock }: TVFreeformCanvasProps) {
         )}
 
         {enabledWidgets.map(widget => (
-          <WidgetWrapper key={widget.id} widget={widget} canvasScale={canvasScale}>
+          <WidgetWrapper key={widget.id} widget={widget} canvasScale={canvasScale} widgets={enabledWidgets} setGuides={setGuides}>
             {renderBlock(widget.id)}
           </WidgetWrapper>
+        ))}
+
+        {isEditing && guides.map((guide, idx) => (
+          <div
+            key={`${guide.orientation}-${guide.position}-${idx}`}
+            className="absolute pointer-events-none z-10 bg-cyan-300/70"
+            style={guide.orientation === 'vertical'
+              ? { left: guide.position, top: 0, bottom: 0, width: 1 }
+              : { top: guide.position, left: 0, right: 0, height: 1 }}
+          />
         ))}
       </div>
     </div>

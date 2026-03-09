@@ -90,6 +90,7 @@ const PRESETS: { name: string; widgets: TVWidgetLayout[] }[] = [
 
 const STORAGE_KEY = 'tv-freeform-layout-v2';
 const SAVED_LAYOUTS_KEY = 'tv-freeform-saved-layouts-v2';
+const LAYOUT_ROTATION_KEY = 'tv-freeform-layout-rotation-v1';
 
 /** Merge saved widgets with defaults: keeps saved positions, adds any new widgets from code */
 function mergeWithDefaults(saved: TVWidgetLayout[]): TVWidgetLayout[] {
@@ -119,6 +120,7 @@ interface TVFreeformContextType {
   saveLayout: (name: string) => void;
   loadLayout: (name: string) => void;
   deleteLayout: (name: string) => void;
+  moveSavedLayout: (name: string, direction: 'up' | 'down') => void;
   exportLayout: () => string;
   importLayout: (json: string) => boolean;
   canvasWidth: number;
@@ -128,6 +130,12 @@ interface TVFreeformContextType {
   resetWidgetSize: (id: string) => void;
   duplicateWidget: (id: string) => void;
   dbSaving: boolean;
+  layoutRotationEnabled: boolean;
+  setLayoutRotationEnabled: (v: boolean) => void;
+  layoutRotationIntervalSec: number;
+  setLayoutRotationIntervalSec: (sec: number) => void;
+  layoutRotationItems: string[];
+  setLayoutRotationItems: (names: string[]) => void;
 }
 
 const TVFreeformContext = createContext<TVFreeformContextType | undefined>(undefined);
@@ -153,7 +161,21 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [dbSaving, setDbSaving] = useState(false);
+  const [layoutRotationEnabled, setLayoutRotationEnabled] = useState(false);
+  const [layoutRotationIntervalSec, setLayoutRotationIntervalSec] = useState(20);
+  const [layoutRotationItems, setLayoutRotationItems] = useState<string[]>([]);
   const dbLoaded = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LAYOUT_ROTATION_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      if (typeof parsed.enabled === 'boolean') setLayoutRotationEnabled(parsed.enabled);
+      if (typeof parsed.intervalSec === 'number') setLayoutRotationIntervalSec(Math.max(5, parsed.intervalSec));
+      if (Array.isArray(parsed.items)) setLayoutRotationItems(parsed.items.filter((v: unknown) => typeof v === 'string'));
+    } catch {}
+  }, []);
 
   // ---- DB: Load default layout on mount ----
   useEffect(() => {
@@ -185,12 +207,13 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
         .order('created_at', { ascending: true });
 
       if (allLayouts) {
-        setSavedLayouts(allLayouts.map((l: any) => ({
+        const loaded = allLayouts.map((l: any) => ({
           name: l.nome,
           widgets: l.widgets as TVWidgetLayout[],
           createdAt: l.created_at,
           dbId: l.id,
-        })));
+        }));
+        setSavedLayouts(loaded);
       }
 
       dbLoaded.current = true;
@@ -200,6 +223,14 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
 
   // ---- Persist to localStorage as cache ----
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(widgets)); }, [widgets]);
+
+  useEffect(() => {
+    localStorage.setItem(LAYOUT_ROTATION_KEY, JSON.stringify({
+      enabled: layoutRotationEnabled,
+      intervalSec: layoutRotationIntervalSec,
+      items: layoutRotationItems,
+    }));
+  }, [layoutRotationEnabled, layoutRotationIntervalSec, layoutRotationItems]);
 
   // ---- DB: Auto-save when exiting edit mode ----
   const setIsEditing = useCallback((v: boolean) => {
@@ -316,12 +347,13 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
         .order('created_at', { ascending: true });
 
       if (allLayouts) {
-        setSavedLayouts(allLayouts.map((l: any) => ({
+        const loaded = allLayouts.map((l: any) => ({
           name: l.nome,
           widgets: l.widgets as TVWidgetLayout[],
           createdAt: l.created_at,
           dbId: l.id,
-        })));
+        }));
+        setSavedLayouts(loaded);
       }
     }
 
@@ -346,7 +378,20 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
       await (supabase as any).from('tv_layouts').delete().eq('id', layout.dbId);
     }
     setSavedLayouts(prev => prev.filter(l => l.name !== name));
+    setLayoutRotationItems(prev => prev.filter(item => item !== name));
   }, [savedLayouts]);
+
+  const moveSavedLayout = useCallback((name: string, direction: 'up' | 'down') => {
+    setSavedLayouts(prev => {
+      const index = prev.findIndex(l => l.name === name);
+      if (index < 0) return prev;
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }, []);
 
   const exportLayout = useCallback(() => {
     return JSON.stringify({ widgets, exportedAt: new Date().toISOString() }, null, 2);
@@ -388,11 +433,17 @@ export function TVFreeformProvider({ children }: { children: ReactNode }) {
       snapEnabled, setSnapEnabled, updateWidget, toggleWidget,
       bringToFront, sendToBack, resetLayout, applyPreset,
       presets: PRESETS.map(p => ({ name: p.name })),
-      savedLayouts, saveLayout, loadLayout, deleteLayout,
+      savedLayouts, saveLayout, loadLayout, deleteLayout, moveSavedLayout,
       exportLayout, importLayout,
       canvasWidth: CANVAS_W, canvasHeight: CANVAS_H,
       centerHorizontal, centerVertical, resetWidgetSize, duplicateWidget,
       dbSaving,
+      layoutRotationEnabled,
+      setLayoutRotationEnabled,
+      layoutRotationIntervalSec,
+      setLayoutRotationIntervalSec,
+      layoutRotationItems,
+      setLayoutRotationItems,
     }}>
       {children}
     </TVFreeformContext.Provider>

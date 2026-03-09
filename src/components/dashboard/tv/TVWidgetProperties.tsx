@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { X, Lock, Unlock, AlignCenterHorizontal, AlignCenterVertical, RotateCcw, ArrowUp, ArrowDown, Trash2, Grid3X3, Save, Upload, Download, Eye, EyeOff } from 'lucide-react';
+import { X, Lock, Unlock, AlignCenterHorizontal, AlignCenterVertical, RotateCcw, ArrowUp, ArrowDown, Trash2, Grid3X3, Save, Upload, Download, Eye, EyeOff, MoveUp, MoveDown, Repeat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
@@ -12,8 +12,11 @@ export function TVWidgetProperties() {
     widgets, selectedId, setSelectedId, updateWidget, isEditing,
     bringToFront, sendToBack, centerHorizontal, centerVertical,
     resetWidgetSize, toggleWidget, snapEnabled, setSnapEnabled,
-    savedLayouts, saveLayout, loadLayout, deleteLayout,
+    savedLayouts, saveLayout, loadLayout, deleteLayout, moveSavedLayout,
     exportLayout, importLayout, applyPreset, presets, resetLayout,
+    layoutRotationEnabled, setLayoutRotationEnabled,
+    layoutRotationIntervalSec, setLayoutRotationIntervalSec,
+    layoutRotationItems, setLayoutRotationItems,
   } = useTVFreeform();
 
   const [saveName, setSaveName] = useState('');
@@ -40,6 +43,14 @@ export function TVWidgetProperties() {
       setImportJson('');
       setShowImport(false);
     }
+  };
+
+
+  const toggleLayoutInRotation = (name: string, enabled: boolean) => {
+    setLayoutRotationItems(prev => {
+      const next = enabled ? [...new Set([...prev, name])] : prev.filter(item => item !== name);
+      return next;
+    });
   };
 
   return (
@@ -252,13 +263,29 @@ export function TVWidgetProperties() {
         </div>
         {savedLayouts.length > 0 && (
           <div className="space-y-1">
-            {savedLayouts.map(l => (
+            {savedLayouts.map((l, idx) => (
               <div key={l.name} className="flex items-center gap-1">
                 <button
                   onClick={() => loadLayout(l.name)}
                   className="flex-1 text-left text-[10px] p-1 rounded bg-gray-800/50 text-gray-300 hover:bg-gray-700 truncate"
                 >
                   {l.name}
+                </button>
+                <button
+                  onClick={() => moveSavedLayout(l.name, 'up')}
+                  disabled={idx === 0}
+                  className="text-gray-500 hover:text-cyan-300 p-0.5 disabled:opacity-30"
+                  title="Subir"
+                >
+                  <MoveUp className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={() => moveSavedLayout(l.name, 'down')}
+                  disabled={idx === savedLayouts.length - 1}
+                  className="text-gray-500 hover:text-cyan-300 p-0.5 disabled:opacity-30"
+                  title="Descer"
+                >
+                  <MoveDown className="h-3 w-3" />
                 </button>
                 <button onClick={() => deleteLayout(l.name)} className="text-gray-500 hover:text-red-400 p-0.5">
                   <Trash2 className="h-3 w-3" />
@@ -290,6 +317,43 @@ export function TVWidgetProperties() {
             </Button>
           </div>
         )}
+      </div>
+
+      {/* Rotação de layouts */}
+      <div className="p-3 border-b border-gray-700/50 space-y-2">
+        <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+          <Repeat className="h-3 w-3" />
+          Alternar layouts
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-gray-400">Ativar loop</span>
+          <Switch checked={layoutRotationEnabled} onCheckedChange={setLayoutRotationEnabled} className="h-4 w-7" />
+        </div>
+
+        <div>
+          <label className="text-[10px] text-gray-500 block mb-0.5">Velocidade (segundos)</label>
+          <Input
+            type="number"
+            min={5}
+            value={layoutRotationIntervalSec}
+            onChange={e => setLayoutRotationIntervalSec(Math.max(5, Number(e.target.value) || 5))}
+            className="h-7 text-xs bg-gray-800 border-gray-600 text-white"
+          />
+        </div>
+
+        <div className="space-y-1">
+          {savedLayouts.map(l => (
+            <label key={`rotation-${l.name}`} className="flex items-center justify-between rounded bg-gray-800/40 p-1.5 text-[10px] text-gray-300">
+              <span className="truncate mr-2">{l.name}</span>
+              <Checkbox
+                checked={layoutRotationItems.includes(l.name)}
+                onCheckedChange={(checked) => toggleLayoutInRotation(l.name, checked === true)}
+              />
+            </label>
+          ))}
+          {savedLayouts.length === 0 && <div className="text-[10px] text-gray-500">Salve layouts para incluir no loop.</div>}
+        </div>
       </div>
 
       {/* Reset */}
