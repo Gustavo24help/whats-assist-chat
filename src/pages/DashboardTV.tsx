@@ -89,10 +89,21 @@ const REFRESH_INTERVAL = 600000;
 const CELEBRATION_KEY = 'tv-celebration-log-v1';
 
 function DashboardTVContent() {
-  const { isEditing, setIsEditing } = useTVFreeform();
+  const {
+    isEditing,
+    setIsEditing,
+    savedLayouts,
+    loadLayout,
+    layoutRotationEnabled,
+    layoutRotationIntervalSec,
+    layoutRotationItems,
+  } = useTVFreeform();
   const [monitorSettings, setMonitorSettings] = useMonitorSettings();
   const [monitorOpen, setMonitorOpen] = useState(false);
   const [rotatingWidgetIndex, setRotatingWidgetIndex] = useState(0);
+
+  const [layoutRotationIndex, setLayoutRotationIndex] = useState(0);
+
   const now = new Date();
   const [periodRange, setPeriodRange] = useState<{ from: Date; to?: Date }>({ from: now, to: now });
   const [comparisonRange, setComparisonRange] = useState<{ from: Date; to?: Date } | undefined>(undefined);
@@ -160,6 +171,28 @@ function DashboardTVContent() {
 
     return () => window.clearInterval(t);
   }, [monitorSettings.rotatingWidgetIntervalSec, monitorSettings.rotatingWidgetItems]);
+
+  useEffect(() => {
+    setLayoutRotationIndex(0);
+  }, [layoutRotationEnabled, layoutRotationItems]);
+
+  useEffect(() => {
+    if (!layoutRotationEnabled || isEditing) return;
+
+    const activeNames = layoutRotationItems.filter(name => savedLayouts.some(l => l.name === name));
+    if (activeNames.length <= 1) return;
+
+    const intervalSec = Math.max(5, layoutRotationIntervalSec || 20);
+    const t = window.setInterval(() => {
+      setLayoutRotationIndex(prev => {
+        const next = (prev + 1) % activeNames.length;
+        loadLayout(activeNames[next]);
+        return next;
+      });
+    }, intervalSec * 1000);
+
+    return () => window.clearInterval(t);
+  }, [layoutRotationEnabled, layoutRotationIntervalSec, layoutRotationItems, savedLayouts, loadLayout, isEditing]);
 
   const { data, isLoading, dataUpdatedAt } = useDashboardTV(filters);
 
