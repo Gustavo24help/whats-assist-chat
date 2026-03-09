@@ -33,10 +33,10 @@ const formatMoeda = (valor: number) =>
 
 const EXCLUDED_FICHAS = ["FS4-260127"];
 const RELEVANT_STATUSES = [
-  "Orçamento Aprovado / Agendamento",
-  "Agendado",
-  "Em andamento",
-  "Finalizado",
+  "Orçamento Aprovado / Agendamento" as const,
+  "Agendado" as const,
+  "Em andamento" as const,
+  "Finalizado" as const,
 ];
 const PAGE_SIZE = 20;
 
