@@ -1607,6 +1607,7 @@ export type Database = {
           description: string
           history_type: string
           id: string
+          metadata: Json | null
           reference_id: string | null
           user_id: string
         }
@@ -1616,6 +1617,7 @@ export type Database = {
           description: string
           history_type: string
           id?: string
+          metadata?: Json | null
           reference_id?: string | null
           user_id: string
         }
@@ -1625,6 +1627,7 @@ export type Database = {
           description?: string
           history_type?: string
           id?: string
+          metadata?: Json | null
           reference_id?: string | null
           user_id?: string
         }
