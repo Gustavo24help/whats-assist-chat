@@ -25,6 +25,7 @@ import Manutencao from "./pages/Manutencao";
 import Avisos from "./pages/Avisos";
 import MensagensInternas from "./pages/MensagensInternas";
 import Financeiro from "./pages/Financeiro";
+import UserDetails from "./pages/UserDetails";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Settings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/users/:userId"
+                element={
+                  <ProtectedRoute>
+                    <UserDetails />
                   </ProtectedRoute>
                 }
               />
