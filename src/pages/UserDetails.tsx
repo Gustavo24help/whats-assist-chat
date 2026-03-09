@@ -137,7 +137,8 @@ const UserDetails = () => {
     if (!userId) return;
     setSavingProfile(true);
 
-    const { error } = await supabase.from("user_internal_profiles").upsert({
+    const db = supabase as any;
+    const { error } = await db.from("user_internal_profiles").upsert({
       user_id: userId,
       admission_date: detail.admission_date || null,
       position_name: detail.position_name || null,
