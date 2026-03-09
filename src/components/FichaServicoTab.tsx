@@ -184,7 +184,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               cpf: prestadorCpf,
               fichaId: fichaData.id
             });
-            toast.warning(`Prestador ${prestadorCpf} sem ID CRM cadastrado`);
+            // Apenas log, sem toast para não incomodar o usuário a cada salvamento
           }
         } else {
           console.warn('⚠️ Prestador não encontrado no banco:', prestadorCpf);
