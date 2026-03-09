@@ -54,9 +54,16 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { ficha_id, nome_cliente, valor, descricao, forma_pagamento, parcelas } = body;
 
-    if (!ficha_id || !valor || valor <= 0) {
+    if (!ficha_id) {
       return new Response(
-        JSON.stringify({ error: 'ficha_id e valor são obrigatórios' }),
+        JSON.stringify({ error: 'ficha_id é obrigatório' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!valor || valor <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'Valor deve ser maior que zero. Preencha o valor total na ficha antes de gerar o link.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

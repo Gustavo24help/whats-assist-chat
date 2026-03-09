@@ -1353,7 +1353,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                         },
                       });
 
-                      if (error) throw error;
+                      if (error) {
+                        // Try to parse error context from FunctionsHttpError
+                        let msg = error.message;
+                        try {
+                          if (error.context?.json) {
+                            const ctx = await error.context.json();
+                            msg = ctx?.error || msg;
+                          }
+                        } catch {}
+                        throw new Error(msg);
+                      }
 
                       if (data?.payment_url) {
                         updateFicha({ pagamento_link: data.payment_url });
