@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Save, Trash2, Filter, ChevronLeft, ChevronRight, MessageSquare, Users, FileText, DollarSign, Bot, Clock, CreditCard, Eye } from "lucide-react";
+import { ArrowLeft, Plus, Save, Trash2, Filter, ChevronLeft, ChevronRight, MessageSquare, Users, FileText, DollarSign, Bot, Clock, CreditCard, Eye, Download } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,7 @@ const UserDetails = () => {
   const [historyDateFrom, setHistoryDateFrom] = useState(() => format(subMonths(new Date(), 1), "yyyy-MM-dd"));
   const [historyDateTo, setHistoryDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [exportingHistory, setExportingHistory] = useState(false);
 
   // Manual history entry
   const [newHistoryType, setNewHistoryType] = useState(manualHistoryTypes[0]);
@@ -228,6 +229,83 @@ const UserDetails = () => {
     fetchHistory();
   };
 
+  const formatHistoryCsv = (items: UserHistoryItem[]) => {
+    const escapeCsvCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const headers = ["Data/Hora", "Tipo", "Descrição", "Referência", "Metadados"];
+    const rows = items.map((item) => {
+      const metadata = item.metadata && Object.keys(item.metadata).length > 0
+        ? JSON.stringify(item.metadata)
+        : "";
+
+      return [
+        format(parseISO(item.created_at), "dd/MM/yyyy HH:mm:ss"),
+        getTypeInfo(item.history_type).label,
+        item.description || "",
+        item.reference_id || "",
+        metadata,
+      ];
+    });
+
+    return [headers, ...rows]
+      .map((row) => row.map((cell) => escapeCsvCell(String(cell))).join(";"))
+      .join("\n");
+  };
+
+  const exportHistory = async (exportAll: boolean) => {
+    if (!userId) return;
+    setExportingHistory(true);
+
+    const db = supabase as any;
+    let query = db
+      .from("user_internal_history")
+      .select("id, history_type, description, reference_id, created_at, metadata")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (!exportAll) {
+      query = query
+        .gte("created_at", `${historyDateFrom}T00:00:00`)
+        .lte("created_at", `${historyDateTo}T23:59:59`);
+    }
+
+    if (historyFilterType !== "todos") {
+      query = query.eq("history_type", historyFilterType);
+    }
+
+    const { data, error } = await query;
+    setExportingHistory(false);
+
+    if (error) {
+      toast({ title: "Erro ao exportar", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    const rows = data || [];
+    if (rows.length === 0) {
+      toast({ title: "Sem registros", description: "Nenhum registro encontrado para exportação." });
+      return;
+    }
+
+    const csv = "\uFEFF" + formatHistoryCsv(rows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const operatorName = managedUser?.full_name?.trim().replace(/\s+/g, "-").toLowerCase() || "operador";
+    const dateScope = exportAll ? "completo" : `${historyDateFrom}_${historyDateTo}`;
+
+    anchor.href = url;
+    anchor.download = `historico-acoes-${operatorName}-${dateScope}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Exportação concluída",
+      description: `${rows.length} registro${rows.length !== 1 ? "s" : ""} exportado${rows.length !== 1 ? "s" : ""}.`,
+    });
+  };
+
   const totalPages = Math.ceil(historyTotal / PAGE_SIZE);
 
   const getTypeInfo = (type: string) => HISTORY_TYPES[type] || { label: type, color: "bg-muted text-muted-foreground", icon: <Clock className="h-3.5 w-3.5" /> };
@@ -315,6 +393,14 @@ const UserDetails = () => {
                 <Button onClick={handleFilterHistory}>
                   <Filter className="h-4 w-4 mr-1" /> Filtrar
                 </Button>
+                <div className="md:col-span-2 flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => exportHistory(false)} disabled={exportingHistory}>
+                    <Download className="h-4 w-4 mr-1" /> Exportar período
+                  </Button>
+                  <Button variant="outline" onClick={() => exportHistory(true)} disabled={exportingHistory}>
+                    <Download className="h-4 w-4 mr-1" /> Exportar tudo
+                  </Button>
+                </div>
                 <div className="text-xs text-muted-foreground self-center">
                   {historyTotal} registro{historyTotal !== 1 ? "s" : ""}
                 </div>
