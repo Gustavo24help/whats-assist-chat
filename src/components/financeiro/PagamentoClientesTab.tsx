@@ -15,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { format, parseISO } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -32,41 +31,77 @@ const formatMoeda = (valor: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 const EXCLUDED_FICHAS = ["FS4-260127"];
-const RELEVANT_STATUSES = [
-  "Orçamento Aprovado / Agendamento" as const,
-  "Agendado" as const,
-  "Em andamento" as const,
-  "Finalizado" as const,
-];
 const PAGE_SIZE = 20;
+
+interface FichaCliente {
+  id: string;
+  nome_cliente_resolved: string;
+  telefone_cliente: string;
+  status: string;
+  valor_total: number;
+  valor_mao_obra: number;
+  valor_pecas: number;
+  prestador_id: string | null;
+  pagamento_realizado: boolean;
+  pagamento_link: string | null;
+  pagamento_tipo: string | null;
+  updated_at: string;
+}
+
+async function resolveClientNames(fichas: any[]): Promise<FichaCliente[]> {
+  if (fichas.length === 0) return [];
+
+  // Get unique phone numbers to resolve names
+  const phones = [...new Set(fichas.map((f: any) => f.telefone_cliente))];
+  const { data: clientes } = await supabase
+    .from("clientes")
+    .select("telefone, nome")
+    .in("telefone", phones);
+
+  const clienteMap = new Map((clientes || []).map((c: any) => [c.telefone, c.nome]));
+
+  return fichas.map((f: any) => ({
+    id: f.id,
+    nome_cliente_resolved: f.nome_cliente || clienteMap.get(f.telefone_cliente) || f.telefone_cliente.replace("whatsapp:+55", ""),
+    telefone_cliente: f.telefone_cliente,
+    status: f.status,
+    valor_total: f.valor_total || 0,
+    valor_mao_obra: f.valor_mao_obra || 0,
+    valor_pecas: f.valor_pecas || 0,
+    prestador_id: f.prestador_id,
+    pagamento_realizado: f.pagamento_realizado,
+    pagamento_link: f.pagamento_link,
+    pagamento_tipo: f.pagamento_tipo,
+    updated_at: f.updated_at,
+  }));
+}
 
 export const PagamentoClientesTab = () => {
   const { toast } = useToast();
   const [subTab, setSubTab] = useState("pendentes");
   const [loading, setLoading] = useState(true);
-  const [fichas, setFichas] = useState<any[]>([]);
+  const [fichas, setFichas] = useState<FichaCliente[]>([]);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [cancelando, setCancelando] = useState<string | null>(null);
-  const [confirmCancel, setConfirmCancel] = useState<any>(null);
+  const [confirmCancel, setConfirmCancel] = useState<FichaCliente | null>(null);
 
-  // Histórico (pagamento_realizado = true)
-  const [historico, setHistorico] = useState<any[]>([]);
+  const [historico, setHistorico] = useState<FichaCliente[]>([]);
   const [historicoLoading, setHistoricoLoading] = useState(false);
   const [historicoPage, setHistoricoPage] = useState(0);
   const [historicoTotal, setHistoricoTotal] = useState(0);
 
-  // Cancelados
   const [cancelados, setCancelados] = useState<any[]>([]);
   const [canceladosLoading, setCanceladosLoading] = useState(false);
 
   const fetchPendentes = useCallback(async () => {
     try {
       setLoading(true);
+      // Only show Finalizado fichas that haven't been paid
       const { data, error } = await supabase
         .from("fichas_de_servico")
         .select("id, nome_ficha, nome_cliente, telefone_cliente, status, valor_total, valor_mao_obra, valor_pecas, prestador_id, pagamento_realizado, pagamento_link, pagamento_tipo, created_at, updated_at")
         .eq("pagamento_realizado", false)
-        .in("status", RELEVANT_STATUSES)
+        .eq("status", "Finalizado" as any)
         .gt("valor_total", 0)
         .order("updated_at", { ascending: false });
 
@@ -74,7 +109,8 @@ export const PagamentoClientesTab = () => {
       const filtered = (data || []).filter(
         (f: any) => !EXCLUDED_FICHAS.includes(f.id)
       );
-      setFichas(filtered);
+      const resolved = await resolveClientNames(filtered);
+      setFichas(resolved);
     } catch (e: any) {
       console.error("Erro ao carregar pagamentos clientes:", e);
     } finally {
@@ -87,7 +123,7 @@ export const PagamentoClientesTab = () => {
       setHistoricoLoading(true);
       const { data, error, count } = await supabase
         .from("fichas_de_servico")
-        .select("id, nome_ficha, nome_cliente, telefone_cliente, status, valor_total, prestador_id, pagamento_realizado, pagamento_link, updated_at", { count: "exact" })
+        .select("id, nome_ficha, nome_cliente, telefone_cliente, status, valor_total, valor_mao_obra, valor_pecas, prestador_id, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at", { count: "exact" })
         .eq("pagamento_realizado", true)
         .gt("valor_total", 0)
         .order("updated_at", { ascending: false })
@@ -97,7 +133,8 @@ export const PagamentoClientesTab = () => {
       const filtered = (data || []).filter(
         (f: any) => !EXCLUDED_FICHAS.includes(f.id)
       );
-      setHistorico(filtered);
+      const resolved = await resolveClientNames(filtered);
+      setHistorico(resolved);
       setHistoricoTotal(count || 0);
     } catch (e: any) {
       console.error("Erro ao carregar histórico:", e);
@@ -109,18 +146,30 @@ export const PagamentoClientesTab = () => {
   const fetchCancelados = useCallback(async () => {
     try {
       setCanceladosLoading(true);
-      // Fichas perdidas que tinham valor > 0
       const { data, error } = await supabase
         .from("fichas_de_servico")
         .select("id, nome_ficha, nome_cliente, telefone_cliente, status, valor_total, prestador_id, pagamento_realizado, motivo_perda, updated_at")
-        .eq("status", "Perdido")
+        .eq("status", "Perdido" as any)
         .eq("pagamento_realizado", false)
         .gt("valor_total", 0)
         .order("updated_at", { ascending: false })
         .limit(50);
 
       if (error) throw error;
-      setCancelados((data || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id)));
+      const filtered = (data || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
+      
+      // Resolve names for cancelados too
+      const phones = [...new Set(filtered.map((f: any) => f.telefone_cliente))];
+      const { data: clientes } = await supabase
+        .from("clientes")
+        .select("telefone, nome")
+        .in("telefone", phones);
+      const clienteMap = new Map((clientes || []).map((c: any) => [c.telefone, c.nome]));
+      
+      setCancelados(filtered.map((f: any) => ({
+        ...f,
+        nome_cliente_resolved: f.nome_cliente || clienteMap.get(f.telefone_cliente) || f.telefone_cliente.replace("whatsapp:+55", ""),
+      })));
     } catch (e: any) {
       console.error("Erro ao carregar cancelados:", e);
     } finally {
@@ -137,7 +186,7 @@ export const PagamentoClientesTab = () => {
     if (subTab === "cancelados") fetchCancelados();
   }, [subTab, fetchHistorico, fetchCancelados]);
 
-  const marcarClientePagou = async (ficha: any) => {
+  const marcarClientePagou = async (ficha: FichaCliente) => {
     try {
       setMarkingPaid(ficha.id);
       const agora = new Date().toISOString();
@@ -158,13 +207,13 @@ export const PagamentoClientesTab = () => {
         } as any)
         .eq("ficha_id", ficha.id);
 
-      // Notify Make.com
+      // Notify Make.com (non-blocking)
       try {
         await supabase.functions.invoke("webhook-update-planilha", {
           body: {
             tipo: "pagamento_cliente",
             ficha_id: ficha.id,
-            cliente_nome: ficha.nome_cliente || ficha.telefone_cliente,
+            cliente_nome: ficha.nome_cliente_resolved,
             valor_cliente_final: ficha.valor_total,
             status: "pago",
             data_pagamento: agora,
@@ -175,8 +224,9 @@ export const PagamentoClientesTab = () => {
       }
 
       toast({ title: "✅ Pagamento do cliente confirmado!" });
-      fetchPendentes();
-      if (subTab === "historico") fetchHistorico();
+      
+      // Remove from list immediately
+      setFichas(prev => prev.filter(f => f.id !== ficha.id));
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     } finally {
@@ -184,12 +234,11 @@ export const PagamentoClientesTab = () => {
     }
   };
 
-  const cancelarPagamento = async (ficha: any) => {
+  const cancelarPagamento = async (ficha: FichaCliente) => {
     try {
       setCancelando(ficha.id);
       setConfirmCancel(null);
 
-      // Mark ficha as Perdido with motivo
       const { error } = await supabase
         .from("fichas_de_servico")
         .update({
@@ -201,7 +250,7 @@ export const PagamentoClientesTab = () => {
       if (error) throw error;
 
       toast({ title: "Pagamento marcado como cancelado" });
-      fetchPendentes();
+      setFichas(prev => prev.filter(f => f.id !== ficha.id));
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     } finally {
@@ -222,7 +271,7 @@ export const PagamentoClientesTab = () => {
       {/* Summary */}
       <div className="flex gap-3 overflow-x-auto">
         <Card className="min-w-[160px] bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 p-3 shrink-0">
-          <div className="text-xs text-amber-600 dark:text-amber-400">Pendentes</div>
+          <div className="text-xs text-amber-600 dark:text-amber-400">Pendentes (Finalizados)</div>
           <div className="text-2xl font-bold text-amber-900 dark:text-amber-300">{fichas.length}</div>
         </Card>
         <Card className="min-w-[160px] bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 p-3 shrink-0">
@@ -262,8 +311,8 @@ export const PagamentoClientesTab = () => {
                 <Card key={f.id} className="p-4 border-l-4 border-l-amber-500">
                   <div className="flex items-start justify-between mb-3">
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-sm">{f.nome_cliente || f.telefone_cliente}</h3>
-                      <p className="text-xs text-muted-foreground">{f.telefone_cliente}</p>
+                      <h3 className="font-semibold text-sm">{f.nome_cliente_resolved}</h3>
+                      <p className="text-xs text-muted-foreground">{f.telefone_cliente.replace("whatsapp:+55", "")}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-xl font-bold text-primary">{formatMoeda(f.valor_total)}</div>
@@ -294,7 +343,7 @@ export const PagamentoClientesTab = () => {
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0 shrink-0"
-                        onClick={() => copyToClipboard(f.pagamento_link)}
+                        onClick={() => copyToClipboard(f.pagamento_link!)}
                       >
                         <Copy className="h-3 w-3" />
                       </Button>
@@ -349,7 +398,7 @@ export const PagamentoClientesTab = () => {
                   <Card key={f.id} className="p-3 opacity-80">
                     <div className="flex items-center justify-between">
                       <div className="min-w-0">
-                        <h3 className="font-medium text-sm truncate">{f.nome_cliente || f.telefone_cliente}</h3>
+                        <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
                         <p className="text-xs text-muted-foreground">
                           {f.id} • {f.status}
                         </p>
@@ -398,7 +447,7 @@ export const PagamentoClientesTab = () => {
                 <Card key={f.id} className="p-3 opacity-60">
                   <div className="flex items-center justify-between">
                     <div className="min-w-0">
-                      <h3 className="font-medium text-sm truncate">{f.nome_cliente || f.telefone_cliente}</h3>
+                      <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
                       <p className="text-xs text-muted-foreground">
                         {f.id} • {f.motivo_perda || "Cancelado"}
                       </p>

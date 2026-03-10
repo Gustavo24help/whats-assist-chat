@@ -19,7 +19,6 @@ import {
   Info,
   Ban,
 } from "lucide-react";
-import { format } from "date-fns";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,8 +36,13 @@ const formatMoeda = (valor: number) =>
 const EXCLUDED_FICHAS = ["FS4-260127"];
 const HISTORICO_PAGE_SIZE = 20;
 
+// Only show fichas from the last 45 days to avoid showing old already-paid records
+const CUTOFF_DATE = new Date();
+CUTOFF_DATE.setDate(CUTOFF_DATE.getDate() - 45);
+const CUTOFF_ISO = CUTOFF_DATE.toISOString();
+
 function getInitials(name: string): string {
-  return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+  return name.split(" ").slice(0, 2).map((n) => n?.[0] || "").join("").toUpperCase();
 }
 
 const avatarColors = [
@@ -54,7 +58,7 @@ function getAvatarColor(id: string): string {
 interface FichaComPrestador {
   id: string;
   nome_ficha: string;
-  nome_cliente: string | null;
+  nome_cliente_resolved: string;
   telefone_cliente: string;
   status: string;
   valor_total: number;
@@ -88,17 +92,16 @@ export const PagamentoPrestadoresTab = () => {
   const [historicoTotal, setHistoricoTotal] = useState(0);
 
   const buildFichasList = useCallback(async (
-    statusFilter: string,
     pagoFilter: boolean,
     page?: number,
   ): Promise<{ items: FichaComPrestador[]; total: number }> => {
-    // Get fichas in Finalizado status with prestador
     let query = supabase
       .from("fichas_de_servico")
       .select("id, nome_ficha, nome_cliente, telefone_cliente, status, valor_total, valor_mao_obra, valor_pecas, prestador_id, updated_at", { count: "exact" })
-      .eq("status", statusFilter as any)
+      .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
       .not("prestador_id", "is", null)
+      .gte("updated_at", CUTOFF_ISO)
       .order("updated_at", { ascending: false });
 
     if (page !== undefined) {
@@ -111,23 +114,20 @@ export const PagamentoPrestadoresTab = () => {
     const fichas = (fichasData || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
     if (fichas.length === 0) return { items: [], total: count || 0 };
 
-    // Get unique prestador IDs
+    // Get unique prestador IDs and phone numbers
     const prestadorIds = [...new Set(fichas.map((f: any) => f.prestador_id))];
-    const { data: prestadores } = await supabase
-      .from("prestadores")
-      .select("cpf, nome, chave_pix, nome_pix")
-      .in("cpf", prestadorIds);
+    const phones = [...new Set(fichas.map((f: any) => f.telefone_cliente))];
 
-    const prestadorMap = new Map((prestadores || []).map((p: any) => [p.cpf, p]));
+    // Fetch prestadores and clientes in parallel
+    const [prestadoresRes, clientesRes, transacoesRes] = await Promise.all([
+      supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix").in("cpf", prestadorIds),
+      supabase.from("clientes").select("telefone, nome").in("telefone", phones),
+      supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_realizada").in("ficha_id", fichas.map((f: any) => f.id)),
+    ]);
 
-    // Get transacoes to check payment status
-    const fichaIds = fichas.map((f: any) => f.id);
-    const { data: transacoes } = await supabase
-      .from("transacoes_financeiras")
-      .select("ficha_id, status_pagamento_prestador, data_pagamento_realizada")
-      .in("ficha_id", fichaIds);
-
-    const transMap = new Map((transacoes || []).map((t: any) => [t.ficha_id, t]));
+    const prestadorMap = new Map((prestadoresRes.data || []).map((p: any) => [p.cpf, p]));
+    const clienteMap = new Map((clientesRes.data || []).map((c: any) => [c.telefone, c.nome]));
+    const transMap = new Map((transacoesRes.data || []).map((t: any) => [t.ficha_id, t]));
 
     const items: FichaComPrestador[] = fichas.map((f: any) => {
       const prest = prestadorMap.get(f.prestador_id);
@@ -135,7 +135,7 @@ export const PagamentoPrestadoresTab = () => {
       return {
         id: f.id,
         nome_ficha: f.nome_ficha || f.id,
-        nome_cliente: f.nome_cliente,
+        nome_cliente_resolved: f.nome_cliente || clienteMap.get(f.telefone_cliente) || f.telefone_cliente.replace("whatsapp:+55", ""),
         telefone_cliente: f.telefone_cliente,
         status: f.status,
         valor_total: f.valor_total || 0,
@@ -152,7 +152,6 @@ export const PagamentoPrestadoresTab = () => {
       };
     });
 
-    // Filter by payment status
     const filtered = items.filter((i) => i.pago_prestador === pagoFilter);
     return { items: filtered, total: count || 0 };
   }, []);
@@ -160,7 +159,7 @@ export const PagamentoPrestadoresTab = () => {
   const fetchPendentes = useCallback(async () => {
     try {
       setLoading(true);
-      const { items } = await buildFichasList("Finalizado", false);
+      const { items } = await buildFichasList(false);
       setPendentes(items);
     } catch (e: any) {
       console.error("Erro ao carregar pagamentos prestadores:", e);
@@ -172,7 +171,7 @@ export const PagamentoPrestadoresTab = () => {
   const fetchHistorico = useCallback(async () => {
     try {
       setHistoricoLoading(true);
-      const { items, total } = await buildFichasList("Finalizado", true, historicoPage);
+      const { items, total } = await buildFichasList(true, historicoPage);
       setHistorico(items);
       setHistoricoTotal(total);
     } catch (e: any) {
@@ -195,7 +194,6 @@ export const PagamentoPrestadoresTab = () => {
       setMarkingPaid(ficha.id);
       const agora = new Date().toISOString();
 
-      // Upsert transacao_financeira
       const { data: existing } = await supabase
         .from("transacoes_financeiras")
         .select("id")
@@ -211,7 +209,6 @@ export const PagamentoPrestadoresTab = () => {
           } as any)
           .eq("id", existing.id);
       } else {
-        // Create transacao
         await supabase
           .from("transacoes_financeiras")
           .insert({
@@ -220,7 +217,7 @@ export const PagamentoPrestadoresTab = () => {
             prestador_nome: ficha.prestador_nome,
             prestador_cpf: ficha.prestador_cpf,
             cliente_id: ficha.telefone_cliente,
-            cliente_nome: ficha.nome_cliente || "Cliente",
+            cliente_nome: ficha.nome_cliente_resolved,
             valor_mao_obra: ficha.valor_mao_obra,
             valor_material: ficha.valor_pecas,
             valor_cliente_final: ficha.valor_total,
@@ -229,13 +226,13 @@ export const PagamentoPrestadoresTab = () => {
             valor_lucro_bruto: ficha.valor_total - ficha.valor_mao_obra,
             pix_prestador: ficha.chave_pix,
             status_pagamento_prestador: "pago",
-            status_pagamento_cliente: "pendente",
+            status_pagamento_cliente: ficha.valor_total > 0 ? "pendente" : "pago",
             data_pagamento_prevista: agora,
             data_pagamento_realizada: agora,
           } as any);
       }
 
-      // Notify Make.com
+      // Notify Make.com (non-blocking)
       try {
         await supabase.functions.invoke("webhook-update-planilha", {
           body: {
@@ -254,8 +251,8 @@ export const PagamentoPrestadoresTab = () => {
       }
 
       toast({ title: "✅ Pagamento ao prestador confirmado!" });
-      fetchPendentes();
-      if (subTab === "historico") fetchHistorico();
+      // Remove from list immediately
+      setPendentes(prev => prev.filter(f => f.id !== ficha.id));
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     } finally {
@@ -277,7 +274,7 @@ export const PagamentoPrestadoresTab = () => {
         .eq("id", ficha.id);
 
       toast({ title: "Pagamento marcado como cancelado" });
-      fetchPendentes();
+      setPendentes(prev => prev.filter(f => f.id !== ficha.id));
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     } finally {
@@ -298,7 +295,7 @@ export const PagamentoPrestadoresTab = () => {
       {/* Summary */}
       <div className="flex gap-3 overflow-x-auto">
         <Card className="min-w-[160px] bg-primary text-primary-foreground p-3 shrink-0">
-          <div className="text-xs opacity-80">Pendentes</div>
+          <div className="text-xs opacity-80">Pendentes (últimos 45 dias)</div>
           <div className="text-2xl font-bold">{pendentes.length}</div>
         </Card>
         <Card className="min-w-[160px] bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 p-3 shrink-0">
@@ -353,9 +350,7 @@ export const PagamentoPrestadoresTab = () => {
 
                       <div className="flex flex-wrap gap-1 mb-3">
                         <Badge variant="secondary" className="text-xs">{f.id}</Badge>
-                        {f.nome_cliente && (
-                          <Badge variant="outline" className="text-xs">Cliente: {f.nome_cliente}</Badge>
-                        )}
+                        <Badge variant="outline" className="text-xs">Cliente: {f.nome_cliente_resolved}</Badge>
                         <Badge variant="outline" className="text-xs">Total: {formatMoeda(f.valor_total)}</Badge>
                       </div>
 
@@ -451,9 +446,7 @@ export const PagamentoPrestadoresTab = () => {
                         <div className="flex items-center justify-between">
                           <div className="min-w-0">
                             <h3 className="font-medium text-sm truncate">{f.prestador_nome}</h3>
-                            <p className="text-xs text-muted-foreground">
-                              {f.id} • Pago em {f.data_pagamento_prestador ? format(new Date(f.data_pagamento_prestador), "dd/MM/yy") : "—"}
-                            </p>
+                            <p className="text-xs text-muted-foreground">{f.id} • {f.nome_cliente_resolved}</p>
                           </div>
                           <div className="text-right shrink-0">
                             <div className="font-bold text-sm">{formatMoeda(f.valor_mao_obra)}</div>
@@ -466,7 +459,6 @@ export const PagamentoPrestadoresTab = () => {
                     </div>
                   </Card>
                 ))}
-
                 {historicoTotalPages > 1 && (
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-xs text-muted-foreground">{historicoTotal} registros</span>
@@ -487,55 +479,60 @@ export const PagamentoPrestadoresTab = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Details Modal */}
+      {/* Detalhes Dialog */}
       <Dialog open={detalhesOpen} onOpenChange={setDetalhesOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Detalhes do Pagamento</DialogTitle>
           </DialogHeader>
           {detalhesSelecionado && (
-            <div className="space-y-3">
-              <Card className="p-3 bg-muted">
-                <h3 className="font-semibold text-sm mb-2">🔧 Prestador</h3>
-                <div className="space-y-1 text-sm">
-                  <div><span className="text-muted-foreground">Nome:</span> <span className="font-medium">{detalhesSelecionado.prestador_nome}</span></div>
-                  <div><span className="text-muted-foreground">CPF:</span> <span className="font-medium">{detalhesSelecionado.prestador_cpf}</span></div>
-                  {detalhesSelecionado.chave_pix && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">PIX:</span>
-                      <span className="font-medium">{detalhesSelecionado.chave_pix}</span>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => copyToClipboard(detalhesSelecionado.chave_pix!)}>
-                        <Copy className="h-3 w-3" />
-                      </Button>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Ficha</span>
+                <span className="font-medium">{detalhesSelecionado.id}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cliente</span>
+                <span className="font-medium">{detalhesSelecionado.nome_cliente_resolved}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Prestador</span>
+                <span className="font-medium">{detalhesSelecionado.prestador_nome}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Valor Total</span>
+                <span className="font-bold">{formatMoeda(detalhesSelecionado.valor_total)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Mão de Obra</span>
+                <span className="font-bold text-primary">{formatMoeda(detalhesSelecionado.valor_mao_obra)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Peças</span>
+                <span>{formatMoeda(detalhesSelecionado.valor_pecas)}</span>
+              </div>
+              <Separator />
+              {detalhesSelecionado.chave_pix && (
+                <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-3">
+                  <div className="text-xs text-muted-foreground mb-1">Chave PIX</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-green-800 dark:text-green-300">
+                      {detalhesSelecionado.chave_pix}
+                    </span>
+                    <Button variant="ghost" size="sm" className="h-6" onClick={() => copyToClipboard(detalhesSelecionado.chave_pix!)}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {detalhesSelecionado.nome_pix && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Titular: {detalhesSelecionado.nome_pix}
                     </div>
                   )}
-                  {detalhesSelecionado.nome_pix && (
-                    <div><span className="text-muted-foreground">Nome PIX:</span> <span className="font-medium">{detalhesSelecionado.nome_pix}</span></div>
-                  )}
                 </div>
-              </Card>
-
-              <Card className="p-3 bg-blue-50 dark:bg-blue-950/20">
-                <h3 className="font-semibold text-sm mb-2">📋 Serviço</h3>
-                <div className="space-y-1 text-sm">
-                  <div><span className="text-muted-foreground">Ficha:</span> <span className="font-medium">{detalhesSelecionado.id}</span></div>
-                  <div><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{detalhesSelecionado.nome_cliente || detalhesSelecionado.telefone_cliente}</span></div>
-                </div>
-              </Card>
-
-              <Card className="p-3">
-                <h3 className="font-semibold text-sm mb-2">💰 Valores</h3>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Mão de Obra:</span><span>{formatMoeda(detalhesSelecionado.valor_mao_obra)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Material:</span><span>{formatMoeda(detalhesSelecionado.valor_pecas)}</span></div>
-                  <Separator className="my-1" />
-                  <div className="flex justify-between"><span className="text-muted-foreground">Valor Total:</span><span className="font-bold">{formatMoeda(detalhesSelecionado.valor_total)}</span></div>
-                  <div className="flex justify-between text-base">
-                    <span className="font-semibold">A Pagar Prestador:</span>
-                    <span className="font-bold text-primary">{formatMoeda(detalhesSelecionado.valor_mao_obra)}</span>
-                  </div>
-                </div>
-              </Card>
+              )}
             </div>
           )}
         </DialogContent>
@@ -547,7 +544,7 @@ export const PagamentoPrestadoresTab = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar pagamento ao prestador?</AlertDialogTitle>
             <AlertDialogDescription>
-              A ficha {confirmCancel?.id} será marcada como "Perdido". Essa ação pode ser revertida alterando o status da ficha.
+              A ficha {confirmCancel?.id} será marcada como "Perdido". O prestador {confirmCancel?.prestador_nome} não será pago por este serviço.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
