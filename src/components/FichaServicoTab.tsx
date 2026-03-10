@@ -601,12 +601,16 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   const updateDataAgendamento = (data: string) => {
     setDataAgendamento(data);
-    // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+    }
   };
 
   const updateHoraAgendamento = (hora: string) => {
     setHoraAgendamento(hora);
-    // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica);
+    }
   };
 
   const updateDataVisitaTecnica = (data: string) => {
