@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Save, Trash2, Filter, ChevronLeft, ChevronRight, MessageSquare, Users, FileText, DollarSign, Bot, Clock, CreditCard, Eye } from "lucide-react";
+import { ArrowLeft, Plus, Save, Trash2, Filter, ChevronLeft, ChevronRight, MessageSquare, Users, FileText, DollarSign, Bot, Clock, CreditCard, Eye, Download } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,7 @@ const UserDetails = () => {
   const [historyFilterType, setHistoryFilterType] = useState("todos");
   const [historyDateFrom, setHistoryDateFrom] = useState(() => format(subMonths(new Date(), 1), "yyyy-MM-dd"));
   const [historyDateTo, setHistoryDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [exportUseDateRange, setExportUseDateRange] = useState(true);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   // Manual history entry
@@ -228,6 +229,102 @@ const UserDetails = () => {
     fetchHistory();
   };
 
+  const fetchHistoryForExport = async (useDateRange: boolean) => {
+    if (!userId) return [] as UserHistoryItem[];
+
+    const db = supabase as any;
+    let query = db
+      .from("user_internal_history")
+      .select("id, history_type, description, reference_id, created_at, metadata")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (useDateRange) {
+      query = query
+        .gte("created_at", `${historyDateFrom}T00:00:00`)
+        .lte("created_at", `${historyDateTo}T23:59:59`);
+    }
+
+    if (historyFilterType !== "todos") {
+      query = query.eq("history_type", historyFilterType);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      toast({ title: "Erro ao exportar", description: error.message, variant: "destructive" });
+      return [];
+    }
+
+    return data || [];
+  };
+
+  const triggerDownload = (content: string, extension: "csv" | "txt") => {
+    const userName = managedUser?.full_name?.trim().replace(/\s+/g, "_") || userId || "usuario";
+    const rangeLabel = exportUseDateRange ? `${historyDateFrom}_${historyDateTo}` : "todos_os_periodos";
+    const fileName = `historico_operador_${userName}_${rangeLabel}.${extension}`;
+    const blob = new Blob([content], { type: extension === "csv" ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportHistoryCsv = async () => {
+    const items = await fetchHistoryForExport(exportUseDateRange);
+    if (items.length === 0) {
+      toast({ title: "Nenhum registro", description: "Não há registros para exportar com os filtros atuais." });
+      return;
+    }
+
+    const escapeCsv = (value: string | null | undefined) => {
+      const text = value ?? "";
+      return `"${String(text).replace(/"/g, '""')}"`;
+    };
+
+    const header = ["Data/Hora", "Tipo", "Descrição", "Referência"];
+    const rows = items.map((item) => [
+      format(parseISO(item.created_at), "dd/MM/yyyy HH:mm:ss"),
+      getTypeInfo(item.history_type).label,
+      item.description,
+      item.reference_id || "",
+    ]);
+
+    const csvContent = [header, ...rows]
+      .map((line) => line.map((column) => escapeCsv(column)).join(";"))
+      .join("\n");
+
+    triggerDownload(csvContent, "csv");
+    toast({ title: "Exportação concluída", description: `${items.length} registro(s) exportado(s) em CSV.` });
+  };
+
+  const exportHistoryTxt = async () => {
+    const items = await fetchHistoryForExport(exportUseDateRange);
+    if (items.length === 0) {
+      toast({ title: "Nenhum registro", description: "Não há registros para exportar com os filtros atuais." });
+      return;
+    }
+
+    const content = items
+      .map((item, index) => {
+        const metadataText = item.metadata && Object.keys(item.metadata).length > 0
+          ? `\nMetadados: ${JSON.stringify(item.metadata)}`
+          : "";
+        return [
+          `#${index + 1}`,
+          `Data/Hora: ${format(parseISO(item.created_at), "dd/MM/yyyy HH:mm:ss")}`,
+          `Tipo: ${getTypeInfo(item.history_type).label}`,
+          `Descrição: ${item.description}`,
+          `Referência: ${item.reference_id || "-"}${metadataText}`,
+        ].join("\n");
+      })
+      .join("\n\n----------------------------------------\n\n");
+
+    triggerDownload(content, "txt");
+    toast({ title: "Exportação concluída", description: `${items.length} registro(s) exportado(s) em TXT.` });
+  };
+
   const totalPages = Math.ceil(historyTotal / PAGE_SIZE);
 
   const getTypeInfo = (type: string) => HISTORY_TYPES[type] || { label: type, color: "bg-muted text-muted-foreground", icon: <Clock className="h-3.5 w-3.5" /> };
@@ -291,7 +388,7 @@ const UserDetails = () => {
           <TabsContent value="historico" className="space-y-4">
             {/* Filters */}
             <Card className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">De</label>
                   <Input type="date" value={historyDateFrom} onChange={(e) => setHistoryDateFrom(e.target.value)} />
@@ -315,9 +412,27 @@ const UserDetails = () => {
                 <Button onClick={handleFilterHistory}>
                   <Filter className="h-4 w-4 mr-1" /> Filtrar
                 </Button>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Exportação</label>
+                  <Select value={exportUseDateRange ? "periodo" : "tudo"} onValueChange={(value) => setExportUseDateRange(value === "periodo")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="periodo">Usar período selecionado</SelectItem>
+                      <SelectItem value="tudo">Exportar tudo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="text-xs text-muted-foreground self-center">
                   {historyTotal} registro{historyTotal !== 1 ? "s" : ""}
                 </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="outline" onClick={exportHistoryCsv}>
+                  <Download className="h-4 w-4 mr-1" /> Exportar CSV
+                </Button>
+                <Button variant="outline" onClick={exportHistoryTxt}>
+                  <Download className="h-4 w-4 mr-1" /> Exportar TXT
+                </Button>
               </div>
             </Card>
 
