@@ -6,8 +6,8 @@ import { ArrowLeft, Users, Wrench } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FinanceiroKPIs } from "@/components/financeiro/FinanceiroKPIs";
-import { PagamentoClientesTab } from "@/components/financeiro/PagamentoClientesTab";
-import { PagamentoPrestadoresTab } from "@/components/financeiro/PagamentoPrestadoresTab";
+import { PagamentoClientesTabV2 } from "@/components/financeiro/PagamentoClientesTabV2";
+import { PagamentoPrestadoresTabV2 } from "@/components/financeiro/PagamentoPrestadoresTabV2";
 
 const Financeiro = () => {
   const navigate = useNavigate();
@@ -15,7 +15,6 @@ const Financeiro = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex flex-col">
-      {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b shadow-sm">
         <div className="flex items-center justify-between px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
@@ -33,12 +32,10 @@ const Financeiro = () => {
         </div>
       </header>
 
-      {/* KPIs */}
       <div className="px-4 py-4 md:px-6">
         <FinanceiroKPIs />
       </div>
 
-      {/* Tabs */}
       <main className="flex-1 px-4 md:px-6 pb-6">
         <Tabs defaultValue="clientes" className="w-full">
           <TabsList className="w-full justify-start overflow-x-auto mb-4">
@@ -51,11 +48,11 @@ const Financeiro = () => {
           </TabsList>
 
           <TabsContent value="clientes">
-            <PagamentoClientesTab />
+            <PagamentoClientesTabV2 />
           </TabsContent>
 
           <TabsContent value="prestadores">
-            <PagamentoPrestadoresTab />
+            <PagamentoPrestadoresTabV2 />
           </TabsContent>
         </Tabs>
       </main>
