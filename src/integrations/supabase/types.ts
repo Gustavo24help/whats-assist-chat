@@ -642,6 +642,7 @@ export type Database = {
           id: string
           id_zoho: string | null
           motivo_perda: string | null
+          motivo_troca_prestador: string | null
           nome_cliente: string | null
           nome_ficha: string | null
           notas: string | null
@@ -653,6 +654,7 @@ export type Database = {
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
           preferencia_horario_cliente: string | null
+          prestador_anterior_id: string | null
           prestador_id: string | null
           recibo_url: string | null
           status: Database["public"]["Enums"]["status_ficha_enum"] | null
@@ -683,6 +685,7 @@ export type Database = {
           id: string
           id_zoho?: string | null
           motivo_perda?: string | null
+          motivo_troca_prestador?: string | null
           nome_cliente?: string | null
           nome_ficha?: string | null
           notas?: string | null
@@ -694,6 +697,7 @@ export type Database = {
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
           preferencia_horario_cliente?: string | null
+          prestador_anterior_id?: string | null
           prestador_id?: string | null
           recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
@@ -724,6 +728,7 @@ export type Database = {
           id?: string
           id_zoho?: string | null
           motivo_perda?: string | null
+          motivo_troca_prestador?: string | null
           nome_cliente?: string | null
           nome_ficha?: string | null
           notas?: string | null
@@ -735,6 +740,7 @@ export type Database = {
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
           preferencia_horario_cliente?: string | null
+          prestador_anterior_id?: string | null
           prestador_id?: string | null
           recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
@@ -1232,9 +1238,43 @@ export type Database = {
         }
         Relationships: []
       }
+      prestador_historico: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          dados_extras: Json | null
+          descricao: string
+          ficha_id: string | null
+          id: string
+          prestador_cpf: string
+          tipo_evento: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          dados_extras?: Json | null
+          descricao: string
+          ficha_id?: string | null
+          id?: string
+          prestador_cpf: string
+          tipo_evento: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          dados_extras?: Json | null
+          descricao?: string
+          ficha_id?: string | null
+          id?: string
+          prestador_cpf?: string
+          tipo_evento?: string
+        }
+        Relationships: []
+      }
       prestadores: {
         Row: {
           ativo: boolean
+          banco: string | null
           categoria: string | null
           chave_pix: string | null
           cnpj: string | null
@@ -1249,6 +1289,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          banco?: string | null
           categoria?: string | null
           chave_pix?: string | null
           cnpj?: string | null
@@ -1263,6 +1304,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          banco?: string | null
           categoria?: string | null
           chave_pix?: string | null
           cnpj?: string | null
