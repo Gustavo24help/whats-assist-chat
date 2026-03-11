@@ -28,6 +28,7 @@ import Financeiro from "./pages/Financeiro";
 import UserDetails from "./pages/UserDetails";
 import Fichas from "./pages/Fichas";
 import FichaDetalhes from "./pages/FichaDetalhes";
+import RegistroPontoPage from "./pages/RegistroPonto";
 
 const queryClient = new QueryClient();
 
@@ -167,6 +168,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Financeiro />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/registro-ponto"
+                element={
+                  <ProtectedRoute>
+                    <RegistroPontoPage />
                   </ProtectedRoute>
                 }
               />
