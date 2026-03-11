@@ -26,6 +26,8 @@ import Avisos from "./pages/Avisos";
 import MensagensInternas from "./pages/MensagensInternas";
 import Financeiro from "./pages/Financeiro";
 import UserDetails from "./pages/UserDetails";
+import Fichas from "./pages/Fichas";
+import FichaDetalhes from "./pages/FichaDetalhes";
 
 const queryClient = new QueryClient();
 
