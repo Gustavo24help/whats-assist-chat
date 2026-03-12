@@ -1136,30 +1136,6 @@ export type Database = {
         }
         Relationships: []
       }
-      registro_ponto: {
-        Row: {
-          created_at: string
-          entrada_em: string
-          id: string
-          saida_em: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          entrada_em?: string
-          id?: string
-          saida_em?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          entrada_em?: string
-          id?: string
-          saida_em?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       nps_respostas: {
         Row: {
           classificacao: string | null
