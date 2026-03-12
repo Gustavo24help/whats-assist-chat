@@ -29,7 +29,7 @@ const RegistroPontoPage = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("registro_ponto")
-      .select("id, entrada_em, saida_em")
+      .select("*")
       .eq("user_id", user.id)
       .order("entrada_em", { ascending: false });
 
