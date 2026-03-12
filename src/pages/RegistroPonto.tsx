@@ -86,7 +86,7 @@ const RegistroPontoPage = () => {
     if (!registroAberto) return;
 
     setSaving(true);
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("registro_ponto")
       .update({ saida_em: new Date().toISOString() })
       .eq("id", registroAberto.id);
