@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Download } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Download, PlusCircle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 type Prestador = {
@@ -22,6 +23,13 @@ type Prestador = {
   chave_pix: string | null;
   ativo: boolean;
   created_at: string | null;
+};
+
+type PrestadorHistoricoItem = {
+  id: string;
+  tipo_evento: string;
+  descricao: string;
+  created_at: string;
 };
 
 const sanitizeNumericField = (value: string | null): string | null => {
@@ -56,8 +64,11 @@ const PrestadorDetalhes = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingOcorrencia, setSavingOcorrencia] = useState(false);
   const [prestador, setPrestador] = useState<Prestador | null>(null);
   const [formData, setFormData] = useState<Omit<Prestador, "created_at"> | null>(null);
+  const [historico, setHistorico] = useState<PrestadorHistoricoItem[]>([]);
+  const [ocorrenciaText, setOcorrenciaText] = useState("");
 
   useEffect(() => {
     const loadPrestador = async () => {
@@ -94,6 +105,31 @@ const PrestadorDetalhes = () => {
 
     loadPrestador();
   }, [cpf, navigate, toast]);
+
+  const fetchHistorico = useCallback(async (prestadorCpf: string) => {
+    const { data, error } = await supabase
+      .from("prestador_historico")
+      .select("id, tipo_evento, descricao, created_at")
+      .eq("prestador_cpf", prestadorCpf)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar histórico",
+        description: "Não foi possível carregar o histórico deste prestador.",
+      });
+      return;
+    }
+
+    setHistorico((data || []) as PrestadorHistoricoItem[]);
+  }, [toast]);
+
+  useEffect(() => {
+    if (!cpf) return;
+    fetchHistorico(cpf);
+  }, [cpf, fetchHistorico]);
 
   const createdAtLabel = useMemo(() => {
     if (!prestador?.created_at) return "-";
@@ -201,6 +237,46 @@ const PrestadorDetalhes = () => {
     window.URL.revokeObjectURL(url);
 
     toast({ title: "Exportação concluída", description: "Arquivo JSON gerado com sucesso." });
+  };
+
+  const handleSalvarOcorrencia = async () => {
+    if (!prestador) return;
+
+    const descricao = ocorrenciaText.trim();
+    if (!descricao) {
+      toast({
+        variant: "destructive",
+        title: "Ocorrência vazia",
+        description: "Descreva a ocorrência antes de salvar.",
+      });
+      return;
+    }
+
+    setSavingOcorrencia(true);
+    const { error } = await supabase.from("prestador_historico").insert({
+      prestador_cpf: prestador.cpf,
+      tipo_evento: "ocorrencia",
+      descricao,
+      criado_por: null,
+      dados_extras: { origem: "gerenciamento-prestadores" },
+    });
+    setSavingOcorrencia(false);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar ocorrência",
+        description: error.message,
+      });
+      return;
+    }
+
+    toast({
+      title: "Ocorrência adicionada",
+      description: "A ocorrência foi registrada no histórico.",
+    });
+    setOcorrenciaText("");
+    fetchHistorico(prestador.cpf);
   };
 
   if (loading || !formData) {
@@ -319,6 +395,49 @@ const PrestadorDetalhes = () => {
                 <Trash2 className="mr-2 h-4 w-4" />
                 Deletar prestador
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Histórico</CardTitle>
+            <CardDescription>
+              Registros e observações do prestador. Use o campo abaixo para adicionar ocorrências.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="nova-ocorrencia">Nova ocorrência</Label>
+              <Textarea
+                id="nova-ocorrencia"
+                placeholder="Descreva a ocorrência..."
+                value={ocorrenciaText}
+                onChange={(e) => setOcorrenciaText(e.target.value)}
+                rows={4}
+              />
+              <div>
+                <Button onClick={handleSalvarOcorrencia} disabled={savingOcorrencia}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  {savingOcorrencia ? "Salvando..." : "Adicionar ocorrência"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {historico.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum evento no histórico.</p>
+              ) : (
+                historico.map((item) => (
+                  <div key={item.id} className="rounded-lg border p-3">
+                    <p className="text-sm font-medium uppercase text-muted-foreground">{item.tipo_evento}</p>
+                    <p className="mt-1 text-sm">{item.descricao}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {new Date(item.created_at).toLocaleString("pt-BR")}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
