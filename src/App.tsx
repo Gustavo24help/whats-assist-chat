@@ -179,6 +179,22 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/fichas"
+                element={
+                  <ProtectedRoute>
+                    <Fichas />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ficha/:fichaId"
+                element={
+                  <ProtectedRoute>
+                    <FichaDetalhes />
+                  </ProtectedRoute>
+                }
+              />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
                           </Routes>

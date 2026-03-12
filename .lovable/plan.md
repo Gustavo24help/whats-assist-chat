@@ -1,25 +1,26 @@
 
 
-# Plan: Fix Build Error + Add Missing Routes & Navigation for Fichas
+# Plano: Criar UI para inputar metas diárias (`daily_goals`)
 
-## Problems Found
+## Resumo
+Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
 
-1. **Build error** in `RegistroPonto.tsx` (line 32): Query selects only `id, entrada_em, saida_em` but state type expects `created_at` and `user_id` too. Fix: select `*` or add missing columns.
+## Abordagem
 
-2. **Missing routes** in `App.tsx`: `/fichas` and `/ficha/:fichaId` pages were created but never added to the router.
+### Opção recomendada: Adicionar seção na página Settings
+Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
 
-3. **Missing Home card**: No navigation card for the new Fichas page on the Home screen.
+### Funcionalidades
+- Seletor de data (calendário) para escolher o dia
+- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
+- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
+- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
+- Listagem das metas já cadastradas no mês selecionado
 
-## Changes
+### Arquivos a criar/editar
+1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
+2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
 
-### 1. Fix `src/pages/RegistroPonto.tsx` (line 32)
-- Change `.select("id, entrada_em, saida_em")` to `.select("*")` to include all columns the state type expects.
-
-### 2. Add routes to `src/App.tsx`
-- Add two protected routes before the catch-all:
-  - `/fichas` → `<Fichas />`
-  - `/ficha/:fichaId` → `<FichaDetalhes />`
-
-### 3. Add Fichas card to `src/pages/Home.tsx`
-- Add a navigation card for "Fichas de Serviço" linking to `/fichas`, using the `FileText` icon, positioned logically among the existing cards.
+### Nenhuma alteração de banco necessária
+A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
 

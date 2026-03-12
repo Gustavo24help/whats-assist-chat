@@ -16,6 +16,7 @@ import {
   MessageSquare,
   DollarSign,
   Clock3,
+  FileText,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -226,6 +227,26 @@ const Home = () => {
             </div>
           </button>
 
+
+          <button
+            onClick={() => navigate("/fichas")}
+            className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-green/30 animate-slide-up"
+            style={{ animationDelay: "0.73s" }}
+          >
+            <div className="icon-container brand-green mb-6">
+              <FileText className="h-7 w-7" />
+            </div>
+            <h2 className="text-2xl font-semibold text-foreground mb-2 group-hover:text-brand-green transition-colors">
+              Fichas de Serviço
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Consulte, filtre e gerencie todas as fichas de serviço cadastradas.
+            </p>
+            <div className="flex items-center text-brand-green font-medium">
+              Acessar
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </button>
 
           <button
             onClick={() => navigate("/registro-ponto")}

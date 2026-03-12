@@ -7,10 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
-type RegistroPonto = Database["public"]["Tables"]["registro_ponto"]["Row"];
+interface RegistroPonto {
+  id: string;
+  user_id: string;
+  entrada_em: string;
+  saida_em: string | null;
+  created_at: string;
+}
 
 const PAGE_SIZE = 10;
 
@@ -27,9 +32,9 @@ const RegistroPontoPage = () => {
     if (!user) return;
 
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("registro_ponto")
-      .select("id, entrada_em, saida_em")
+      .select("*")
       .eq("user_id", user.id)
       .order("entrada_em", { ascending: false });
 
@@ -65,7 +70,7 @@ const RegistroPontoPage = () => {
     if (!user || registroAberto) return;
 
     setSaving(true);
-    const { error } = await supabase.from("registro_ponto").insert({ user_id: user.id });
+    const { error } = await (supabase as any).from("registro_ponto").insert({ user_id: user.id });
     setSaving(false);
 
     if (error) {
@@ -81,7 +86,7 @@ const RegistroPontoPage = () => {
     if (!registroAberto) return;
 
     setSaving(true);
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("registro_ponto")
       .update({ saida_em: new Date().toISOString() })
       .eq("id", registroAberto.id);
