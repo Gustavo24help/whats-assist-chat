@@ -29,6 +29,9 @@ import UserDetails from "./pages/UserDetails";
 import Fichas from "./pages/Fichas";
 import FichaDetalhes from "./pages/FichaDetalhes";
 import RegistroPontoPage from "./pages/RegistroPonto";
+import Planilha from "./pages/Planilha";
+import PlanilhaControleFinanceiro from "./pages/PlanilhaControleFinanceiro";
+import PlanilhaControlePagamentos from "./pages/PlanilhaControlePagamentos";
 
 const queryClient = new QueryClient();
 
@@ -160,6 +163,30 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <MensagensInternas />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/planilha"
+                element={
+                  <ProtectedRoute>
+                    <Planilha />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/planilha/controle-financeiro"
+                element={
+                  <ProtectedRoute>
+                    <PlanilhaControleFinanceiro />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/planilha/controle-pagamentos"
+                element={
+                  <ProtectedRoute>
+                    <PlanilhaControlePagamentos />
                   </ProtectedRoute>
                 }
               />
