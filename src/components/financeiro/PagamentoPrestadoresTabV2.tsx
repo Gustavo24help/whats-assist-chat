@@ -316,7 +316,10 @@ export const PagamentoPrestadoresTabV2 = () => {
                       <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px]">Cliente Pendente</Badge>
                     )}
                     {f.nps_nota !== null && (
-                      <Badge variant="outline" className="text-xs gap-0.5"><Star className="h-3 w-3" /> NPS: {f.nps_nota}</Badge>
+                      <div className="inline-flex items-center gap-1.5 rounded-md border border-yellow-300 bg-yellow-50 px-2.5 py-1.5 text-sm font-semibold text-yellow-900 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-100">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <span>NPS {f.nps_nota}</span>
+                      </div>
                     )}
                   </div>
 
