@@ -32,7 +32,7 @@ const RegistroPontoPage = () => {
     if (!user) return;
 
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("registro_ponto")
       .select("*")
       .eq("user_id", user.id)
