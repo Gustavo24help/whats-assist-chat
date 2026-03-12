@@ -70,7 +70,7 @@ const RegistroPontoPage = () => {
     if (!user || registroAberto) return;
 
     setSaving(true);
-    const { error } = await supabase.from("registro_ponto").insert({ user_id: user.id });
+    const { error } = await (supabase as any).from("registro_ponto").insert({ user_id: user.id });
     setSaving(false);
 
     if (error) {
