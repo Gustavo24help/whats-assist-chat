@@ -7,10 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
-type RegistroPonto = Database["public"]["Tables"]["registro_ponto"]["Row"];
+interface RegistroPonto {
+  id: string;
+  user_id: string;
+  entrada_em: string;
+  saida_em: string | null;
+  created_at: string;
+}
 
 const PAGE_SIZE = 10;
 
