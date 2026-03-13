@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { VisualModeProvider } from "@/contexts/VisualModeContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { AvisoPopupOverlay } from "@/components/AvisoPopupOverlay";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
@@ -42,6 +43,7 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <NotificationProvider>
+              <AvisoPopupOverlay />
               <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/orcamento" element={<OrcamentoPublico />} />

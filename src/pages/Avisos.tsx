@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +40,19 @@ type Aviso = {
   created_at: string;
   criado_por_nome: string | null;
   arquivado: boolean;
+  enviar_popup: boolean;
+  enviar_para_todos: boolean;
+};
+
+type AvisoDestinatario = {
+  aviso_id: string;
+  user_id: string;
+};
+
+type SistemaUsuario = {
+  id: string;
+  email: string;
+  full_name: string | null;
 };
 
 const Avisos = () => {
@@ -56,7 +71,27 @@ const Avisos = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [enviarPopup, setEnviarPopup] = useState(false);
+  const [enviarParaTodos, setEnviarParaTodos] = useState(true);
+  const [usuariosSistema, setUsuariosSistema] = useState<SistemaUsuario[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [destinatariosPorAviso, setDestinatariosPorAviso] = useState<Record<string, Set<string>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadUsuariosSistema = async () => {
+    if (!isAdmin) return;
+
+    const { data, error } = await supabase.functions.invoke("manage-users", {
+      body: { action: "list" },
+    });
+
+    if (error || !data?.users) {
+      toast.error("Não foi possível carregar a lista de usuários para destinatários.");
+      return;
+    }
+
+    setUsuariosSistema(data.users as SistemaUsuario[]);
+  };
 
   const loadAvisos = async () => {
     if (!user) return;
@@ -64,11 +99,25 @@ const Avisos = () => {
 
     const { data: avisosData, error: avisosError } = await (supabase as any)
       .from("avisos")
-      .select("id, titulo, conteudo, imagem_url, created_at, criado_por_nome, arquivado")
+      .select("id, titulo, conteudo, imagem_url, created_at, criado_por_nome, arquivado, enviar_popup, enviar_para_todos")
       .order("created_at", { ascending: false });
 
     if (avisosError) {
       toast.error("Não foi possível carregar os avisos.");
+      setLoading(false);
+      return;
+    }
+
+    const destinatariosQuery = (supabase as any)
+      .from("aviso_destinatarios")
+      .select("aviso_id, user_id");
+
+    const { data: destinatariosData, error: destinatariosError } = isAdmin
+      ? await destinatariosQuery
+      : await destinatariosQuery.eq("user_id", user.id);
+
+    if (destinatariosError) {
+      toast.error("Não foi possível carregar os destinatários dos avisos.");
       setLoading(false);
       return;
     }
@@ -84,7 +133,20 @@ const Avisos = () => {
       return;
     }
 
-    setAvisos((avisosData || []) as Aviso[]);
+    const mapDestinatarios = (destinatariosData || []).reduce((acc: Record<string, Set<string>>, item: AvisoDestinatario) => {
+      if (!acc[item.aviso_id]) acc[item.aviso_id] = new Set();
+      acc[item.aviso_id].add(item.user_id);
+      return acc;
+    }, {});
+
+    const avisosFiltrados = ((avisosData || []) as Aviso[]).filter((aviso) => {
+      if (isAdmin) return true;
+      if (aviso.enviar_para_todos) return true;
+      return mapDestinatarios[aviso.id]?.has(user.id);
+    });
+
+    setDestinatariosPorAviso(mapDestinatarios);
+    setAvisos(avisosFiltrados);
     setLidos(new Set((lidosData || []).map((item: { aviso_id: string }) => item.aviso_id)));
     setLoading(false);
   };
@@ -92,6 +154,12 @@ const Avisos = () => {
   useEffect(() => {
     loadAvisos();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadUsuariosSistema();
+    }
+  }, [isAdmin]);
 
   const avisosAtivos = useMemo(() => avisos.filter((a) => !a.arquivado), [avisos]);
   const avisosArquivados = useMemo(() => avisos.filter((a) => a.arquivado), [avisos]);
@@ -207,29 +275,67 @@ const Avisos = () => {
       return;
     }
 
+    if (!enviarParaTodos && selectedUserIds.size === 0) {
+      toast.error("Escolha ao menos um usuário destinatário.");
+      return;
+    }
+
     setSubmitting(true);
 
-    const { error } = await (supabase as any).from("avisos").insert({
+    const { data: avisoCriado, error } = await (supabase as any).from("avisos").insert({
       titulo: novoTitulo.trim(),
       conteudo: novoConteudo.trim(),
       imagem_url: novaImagemUrl.trim() || null,
       criado_por: user?.id,
       criado_por_nome: userProfile?.fullName || null,
-    });
-
-    setSubmitting(false);
+      enviar_popup: enviarPopup,
+      enviar_para_todos: enviarParaTodos,
+    }).select("id").single();
 
     if (error) {
+      setSubmitting(false);
       toast.error("Erro ao publicar aviso.");
       return;
     }
+
+    if (!enviarParaTodos && avisoCriado?.id) {
+      const destinatarios = Array.from(selectedUserIds).map((userId) => ({
+        aviso_id: avisoCriado.id,
+        user_id: userId,
+      }));
+
+      const { error: destinatariosError } = await (supabase as any).from("aviso_destinatarios").insert(destinatarios);
+
+      if (destinatariosError) {
+        setSubmitting(false);
+        toast.error("Aviso criado, mas houve erro ao salvar os destinatários.");
+        return;
+      }
+    }
+
+    setSubmitting(false);
 
     toast.success("Aviso publicado com sucesso!");
     setNovoTitulo("");
     setNovoConteudo("");
     setNovaImagemUrl("");
     setImagePreview(null);
+    setEnviarPopup(false);
+    setEnviarParaTodos(true);
+    setSelectedUserIds(new Set());
     loadAvisos();
+  };
+
+  const toggleDestinatario = (userId: string, checked: boolean) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(userId);
+      } else {
+        next.delete(userId);
+      }
+      return next;
+    });
   };
 
   const renderAvisoCard = (aviso: Aviso) => {
@@ -248,6 +354,10 @@ const Avisos = () => {
         <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
           <CalendarDays className="h-3.5 w-3.5" />
           {new Date(aviso.created_at).toLocaleString("pt-BR")}
+          {aviso.enviar_popup && <span className="text-brand-green">• pop-up ativo</span>}
+          {!aviso.enviar_para_todos && (
+            <span>• {destinatariosPorAviso[aviso.id]?.size || 0} destinatário(s)</span>
+          )}
           {aviso.criado_por_nome && (
             <span className="text-muted-foreground">• por {aviso.criado_por_nome}</span>
           )}
@@ -374,6 +484,61 @@ const Avisos = () => {
                         </Button>
                       </div>
                     )}
+
+                    <div className="space-y-3 rounded-md border p-3">
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          id="enviar-para-todos"
+                          checked={enviarParaTodos}
+                          onCheckedChange={(checked) => setEnviarParaTodos(checked === true)}
+                        />
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="enviar-para-todos">Enviar para todos os usuários</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Desmarque para escolher manualmente quem receberá este aviso.
+                          </p>
+                        </div>
+                      </div>
+
+                      {!enviarParaTodos && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Destinatários</p>
+                          <ScrollArea className="h-40 rounded border p-2">
+                            <div className="space-y-2">
+                              {usuariosSistema.map((usuario) => {
+                                const checked = selectedUserIds.has(usuario.id);
+                                return (
+                                  <label key={usuario.id} className="flex items-start gap-2 rounded p-1 hover:bg-muted/40 cursor-pointer">
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={(value) => toggleDestinatario(usuario.id, value === true)}
+                                    />
+                                    <span className="text-sm">
+                                      {usuario.full_name || "Sem nome"}
+                                      <span className="block text-xs text-muted-foreground">{usuario.email}</span>
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      )}
+
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          id="enviar-popup"
+                          checked={enviarPopup}
+                          onCheckedChange={(checked) => setEnviarPopup(checked === true)}
+                        />
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="enviar-popup">Exibir pop-up instantâneo para destinatários</Label>
+                          <p className="text-xs text-muted-foreground">
+                            O pop-up não bloqueia a operação do sistema e fecha ao clicar fora.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
                     <Button onClick={createAviso} disabled={submitting || uploading}>
                       <PlusCircle className="h-4 w-4 mr-2" />
