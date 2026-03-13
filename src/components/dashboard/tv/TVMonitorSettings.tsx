@@ -207,6 +207,21 @@ export function TVMonitorSettings({ open, onClose, settings, onUpdate }: Props) 
               />
             </div>
 
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs text-gray-400">Tamanho da fonte dos itens</label>
+                <span className="text-xs text-cyan-400 font-mono">
+                  {local.rotatingWidgetFixedFontSize === 0 ? 'Auto' : `${local.rotatingWidgetFixedFontSize}px`}
+                </span>
+              </div>
+              <Slider
+                value={[local.rotatingWidgetFixedFontSize]}
+                onValueChange={([v]) => setLocal(s => ({ ...s, rotatingWidgetFixedFontSize: v }))}
+                min={0} max={24} step={1}
+                className="w-full"
+              />
+              <p className="text-[10px] text-gray-500 mt-1">0 = automático. Valor fixo congela a fonte e a altura mostra mais itens.</p>
+
             {ROTATING_WIDGET_OPTIONS.map(opt => (
               <div key={opt.id} className="flex items-center justify-between rounded-md border border-gray-700/80 bg-gray-900/40 px-2.5 py-2">
                 <div>
