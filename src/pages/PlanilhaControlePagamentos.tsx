@@ -9,6 +9,7 @@ import { format } from "date-fns";
 
 const formatMoeda = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+const FINANCEIRO_CUTOFF = "2026-03-13T23:00:00.000Z";
 
 const formatDate = (d: string | null) => {
   if (!d) return "-";
