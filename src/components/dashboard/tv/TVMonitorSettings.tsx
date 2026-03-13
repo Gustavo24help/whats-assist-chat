@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS: MonitorSettings = {
   presetName: '',
   rotatingWidgetIntervalSec: 20,
   rotatingWidgetItems: ['conversas-abertas'],
+  rotatingWidgetFixedFontSize: 0,
 };
 
 const PRESETS = [
