@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X, Hash } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X, Hash, MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -78,11 +78,13 @@ export const ConversationList = ({
   const [clientesTelefonesPorPrestador, setClientesTelefonesPorPrestador] = useState<string[]>([]);
   const [clientesTelefonesPorFicha, setClientesTelefonesPorFicha] = useState<string[]>([]);
   const [clientesTelefonesPorIdFicha, setClientesTelefonesPorIdFicha] = useState<string[]>([]);
-  const [isSearchingById, setIsSearchingById] = useState(false); // Loading state for ID search
+  const [clientesTelefonesPorMensagem, setClientesTelefonesPorMensagem] = useState<string[]>([]);
+  const [isSearchingById, setIsSearchingById] = useState(false);
+  const [isSearchingByMessage, setIsSearchingByMessage] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState("");
   const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
-  const [searchMode, setSearchMode] = useState<'ficha' | 'prestador' | 'descricao' | 'id_ficha'>('ficha');
+  const [searchMode, setSearchMode] = useState<'ficha' | 'prestador' | 'descricao' | 'id_ficha' | 'mensagem'>('ficha');
   const [showServicosParaFinalizarOnly, setShowServicosParaFinalizarOnly] = useState(false);
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [clientesSemOrcamento, setClientesSemOrcamento] = useState<Set<string>>(new Set());
@@ -187,9 +189,9 @@ export const ConversationList = ({
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
 
-    // 🔍 Variável que indica se deve ignorar filtros de atendente e status para busca por ID
-    // Quando buscando por ID de ficha, mostramos o resultado independente do dono ou status
-    const ignorarFiltrosBuscaId = searchMode === 'id_ficha' && debouncedSearchTerm;
+    // 🔍 Variável que indica se deve ignorar filtros de atendente e status para busca especial
+    // Quando buscando por ID de ficha ou mensagem, mostramos o resultado independente do dono ou status
+    const ignorarFiltrosBuscaId = (searchMode === 'id_ficha' || searchMode === 'mensagem') && debouncedSearchTerm;
 
     // 🔐 Filtro por atendente baseado na role do usuário
     // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
@@ -255,6 +257,11 @@ export const ConversationList = ({
         // Modo ID ficha: busca pelo ID/número da ficha de serviço
         filtered = filtered.filter(c => 
           clientesTelefonesPorIdFicha.includes(c.telefone)
+        );
+      } else if (searchMode === 'mensagem') {
+        // Modo mensagem: busca por texto das mensagens
+        filtered = filtered.filter(c => 
+          clientesTelefonesPorMensagem.includes(c.telefone)
         );
       }
     }
@@ -344,7 +351,7 @@ export const ConversationList = ({
     });
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -536,6 +543,47 @@ export const ConversationList = ({
     };
 
     buscarClientesPorIdFicha();
+  }, [debouncedSearchTerm, searchMode]);
+
+  // Buscar clientes por texto das mensagens - USANDO EDGE FUNCTION
+  useEffect(() => {
+    const buscarClientesPorMensagem = async () => {
+      if (!debouncedSearchTerm || searchMode !== 'mensagem') {
+        setClientesTelefonesPorMensagem([]);
+        setIsSearchingByMessage(false);
+        return;
+      }
+
+      if (debouncedSearchTerm.trim().length < 3) {
+        setClientesTelefonesPorMensagem([]);
+        setIsSearchingByMessage(false);
+        return;
+      }
+
+      setIsSearchingByMessage(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke('search-messages', {
+          body: { term: debouncedSearchTerm }
+        });
+
+        if (error) {
+          console.error('[ConversationList] Erro ao buscar mensagens:', error);
+          setClientesTelefonesPorMensagem([]);
+          toast.error('Não foi possível buscar mensagens');
+          return;
+        }
+
+        setClientesTelefonesPorMensagem(data?.phones || []);
+      } catch (err) {
+        console.error('[ConversationList] Erro inesperado ao buscar mensagens:', err);
+        setClientesTelefonesPorMensagem([]);
+      } finally {
+        setIsSearchingByMessage(false);
+      }
+    };
+
+    buscarClientesPorMensagem();
   }, [debouncedSearchTerm, searchMode]);
 
   const fetchTagsWithColors = async () => {
@@ -1060,7 +1108,8 @@ export const ConversationList = ({
                     searchMode === 'ficha' ? "Buscar..." : 
                     searchMode === 'prestador' ? "Buscar prestador..." : 
                     searchMode === 'descricao' ? "Buscar descrição..." :
-                    "Buscar nº ficha..."
+                    searchMode === 'id_ficha' ? "Buscar nº ficha..." :
+                    "Buscar nas mensagens..."
                   }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -1074,6 +1123,7 @@ export const ConversationList = ({
                   searchMode === 'ficha' ? 'prestador' : 
                   searchMode === 'prestador' ? 'descricao' : 
                   searchMode === 'descricao' ? 'id_ficha' : 
+                  searchMode === 'id_ficha' ? 'mensagem' :
                   'ficha'
                 )}
                 className="h-9 w-9 shrink-0"
@@ -1081,6 +1131,7 @@ export const ConversationList = ({
                   searchMode === 'ficha' ? "Clique: Buscar por prestador" : 
                   searchMode === 'prestador' ? "Clique: Buscar por descrição" : 
                   searchMode === 'descricao' ? "Clique: Buscar por nº ficha" :
+                  searchMode === 'id_ficha' ? "Clique: Buscar nas mensagens" :
                   "Clique: Buscar geral"
                 }
               >
@@ -1090,8 +1141,10 @@ export const ConversationList = ({
                   <HardHat className="h-4 w-4" />
                 ) : searchMode === 'descricao' ? (
                   <BookOpen className="h-4 w-4" />
-                ) : (
+                ) : searchMode === 'id_ficha' ? (
                   <Hash className="h-4 w-4" />
+                ) : (
+                  <MessageSquareText className="h-4 w-4" />
                 )}
               </Button>
             </div>
@@ -1320,6 +1373,10 @@ export const ConversationList = ({
                     <Skeleton className="h-3 w-20" />
                   </div>
                 ))}
+              </div>
+            ) : (isSearchingById || isSearchingByMessage) ? (
+              <div className="flex items-center justify-center p-8 text-center">
+                <p className="text-muted-foreground text-sm">Buscando...</p>
               </div>
             ) : filteredClientes.length === 0 ? (
               <div className="flex items-center justify-center p-8 text-center">
