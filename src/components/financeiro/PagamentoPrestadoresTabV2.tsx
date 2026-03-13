@@ -89,6 +89,7 @@ export const PagamentoPrestadoresTabV2 = () => {
       .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
       .not("prestador_id", "is", null)
+      .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false });
 
     if (page !== undefined) {

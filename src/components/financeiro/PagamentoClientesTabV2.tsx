@@ -81,6 +81,7 @@ export const PagamentoClientesTabV2 = () => {
       .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at", { count: "exact" })
       .eq("pagamento_realizado", true)
       .gt("valor_total", 0)
+      .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false })
       .range(historicoPage * PAGE_SIZE, (historicoPage + 1) * PAGE_SIZE - 1);
     if (!error) {

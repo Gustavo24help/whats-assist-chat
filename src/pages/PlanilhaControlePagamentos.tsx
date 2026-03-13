@@ -46,6 +46,7 @@ const PlanilhaControlePagamentos = () => {
       .select("id, nome_cliente, telefone_cliente, prestador_id, valor_total, valor_mao_obra, pagamento_realizado, pagamento_link, updated_at")
       .in("status", ["Finalizado", "Em andamento"] as any)
       .gt("valor_total", 0)
+      .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false });
 
     if (!fichas || fichas.length === 0) {
