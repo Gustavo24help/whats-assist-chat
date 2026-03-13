@@ -199,6 +199,7 @@ export const PrestadorManagement = () => {
             cnpj: cnpjLimpo,
             nome_pix: formData.nome_pix || null,
             chave_pix: formData.chave_pix || null,
+            banco: formData.banco || null,
             ativo: formData.ativo ?? true,
           })
           .eq("cpf", editingPrestador.cpf);
