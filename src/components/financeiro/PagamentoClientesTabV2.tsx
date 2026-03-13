@@ -16,6 +16,8 @@ import {
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const EXCLUDED_FICHAS = ["FS4-260127"];
+// Cutoff: only show fichas updated after financial reset (2026-03-13)
+const FINANCEIRO_CUTOFF = "2026-03-13T23:00:00.000Z";
 const PAGE_SIZE = 20;
 
 interface FichaCliente {
@@ -63,6 +65,7 @@ export const PagamentoClientesTabV2 = () => {
       .eq("pagamento_realizado", false)
       .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
+      .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false });
     if (!error) {
       const filtered = (data || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
@@ -78,6 +81,7 @@ export const PagamentoClientesTabV2 = () => {
       .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at", { count: "exact" })
       .eq("pagamento_realizado", true)
       .gt("valor_total", 0)
+      .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false })
       .range(historicoPage * PAGE_SIZE, (historicoPage + 1) * PAGE_SIZE - 1);
     if (!error) {

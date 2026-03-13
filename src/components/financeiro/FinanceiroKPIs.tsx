@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { DollarSign, TrendingUp, Clock, Wallet, AlertTriangle } from "lucide-react";
 import { startOfMonth, endOfMonth } from "date-fns";
 
+const FINANCEIRO_CUTOFF = "2026-03-13T23:00:00.000Z";
+
 const formatMoeda = (valor: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
@@ -33,28 +35,27 @@ export const FinanceiroKPIs = () => {
         const fimMes = endOfMonth(now).toISOString();
 
         const [pagosRes, pendClientesRes, finalizadosRes, adiantRes] = await Promise.all([
-          // Fichas com pagamento realizado neste mês
+          // Fichas com pagamento realizado neste mês (after cutoff)
           supabase
             .from("fichas_de_servico")
             .select("valor_total")
             .eq("pagamento_realizado", true)
             .gt("valor_total", 0)
-            .gte("updated_at", inicioMes)
-            .lte("updated_at", fimMes),
-          // Fichas pendentes de pagamento do cliente
+            .gte("updated_at", FINANCEIRO_CUTOFF),
+          // Fichas pendentes de pagamento do cliente (after cutoff)
           supabase
             .from("fichas_de_servico")
             .select("valor_total")
             .eq("pagamento_realizado", false)
-            .in("status", ["Orçamento Aprovado / Agendamento" as any, "Agendado" as any, "Em andamento" as any, "Finalizado" as any])
-            .gt("valor_total", 0),
-          // Fichas finalizadas neste mês
+            .eq("status", "Finalizado" as any)
+            .gt("valor_total", 0)
+            .gte("updated_at", FINANCEIRO_CUTOFF),
+          // Fichas finalizadas neste mês (after cutoff)
           supabase
             .from("fichas_de_servico")
             .select("id")
             .eq("status", "Finalizado" as any)
-            .gte("updated_at", inicioMes)
-            .lte("updated_at", fimMes),
+            .gte("updated_at", FINANCEIRO_CUTOFF),
           // Adiantamentos pendentes
           supabase
             .from("adiantamentos")

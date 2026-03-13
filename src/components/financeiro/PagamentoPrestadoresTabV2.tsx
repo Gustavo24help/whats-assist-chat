@@ -18,6 +18,7 @@ import {
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const EXCLUDED_FICHAS = ["FS4-260127"];
+const FINANCEIRO_CUTOFF = "2026-03-13T23:00:00.000Z";
 const PAGE_SIZE = 20;
 
 function calcFinanceiro(ficha: any) {
@@ -88,6 +89,7 @@ export const PagamentoPrestadoresTabV2 = () => {
       .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
       .not("prestador_id", "is", null)
+      .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false });
 
     if (page !== undefined) {
