@@ -97,15 +97,34 @@ const Avisos = () => {
     if (!user) return;
     setLoading(true);
 
-    const { data: avisosData, error: avisosError } = await (supabase as any)
+    let avisosBase: Aviso[] = [];
+    let targetingAtivo = true;
+
+    const { data: avisosComTarget, error: avisosComTargetError } = await (supabase as any)
       .from("avisos")
       .select("id, titulo, conteudo, imagem_url, created_at, criado_por_nome, arquivado, enviar_popup, enviar_para_todos")
       .order("created_at", { ascending: false });
 
-    if (avisosError) {
-      toast.error("Não foi possível carregar os avisos.");
-      setLoading(false);
-      return;
+    if (avisosComTargetError) {
+      const { data: avisosLegado, error: avisosLegadoError } = await (supabase as any)
+        .from("avisos")
+        .select("id, titulo, conteudo, imagem_url, created_at, criado_por_nome, arquivado")
+        .order("created_at", { ascending: false });
+
+      if (avisosLegadoError) {
+        toast.error("Não foi possível carregar os avisos.");
+        setLoading(false);
+        return;
+      }
+
+      targetingAtivo = false;
+      avisosBase = (avisosLegado || []).map((aviso: any) => ({
+        ...aviso,
+        enviar_popup: false,
+        enviar_para_todos: true,
+      }));
+    } else {
+      avisosBase = (avisosComTarget || []) as Aviso[];
     }
 
     const destinatariosQuery = (supabase as any)
