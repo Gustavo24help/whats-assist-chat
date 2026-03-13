@@ -118,6 +118,42 @@ export type Database = {
         }
         Relationships: []
       }
+      aviso_destinatarios: {
+        Row: {
+          aviso_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          aviso_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          aviso_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aviso_destinatarios_aviso_id_fkey"
+            columns: ["aviso_id"]
+            isOneToOne: false
+            referencedRelation: "avisos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aviso_destinatarios_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aviso_leituras: {
         Row: {
           aviso_id: string
@@ -154,6 +190,8 @@ export type Database = {
           created_at: string
           criado_por: string | null
           criado_por_nome: string | null
+          enviar_para_todos: boolean
+          enviar_popup: boolean
           id: string
           imagem_url: string | null
           titulo: string
@@ -164,6 +202,8 @@ export type Database = {
           created_at?: string
           criado_por?: string | null
           criado_por_nome?: string | null
+          enviar_para_todos?: boolean
+          enviar_popup?: boolean
           id?: string
           imagem_url?: string | null
           titulo: string
@@ -174,6 +214,8 @@ export type Database = {
           created_at?: string
           criado_por?: string | null
           criado_por_nome?: string | null
+          enviar_para_todos?: boolean
+          enviar_popup?: boolean
           id?: string
           imagem_url?: string | null
           titulo?: string
