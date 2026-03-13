@@ -1374,6 +1374,10 @@ export const ConversationList = ({
                   </div>
                 ))}
               </div>
+            ) : (isSearchingById || isSearchingByMessage) ? (
+              <div className="flex items-center justify-center p-8 text-center">
+                <p className="text-muted-foreground text-sm">Buscando...</p>
+              </div>
             ) : filteredClientes.length === 0 ? (
               <div className="flex items-center justify-center p-8 text-center">
                 <p className="text-muted-foreground text-sm">Nenhuma conversa encontrada</p>
