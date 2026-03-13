@@ -15,6 +15,7 @@ export interface MonitorSettings {
   presetName: string;
   rotatingWidgetIntervalSec: number;
   rotatingWidgetItems: string[];
+  rotatingWidgetFixedFontSize: number; // 0 = auto, 8-24px = fixed
 }
 
 const DEFAULT_SETTINGS: MonitorSettings = {
