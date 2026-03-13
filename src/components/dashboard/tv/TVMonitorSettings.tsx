@@ -221,6 +221,7 @@ export function TVMonitorSettings({ open, onClose, settings, onUpdate }: Props) 
                 className="w-full"
               />
               <p className="text-[10px] text-gray-500 mt-1">0 = automático. Valor fixo congela a fonte e a altura mostra mais itens.</p>
+            </div>
 
             {ROTATING_WIDGET_OPTIONS.map(opt => (
               <div key={opt.id} className="flex items-center justify-between rounded-md border border-gray-700/80 bg-gray-900/40 px-2.5 py-2">
