@@ -65,6 +65,7 @@ export const PagamentoClientesTabV2 = () => {
       .eq("pagamento_realizado", false)
       .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
+      .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false });
     if (!error) {
       const filtered = (data || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
