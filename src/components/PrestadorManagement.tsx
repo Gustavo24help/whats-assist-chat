@@ -80,6 +80,7 @@ export const PrestadorManagement = () => {
     cnpj: "",
     nome_pix: "",
     chave_pix: "",
+    banco: "",
     ativo: true,
   });
 
