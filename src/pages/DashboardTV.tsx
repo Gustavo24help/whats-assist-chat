@@ -545,14 +545,17 @@ function DashboardTVContent() {
           const pad = Math.max(4, dims.padding * 0.6);
           const headerH = Math.max(10, dims.labelFontSize) * 1.8;
           const availableH = dims.height - headerH - pad * 2;
-          const minFs = 8;
+          const fixedFs = monitorSettings.rotatingWidgetFixedFontSize;
+          const minFs = fixedFs > 0 ? fixedFs : 8;
           const itemSpacing = 2.4;
           const maxVisible = Math.max(1, Math.floor(availableH / (minFs * itemSpacing)));
           const visibleAlerts = alertas.slice(0, maxVisible);
           const hiddenCount = alertas.length - visibleAlerts.length;
-          const itemFs = alertas.length > 0
-            ? Math.max(minFs, Math.min(availableH / (Math.min(alertas.length, maxVisible) * itemSpacing), dims.subFontSize * 0.95))
-            : dims.subFontSize;
+          const itemFs = fixedFs > 0
+            ? fixedFs
+            : alertas.length > 0
+              ? Math.max(8, Math.min(availableH / (Math.min(alertas.length, maxVisible) * itemSpacing), dims.subFontSize * 0.95))
+              : dims.subFontSize;
           return (
           <div className="w-full h-full overflow-hidden" style={{ padding: pad }}>
             <div className="flex items-center gap-1 mb-1">
@@ -624,14 +627,17 @@ function DashboardTVContent() {
           const pad = Math.max(4, dims.padding * 0.6);
           const headerH = Math.max(10, dims.labelFontSize) * 1.8;
           const availableH = dims.height - headerH - pad * 2;
-          const minFs = 8;
+          const fixedFs = monitorSettings.rotatingWidgetFixedFontSize;
+          const minFs = fixedFs > 0 ? fixedFs : 8;
           const itemSpacing = 2.4;
           const maxVisible = Math.max(1, Math.floor(availableH / (minFs * itemSpacing)));
           const visibleAlerts = alertas.slice(0, maxVisible);
           const hiddenCount = alertas.length - visibleAlerts.length;
-          const itemFs = alertas.length > 0
-            ? Math.max(minFs, Math.min(availableH / (Math.min(alertas.length, maxVisible) * itemSpacing), dims.subFontSize * 0.95))
-            : dims.subFontSize;
+          const itemFs = fixedFs > 0
+            ? fixedFs
+            : alertas.length > 0
+              ? Math.max(8, Math.min(availableH / (Math.min(alertas.length, maxVisible) * itemSpacing), dims.subFontSize * 0.95))
+              : dims.subFontSize;
           return (
           <div className="w-full h-full overflow-hidden" style={{ padding: pad }}>
             <div className="flex items-center gap-1 mb-1">

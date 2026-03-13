@@ -15,6 +15,7 @@ export interface MonitorSettings {
   presetName: string;
   rotatingWidgetIntervalSec: number;
   rotatingWidgetItems: string[];
+  rotatingWidgetFixedFontSize: number; // 0 = auto, 8-24px = fixed
 }
 
 const DEFAULT_SETTINGS: MonitorSettings = {
@@ -25,6 +26,7 @@ const DEFAULT_SETTINGS: MonitorSettings = {
   presetName: '',
   rotatingWidgetIntervalSec: 20,
   rotatingWidgetItems: ['conversas-abertas'],
+  rotatingWidgetFixedFontSize: 0,
 };
 
 const PRESETS = [
@@ -203,6 +205,22 @@ export function TVMonitorSettings({ open, onClose, settings, onUpdate }: Props) 
                 min={5} max={120} step={5}
                 className="w-full"
               />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs text-gray-400">Tamanho da fonte dos itens</label>
+                <span className="text-xs text-cyan-400 font-mono">
+                  {local.rotatingWidgetFixedFontSize === 0 ? 'Auto' : `${local.rotatingWidgetFixedFontSize}px`}
+                </span>
+              </div>
+              <Slider
+                value={[local.rotatingWidgetFixedFontSize]}
+                onValueChange={([v]) => setLocal(s => ({ ...s, rotatingWidgetFixedFontSize: v }))}
+                min={0} max={24} step={1}
+                className="w-full"
+              />
+              <p className="text-[10px] text-gray-500 mt-1">0 = automático. Valor fixo congela a fonte e a altura mostra mais itens.</p>
             </div>
 
             {ROTATING_WIDGET_OPTIONS.map(opt => (
