@@ -189,9 +189,9 @@ export const ConversationList = ({
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
 
-    // 🔍 Variável que indica se deve ignorar filtros de atendente e status para busca por ID
-    // Quando buscando por ID de ficha, mostramos o resultado independente do dono ou status
-    const ignorarFiltrosBuscaId = searchMode === 'id_ficha' && debouncedSearchTerm;
+    // 🔍 Variável que indica se deve ignorar filtros de atendente e status para busca especial
+    // Quando buscando por ID de ficha ou mensagem, mostramos o resultado independente do dono ou status
+    const ignorarFiltrosBuscaId = (searchMode === 'id_ficha' || searchMode === 'mensagem') && debouncedSearchTerm;
 
     // 🔐 Filtro por atendente baseado na role do usuário
     // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
