@@ -49,6 +49,7 @@ interface Prestador {
   cnpj: string | null;
   nome_pix: string | null;
   chave_pix: string | null;
+  banco: string | null;
   ativo: boolean;
   created_at?: string | null;
 }
@@ -79,6 +80,7 @@ export const PrestadorManagement = () => {
     cnpj: "",
     nome_pix: "",
     chave_pix: "",
+    banco: "",
     ativo: true,
   });
 
@@ -132,6 +134,7 @@ export const PrestadorManagement = () => {
         cnpj: "",
         nome_pix: "",
         chave_pix: "",
+        banco: "",
         ativo: true,
       });
     }
@@ -196,6 +199,7 @@ export const PrestadorManagement = () => {
             cnpj: cnpjLimpo,
             nome_pix: formData.nome_pix || null,
             chave_pix: formData.chave_pix || null,
+            banco: formData.banco || null,
             ativo: formData.ativo ?? true,
           })
           .eq("cpf", editingPrestador.cpf);
@@ -218,6 +222,7 @@ export const PrestadorManagement = () => {
           cnpj: cnpjLimpo,
           nome_pix: formData.nome_pix || null,
           chave_pix: formData.chave_pix || null,
+          banco: formData.banco || null,
           ativo: formData.ativo ?? true,
         }, { onConflict: "cpf", ignoreDuplicates: false });
 
@@ -771,19 +776,31 @@ export const PrestadorManagement = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="ativo">Prestador ativo</Label>
-                        <select
-                          id="ativo"
-                          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          value={formData.ativo ? "ativo" : "desativado"}
+                        <Label htmlFor="banco">Banco</Label>
+                        <Input
+                          id="banco"
+                          placeholder="Ex: Nubank, Bradesco, Itaú"
+                          value={formData.banco || ""}
                           onChange={(e) =>
-                            setFormData({ ...formData, ativo: e.target.value === "ativo" })
+                            setFormData({ ...formData, banco: e.target.value })
                           }
-                        >
-                          <option value="ativo">Ativo</option>
-                          <option value="desativado">Desativado</option>
-                        </select>
+                        />
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="ativo">Prestador ativo</Label>
+                      <select
+                        id="ativo"
+                        className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={formData.ativo ? "ativo" : "desativado"}
+                        onChange={(e) =>
+                          setFormData({ ...formData, ativo: e.target.value === "ativo" })
+                        }
+                      >
+                        <option value="ativo">Ativo</option>
+                        <option value="desativado">Desativado</option>
+                      </select>
                     </div>
                   </div>
 

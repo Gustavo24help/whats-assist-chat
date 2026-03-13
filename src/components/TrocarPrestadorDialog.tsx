@@ -105,6 +105,22 @@ export const TrocarPrestadorDialog = ({
           });
       }
 
+      // 3. Record in prestador_historico (for the NEW prestador - assigned)
+      await (supabase as any)
+        .from("prestador_historico")
+        .insert({
+          prestador_cpf: novoPrestadorId,
+          ficha_id: fichaId,
+          tipo_evento: "atribuido_ficha",
+          descricao: `Atribuído à ficha ${fichaId} (substituindo ${prestadorAnteriorNome}). Motivo: ${motivo.trim()}`,
+          criado_por: user?.id,
+          dados_extras: {
+            prestador_anterior_cpf: prestadorAtualId,
+            prestador_anterior_nome: prestadorAnteriorNome,
+            motivo: motivo.trim(),
+          },
+        });
+
       toast.success("Prestador trocado com sucesso!");
       onOpenChange(false);
       onSuccess();

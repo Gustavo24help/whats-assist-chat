@@ -130,15 +130,16 @@ export const PagamentoClientesTabV2 = () => {
 
   return (
     <div className="space-y-4">
+      {/* Summary - clean design */}
       <div className="flex gap-3 overflow-x-auto">
-        <Card className="min-w-[160px] bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 p-3 shrink-0">
-          <div className="text-xs text-amber-600 dark:text-amber-400">Pendentes</div>
-          <div className="text-2xl font-bold text-amber-900 dark:text-amber-300">{filteredFichas.length}</div>
-        </Card>
-        <Card className="min-w-[160px] bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 p-3 shrink-0">
-          <div className="text-xs text-blue-600 dark:text-blue-400">Valor Total Pendente</div>
-          <div className="text-xl font-bold text-blue-900 dark:text-blue-300">{formatMoeda(totalPendente)}</div>
-        </Card>
+        <div className="min-w-[140px] rounded-lg border bg-card p-3 shrink-0">
+          <div className="text-xs text-muted-foreground">Pendentes</div>
+          <div className="text-2xl font-bold">{filteredFichas.length}</div>
+        </div>
+        <div className="min-w-[180px] rounded-lg border bg-card p-3 shrink-0">
+          <div className="text-xs text-muted-foreground">Valor Total Pendente</div>
+          <div className="text-xl font-bold">{formatMoeda(totalPendente)}</div>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -153,51 +154,53 @@ export const PagamentoClientesTabV2 = () => {
         </TabsList>
 
         <TabsContent value="pendentes">
-          <div className="space-y-3">
+          <div className="space-y-2">
             {loading ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : filteredFichas.length === 0 ? (
-              <div className="text-center py-12"><CheckCircle2 className="h-12 w-12 text-green-400 mx-auto mb-3" /><p className="text-muted-foreground">Todos os pagamentos em dia!</p></div>
+              <div className="text-center py-12"><CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-muted-foreground">Todos os pagamentos em dia!</p></div>
             ) : (
               filteredFichas.map(f => (
-                <Card key={f.id} className="p-4 border-l-4 border-l-amber-500">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-sm">{f.nome_cliente_resolved}</h3>
-                      <p className="text-xs text-muted-foreground">{f.telefone_cliente.replace("whatsapp:+55", "")}</p>
+                <div key={f.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
+                  {/* Left: Client info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm truncate">{f.nome_cliente_resolved}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="secondary" className="text-[10px]">{f.id}</Badge>
+                      {f.pagamento_tipo && <Badge variant="outline" className="text-[10px]">{f.pagamento_tipo}</Badge>}
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xl font-bold text-primary">{formatMoeda(f.valor_total)}</div>
-                    </div>
+                    {f.pagamento_link && (
+                      <div className="flex items-center gap-1.5 mt-1.5 text-xs">
+                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                        <a href={f.pagamento_link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[180px]">Link pagamento</a>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(f.pagamento_link!)}><Copy className="h-3 w-3" /></Button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    <Badge variant="secondary" className="text-xs">{f.id}</Badge>
-                    {f.pagamento_tipo && <Badge variant="outline" className="text-xs">{f.pagamento_tipo}</Badge>}
+
+                  {/* Center: Value */}
+                  <div className="text-right shrink-0">
+                    <div className="text-xl font-bold">{formatMoeda(f.valor_total)}</div>
                   </div>
-                  {f.pagamento_link && (
-                    <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 mb-3 text-xs flex items-center gap-2">
-                      <ExternalLink className="h-3 w-3 text-blue-600 shrink-0" />
-                      <a href={f.pagamento_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">Link</a>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => copyToClipboard(f.pagamento_link!)}><Copy className="h-3 w-3" /></Button>
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10" disabled={cancelando === f.id} onClick={() => setConfirmCancel(f)}>
-                      <Ban className="h-4 w-4 mr-1" /> Cancelar
+
+                  {/* Right: Actions */}
+                  <div className="flex gap-2 shrink-0">
+                    <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-9 px-3" disabled={cancelando === f.id} onClick={() => setConfirmCancel(f)}>
+                      <Ban className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700" disabled={markingPaid === f.id} onClick={() => marcarPagou(f)}>
+                    <Button size="sm" className="h-9 px-4" disabled={markingPaid === f.id} onClick={() => marcarPagou(f)}>
                       {markingPaid === f.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                       Cliente Pagou
                     </Button>
                   </div>
-                </Card>
+                </div>
               ))
             )}
           </div>
         </TabsContent>
 
         <TabsContent value="historico">
-          <div className="space-y-3">
+          <div className="space-y-2">
             {historicoLoading ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
             ) : historico.length === 0 ? (
@@ -205,18 +208,16 @@ export const PagamentoClientesTabV2 = () => {
             ) : (
               <>
                 {historico.map(f => (
-                  <Card key={f.id} className="p-3 opacity-80">
-                    <div className="flex items-center justify-between">
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
-                        <p className="text-xs text-muted-foreground">{f.id}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-bold text-sm">{formatMoeda(f.valor_total)}</div>
-                        <Badge className="bg-green-100 text-green-700 text-[10px]">Pago</Badge>
-                      </div>
+                  <div key={f.id} className="rounded-lg border bg-card p-3 flex items-center justify-between opacity-80">
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
+                      <p className="text-xs text-muted-foreground">{f.id}</p>
                     </div>
-                  </Card>
+                    <div className="text-right shrink-0 flex items-center gap-2">
+                      <div className="font-bold text-sm">{formatMoeda(f.valor_total)}</div>
+                      <Badge variant="secondary" className="text-[10px]">Pago</Badge>
+                    </div>
+                  </div>
                 ))}
                 {historicoTotalPages > 1 && (
                   <div className="flex items-center justify-between pt-2">
