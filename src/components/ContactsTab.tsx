@@ -50,6 +50,14 @@ interface ContactsTabProps {
 type SortField = 'nome' | 'ultima_interacao' | 'created_at';
 type SortOrder = 'asc' | 'desc';
 
+const CONTACTS_PAGE_SIZE = 1000;
+
+const normalizeForSearch = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
 export const ContactsTab = ({ onSelectCliente, selectedClienteTelefone }: ContactsTabProps) => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,15 +87,29 @@ export const ContactsTab = ({ onSelectCliente, selectedClienteTelefone }: Contac
 
   const fetchClientes = async () => {
     try {
-      const { data, error } = await supabase
-        .from("clientes")
-        .select("telefone, nome, tags, ultima_interacao, status_conversa, bot_habilitado, ficha_ativa_id, created_at, arquivado")
-        .eq("arquivado", false)
-        .order("nome", { ascending: true })
-        .limit(5000);
+      let from = 0;
+      const allClientes: Cliente[] = [];
 
-      if (error) throw error;
-      setClientes(data || []);
+      while (true) {
+        const { data, error } = await supabase
+          .from("clientes")
+          .select("telefone, nome, tags, ultima_interacao, status_conversa, bot_habilitado, ficha_ativa_id, created_at, arquivado")
+          .eq("arquivado", false)
+          .order("nome", { ascending: true })
+          .range(from, from + CONTACTS_PAGE_SIZE - 1);
+
+        if (error) throw error;
+
+        const batch = (data || []) as Cliente[];
+        if (batch.length === 0) break;
+
+        allClientes.push(...batch);
+
+        if (batch.length < CONTACTS_PAGE_SIZE) break;
+        from += CONTACTS_PAGE_SIZE;
+      }
+
+      setClientes(allClientes);
     } catch (error) {
       console.error("Erro ao buscar contatos:", error);
     } finally {
@@ -100,12 +122,15 @@ export const ContactsTab = ({ onSelectCliente, selectedClienteTelefone }: Contac
 
     // Apply search filter
     if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = clientes.filter(
-        (c) =>
-          c.nome.toLowerCase().includes(term) ||
-          c.telefone.replace(/\D/g, '').includes(term.replace(/\D/g, ''))
-      );
+      const term = normalizeForSearch(searchTerm.trim());
+      const phoneTerm = searchTerm.replace(/\D/g, '');
+
+      filtered = clientes.filter((c) => {
+        const nome = normalizeForSearch(c.nome || '');
+        const phone = c.telefone.replace(/\D/g, '');
+
+        return nome.includes(term) || (phoneTerm.length > 0 && phone.includes(phoneTerm));
+      });
     }
 
     // Apply sorting
