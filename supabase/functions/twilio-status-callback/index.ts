@@ -67,8 +67,10 @@ serve(async (req) => {
     });
 
     // Verificar se é mensagem do BOT (from = número da 24help)
-    const NUMERO_24HELP = "whatsapp:+554138911555";
-    if (from !== NUMERO_24HELP) {
+    const NUMERO_24HELP_PRODUCAO = "whatsapp:+554138911555";
+    const NUMERO_24HELP_SANDBOX = "whatsapp:+14155238886";
+
+    if (from !== NUMERO_24HELP_PRODUCAO && from !== NUMERO_24HELP_SANDBOX) {
       console.log(`[${requestId}] ⚠️ Não é mensagem do bot, ignorando`);
       return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
         headers: { ...corsHeaders, "Content-Type": "text/xml" },
