@@ -40,7 +40,7 @@ export const AvisoPopupOverlay = () => {
     const canShowPopupToUser = async (avisoId: string, enviarParaTodos: boolean) => {
       if (enviarParaTodos) return true;
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("aviso_destinatarios")
         .select("id")
         .eq("aviso_id", avisoId)

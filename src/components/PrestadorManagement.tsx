@@ -776,19 +776,31 @@ export const PrestadorManagement = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="ativo">Prestador ativo</Label>
-                        <select
-                          id="ativo"
-                          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          value={formData.ativo ? "ativo" : "desativado"}
+                        <Label htmlFor="banco">Banco</Label>
+                        <Input
+                          id="banco"
+                          placeholder="Ex: Nubank, Bradesco, Itaú"
+                          value={formData.banco || ""}
                           onChange={(e) =>
-                            setFormData({ ...formData, ativo: e.target.value === "ativo" })
+                            setFormData({ ...formData, banco: e.target.value })
                           }
-                        >
-                          <option value="ativo">Ativo</option>
-                          <option value="desativado">Desativado</option>
-                        </select>
+                        />
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="ativo">Prestador ativo</Label>
+                      <select
+                        id="ativo"
+                        className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={formData.ativo ? "ativo" : "desativado"}
+                        onChange={(e) =>
+                          setFormData({ ...formData, ativo: e.target.value === "ativo" })
+                        }
+                      >
+                        <option value="ativo">Ativo</option>
+                        <option value="desativado">Desativado</option>
+                      </select>
                     </div>
                   </div>
 

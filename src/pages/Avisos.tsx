@@ -158,7 +158,7 @@ const Avisos = () => {
       return acc;
     }, {});
 
-    const avisosFiltrados = ((avisosData || []) as Aviso[]).filter((aviso) => {
+    const avisosFiltrados = ((avisosBase || []) as Aviso[]).filter((aviso) => {
       if (isAdmin) return true;
       if (aviso.enviar_para_todos) return true;
       return mapDestinatarios[aviso.id]?.has(user.id);
