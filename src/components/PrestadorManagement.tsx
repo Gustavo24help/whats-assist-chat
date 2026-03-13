@@ -49,6 +49,7 @@ interface Prestador {
   cnpj: string | null;
   nome_pix: string | null;
   chave_pix: string | null;
+  banco: string | null;
   ativo: boolean;
   created_at?: string | null;
 }
