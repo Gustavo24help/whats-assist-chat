@@ -1108,7 +1108,8 @@ export const ConversationList = ({
                     searchMode === 'ficha' ? "Buscar..." : 
                     searchMode === 'prestador' ? "Buscar prestador..." : 
                     searchMode === 'descricao' ? "Buscar descrição..." :
-                    "Buscar nº ficha..."
+                    searchMode === 'id_ficha' ? "Buscar nº ficha..." :
+                    "Buscar nas mensagens..."
                   }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -1122,6 +1123,7 @@ export const ConversationList = ({
                   searchMode === 'ficha' ? 'prestador' : 
                   searchMode === 'prestador' ? 'descricao' : 
                   searchMode === 'descricao' ? 'id_ficha' : 
+                  searchMode === 'id_ficha' ? 'mensagem' :
                   'ficha'
                 )}
                 className="h-9 w-9 shrink-0"
@@ -1129,6 +1131,7 @@ export const ConversationList = ({
                   searchMode === 'ficha' ? "Clique: Buscar por prestador" : 
                   searchMode === 'prestador' ? "Clique: Buscar por descrição" : 
                   searchMode === 'descricao' ? "Clique: Buscar por nº ficha" :
+                  searchMode === 'id_ficha' ? "Clique: Buscar nas mensagens" :
                   "Clique: Buscar geral"
                 }
               >
@@ -1138,8 +1141,10 @@ export const ConversationList = ({
                   <HardHat className="h-4 w-4" />
                 ) : searchMode === 'descricao' ? (
                   <BookOpen className="h-4 w-4" />
-                ) : (
+                ) : searchMode === 'id_ficha' ? (
                   <Hash className="h-4 w-4" />
+                ) : (
+                  <MessageSquareText className="h-4 w-4" />
                 )}
               </Button>
             </div>
