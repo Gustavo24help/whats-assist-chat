@@ -16,6 +16,8 @@ import {
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const EXCLUDED_FICHAS = ["FS4-260127"];
+// Cutoff: only show fichas updated after financial reset (2026-03-13)
+const FINANCEIRO_CUTOFF = "2026-03-13T23:00:00.000Z";
 const PAGE_SIZE = 20;
 
 interface FichaCliente {
