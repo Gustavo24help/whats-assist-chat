@@ -1,163 +1,181 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+serve(async (req) => {
+  const requestId = crypto.randomUUID().substring(0, 8);
+  console.log(`\n${"=".repeat(80)}`);
+  console.log(`📤 [${requestId}] STATUS CALLBACK INICIADO - ${new Date().toISOString()}`);
+  console.log(`${"=".repeat(80)}\n`);
+
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
   try {
-    console.log('Status callback recebido da Twilio');
+    // Parsear dados
+    const contentType = req.headers.get("content-type") || "";
+    const rawBody = await req.text();
 
-    const formData = await req.formData();
-    const messageSid = formData.get('MessageSid')?.toString() || '';
-    const messageStatus = formData.get('MessageStatus')?.toString() || '';
-    const to = formData.get('To')?.toString() || '';
-    const from = formData.get('From')?.toString() || '';
-    const body = formData.get('Body')?.toString() || '';
-    const numMedia = parseInt(formData.get('NumMedia')?.toString() || '0', 10);
-
-    console.log('Dados do callback:', {
-      messageSid,
-      messageStatus,
-      to,
-      from,
-      body,
-      numMedia,
+    let formData: FormData;
+    const reqClone = new Request(req.url, {
+      method: req.method,
+      headers: req.headers,
+      body: rawBody,
     });
 
-    // Só processar mensagens enviadas (não recebidas)
-    // Se 'From' é o número da Twilio, é uma mensagem enviada
-    const twilioNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
-    
-    if (!from.includes(twilioNumber || '')) {
-      console.log('Mensagem recebida, não enviada. Ignorando callback.');
-      return new Response('OK', { status: 200 });
+    try {
+      formData = await reqClone.formData();
+    } catch (e) {
+      console.log(`[${requestId}] ⚠️ Não foi FormData, tentando JSON...`);
+      const jsonData = JSON.parse(rawBody);
+      formData = new FormData();
+      for (const [key, value] of Object.entries(jsonData)) {
+        formData.append(key, String(value));
+      }
     }
 
-    // Inicializar cliente Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const from = formData.get("From") as string;
+    const to = formData.get("To") as string;
+    const body = (formData.get("Body") as string) || "";
+    const messageSid = formData.get("MessageSid") as string;
 
-    // Verificar se a mensagem já existe no banco (pode ter sido enviada pelo sistema)
-    const { data: existingMessage } = await supabase
-      .from('mensagens')
-      .select('id, remetente')
-      .eq('cliente_id', to)
-      .eq('texto', body)
-      .order('data_hora', { ascending: false })
+    console.log(`[${requestId}] 📤 From: ${from}`);
+    console.log(`[${requestId}] 📤 To: ${to}`);
+    console.log(`[${requestId}] 📤 MessageSid: ${messageSid}`);
+    console.log(`[${requestId}] 💬 Body: ${body?.substring(0, 100)}`);
+
+    // Log debug
+    await supabase.from("webhook_debug_logs").insert({
+      timestamp: new Date().toISOString(),
+      source: "twilio_status_callback",
+      event_type: "bot_message",
+      message_sid: messageSid,
+      client_phone: to,
+      success: true,
+      error_message: null,
+      step: "RECEIVED",
+      processed_data: { from, to, body: body?.substring(0, 200), messageSid },
+    });
+
+    // Verificar se é mensagem do BOT (from = número da 24help)
+    const NUMERO_24HELP = "whatsapp:+554138911555";
+    if (from !== NUMERO_24HELP) {
+      console.log(`[${requestId}] ⚠️ Não é mensagem do bot, ignorando`);
+      return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+        headers: { ...corsHeaders, "Content-Type": "text/xml" },
+      });
+    }
+
+    // Verificar duplicidade
+    if (messageSid) {
+      const { data: existing } = await supabase
+        .from("mensagens")
+        .select("id")
+        .eq("message_sid", messageSid)
+        .maybeSingle();
+
+      if (existing) {
+        console.log(`[${requestId}] ⚠️ Mensagem já existe, ignorando`);
+        return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+          headers: { ...corsHeaders, "Content-Type": "text/xml" },
+        });
+      }
+    }
+
+    // Buscar cliente pelo telefone (to = destinatário)
+    const { data: cliente } = await supabase.from("clientes").select("telefone").eq("telefone", to).maybeSingle();
+
+    if (!cliente) {
+      console.log(`[${requestId}] ⚠️ Cliente não encontrado: ${to}`);
+      return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+        headers: { ...corsHeaders, "Content-Type": "text/xml" },
+      });
+    }
+
+    // Buscar ficha ativa
+    const { data: ficha } = await supabase
+      .from("fichas_de_servico")
+      .select("id")
+      .eq("telefone_cliente", cliente.telefone)
+      .eq("status", "Agendado")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (existingMessage) {
-      console.log('Mensagem já existe no banco:', existingMessage);
-      
-      // Se a mensagem existe e é do atendente, não fazer nada
-      if (existingMessage.remetente === 'atendente') {
-        console.log('Mensagem enviada pelo atendente, não registrar como bot');
-        return new Response('OK', { status: 200 });
-      }
+    // Salvar mensagem DO BOT
+    const mensagem = {
+      cliente_id: cliente.telefone,
+      remetente: from, // ✅ Número da 24help
+      texto: body,
+      tipo: "texto",
+      arquivo_url: null,
+      status: "enviado",
+      data_hora: new Date().toISOString(),
+      ficha_id: ficha?.id || null,
+      message_sid: messageSid,
+      reply_to_message_id: null,
+    };
+
+    const { error: saveError } = await supabase.from("mensagens").insert(mensagem);
+
+    if (saveError) {
+      console.error(`[${requestId}] ❌ Erro ao salvar:`, saveError);
+
+      await supabase.from("webhook_debug_logs").insert({
+        timestamp: new Date().toISOString(),
+        source: "twilio_status_callback",
+        event_type: "save_error",
+        message_sid: messageSid,
+        client_phone: to,
+        success: false,
+        error_message: saveError.message,
+        step: "SAVE_ERROR",
+      });
     } else {
-      // Mensagem não existe no banco, então foi enviada pelo bot da Twilio
-      console.log('Mensagem do bot detectada, salvando no banco');
+      console.log(`[${requestId}] ✅ Mensagem do bot salva com sucesso!`);
 
-      // Processar mídia se houver
-      const mediaUrls: string[] = [];
-      for (let i = 0; i < numMedia; i++) {
-        const mediaUrl = formData.get(`MediaUrl${i}`)?.toString();
-        if (mediaUrl) {
-          mediaUrls.push(mediaUrl);
-        }
-      }
-
-      // Determinar tipo de mensagem
-      let tipoMensagem = 'texto';
-      let arquivoUrl = null;
-
-      if (mediaUrls.length > 0) {
-        const mediaType = formData.get('MediaContentType0')?.toString() || '';
-        
-        if (mediaType.startsWith('image/')) {
-          tipoMensagem = 'imagem';
-        } else if (mediaType.startsWith('video/')) {
-          tipoMensagem = 'video';
-        } else if (mediaType.startsWith('audio/')) {
-          tipoMensagem = 'audio';
-        } else {
-          tipoMensagem = 'arquivo';
-        }
-        
-        arquivoUrl = mediaUrls[0];
-      }
-
-      // Salvar mensagem do bot no banco
-      const { data: insertedMessage, error: insertError } = await supabase
-        .from('mensagens')
-        .insert({
-          cliente_id: to,
-          remetente: 'bot',
-          texto: body || null,
-          tipo: tipoMensagem,
-          arquivo_url: arquivoUrl,
-          status: messageStatus === 'delivered' ? 'recebido' : 'enviado',
-          message_sid: messageSid,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('Erro ao salvar mensagem do bot:', insertError);
-        throw insertError;
-      }
-
-      console.log('Mensagem do bot salva com sucesso:', insertedMessage);
-
-      // Fazer broadcast manual usando httpSend para garantir entrega
-      try {
-        console.log(`Enviando broadcast para canal: bot-messages-${to}`);
-        const response = await fetch(
-          `${supabaseUrl}/realtime/v1/api/broadcast`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseKey}`,
-              'apikey': supabaseKey,
-            },
-            body: JSON.stringify({
-              messages: [
-                {
-                  topic: `realtime:bot-messages-${to}`,
-                  event: 'new-bot-message',
-                  payload: insertedMessage,
-                  private: false,
-                },
-              ],
-            }),
-          }
-        );
-
-        if (response.ok) {
-          console.log('Broadcast HTTP enviado com sucesso');
-        } else {
-          const errorText = await response.text();
-          console.error('Erro no broadcast HTTP:', response.status, errorText);
-        }
-      } catch (broadcastError) {
-        console.error('Erro ao enviar broadcast:', broadcastError);
-        // Não falhar a requisição se o broadcast falhar
-      }
+      await supabase.from("webhook_debug_logs").insert({
+        timestamp: new Date().toISOString(),
+        source: "twilio_status_callback",
+        event_type: "bot_message_saved",
+        message_sid: messageSid,
+        client_phone: to,
+        success: true,
+        error_message: null,
+        step: "SAVED",
+      });
     }
 
-    return new Response('OK', { status: 200, headers: corsHeaders });
+    return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+      headers: { ...corsHeaders, "Content-Type": "text/xml" },
+    });
   } catch (error) {
-    console.error('Erro no callback da Twilio:', error);
-    return new Response('OK', { status: 200, headers: corsHeaders });
+    console.error(`[${requestId}] ❌ ERRO:`, error);
+
+    try {
+      await supabase.from("webhook_debug_logs").insert({
+        timestamp: new Date().toISOString(),
+        source: "twilio_status_callback",
+        event_type: "fatal_error",
+        success: false,
+        error_message: error instanceof Error ? error.message : String(error),
+        step: "ERROR",
+      });
+    } catch (e) {
+      console.error("Erro ao salvar log:", e);
+    }
+
+    return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+      headers: { ...corsHeaders, "Content-Type": "text/xml" },
+    });
   }
 });
