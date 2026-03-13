@@ -78,7 +78,6 @@ const QuotedMessage = React.memo(({
   });
   
   const getSenderName = (remetente: string) => {
-    if (remetente === 'bot') return "Bot";
     if (isAtendente(remetente)) return "Você";
     return "Cliente";
   };
