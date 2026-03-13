@@ -620,8 +620,20 @@ function DashboardTVContent() {
       .filter(c => c.status === 'Orçamento Enviado' && c.tempoNoStatus > 30);
     return (
       <TVAutoSizeWidget>
-        {(dims) => (
-          <div className="w-full h-full overflow-auto" style={{ padding: Math.max(4, dims.padding * 0.6) }}>
+        {(dims) => {
+          const pad = Math.max(4, dims.padding * 0.6);
+          const headerH = Math.max(10, dims.labelFontSize) * 1.8;
+          const availableH = dims.height - headerH - pad * 2;
+          const minFs = 8;
+          const itemSpacing = 2.4;
+          const maxVisible = Math.max(1, Math.floor(availableH / (minFs * itemSpacing)));
+          const visibleAlerts = alertas.slice(0, maxVisible);
+          const hiddenCount = alertas.length - visibleAlerts.length;
+          const itemFs = alertas.length > 0
+            ? Math.max(minFs, Math.min(availableH / (Math.min(alertas.length, maxVisible) * itemSpacing), dims.subFontSize * 0.95))
+            : dims.subFontSize;
+          return (
+          <div className="w-full h-full overflow-hidden" style={{ padding: pad }}>
             <div className="flex items-center gap-1 mb-1">
               <span style={{ fontSize: Math.max(10, dims.labelFontSize) }}>📋</span>
               <span className="text-[#374151] uppercase tracking-wider font-semibold truncate" style={{ fontSize: Math.max(9, dims.labelFontSize * 0.9) }}>
@@ -644,7 +656,7 @@ function DashboardTVContent() {
               </div>
             ) : (
               <div className="space-y-0.5">
-                {alertas.map((c, i) => {
+                {visibleAlerts.map((c, i) => {
                   const horas = Math.floor(c.tempoNoStatus / 60);
                   const mins = c.tempoNoStatus % 60;
                   const tempoStr = horas > 0 ? `${horas}h${mins}m` : `${mins}m`;
@@ -654,23 +666,29 @@ function DashboardTVContent() {
                       'rounded px-1.5 py-0.5 flex items-center justify-between',
                       muitoUrgente ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'
                     )}>
-                      <div className="truncate" style={{ fontSize: Math.max(9, dims.subFontSize * 0.95), maxWidth: '65%' }}>
+                      <div className="truncate" style={{ fontSize: Math.max(8, itemFs), maxWidth: '65%' }}>
                         <span className="text-[#111827] font-medium">{c.nome || c.telefone}</span>
                         {c.nome && <span className="text-[#6B7280] ml-1 font-mono">{c.telefone}</span>}
                       </div>
                       <span className={cn(
                         'font-mono font-bold shrink-0',
                         muitoUrgente ? 'text-[#E53E3E]' : 'text-[#DD6B20]'
-                      )} style={{ fontSize: Math.max(9, dims.subFontSize * 0.95) }}>
+                      )} style={{ fontSize: Math.max(8, itemFs) }}>
                         {tempoStr}
                       </span>
                     </div>
                   );
                 })}
+                {hiddenCount > 0 && (
+                  <div className="text-center text-[#6B7280] font-medium" style={{ fontSize: Math.max(7, itemFs * 0.85) }}>
+                    +{hiddenCount} mais
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+          );
+        }}
       </TVAutoSizeWidget>
     );
   };
