@@ -76,7 +76,6 @@ const Avisos = () => {
   const [usuariosSistema, setUsuariosSistema] = useState<SistemaUsuario[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [destinatariosPorAviso, setDestinatariosPorAviso] = useState<Record<string, Set<string>>>({});
-  const [suportaDirecionamento, setSuportaDirecionamento] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadUsuariosSistema = async () => {
@@ -128,6 +127,20 @@ const Avisos = () => {
       avisosBase = (avisosComTarget || []) as Aviso[];
     }
 
+    const destinatariosQuery = (supabase as any)
+      .from("aviso_destinatarios")
+      .select("aviso_id, user_id");
+
+    const { data: destinatariosData, error: destinatariosError } = isAdmin
+      ? await destinatariosQuery
+      : await destinatariosQuery.eq("user_id", user.id);
+
+    if (destinatariosError) {
+      toast.error("Não foi possível carregar os destinatários dos avisos.");
+      setLoading(false);
+      return;
+    }
+
     const { data: lidosData, error: lidosError } = await (supabase as any)
       .from("aviso_leituras")
       .select("aviso_id")
@@ -139,36 +152,18 @@ const Avisos = () => {
       return;
     }
 
-    let mapDestinatarios: Record<string, Set<string>> = {};
+    const mapDestinatarios = (destinatariosData || []).reduce((acc: Record<string, Set<string>>, item: AvisoDestinatario) => {
+      if (!acc[item.aviso_id]) acc[item.aviso_id] = new Set();
+      acc[item.aviso_id].add(item.user_id);
+      return acc;
+    }, {});
 
-    if (targetingAtivo) {
-      const destinatariosQuery = (supabase as any)
-        .from("aviso_destinatarios")
-        .select("aviso_id, user_id");
-
-      const { data: destinatariosData, error: destinatariosError } = isAdmin
-        ? await destinatariosQuery
-        : await destinatariosQuery.eq("user_id", user.id);
-
-      if (!destinatariosError) {
-        mapDestinatarios = (destinatariosData || []).reduce((acc: Record<string, Set<string>>, item: AvisoDestinatario) => {
-          if (!acc[item.aviso_id]) acc[item.aviso_id] = new Set();
-          acc[item.aviso_id].add(item.user_id);
-          return acc;
-        }, {});
-      } else {
-        targetingAtivo = false;
-      }
-    }
-
-    const avisosFiltrados = avisosBase.filter((aviso) => {
+    const avisosFiltrados = ((avisosData || []) as Aviso[]).filter((aviso) => {
       if (isAdmin) return true;
-      if (!targetingAtivo) return true;
       if (aviso.enviar_para_todos) return true;
       return mapDestinatarios[aviso.id]?.has(user.id);
     });
 
-    setSuportaDirecionamento(targetingAtivo);
     setDestinatariosPorAviso(mapDestinatarios);
     setAvisos(avisosFiltrados);
     setLidos(new Set((lidosData || []).map((item: { aviso_id: string }) => item.aviso_id)));
@@ -299,16 +294,14 @@ const Avisos = () => {
       return;
     }
 
-    if (suportaDirecionamento && !enviarParaTodos && selectedUserIds.size === 0) {
+    if (!enviarParaTodos && selectedUserIds.size === 0) {
       toast.error("Escolha ao menos um usuário destinatário.");
       return;
     }
 
     setSubmitting(true);
 
-    let avisoCriado: { id: string } | null = null;
-
-    const { data: avisoComTarget, error: erroComTarget } = await (supabase as any).from("avisos").insert({
+    const { data: avisoCriado, error } = await (supabase as any).from("avisos").insert({
       titulo: novoTitulo.trim(),
       conteudo: novoConteudo.trim(),
       imagem_url: novaImagemUrl.trim() || null,
@@ -318,30 +311,13 @@ const Avisos = () => {
       enviar_para_todos: enviarParaTodos,
     }).select("id").single();
 
-    if (erroComTarget) {
-      const { data: avisoLegado, error: erroLegado } = await (supabase as any).from("avisos").insert({
-        titulo: novoTitulo.trim(),
-        conteudo: novoConteudo.trim(),
-        imagem_url: novaImagemUrl.trim() || null,
-        criado_por: user?.id,
-        criado_por_nome: userProfile?.fullName || null,
-      }).select("id").single();
-
-      if (erroLegado) {
-        setSubmitting(false);
-        toast.error("Erro ao publicar aviso.");
-        return;
-      }
-
-      avisoCriado = avisoLegado;
-      if (enviarPopup || !enviarParaTodos) {
-        toast.warning("Aviso enviado sem pop-up/destinatários. Execute a migração mais recente para liberar estes recursos.");
-      }
-    } else {
-      avisoCriado = avisoComTarget;
+    if (error) {
+      setSubmitting(false);
+      toast.error("Erro ao publicar aviso.");
+      return;
     }
 
-    if (suportaDirecionamento && !enviarParaTodos && avisoCriado?.id) {
+    if (!enviarParaTodos && avisoCriado?.id) {
       const destinatarios = Array.from(selectedUserIds).map((userId) => ({
         aviso_id: avisoCriado.id,
         user_id: userId,
@@ -397,8 +373,8 @@ const Avisos = () => {
         <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
           <CalendarDays className="h-3.5 w-3.5" />
           {new Date(aviso.created_at).toLocaleString("pt-BR")}
-          {suportaDirecionamento && aviso.enviar_popup && <span className="text-brand-green">• pop-up ativo</span>}
-          {suportaDirecionamento && !aviso.enviar_para_todos && (
+          {aviso.enviar_popup && <span className="text-brand-green">• pop-up ativo</span>}
+          {!aviso.enviar_para_todos && (
             <span>• {destinatariosPorAviso[aviso.id]?.size || 0} destinatário(s)</span>
           )}
           {aviso.criado_por_nome && (
@@ -533,7 +509,6 @@ const Avisos = () => {
                         <Checkbox
                           id="enviar-para-todos"
                           checked={enviarParaTodos}
-                          disabled={!suportaDirecionamento}
                           onCheckedChange={(checked) => setEnviarParaTodos(checked === true)}
                         />
                         <div className="grid gap-1.5">
@@ -544,7 +519,7 @@ const Avisos = () => {
                         </div>
                       </div>
 
-                      {suportaDirecionamento && !enviarParaTodos && (
+                      {!enviarParaTodos && (
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Destinatários</p>
                           <ScrollArea className="h-40 rounded border p-2">
@@ -573,7 +548,6 @@ const Avisos = () => {
                         <Checkbox
                           id="enviar-popup"
                           checked={enviarPopup}
-                          disabled={!suportaDirecionamento}
                           onCheckedChange={(checked) => setEnviarPopup(checked === true)}
                         />
                         <div className="grid gap-1.5">

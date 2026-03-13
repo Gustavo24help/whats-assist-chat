@@ -4,13 +4,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { jsPDF } from "jspdf";
 import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
 import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";
 import { NPSFlowPanel } from "./NPSFlowPanel";
@@ -225,6 +226,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
+  const latestMessageDateRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -265,6 +267,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       }
     }
   }, [novaMsg]);
+
+  useEffect(() => {
+    latestMessageDateRef.current = mensagens.length > 0 ? mensagens[mensagens.length - 1].data_hora : null;
+  }, [mensagens]);
 
   useEffect(() => {
     console.log('[ChatWindow] Limpando estados para:', clienteTelefone);
@@ -310,9 +316,25 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           table: 'mensagens',
           filter: `cliente_id=eq.${clienteTelefone}`
         },
-        () => {
-          console.log('[ChatWindow] Nova mensagem detectada, recarregando');
-          fetchMensagens();
+        async (payload) => {
+          console.log('[ChatWindow] Nova mensagem detectada, adicionando em tempo real');
+          const novaMensagem = payload.new as Mensagem;
+
+          let replyTo: Mensagem | null = null;
+          if (novaMensagem.reply_to_message_id) {
+            const { data: replyMessage } = await supabase
+              .from('mensagens')
+              .select('id, texto, tipo, remetente, data_hora, arquivo_url, status')
+              .eq('id', novaMensagem.reply_to_message_id)
+              .maybeSingle();
+
+            replyTo = (replyMessage as Mensagem | null) ?? null;
+          }
+
+          setMensagens((prev) => {
+            if (prev.some((msg) => msg.id === novaMensagem.id)) return prev;
+            return [...prev, { ...novaMensagem, reply_to: replyTo }];
+          });
         }
       )
       .on(
@@ -391,8 +413,28 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
     // Fallback para redes com bloqueio de websocket/realtime (firewall/proxy):
     // mantém sincronização mínima via polling periódico.
-    const pollingInterval = window.setInterval(() => {
-      fetchMensagens();
+    const pollingInterval = window.setInterval(async () => {
+      const latestDate = latestMessageDateRef.current;
+      if (latestDate) {
+        const { data: novasMensagens, error } = await supabase
+          .from('mensagens')
+          .select(`
+            *,
+            enviado_por:profiles!enviado_por_id(full_name)
+          `)
+          .eq('cliente_id', clienteTelefone)
+          .gt('data_hora', latestDate)
+          .order('data_hora', { ascending: true });
+
+        if (!error && novasMensagens?.length) {
+          setMensagens((prev) => {
+            const existentes = new Set(prev.map((m) => m.id));
+            const semDuplicatas = novasMensagens.filter((m) => !existentes.has(m.id)) as Mensagem[];
+            return semDuplicatas.length ? [...prev, ...semDuplicatas] : prev;
+          });
+        }
+      }
+
       fetchClienteData();
     }, 30000);
 
@@ -443,22 +485,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const isInitialLoadRef = useRef(true);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Callback ref para combinar dropZoneRef e messagesContainerRef + listener de scroll
-  const setMessagesContainerRef = useCallback((el: HTMLDivElement | null) => {
-    // Limpar listener anterior
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.removeEventListener('scroll', handleContainerScroll);
-    }
-    
-    (dropZoneRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-    messagesContainerRef.current = el;
-
-    // Adicionar listener no novo elemento
-    if (el) {
-      el.addEventListener('scroll', handleContainerScroll);
-    }
-  }, []);
-
   // Handler de scroll estável
   const handleContainerScroll = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -468,25 +494,60 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     userScrolledUpRef.current = !isAtBottom;
   }, []);
 
+  const forceScrollToBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    container.scrollTop = container.scrollHeight;
+    messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, []);
+
+  const finalizeInitialScroll = useCallback(() => {
+    forceScrollToBottom();
+    isInitialLoadRef.current = false;
+    userScrolledUpRef.current = false;
+  }, [forceScrollToBottom]);
+
+  const scheduleInitialScrollToBottom = useCallback(() => {
+    // Repetir após renderizações e carregamento de mídias para garantir posição final
+    const retries = [0, 80, 180, 320, 520, 820];
+    retries.forEach((delay) => {
+      setTimeout(() => {
+        if (isInitialLoadRef.current) {
+          forceScrollToBottom();
+        }
+      }, delay);
+    });
+
+    setTimeout(() => {
+      if (isInitialLoadRef.current) {
+        finalizeInitialScroll();
+      }
+    }, 920);
+  }, [finalizeInitialScroll, forceScrollToBottom]);
+
+  // Callback ref para combinar dropZoneRef e messagesContainerRef + listener de scroll
+  const setMessagesContainerRef = useCallback((el: HTMLDivElement | null) => {
+    // Limpar listener anterior
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.removeEventListener('scroll', handleContainerScroll);
+    }
+
+    (dropZoneRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    messagesContainerRef.current = el;
+
+    // Adicionar listener no novo elemento
+    if (el) {
+      el.addEventListener('scroll', handleContainerScroll);
+    }
+  }, [handleContainerScroll]);
+
   // Scroll para baixo só no carregamento inicial da conversa
   useEffect(() => {
     if (isInitialLoadRef.current && mensagens.length > 0 && !isLoadingMessages) {
-      // Múltiplos delays para garantir scroll após render completo das mensagens
-      const scrollToBottom = () => {
-        const container = messagesContainerRef.current;
-        if (container) {
-          container.scrollTop = container.scrollHeight;
-        }
-      };
-      scrollToBottom();
-      setTimeout(scrollToBottom, 50);
-      setTimeout(scrollToBottom, 150);
-      setTimeout(() => {
-        scrollToBottom();
-        isInitialLoadRef.current = false;
-      }, 300);
+      scheduleInitialScrollToBottom();
     }
-  }, [mensagens, isLoadingMessages]);
+  }, [mensagens.length, isLoadingMessages, scheduleInitialScrollToBottom]);
 
   // Reset do controle de scroll ao trocar de conversa
   useEffect(() => {
@@ -559,7 +620,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         .filter(m => m.reply_to_message_id)
         .map(m => m.reply_to_message_id);
 
-      let repliesMap = new Map();
+      const repliesMap = new Map();
       if (replyIds.length > 0) {
         const { data: replyMessages } = await supabase
           .from('mensagens')
@@ -600,6 +661,79 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     setIsLoadingMore(false);
     // Manter scroll na posição após carregar mais
     messagesStartRef.current?.scrollIntoView({ block: 'start' });
+  };
+
+  const getSenderForTranscript = (msg: Mensagem) => {
+    if (msg.remetente === 'bot') return 'Bot';
+    if (isAtendente(msg.remetente)) return 'Operador';
+    return 'Cliente';
+  };
+
+  const getMediaLabel = (msg: Mensagem) => {
+    if (msg.tipo === 'imagem') {
+      const nomeArquivo = msg.texto?.trim() || msg.arquivo_url?.split('/').pop() || 'imagem';
+      return `[Imagem: ${nomeArquivo}]`;
+    }
+    if (msg.tipo === 'audio') return '[Áudio]';
+    if (msg.tipo === 'video') return '[Vídeo]';
+    if (msg.tipo === 'arquivo') return `[Arquivo: ${msg.texto || msg.arquivo_url?.split('/').pop() || 'arquivo'}]`;
+    return '[Mensagem]';
+  };
+
+  const exportarTranscricaoPDF = () => {
+    if (mensagens.length === 0) {
+      toast.error('Não há mensagens para transcrever.');
+      return;
+    }
+
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 40;
+    const maxTextWidth = pageWidth - margin * 2;
+    let currentY = margin;
+
+    const titulo = `Transcrição da conversa - ${clienteNome}`;
+    const subtitulo = `Cliente: ${clienteNome} (${clienteTelefone})`;
+    const geradoEm = `Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`;
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(14);
+    pdf.text(titulo, margin, currentY);
+    currentY += 20;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.text(subtitulo, margin, currentY);
+    currentY += 14;
+    pdf.text(geradoEm, margin, currentY);
+    currentY += 24;
+
+    mensagens.forEach((msg) => {
+      const horario = format(new Date(msg.data_hora), 'dd/MM/yyyy HH:mm', { locale: ptBR });
+      const remetente = getSenderForTranscript(msg);
+      const conteudo = msg.tipo === 'texto'
+        ? (msg.texto?.trim() || '[Mensagem sem texto]')
+        : getMediaLabel(msg);
+
+      const linha = `[${horario}] ${remetente}: ${conteudo}`;
+      const linhasQuebradas = pdf.splitTextToSize(linha, maxTextWidth);
+      const alturaBloco = linhasQuebradas.length * 12 + 4;
+
+      if (currentY + alturaBloco > pageHeight - margin) {
+        pdf.addPage();
+        currentY = margin;
+      }
+
+      pdf.text(linhasQuebradas, margin, currentY);
+      currentY += alturaBloco;
+    });
+
+    const nomeArquivo = `transcricao-${clienteNome.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`;
+    const blobUrl = pdf.output('bloburl');
+    window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    pdf.save(nomeArquivo);
+    toast.success('Transcrição em PDF gerada com sucesso.');
   };
 
   // ✅ Função consolidada para buscar dados do cliente (ficha, bot, atendente, notas)
@@ -1534,6 +1668,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     return !isSameDay(currentDate, previousDate);
   };
 
+  const keepBottomOnInitialMediaLoad = () => {
+    if (isInitialLoadRef.current) {
+      forceScrollToBottom();
+    }
+  };
+
   const renderMedia = (msg: Mensagem) => {
     if (!msg.arquivo_url) return null;
 
@@ -1543,6 +1683,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           src={msg.arquivo_url} 
           alt="Imagem" 
           className="max-w-[280px] max-h-[280px] rounded-xl mt-2 cursor-pointer hover:opacity-95 transition-all shadow-sm hover:shadow-md object-cover" 
+          onLoad={keepBottomOnInitialMediaLoad}
           onClick={() => window.open(msg.arquivo_url || '', '_blank')}
         />
       );
@@ -1553,6 +1694,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <video 
           controls 
           className="max-w-[280px] max-h-[280px] rounded-xl mt-2 shadow-sm"
+          onLoadedMetadata={keepBottomOnInitialMediaLoad}
         >
           <source src={msg.arquivo_url} />
         </video>
@@ -1645,6 +1787,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           {!fichaOpen && (
             <>
               {/* Botão de busca no chat */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={exportarTranscricaoPDF}
+                className="h-9 px-2 hover:bg-accent"
+                title="Exportar transcrição da conversa (PDF)"
+              >
+                <ScrollText className="h-4 w-4" />
+              </Button>
+
               <Button
                 variant="ghost"
                 size="sm"
