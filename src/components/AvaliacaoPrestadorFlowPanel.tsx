@@ -104,7 +104,8 @@ export const AvaliacaoPrestadorFlowPanel = ({
         },
         (payload) => {
           const msg = payload.new as { remetente: string; texto: string | null };
-          if (msg.remetente === 'whatsapp:+554138911555' || msg.remetente === 'atendente' || msg.remetente === 'bot' || !msg.texto) return;
+          const NUMERO_24HELP_LOCAL = 'whatsapp:+554138911555';
+          if (msg.remetente === NUMERO_24HELP_LOCAL || msg.remetente === 'atendente' || msg.remetente === 'bot' || !msg.texto) return;
 
           const texto = msg.texto.trim();
           console.log(`🔧 [Av.Prestador] Mensagem do cliente detectada: "${texto}" (step: ${step})`);
