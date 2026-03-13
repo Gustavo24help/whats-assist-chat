@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -21,34 +20,25 @@ const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "curr
 const EXCLUDED_FICHAS = ["FS4-260127"];
 const PAGE_SIZE = 20;
 
-// Financial calculation: replicate Excel logic
 function calcFinanceiro(ficha: any) {
   const maoObra = ficha.valor_mao_obra || 0;
   const pecas = ficha.valor_pecas || 0;
-  const taxaVisita = 0; // Not stored in fichas yet, default 0
+  const taxaVisita = 0;
   const adiantCliente = 0;
   const adiantPrestador = 0;
   const subtotal = maoObra + pecas + taxaVisita;
   const margemPct = 23;
   const totalOS = ficha.valor_total || 0;
   const taxa24help = totalOS > 0 ? totalOS - subtotal : subtotal * (margemPct / 100);
-  const liquidoPrestador = maoObra + taxaVisita; // prestador gets MO + taxa visita
+  const liquidoPrestador = maoObra + taxaVisita;
   const desconto = 0;
   const lucroBruto = totalOS - liquidoPrestador - pecas;
   const rentab = totalOS > 0 ? (lucroBruto / totalOS) * 100 : 0;
 
   return {
-    maoObra,
-    pecas,
-    taxaVisita,
-    adiantCliente,
-    adiantPrestador,
-    taxa24help: Math.max(taxa24help, 0),
-    totalOS,
-    liquidoPrestador,
-    desconto,
-    lucroBruto: Math.max(lucroBruto, 0),
-    rentab: Math.max(rentab, 0),
+    maoObra, pecas, taxaVisita, adiantCliente, adiantPrestador,
+    taxa24help: Math.max(taxa24help, 0), totalOS, liquidoPrestador,
+    desconto, lucroBruto: Math.max(lucroBruto, 0), rentab: Math.max(rentab, 0),
   };
 }
 
@@ -143,7 +133,7 @@ export const PagamentoPrestadoresTabV2 = () => {
         prestador_cpf: f.prestador_id,
         chave_pix: prest?.chave_pix || null,
         nome_pix: prest?.nome_pix || null,
-        banco: (prest as any)?.banco || null,
+        banco: prest?.banco || null,
         pagamento_realizado: f.pagamento_realizado,
         pagamento_link: f.pagamento_link,
         updated_at: f.updated_at,
@@ -163,11 +153,8 @@ export const PagamentoPrestadoresTabV2 = () => {
     try {
       const { items } = await buildList(false);
       setPendentes(items);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }, [buildList]);
 
   const fetchHistorico = useCallback(async () => {
@@ -176,11 +163,8 @@ export const PagamentoPrestadoresTabV2 = () => {
       const { items, total } = await buildList(true, historicoPage);
       setHistorico(items);
       setHistoricoTotal(total);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setHistoricoLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setHistoricoLoading(false); }
   }, [buildList, historicoPage]);
 
   useEffect(() => { fetchPendentes(); }, [fetchPendentes]);
@@ -260,18 +244,23 @@ export const PagamentoPrestadoresTabV2 = () => {
   const totalAPagar = filteredPendentes.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
 
+  const getInitials = (name: string) => {
+    const parts = name.split(" ").filter(Boolean);
+    return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : (parts[0]?.[0] || "?").toUpperCase();
+  };
+
   return (
     <div className="space-y-4">
-      {/* Summary */}
+      {/* Summary - clean */}
       <div className="flex gap-3 overflow-x-auto">
-        <Card className="min-w-[160px] bg-primary text-primary-foreground p-3 shrink-0">
-          <div className="text-xs opacity-80">Pendentes</div>
+        <div className="min-w-[140px] rounded-lg border bg-card p-3 shrink-0">
+          <div className="text-xs text-muted-foreground">Pendentes</div>
           <div className="text-2xl font-bold">{filteredPendentes.length}</div>
-        </Card>
-        <Card className="min-w-[160px] bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 p-3 shrink-0">
-          <div className="text-xs text-blue-600 dark:text-blue-400">Total a Pagar</div>
-          <div className="text-xl font-bold text-blue-900 dark:text-blue-300">{formatMoeda(totalAPagar)}</div>
-        </Card>
+        </div>
+        <div className="min-w-[180px] rounded-lg border bg-card p-3 shrink-0">
+          <div className="text-xs text-muted-foreground">Total a Pagar</div>
+          <div className="text-xl font-bold">{formatMoeda(totalAPagar)}</div>
+        </div>
       </div>
 
       {/* Search */}
@@ -287,81 +276,84 @@ export const PagamentoPrestadoresTabV2 = () => {
         </TabsList>
 
         <TabsContent value="pendentes">
-          <div className="space-y-3">
+          <div className="space-y-2">
             {loading ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : filteredPendentes.length === 0 ? (
-              <div className="text-center py-12"><CheckCircle2 className="h-12 w-12 text-green-400 mx-auto mb-3" /><p className="text-muted-foreground">Nenhum pagamento pendente!</p></div>
+              <div className="text-center py-12"><CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-muted-foreground">Nenhum pagamento pendente!</p></div>
             ) : (
               filteredPendentes.map((f) => (
-                <Card key={f.id} className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-sm">{f.prestador_nome}</h3>
-                      <p className="text-xs text-muted-foreground">{f.prestador_cpf}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xl font-bold text-primary">{formatMoeda(f.financeiro.liquidoPrestador)}</div>
-                      <div className="text-[10px] text-muted-foreground">Líquido Prestador</div>
-                    </div>
+                <div key={f.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
+                    {getInitials(f.prestador_nome)}
                   </div>
 
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    <Badge variant="secondary" className="text-xs">{f.id}</Badge>
-                    <Badge variant="outline" className="text-xs">Cliente: {f.nome_cliente_resolved}</Badge>
-                    <Badge variant="outline" className="text-xs">OS: {formatMoeda(f.financeiro.totalOS)}</Badge>
-                    {f.pagamento_realizado ? (
-                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]">Cliente Pagou</Badge>
-                    ) : (
-                      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px]">Cliente Pendente</Badge>
-                    )}
-                    {f.nps_nota !== null && (
-                      <div className="inline-flex items-center gap-1.5 rounded-md border border-yellow-300 bg-yellow-50 px-2.5 py-1.5 text-sm font-semibold text-yellow-900 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-100">
-                        <Star className="h-4 w-4 text-yellow-500" />
-                        <span>NPS {f.nps_nota}</span>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm truncate">{f.prestador_nome}</h3>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <Badge variant="secondary" className="text-[10px]">{f.id}</Badge>
+                      <span className="text-xs text-muted-foreground truncate">Cliente: {f.nome_cliente_resolved}</span>
+                      {f.pagamento_realizado ? (
+                        <Badge variant="outline" className="text-[10px] border-green-300 text-green-700">Cliente Pagou</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">Cliente Pendente</Badge>
+                      )}
+                      {f.nps_nota !== null && (
+                        <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                          <Star className="h-3 w-3 text-yellow-500" /> {f.nps_nota}
+                        </span>
+                      )}
+                    </div>
+                    {/* PIX + Banco */}
+                    {(f.chave_pix || f.banco) && (
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                        {f.chave_pix && (
+                          <span className="inline-flex items-center gap-1 truncate max-w-[200px]">
+                            <CreditCard className="h-3 w-3 shrink-0" />
+                            PIX: {f.chave_pix}
+                            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => copyToClipboard(f.chave_pix!)}>
+                              <Copy className="h-2.5 w-2.5" />
+                            </Button>
+                          </span>
+                        )}
+                        {f.banco && (
+                          <span className="inline-flex items-center gap-1">
+                            <Building2 className="h-3 w-3 shrink-0" /> {f.banco}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
 
-                  {/* PIX + Bank info */}
-                  {f.chave_pix && (
-                    <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-2 mb-2 flex items-center gap-2 text-sm">
-                      <CreditCard className="h-4 w-4 text-green-600 shrink-0" />
-                      <span className="font-medium text-green-800 dark:text-green-300 truncate">
-                        PIX: {f.chave_pix} {f.nome_pix ? `(${f.nome_pix})` : ""}
-                      </span>
-                      <Button variant="ghost" size="sm" className="h-6 px-1 shrink-0" onClick={() => copyToClipboard(f.chave_pix!)}>
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
-                  {f.banco && (
-                    <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 mb-2 flex items-center gap-2 text-xs">
-                      <Building2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                      <span className="text-blue-800 dark:text-blue-300">Banco: {f.banco}</span>
-                    </div>
-                  )}
+                  {/* Value */}
+                  <div className="text-right shrink-0">
+                    <div className="text-xl font-bold">{formatMoeda(f.financeiro.liquidoPrestador)}</div>
+                    <div className="text-[10px] text-muted-foreground">Líquido</div>
+                  </div>
 
-                  <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => { setDetalhesSel(f); setDetalhesOpen(true); }}>
-                      <Info className="h-3.5 w-3.5 mr-1" /> Detalhes
+                  {/* Actions */}
+                  <div className="flex gap-2 shrink-0">
+                    <Button variant="outline" size="sm" className="h-9 px-3" onClick={() => { setDetalhesSel(f); setDetalhesOpen(true); }}>
+                      <Info className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="outline" size="sm" className="text-destructive border-destructive/30" disabled={cancelando === f.id} onClick={() => setConfirmCancel(f)}>
+                    <Button variant="outline" size="sm" className="text-destructive border-destructive/30 h-9 px-3" disabled={cancelando === f.id} onClick={() => setConfirmCancel(f)}>
                       <Ban className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700" disabled={markingPaid === f.id} onClick={() => marcarPago(f)}>
+                    <Button size="sm" className="h-9 px-4" disabled={markingPaid === f.id} onClick={() => marcarPago(f)}>
                       {markingPaid === f.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                       Pagar
                     </Button>
                   </div>
-                </Card>
+                </div>
               ))
             )}
           </div>
         </TabsContent>
 
         <TabsContent value="historico">
-          <div className="space-y-3">
+          <div className="space-y-2">
             {historicoLoading ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
             ) : historico.length === 0 ? (
@@ -369,18 +361,21 @@ export const PagamentoPrestadoresTabV2 = () => {
             ) : (
               <>
                 {historico.map(f => (
-                  <Card key={f.id} className="p-3 opacity-80">
-                    <div className="flex items-center justify-between">
+                  <div key={f.id} className="rounded-lg border bg-card p-3 flex items-center justify-between opacity-80">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">
+                        {getInitials(f.prestador_nome)}
+                      </div>
                       <div className="min-w-0">
                         <h3 className="font-medium text-sm truncate">{f.prestador_nome}</h3>
                         <p className="text-xs text-muted-foreground">{f.id} • {f.nome_cliente_resolved}</p>
                       </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-bold text-sm">{formatMoeda(f.financeiro.liquidoPrestador)}</div>
-                        <Badge className="bg-green-100 text-green-700 text-[10px]">Pago</Badge>
-                      </div>
                     </div>
-                  </Card>
+                    <div className="text-right shrink-0 flex items-center gap-2">
+                      <div className="font-bold text-sm">{formatMoeda(f.financeiro.liquidoPrestador)}</div>
+                      <Badge variant="secondary" className="text-[10px]">Pago</Badge>
+                    </div>
+                  </div>
                 ))}
                 {historicoTotalPages > 1 && (
                   <div className="flex items-center justify-between pt-2">
@@ -402,7 +397,7 @@ export const PagamentoPrestadoresTabV2 = () => {
       <Dialog open={detalhesOpen} onOpenChange={setDetalhesOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Detalhes Financeiros — {detalhesSel?.id}</DialogTitle>
+            <DialogTitle>Detalhes — {detalhesSel?.id}</DialogTitle>
           </DialogHeader>
           {detalhesSel && (
             <div className="space-y-3 text-sm">
@@ -414,10 +409,6 @@ export const PagamentoPrestadoresTabV2 = () => {
               </div>
               <Separator />
               <div className="grid grid-cols-2 gap-2">
-                <div className="text-muted-foreground">Adiant. Prestador</div>
-                <div>{formatMoeda(detalhesSel.financeiro.adiantPrestador)}</div>
-                <div className="text-muted-foreground">Taxa de Visita</div>
-                <div>{formatMoeda(detalhesSel.financeiro.taxaVisita)}</div>
                 <div className="text-muted-foreground">Mão de Obra</div>
                 <div>{formatMoeda(detalhesSel.financeiro.maoObra)}</div>
                 <div className="text-muted-foreground">Peças</div>
@@ -430,11 +421,9 @@ export const PagamentoPrestadoresTabV2 = () => {
                 <div className="text-muted-foreground font-semibold">Total da OS</div>
                 <div className="font-bold text-lg">{formatMoeda(detalhesSel.financeiro.totalOS)}</div>
                 <div className="text-muted-foreground font-semibold">Líquido Prestador</div>
-                <div className="font-bold text-primary">{formatMoeda(detalhesSel.financeiro.liquidoPrestador)}</div>
-                <div className="text-muted-foreground">Desconto</div>
-                <div>{formatMoeda(detalhesSel.financeiro.desconto)}</div>
+                <div className="font-bold">{formatMoeda(detalhesSel.financeiro.liquidoPrestador)}</div>
                 <div className="text-muted-foreground">Lucro Bruto</div>
-                <div className="text-green-600 font-semibold">{formatMoeda(detalhesSel.financeiro.lucroBruto)}</div>
+                <div className="font-semibold">{formatMoeda(detalhesSel.financeiro.lucroBruto)}</div>
                 <div className="text-muted-foreground">Rentabilidade</div>
                 <div>{detalhesSel.financeiro.rentab.toFixed(1)}%</div>
               </div>
@@ -444,7 +433,7 @@ export const PagamentoPrestadoresTabV2 = () => {
                 <div>{detalhesSel.pagamento_realizado ? "✅ Sim" : "❌ Não"}</div>
                 {detalhesSel.nps_nota !== null && (
                   <>
-                    <div className="text-muted-foreground">NPS do Serviço</div>
+                    <div className="text-muted-foreground">NPS</div>
                     <div className="flex items-center gap-1"><Star className="h-3.5 w-3.5 text-yellow-500" /> {detalhesSel.nps_nota}</div>
                   </>
                 )}
@@ -466,12 +455,12 @@ export const PagamentoPrestadoresTabV2 = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar pagamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              A ficha {confirmCancel?.id} será marcada como Perdido. Esta ação pode ser desfeita manualmente.
+              A ficha {confirmCancel?.id} será marcada como Perdido.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Voltar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmCancel && cancelar(confirmCancel)}>Confirmar Cancelamento</AlertDialogAction>
+            <AlertDialogAction onClick={() => confirmCancel && cancelar(confirmCancel)}>Confirmar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
