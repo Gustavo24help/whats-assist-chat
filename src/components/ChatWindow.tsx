@@ -485,22 +485,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const isInitialLoadRef = useRef(true);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Callback ref para combinar dropZoneRef e messagesContainerRef + listener de scroll
-  const setMessagesContainerRef = useCallback((el: HTMLDivElement | null) => {
-    // Limpar listener anterior
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.removeEventListener('scroll', handleContainerScroll);
-    }
-    
-    (dropZoneRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-    messagesContainerRef.current = el;
-
-    // Adicionar listener no novo elemento
-    if (el) {
-      el.addEventListener('scroll', handleContainerScroll);
-    }
-  }, []);
-
   // Handler de scroll estável
   const handleContainerScroll = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -510,25 +494,60 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     userScrolledUpRef.current = !isAtBottom;
   }, []);
 
+  const forceScrollToBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    container.scrollTop = container.scrollHeight;
+    messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, []);
+
+  const finalizeInitialScroll = useCallback(() => {
+    forceScrollToBottom();
+    isInitialLoadRef.current = false;
+    userScrolledUpRef.current = false;
+  }, [forceScrollToBottom]);
+
+  const scheduleInitialScrollToBottom = useCallback(() => {
+    // Repetir após renderizações e carregamento de mídias para garantir posição final
+    const retries = [0, 80, 180, 320, 520, 820];
+    retries.forEach((delay) => {
+      setTimeout(() => {
+        if (isInitialLoadRef.current) {
+          forceScrollToBottom();
+        }
+      }, delay);
+    });
+
+    setTimeout(() => {
+      if (isInitialLoadRef.current) {
+        finalizeInitialScroll();
+      }
+    }, 920);
+  }, [finalizeInitialScroll, forceScrollToBottom]);
+
+  // Callback ref para combinar dropZoneRef e messagesContainerRef + listener de scroll
+  const setMessagesContainerRef = useCallback((el: HTMLDivElement | null) => {
+    // Limpar listener anterior
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.removeEventListener('scroll', handleContainerScroll);
+    }
+
+    (dropZoneRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    messagesContainerRef.current = el;
+
+    // Adicionar listener no novo elemento
+    if (el) {
+      el.addEventListener('scroll', handleContainerScroll);
+    }
+  }, [handleContainerScroll]);
+
   // Scroll para baixo só no carregamento inicial da conversa
   useEffect(() => {
     if (isInitialLoadRef.current && mensagens.length > 0 && !isLoadingMessages) {
-      // Múltiplos delays para garantir scroll após render completo das mensagens
-      const scrollToBottom = () => {
-        const container = messagesContainerRef.current;
-        if (container) {
-          container.scrollTop = container.scrollHeight;
-        }
-      };
-      scrollToBottom();
-      setTimeout(scrollToBottom, 50);
-      setTimeout(scrollToBottom, 150);
-      setTimeout(() => {
-        scrollToBottom();
-        isInitialLoadRef.current = false;
-      }, 300);
+      scheduleInitialScrollToBottom();
     }
-  }, [mensagens, isLoadingMessages]);
+  }, [mensagens.length, isLoadingMessages, scheduleInitialScrollToBottom]);
 
   // Reset do controle de scroll ao trocar de conversa
   useEffect(() => {
@@ -1649,6 +1668,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     return !isSameDay(currentDate, previousDate);
   };
 
+  const keepBottomOnInitialMediaLoad = () => {
+    if (isInitialLoadRef.current) {
+      forceScrollToBottom();
+    }
+  };
+
   const renderMedia = (msg: Mensagem) => {
     if (!msg.arquivo_url) return null;
 
@@ -1658,6 +1683,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           src={msg.arquivo_url} 
           alt="Imagem" 
           className="max-w-[280px] max-h-[280px] rounded-xl mt-2 cursor-pointer hover:opacity-95 transition-all shadow-sm hover:shadow-md object-cover" 
+          onLoad={keepBottomOnInitialMediaLoad}
           onClick={() => window.open(msg.arquivo_url || '', '_blank')}
         />
       );
@@ -1668,6 +1694,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <video 
           controls 
           className="max-w-[280px] max-h-[280px] rounded-xl mt-2 shadow-sm"
+          onLoadedMetadata={keepBottomOnInitialMediaLoad}
         >
           <source src={msg.arquivo_url} />
         </video>
