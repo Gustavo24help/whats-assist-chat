@@ -258,6 +258,11 @@ export const ConversationList = ({
         filtered = filtered.filter(c => 
           clientesTelefonesPorIdFicha.includes(c.telefone)
         );
+      } else if (searchMode === 'mensagem') {
+        // Modo mensagem: busca por texto das mensagens
+        filtered = filtered.filter(c => 
+          clientesTelefonesPorMensagem.includes(c.telefone)
+        );
       }
     }
 
