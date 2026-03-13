@@ -545,6 +545,47 @@ export const ConversationList = ({
     buscarClientesPorIdFicha();
   }, [debouncedSearchTerm, searchMode]);
 
+  // Buscar clientes por texto das mensagens - USANDO EDGE FUNCTION
+  useEffect(() => {
+    const buscarClientesPorMensagem = async () => {
+      if (!debouncedSearchTerm || searchMode !== 'mensagem') {
+        setClientesTelefonesPorMensagem([]);
+        setIsSearchingByMessage(false);
+        return;
+      }
+
+      if (debouncedSearchTerm.trim().length < 3) {
+        setClientesTelefonesPorMensagem([]);
+        setIsSearchingByMessage(false);
+        return;
+      }
+
+      setIsSearchingByMessage(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke('search-messages', {
+          body: { term: debouncedSearchTerm }
+        });
+
+        if (error) {
+          console.error('[ConversationList] Erro ao buscar mensagens:', error);
+          setClientesTelefonesPorMensagem([]);
+          toast.error('Não foi possível buscar mensagens');
+          return;
+        }
+
+        setClientesTelefonesPorMensagem(data?.phones || []);
+      } catch (err) {
+        console.error('[ConversationList] Erro inesperado ao buscar mensagens:', err);
+        setClientesTelefonesPorMensagem([]);
+      } finally {
+        setIsSearchingByMessage(false);
+      }
+    };
+
+    buscarClientesPorMensagem();
+  }, [debouncedSearchTerm, searchMode]);
+
   const fetchTagsWithColors = async () => {
     const { data: tagsData } = await supabase
       .from('tags')
