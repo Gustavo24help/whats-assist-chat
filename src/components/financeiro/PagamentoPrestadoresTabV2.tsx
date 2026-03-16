@@ -280,7 +280,7 @@ export const PagamentoPrestadoresTabV2 = () => {
 
   const totalAPagar = filteredPendentes.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
-  const hasSelection = selectedIds.size > 0;
+  
 
   const getInitials = (name: string) => {
     const parts = name.split(" ").filter(Boolean);
