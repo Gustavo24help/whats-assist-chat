@@ -75,6 +75,7 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [detalhesOpen, setDetalhesOpen] = useState(false);
   const [detalhesSel, setDetalhesSel] = useState<FichaFinanceira | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<FichaFinanceira | null>(null);
+  const [pagamentoConfirm, setPagamentoConfirm] = useState<FichaFinanceira | null>(null);
   const [cancelando, setCancelando] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [historico, setHistorico] = useState<FichaFinanceira[]>([]);
