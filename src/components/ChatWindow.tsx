@@ -332,7 +332,27 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           }
 
           setMensagens((prev) => {
+            // Dedup: skip if real ID already exists
             if (prev.some((msg) => msg.id === novaMensagem.id)) return prev;
+
+            // Check if this is a duplicate of an optimistic (temp) message
+            const tempIndex = prev.findIndex(
+              (msg) =>
+                typeof msg.id === 'string' &&
+                msg.id.startsWith('temp-') &&
+                msg.texto === novaMensagem.texto &&
+                (msg.remetente === novaMensagem.remetente ||
+                  msg.remetente === 'operador' ||
+                  novaMensagem.remetente === 'whatsapp:+554138911555')
+            );
+
+            if (tempIndex !== -1) {
+              // Replace temp message with real one
+              const updated = [...prev];
+              updated[tempIndex] = { ...novaMensagem, reply_to: replyTo };
+              return updated;
+            }
+
             return [...prev, { ...novaMensagem, reply_to: replyTo }];
           });
         }
