@@ -268,13 +268,13 @@ export const PagamentoClientesTabV2 = () => {
       </Tabs>
 
       {/* Payment Confirmation Dialog */}
-      <Dialog open={!!pagamentoConfirm} onOpenChange={(open) => { if (!open) { setPagamentoConfirm(null); setBatchQueue([]); } }}>
+      <Dialog open={!!pagamentoConfirm} onOpenChange={(open) => { if (!open) setPagamentoConfirm(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-green-600" />
               Confirmar Pagamento do Cliente
-              {batchQueue.length > 0 && <Badge variant="secondary" className="text-xs">+{batchQueue.length} restante{batchQueue.length > 1 ? "s" : ""}</Badge>}
+            </DialogTitle>
             </DialogTitle>
           </DialogHeader>
           {pagamentoConfirm && (
