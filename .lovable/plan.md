@@ -1,26 +1,33 @@
 
 
-# Plano: Criar UI para inputar metas diárias (`daily_goals`)
+## Correções na página /financeiro
 
-## Resumo
-Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
+### Mudanças planejadas
 
-## Abordagem
+**1. Aba padrão: Prestadores**
+- Em `Financeiro.tsx`, trocar `defaultValue="clientes"` para `defaultValue="prestadores"`.
 
-### Opção recomendada: Adicionar seção na página Settings
-Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
+**2. Data de pagamento = contratação + 2 dias úteis**
+- Na `PagamentoPrestadoresTabV2.tsx`, importar `isBusinessDay` de `businessDays2026.ts` e criar helper `addBusinessDays(date, n)` que soma N dias úteis.
+- Adicionar campo `data_pagamento_prevista` calculado como `created_at + 2 dias úteis` em cada item da lista.
+- Exibir essa data na listagem de pendentes (ex: "Pgto: 18/03") e no diálogo de detalhes.
+- Na `PagamentoClientesTabV2.tsx`, exibir a data de `updated_at` (ou contratação) formatada.
 
-### Funcionalidades
-- Seletor de data (calendário) para escolher o dia
-- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
-- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
-- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
-- Listagem das metas já cadastradas no mês selecionado
+**3. Data de contratação visível nos detalhes**
+- No dialog de detalhes de ambas as abas, adicionar linha "Data Contratação" com `created_at` formatado.
 
-### Arquivos a criar/editar
-1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
-2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
+**4. Seleção múltipla com checkboxes + ações em lote**
+- Adicionar state `selectedIds: Set<string>` em ambas as tabs.
+- Renderizar `<Checkbox>` em cada card de pendente.
+- Barra de ação fixa ao selecionar 1+: "X selecionados | Pagar Todos | Cancelar | Desmarcar".
+- Botão "Mostrar Pop-ups" que abre o dialog de confirmação sequencialmente para cada selecionado (e também no individual, renomear o botão de Info para "Detalhes / Pop-up").
 
-### Nenhuma alteração de banco necessária
-A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
+**5. Renomear "Cliente Pendente"**
+- Na `PagamentoPrestadoresTabV2.tsx`, trocar `"Cliente Pendente"` por `"Pagamento do Cliente Pendente"`.
+
+### Arquivos afetados
+- `src/pages/Financeiro.tsx` — aba padrão
+- `src/components/financeiro/PagamentoPrestadoresTabV2.tsx` — data pagamento, checkboxes, lote, rename badge
+- `src/components/financeiro/PagamentoClientesTabV2.tsx` — data visível, checkboxes, lote
+- `src/lib/businessDays2026.ts` — já tem helpers necessários (importar `getBusinessDaysInRange`)
 
