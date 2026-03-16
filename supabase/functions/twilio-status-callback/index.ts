@@ -3,8 +3,38 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const NUMERO_24HELP_PRODUCAO = "whatsapp:+554138911555";
+const NUMERO_24HELP_SANDBOX = "whatsapp:+14155238886";
+
+async function fetchTwilioMessageDate(messageSid: string, requestId: string): Promise<string | null> {
+  try {
+    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    if (!accountSid || !authToken || !messageSid) return null;
+
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages/${messageSid}.json`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}` },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.date_sent) {
+        const dateSent = new Date(data.date_sent).toISOString();
+        console.log(`[${requestId}] 📅 DateSent real da Twilio: ${dateSent}`);
+        return dateSent;
+      }
+    } else {
+      console.log(`[${requestId}] ⚠️ Erro ao buscar DateSent: ${response.status}`);
+    }
+  } catch (e) {
+    console.log(`[${requestId}] ⚠️ Falha ao buscar DateSent: ${e}`);
+  }
+  return null;
+}
 
 serve(async (req) => {
   const requestId = crypto.randomUUID().substring(0, 8);
@@ -21,8 +51,6 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Parsear dados
-    const contentType = req.headers.get("content-type") || "";
     const rawBody = await req.text();
 
     let formData: FormData;
@@ -47,23 +75,25 @@ serve(async (req) => {
     const to = formData.get("To") as string;
     const body = (formData.get("Body") as string) || "";
     const messageSid = formData.get("MessageSid") as string;
+    const numMedia = parseInt(formData.get("NumMedia") as string || "0", 10);
 
     console.log(`[${requestId}] 📤 From: ${from}`);
     console.log(`[${requestId}] 📤 To: ${to}`);
     console.log(`[${requestId}] 📤 MessageSid: ${messageSid}`);
     console.log(`[${requestId}] 💬 Body: ${body?.substring(0, 100)}`);
+    console.log(`[${requestId}] 📎 NumMedia: ${numMedia}`);
 
     // Log debug
     await supabase.from("webhook_debug_logs").insert({
       timestamp: new Date().toISOString(),
       source: "twilio_status_callback",
-      event_type: "bot_message",
+      event_type: "callback_received",
       message_sid: messageSid,
       client_phone: to,
       success: true,
       error_message: null,
       step: "RECEIVED",
-      processed_data: { from, to, body: body?.substring(0, 200), messageSid },
+      processed_data: { from, to, body: body?.substring(0, 200), messageSid, numMedia },
     });
 
     // Ignorar mensagens de teste (from = to)
@@ -74,7 +104,7 @@ serve(async (req) => {
       });
     }
 
-    // Verificar duplicidade
+    // Verificar duplicidade por message_sid
     if (messageSid) {
       const { data: existing } = await supabase
         .from("mensagens")
@@ -83,7 +113,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (existing) {
-        console.log(`[${requestId}] ⚠️ Mensagem já existe, ignorando`);
+        console.log(`[${requestId}] ⚠️ Mensagem já existe (SID: ${messageSid}), ignorando`);
         return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
           headers: { ...corsHeaders, "Content-Type": "text/xml" },
         });
@@ -91,36 +121,28 @@ serve(async (req) => {
     }
 
     // Detectar direção da mensagem
-    const NUMERO_24HELP_PRODUCAO = "whatsapp:+554138911555";
-    const NUMERO_24HELP_SANDBOX = "whatsapp:+14155238886";
-
     let cliente_id: string;
     let remetente: string;
     let isMensagemDoBot = false;
 
-    // Mensagem DO BOT para CLIENTE
     if (from === NUMERO_24HELP_PRODUCAO || from === NUMERO_24HELP_SANDBOX) {
       console.log(`[${requestId}] 🤖 Mensagem DO BOT para cliente`);
       cliente_id = to;
       remetente = from;
       isMensagemDoBot = true;
-    }
-    // Mensagem DO CLIENTE para BOT
-    else if (to === NUMERO_24HELP_PRODUCAO || to === NUMERO_24HELP_SANDBOX) {
+    } else if (to === NUMERO_24HELP_PRODUCAO || to === NUMERO_24HELP_SANDBOX) {
       console.log(`[${requestId}] 👤 Mensagem DO CLIENTE para bot`);
       cliente_id = from;
       remetente = from;
       isMensagemDoBot = false;
-    }
-    // Outros casos - ignorar
-    else {
+    } else {
       console.log(`[${requestId}] ⚠️ Mensagem não é do fluxo bot↔cliente, ignorando`);
       return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
         headers: { ...corsHeaders, "Content-Type": "text/xml" },
       });
     }
 
-    // Buscar cliente pelo telefone
+    // Buscar cliente
     const { data: cliente } = await supabase
       .from("clientes")
       .select("telefone")
@@ -144,19 +166,42 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+    // Buscar timestamp real da Twilio (quando a mensagem foi enviada de fato)
+    const realDateSent = await fetchTwilioMessageDate(messageSid, requestId);
+    const dataHora = realDateSent || new Date().toISOString();
+
+    // Determinar tipo de mídia
+    let tipo = "texto";
+    let arquivoUrl: string | null = null;
+
+    if (numMedia > 0) {
+      const mediaContentType = formData.get("MediaContentType0") as string || "";
+      const mediaUrl = formData.get("MediaUrl0") as string || "";
+
+      if (mediaContentType.startsWith("image/")) tipo = "imagem";
+      else if (mediaContentType.startsWith("video/")) tipo = "video";
+      else if (mediaContentType.startsWith("audio/")) tipo = "audio";
+      else tipo = "arquivo";
+
+      arquivoUrl = mediaUrl || null;
+      console.log(`[${requestId}] 📎 Mídia: tipo=${tipo}, url=${arquivoUrl?.substring(0, 50)}...`);
+    }
+
     // Salvar mensagem
     const mensagem = {
       cliente_id: cliente_id,
       remetente: remetente,
-      texto: body,
-      tipo: "texto",
-      arquivo_url: null,
+      texto: body || (numMedia > 0 ? `Arquivo ${numMedia}` : ""),
+      tipo,
+      arquivo_url: arquivoUrl,
       status: "enviado",
-      data_hora: new Date().toISOString(),
+      data_hora: dataHora,
       ficha_id: ficha?.id || null,
       message_sid: messageSid,
       reply_to_message_id: null,
     };
+
+    console.log(`[${requestId}] 💾 Salvando com data_hora: ${dataHora} (${realDateSent ? 'REAL da Twilio' : 'fallback now()'})`);
 
     const { error: saveError } = await supabase.from("mensagens").insert(mensagem);
 
