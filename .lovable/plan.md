@@ -1,26 +1,12 @@
 
 
-# Plano: Criar UI para inputar metas diárias (`daily_goals`)
+## Deploy da Edge Function `twilio-status-callback`
 
-## Resumo
-Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
+A função já existe em `supabase/functions/twilio-status-callback/index.ts`. Vou fazer o deploy dela no backend.
 
-## Abordagem
+Também preciso garantir que ela está configurada no `supabase/config.toml` com `verify_jwt = false` (já que é um webhook externo do Twilio).
 
-### Opção recomendada: Adicionar seção na página Settings
-Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
-
-### Funcionalidades
-- Seletor de data (calendário) para escolher o dia
-- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
-- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
-- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
-- Listagem das metas já cadastradas no mês selecionado
-
-### Arquivos a criar/editar
-1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
-2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
-
-### Nenhuma alteração de banco necessária
-A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
+### Ações:
+1. Adicionar configuração `[functions.twilio-status-callback]` no `config.toml` (já existe)
+2. Fazer deploy da função usando a ferramenta de deploy
 
