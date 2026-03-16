@@ -370,13 +370,23 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             );
 
             if (tempIndex !== -1) {
-              // Replace temp message with real one
+              // Replace temp message with real one and keep chronological order
               const updated = [...prev];
               updated[tempIndex] = { ...novaMensagem, reply_to: replyTo };
-              return updated;
+              return updated.sort((a, b) => {
+                const timeA = new Date(a.data_hora).getTime();
+                const timeB = new Date(b.data_hora).getTime();
+                if (timeA !== timeB) return timeA - timeB;
+                return a.id.localeCompare(b.id);
+              });
             }
 
-            return [...prev, { ...novaMensagem, reply_to: replyTo }];
+            return [...prev, { ...novaMensagem, reply_to: replyTo }].sort((a, b) => {
+              const timeA = new Date(a.data_hora).getTime();
+              const timeB = new Date(b.data_hora).getTime();
+              if (timeA !== timeB) return timeA - timeB;
+              return a.id.localeCompare(b.id);
+            });
           });
         }
       )
