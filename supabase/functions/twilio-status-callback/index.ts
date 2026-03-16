@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
@@ -66,7 +66,7 @@ serve(async (req) => {
       processed_data: { from, to, body: body?.substring(0, 200), messageSid },
     });
 
-    // Verificar se é mensagem do BOT (from = número da 24help)
+    // Ignorar mensagens de teste (from = to)
     if (from === to) {
       console.log(`[${requestId}] ⚠️ Mensagem de teste ou loop, ignorando`);
       return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
@@ -90,11 +90,45 @@ serve(async (req) => {
       }
     }
 
-    // Buscar cliente pelo telefone (to = destinatário)
-    const { data: cliente } = await supabase.from("clientes").select("telefone").eq("telefone", to).maybeSingle();
+    // Detectar direção da mensagem
+    const NUMERO_24HELP_PRODUCAO = "whatsapp:+554138911555";
+    const NUMERO_24HELP_SANDBOX = "whatsapp:+14155238886";
+
+    let cliente_id: string;
+    let remetente: string;
+    let isMensagemDoBot = false;
+
+    // Mensagem DO BOT para CLIENTE
+    if (from === NUMERO_24HELP_PRODUCAO || from === NUMERO_24HELP_SANDBOX) {
+      console.log(`[${requestId}] 🤖 Mensagem DO BOT para cliente`);
+      cliente_id = to;
+      remetente = from;
+      isMensagemDoBot = true;
+    }
+    // Mensagem DO CLIENTE para BOT
+    else if (to === NUMERO_24HELP_PRODUCAO || to === NUMERO_24HELP_SANDBOX) {
+      console.log(`[${requestId}] 👤 Mensagem DO CLIENTE para bot`);
+      cliente_id = from;
+      remetente = from;
+      isMensagemDoBot = false;
+    }
+    // Outros casos - ignorar
+    else {
+      console.log(`[${requestId}] ⚠️ Mensagem não é do fluxo bot↔cliente, ignorando`);
+      return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+        headers: { ...corsHeaders, "Content-Type": "text/xml" },
+      });
+    }
+
+    // Buscar cliente pelo telefone
+    const { data: cliente } = await supabase
+      .from("clientes")
+      .select("telefone")
+      .eq("telefone", cliente_id)
+      .maybeSingle();
 
     if (!cliente) {
-      console.log(`[${requestId}] ⚠️ Cliente não encontrado: ${to}`);
+      console.log(`[${requestId}] ⚠️ Cliente não encontrado: ${cliente_id}`);
       return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
         headers: { ...corsHeaders, "Content-Type": "text/xml" },
       });
@@ -110,10 +144,10 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    // Salvar mensagem DO BOT
+    // Salvar mensagem
     const mensagem = {
-      cliente_id: cliente.telefone,
-      remetente: from, // ✅ Número da 24help
+      cliente_id: cliente_id,
+      remetente: remetente,
       texto: body,
       tipo: "texto",
       arquivo_url: null,
@@ -134,20 +168,21 @@ serve(async (req) => {
         source: "twilio_status_callback",
         event_type: "save_error",
         message_sid: messageSid,
-        client_phone: to,
+        client_phone: cliente_id,
         success: false,
         error_message: saveError.message,
         step: "SAVE_ERROR",
       });
     } else {
-      console.log(`[${requestId}] ✅ Mensagem do bot salva com sucesso!`);
+      const tipoMensagem = isMensagemDoBot ? "bot" : "cliente";
+      console.log(`[${requestId}] ✅ Mensagem do ${tipoMensagem} salva com sucesso!`);
 
       await supabase.from("webhook_debug_logs").insert({
         timestamp: new Date().toISOString(),
         source: "twilio_status_callback",
-        event_type: "bot_message_saved",
+        event_type: isMensagemDoBot ? "bot_message_saved" : "client_message_saved",
         message_sid: messageSid,
-        client_phone: to,
+        client_phone: cliente_id,
         success: true,
         error_message: null,
         step: "SAVED",
