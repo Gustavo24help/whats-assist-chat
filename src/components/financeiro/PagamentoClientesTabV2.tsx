@@ -113,7 +113,6 @@ export const PagamentoClientesTabV2 = () => {
         .eq("ficha_id", ficha.id);
       toast({ title: "✅ Pagamento do cliente confirmado!" });
       setFichas(prev => prev.filter(f => f.id !== ficha.id));
-      setSelectedIds(prev => { const n = new Set(prev); n.delete(ficha.id); return n; });
     }
     setMarkingPaid(null);
   };
