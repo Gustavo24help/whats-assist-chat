@@ -483,7 +483,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           setMensagens((prev) => {
             const existentes = new Set(prev.map((m) => m.id));
             const semDuplicatas = novasMensagens.filter((m) => !existentes.has(m.id)) as Mensagem[];
-            return semDuplicatas.length ? [...prev, ...semDuplicatas] : prev;
+            if (!semDuplicatas.length) return prev;
+
+            return [...prev, ...semDuplicatas].sort((a, b) => {
+              const timeA = new Date(a.data_hora).getTime();
+              const timeB = new Date(b.data_hora).getTime();
+              if (timeA !== timeB) return timeA - timeB;
+              return a.id.localeCompare(b.id);
+            });
           });
         }
       }
