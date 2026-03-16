@@ -171,18 +171,11 @@ export const PagamentoClientesTabV2 = () => {
         <Input placeholder="Buscar cliente ou ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      {/* Batch action bar */}
-      {hasSelection && (
-        <div className="sticky top-16 z-10 flex items-center gap-3 rounded-lg border bg-card p-3 shadow-md">
-          <span className="text-sm font-medium">{selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}</span>
-          <Button size="sm" onClick={startBatchPopups} className="gap-1.5">
-            <DollarSign className="h-3.5 w-3.5" /> Mostrar Pop-ups
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())} className="gap-1.5">
-            <X className="h-3.5 w-3.5" /> Desmarcar
-          </Button>
-        </div>
-      )}
+      {/* Pop-ups toggle */}
+      <div className="flex items-center gap-2">
+        <Switch checked={popupsEnabled} onCheckedChange={setPopupsEnabled} />
+        <span className="text-sm text-muted-foreground">Pop-ups de confirmação</span>
+      </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList className="mb-3">
