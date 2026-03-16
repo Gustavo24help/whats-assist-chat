@@ -37,7 +37,7 @@ const Financeiro = () => {
       </div>
 
       <main className="flex-1 px-4 md:px-6 pb-6">
-        <Tabs defaultValue="clientes" className="w-full">
+        <Tabs defaultValue="prestadores" className="w-full">
           <TabsList className="w-full justify-start overflow-x-auto mb-4">
             <TabsTrigger value="clientes" className="gap-1.5">
               <Users className="h-4 w-4" /> Pagamento Clientes

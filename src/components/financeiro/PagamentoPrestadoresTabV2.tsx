@@ -2,14 +2,18 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { isBusinessDay } from "@/lib/businessDays2026";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   CheckCircle2, Loader2, Copy, CreditCard, ChevronLeft, ChevronRight,
-  History, DollarSign, Info, Ban, Search, Star, Building2,
+  History, DollarSign, Info, Ban, Search, Star, Building2, X,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -20,6 +24,17 @@ const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "curr
 const EXCLUDED_FICHAS = ["FS4-260127"];
 const FINANCEIRO_CUTOFF = "2026-03-13T23:00:00.000Z";
 const PAGE_SIZE = 20;
+
+/** Add N business days to a date */
+function addBusinessDays(date: Date | string, n: number): Date {
+  const d = new Date(date);
+  let added = 0;
+  while (added < n) {
+    d.setDate(d.getDate() + 1);
+    if (isBusinessDay(d)) added++;
+  }
+  return d;
+}
 
 function calcFinanceiro(ficha: any) {
   const maoObra = ficha.valor_mao_obra || 0;
@@ -64,6 +79,7 @@ interface FichaFinanceira {
   pago_prestador: boolean;
   nps_nota: number | null;
   financeiro: ReturnType<typeof calcFinanceiro>;
+  data_pagamento_prevista: Date;
 }
 
 export const PagamentoPrestadoresTabV2 = () => {
@@ -82,6 +98,16 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [historicoLoading, setHistoricoLoading] = useState(false);
   const [historicoPage, setHistoricoPage] = useState(0);
   const [historicoTotal, setHistoricoTotal] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchQueue, setBatchQueue] = useState<FichaFinanceira[]>([]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const buildList = useCallback(async (pagoFilter: boolean, page?: number) => {
     let query = supabase
@@ -101,7 +127,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     if (error) throw error;
 
     const fichas = (fichasData || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
-    if (fichas.length === 0) return { items: [], total: count || 0 };
+    if (fichas.length === 0) return { items: [] as FichaFinanceira[], total: count || 0 };
 
     const prestadorIds = [...new Set(fichas.map((f: any) => f.prestador_id))];
     const phones = [...new Set(fichas.map((f: any) => f.telefone_cliente))];
@@ -144,6 +170,7 @@ export const PagamentoPrestadoresTabV2 = () => {
         pago_prestador: trans?.status_pagamento_prestador === "pago",
         nps_nota: npsMap.get(f.id) ?? null,
         financeiro: fin,
+        data_pagamento_prevista: addBusinessDays(f.created_at, 2),
       };
     });
 
@@ -206,13 +233,14 @@ export const PagamentoPrestadoresTabV2 = () => {
           banco_prestador: ficha.banco,
           status_pagamento_prestador: "pago",
           status_pagamento_cliente: ficha.pagamento_realizado ? "pago" : "pendente",
-          data_pagamento_prevista: agora,
+          data_pagamento_prevista: ficha.data_pagamento_prevista.toISOString(),
           data_pagamento_realizada: agora,
         } as any);
       }
 
       toast({ title: "✅ Pagamento ao prestador confirmado!" });
       setPendentes(prev => prev.filter(f => f.id !== ficha.id));
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(ficha.id); return n; });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     } finally {
@@ -228,12 +256,33 @@ export const PagamentoPrestadoresTabV2 = () => {
       .eq("id", ficha.id);
     toast({ title: "Pagamento cancelado" });
     setPendentes(prev => prev.filter(f => f.id !== ficha.id));
+    setSelectedIds(prev => { const n = new Set(prev); n.delete(ficha.id); return n; });
     setCancelando(null);
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Copiado!", description: text });
+  };
+
+  // Batch: open popups sequentially
+  const startBatchPopups = () => {
+    const selected = filteredPendentes.filter(f => selectedIds.has(f.id));
+    if (selected.length === 0) return;
+    setBatchQueue(selected.slice(1));
+    setPagamentoConfirm(selected[0]);
+  };
+
+  const handleBatchConfirm = (ficha: FichaFinanceira) => {
+    marcarPago(ficha);
+    setPagamentoConfirm(null);
+    // Open next in queue after short delay
+    setTimeout(() => {
+      if (batchQueue.length > 0) {
+        setPagamentoConfirm(batchQueue[0]);
+        setBatchQueue(prev => prev.slice(1));
+      }
+    }, 300);
   };
 
   const filteredPendentes = search
@@ -246,15 +295,19 @@ export const PagamentoPrestadoresTabV2 = () => {
 
   const totalAPagar = filteredPendentes.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
+  const hasSelection = selectedIds.size > 0;
 
   const getInitials = (name: string) => {
     const parts = name.split(" ").filter(Boolean);
     return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : (parts[0]?.[0] || "?").toUpperCase();
   };
 
+  const formatDateShort = (d: Date | string) => format(new Date(d), "dd/MM", { locale: ptBR });
+  const formatDateFull = (d: Date | string) => format(new Date(d), "dd/MM/yyyy", { locale: ptBR });
+
   return (
     <div className="space-y-4">
-      {/* Summary - clean */}
+      {/* Summary */}
       <div className="flex gap-3 overflow-x-auto">
         <div className="min-w-[140px] rounded-lg border bg-card p-3 shrink-0">
           <div className="text-xs text-muted-foreground">Pendentes</div>
@@ -272,6 +325,19 @@ export const PagamentoPrestadoresTabV2 = () => {
         <Input placeholder="Buscar prestador, cliente, ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
       </div>
 
+      {/* Batch action bar */}
+      {hasSelection && (
+        <div className="sticky top-16 z-10 flex items-center gap-3 rounded-lg border bg-card p-3 shadow-md">
+          <span className="text-sm font-medium">{selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}</span>
+          <Button size="sm" onClick={startBatchPopups} className="gap-1.5">
+            <DollarSign className="h-3.5 w-3.5" /> Mostrar Pop-ups
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())} className="gap-1.5">
+            <X className="h-3.5 w-3.5" /> Desmarcar
+          </Button>
+        </div>
+      )}
+
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList className="mb-3">
           <TabsTrigger value="pendentes" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Pendentes</TabsTrigger>
@@ -286,7 +352,14 @@ export const PagamentoPrestadoresTabV2 = () => {
               <div className="text-center py-12"><CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-muted-foreground">Nenhum pagamento pendente!</p></div>
             ) : (
               filteredPendentes.map((f) => (
-                <div key={f.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
+                <div key={f.id} className={`rounded-lg border bg-card p-4 flex items-center gap-4 ${selectedIds.has(f.id) ? "ring-2 ring-primary" : ""}`}>
+                  {/* Checkbox */}
+                  <Checkbox
+                    checked={selectedIds.has(f.id)}
+                    onCheckedChange={() => toggleSelect(f.id)}
+                    className="shrink-0"
+                  />
+
                   {/* Avatar */}
                   <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
                     {getInitials(f.prestador_nome)}
@@ -301,7 +374,7 @@ export const PagamentoPrestadoresTabV2 = () => {
                       {f.pagamento_realizado ? (
                         <Badge variant="outline" className="text-[10px] border-green-300 text-green-700">Cliente Pagou</Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px]">Cliente Pendente</Badge>
+                        <Badge variant="outline" className="text-[10px]">Pagamento do Cliente Pendente</Badge>
                       )}
                       {f.nps_nota !== null && (
                         <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
@@ -309,25 +382,24 @@ export const PagamentoPrestadoresTabV2 = () => {
                         </span>
                       )}
                     </div>
-                    {/* PIX + Banco */}
-                    {(f.chave_pix || f.banco) && (
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                        {f.chave_pix && (
-                          <span className="inline-flex items-center gap-1 truncate max-w-[200px]">
-                            <CreditCard className="h-3 w-3 shrink-0" />
-                            PIX: {f.chave_pix}
-                            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => copyToClipboard(f.chave_pix!)}>
-                              <Copy className="h-2.5 w-2.5" />
-                            </Button>
-                          </span>
-                        )}
-                        {f.banco && (
-                          <span className="inline-flex items-center gap-1">
-                            <Building2 className="h-3 w-3 shrink-0" /> {f.banco}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {/* Date + PIX */}
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
+                      <span>Pgto: {formatDateShort(f.data_pagamento_prevista)}</span>
+                      {f.chave_pix && (
+                        <span className="inline-flex items-center gap-1 truncate max-w-[200px]">
+                          <CreditCard className="h-3 w-3 shrink-0" />
+                          PIX: {f.chave_pix}
+                          <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => copyToClipboard(f.chave_pix!)}>
+                            <Copy className="h-2.5 w-2.5" />
+                          </Button>
+                        </span>
+                      )}
+                      {f.banco && (
+                        <span className="inline-flex items-center gap-1">
+                          <Building2 className="h-3 w-3 shrink-0" /> {f.banco}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Value */}
@@ -409,6 +481,10 @@ export const PagamentoPrestadoresTabV2 = () => {
                 <div className="font-medium">{detalhesSel.nome_cliente_resolved}</div>
                 <div className="text-muted-foreground">Prestador</div>
                 <div className="font-medium">{detalhesSel.prestador_nome}</div>
+                <div className="text-muted-foreground">Data Contratação</div>
+                <div className="font-medium">{formatDateFull(detalhesSel.created_at)}</div>
+                <div className="text-muted-foreground">Data Pagamento Prevista</div>
+                <div className="font-medium">{formatDateFull(detalhesSel.data_pagamento_prevista)}</div>
               </div>
               <Separator />
               <div className="grid grid-cols-2 gap-2">
@@ -453,12 +529,13 @@ export const PagamentoPrestadoresTabV2 = () => {
       </Dialog>
 
       {/* Payment Confirmation Dialog */}
-      <Dialog open={!!pagamentoConfirm} onOpenChange={(open) => !open && setPagamentoConfirm(null)}>
+      <Dialog open={!!pagamentoConfirm} onOpenChange={(open) => { if (!open) { setPagamentoConfirm(null); setBatchQueue([]); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-green-600" />
               Confirmar Pagamento
+              {batchQueue.length > 0 && <Badge variant="secondary" className="text-xs">+{batchQueue.length} restante{batchQueue.length > 1 ? "s" : ""}</Badge>}
             </DialogTitle>
           </DialogHeader>
           {pagamentoConfirm && (
@@ -470,7 +547,10 @@ export const PagamentoPrestadoresTabV2 = () => {
                 </div>
                 <div>
                   <div className="font-bold text-base">{pagamentoConfirm.prestador_nome}</div>
-                  <Badge variant="secondary" className="text-[10px] mt-0.5">{pagamentoConfirm.id}</Badge>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Badge variant="secondary" className="text-[10px]">{pagamentoConfirm.id}</Badge>
+                    <span className="text-xs text-muted-foreground">Pgto: {formatDateShort(pagamentoConfirm.data_pagamento_prevista)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -540,10 +620,7 @@ export const PagamentoPrestadoresTabV2 = () => {
               <Button
                 className="w-full h-11 text-base"
                 disabled={markingPaid === pagamentoConfirm.id}
-                onClick={() => {
-                  marcarPago(pagamentoConfirm);
-                  setPagamentoConfirm(null);
-                }}
+                onClick={() => handleBatchConfirm(pagamentoConfirm)}
               >
                 {markingPaid === pagamentoConfirm.id ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
