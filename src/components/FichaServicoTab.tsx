@@ -108,6 +108,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [gerandoLink, setGerandoLink] = useState(false);
+  const [linkDialogData, setLinkDialogData] = useState<{ url: string; nome: string; valor: number } | null>(null);
 
   // Função de validação de dados
   const validarDadosFicha = (fichaData: Ficha): { valid: boolean; errors: string[] } => {
