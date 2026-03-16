@@ -99,16 +99,33 @@ serve(async (req) => {
       }
     }
 
-    // Verificar janela de 24h
+    // Verificar janela de 24h usando o histórico real de mensagens do cliente
     const { data: cliente } = await supabase
       .from('clientes')
       .select('ultima_interacao')
       .eq('telefone', to)
       .single();
 
+    const { data: recentMessages, error: recentMessagesError } = await supabase
+      .from('mensagens')
+      .select('data_hora, remetente')
+      .eq('cliente_id', to)
+      .not('data_hora', 'is', null)
+      .order('data_hora', { ascending: false })
+      .limit(20);
+
+    if (recentMessagesError) {
+      console.warn('[send-whatsapp] Erro ao buscar histórico recente:', recentMessagesError.message);
+    }
+
+    const ultimaMensagemCliente = recentMessages?.find(
+      (msg) => msg.data_hora && (msg.remetente === 'cliente' || msg.remetente === to)
+    );
+
     const now = new Date();
-    const ultimaInteracao = cliente?.ultima_interacao ? new Date(cliente.ultima_interacao) : null;
-    const diferencaHoras = ultimaInteracao 
+    const referenciaJanela24h = ultimaMensagemCliente?.data_hora ?? cliente?.ultima_interacao ?? null;
+    const ultimaInteracao = referenciaJanela24h ? new Date(referenciaJanela24h) : null;
+    const diferencaHoras = ultimaInteracao
       ? (now.getTime() - ultimaInteracao.getTime()) / (1000 * 60 * 60)
       : 25;
 
@@ -116,12 +133,12 @@ serve(async (req) => {
 
     if (!dentroJanela24h) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           error: 'FORA_JANELA_24H',
           message: 'Conversa fora da janela de 24h. Use um template aprovado.'
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
