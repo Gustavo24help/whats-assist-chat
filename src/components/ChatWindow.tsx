@@ -1393,6 +1393,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
 
     setIsSending(true);
+    const mensagemTexto = novaMsg;
 
     try {
       // Auto-atribuir operador se ainda não atribuído
@@ -1408,8 +1409,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           await atribuirOperador(user.id, profile?.full_name || 'Você');
         }
       }
-
-      const mensagemTexto = novaMsg;
       
       console.log('📤 [enviarMensagem] Preparando envio:', {
         texto: mensagemTexto.substring(0, 50)
