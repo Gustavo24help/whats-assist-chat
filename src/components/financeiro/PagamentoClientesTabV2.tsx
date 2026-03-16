@@ -194,10 +194,24 @@ export const PagamentoClientesTabV2 = () => {
         <Input placeholder="Buscar cliente ou ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      {/* Pop-ups toggle */}
-      <div className="flex items-center gap-2">
-        <Switch checked={popupsEnabled} onCheckedChange={setPopupsEnabled} />
-        <span className="text-sm text-muted-foreground">Pop-ups de confirmação</span>
+      {/* Pop-ups toggle + batch bar */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Switch checked={popupsEnabled} onCheckedChange={setPopupsEnabled} />
+          <span className="text-sm text-muted-foreground">Pop-ups de confirmação</span>
+        </div>
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 rounded-lg border bg-card p-2 px-3 shadow-sm">
+            <span className="text-sm font-medium">{selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}</span>
+            <Button size="sm" onClick={pagarTodosSelecionados} disabled={batchPaying} className="gap-1.5">
+              {batchPaying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DollarSign className="h-3.5 w-3.5" />}
+              Pagar Todos
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())} className="gap-1.5">
+              <X className="h-3.5 w-3.5" /> Desmarcar
+            </Button>
+          </div>
+        )}
       </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>
