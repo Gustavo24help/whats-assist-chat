@@ -239,7 +239,6 @@ export const PagamentoPrestadoresTabV2 = () => {
 
       toast({ title: "✅ Pagamento ao prestador confirmado!" });
       setPendentes(prev => prev.filter(f => f.id !== ficha.id));
-      setSelectedIds(prev => { const n = new Set(prev); n.delete(ficha.id); return n; });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     } finally {
