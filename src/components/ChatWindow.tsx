@@ -55,6 +55,7 @@ interface Mensagem {
   remetente: string;
   status: "enviado" | "recebido" | "lido";
   status_atualizado_em?: string;
+  message_sid?: string | null;
   reply_to_message_id?: string | null;
   reply_to?: Mensagem | null;
   enviado_por?: { full_name: string } | null;
