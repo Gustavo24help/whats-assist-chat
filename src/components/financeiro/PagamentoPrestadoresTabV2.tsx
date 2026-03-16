@@ -100,6 +100,28 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [historicoPage, setHistoricoPage] = useState(0);
   const [historicoTotal, setHistoricoTotal] = useState(0);
   const [popupsEnabled, setPopupsEnabled] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchPaying, setBatchPaying] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const pagarTodosSelecionados = async () => {
+    const selected = filteredPendentes.filter(f => selectedIds.has(f.id));
+    if (selected.length === 0) return;
+    setBatchPaying(true);
+    for (const ficha of selected) {
+      await marcarPago(ficha);
+    }
+    setSelectedIds(new Set());
+    setBatchPaying(false);
+    toast({ title: `✅ ${selected.length} pagamento${selected.length > 1 ? "s" : ""} confirmado${selected.length > 1 ? "s" : ""}!` });
+  };
 
   const buildList = useCallback(async (pagoFilter: boolean, page?: number) => {
     let query = supabase
