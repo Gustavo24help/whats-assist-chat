@@ -342,16 +342,21 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             }
 
             // Dedup: same text + same sender within 30s window = duplicate
-            const msgTime = novaMensagem.data_hora ? new Date(novaMensagem.data_hora).getTime() : Date.now();
-            const isDuplicateByContent = prev.some(
-              (msg) =>
-                !msg.id.startsWith('temp-') &&
-                msg.texto === novaMensagem.texto &&
-                msg.remetente === novaMensagem.remetente &&
-                msg.data_hora &&
-                Math.abs(new Date(msg.data_hora).getTime() - msgTime) < 30000
-            );
-            if (isDuplicateByContent) return prev;
+            // Skip content-based dedup for media messages (images, videos, audio, files)
+            // because multiple media items often have the same generic text like "Arquivo 1"
+            const isMediaMessage = novaMensagem.tipo && novaMensagem.tipo !== 'texto';
+            if (!isMediaMessage) {
+              const msgTime = novaMensagem.data_hora ? new Date(novaMensagem.data_hora).getTime() : Date.now();
+              const isDuplicateByContent = prev.some(
+                (msg) =>
+                  !msg.id.startsWith('temp-') &&
+                  msg.texto === novaMensagem.texto &&
+                  msg.remetente === novaMensagem.remetente &&
+                  msg.data_hora &&
+                  Math.abs(new Date(msg.data_hora).getTime() - msgTime) < 30000
+              );
+              if (isDuplicateByContent) return prev;
+            }
 
             // Check if this is a duplicate of an optimistic (temp) message
             const tempIndex = prev.findIndex(
