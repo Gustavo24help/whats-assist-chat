@@ -14,6 +14,7 @@ import debounce from "lodash-es/debounce";
 import { ReciboGenerator } from "@/components/ReciboGenerator";
 import { ResumoConversaDialog } from "@/components/ResumoConversaDialog";
 import { PopupConfirmacaoFinanceira } from "@/components/PopupConfirmacaoFinanceira";
+import { EnviarLinkPagamentoDialog } from "@/components/EnviarLinkPagamentoDialog";
 
 interface FichaServicoTabProps {
   fichaId: string;
