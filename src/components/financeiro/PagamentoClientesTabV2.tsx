@@ -148,7 +148,7 @@ export const PagamentoClientesTabV2 = () => {
 
   const totalPendente = filteredFichas.reduce((s, f) => s + (f.valor_total || 0), 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
-  const hasSelection = selectedIds.size > 0;
+  
 
   const formatDateShort = (d: string) => format(new Date(d), "dd/MM", { locale: ptBR });
 
