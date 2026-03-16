@@ -194,6 +194,10 @@ serve(async (req) => {
       console.log(`[${requestId}] 📎 Mídia: tipo=${tipo}, url=${arquivoUrl?.substring(0, 50)}...`);
     }
 
+    // Buscar timestamp real da Twilio
+    const realDateSent = messageSid ? await fetchTwilioMessageDate(messageSid, requestId) : null;
+    const dataHora = realDateSent || new Date().toISOString();
+
     // Salvar mensagem
     const mensagem = {
       cliente_id: cliente.telefone,  // ✅ Sempre o telefone do CLIENTE
@@ -202,7 +206,7 @@ serve(async (req) => {
       tipo,
       arquivo_url: arquivoUrl,
       status: isClientMessage ? "recebido" : "enviado",
-      data_hora: new Date().toISOString(),
+      data_hora: dataHora,
       ficha_id: ficha?.id || null,
       message_sid: messageSid,
       reply_to_message_id: null,
