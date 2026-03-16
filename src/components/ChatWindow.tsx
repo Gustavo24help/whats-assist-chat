@@ -42,9 +42,10 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const NUMERO_24HELP = 'whatsapp:+554138911555';
+const NUMERO_SANDBOX = 'whatsapp:+14155238886';
 
 const isAtendente = (remetente: string): boolean =>
-  remetente === NUMERO_24HELP || remetente === 'atendente' || remetente === 'bot';
+  remetente === NUMERO_24HELP || remetente === NUMERO_SANDBOX || remetente === 'atendente' || remetente === 'bot';
 
 interface Mensagem {
   id: string;
