@@ -75,6 +75,7 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [detalhesOpen, setDetalhesOpen] = useState(false);
   const [detalhesSel, setDetalhesSel] = useState<FichaFinanceira | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<FichaFinanceira | null>(null);
+  const [pagamentoConfirm, setPagamentoConfirm] = useState<FichaFinanceira | null>(null);
   const [cancelando, setCancelando] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [historico, setHistorico] = useState<FichaFinanceira[]>([]);
@@ -343,7 +344,7 @@ export const PagamentoPrestadoresTabV2 = () => {
                     <Button variant="outline" size="sm" className="text-destructive border-destructive/30 h-9 px-3" disabled={cancelando === f.id} onClick={() => setConfirmCancel(f)}>
                       <Ban className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="sm" className="h-9 px-4" disabled={markingPaid === f.id} onClick={() => marcarPago(f)}>
+                    <Button size="sm" className="h-9 px-4" disabled={markingPaid === f.id} onClick={() => setPagamentoConfirm(f)}>
                       {markingPaid === f.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                       Pagar
                     </Button>
@@ -446,6 +447,111 @@ export const PagamentoPrestadoresTabV2 = () => {
                   </>
                 )}
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Confirmation Dialog */}
+      <Dialog open={!!pagamentoConfirm} onOpenChange={(open) => !open && setPagamentoConfirm(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-600" />
+              Confirmar Pagamento
+            </DialogTitle>
+          </DialogHeader>
+          {pagamentoConfirm && (
+            <div className="space-y-4 text-sm">
+              {/* Prestador */}
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-full bg-muted flex items-center justify-center text-sm font-bold shrink-0">
+                  {getInitials(pagamentoConfirm.prestador_nome)}
+                </div>
+                <div>
+                  <div className="font-bold text-base">{pagamentoConfirm.prestador_nome}</div>
+                  <Badge variant="secondary" className="text-[10px] mt-0.5">{pagamentoConfirm.id}</Badge>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* PIX Info */}
+              <div className="space-y-2">
+                <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Dados PIX</h4>
+                <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+                  {pagamentoConfirm.nome_pix && (
+                    <>
+                      <span className="text-muted-foreground">Nome PIX</span>
+                      <span className="font-medium">{pagamentoConfirm.nome_pix}</span>
+                    </>
+                  )}
+                  {pagamentoConfirm.chave_pix && (
+                    <>
+                      <span className="text-muted-foreground">Chave PIX</span>
+                      <span className="font-medium flex items-center gap-1.5">
+                        <span className="truncate max-w-[200px]">{pagamentoConfirm.chave_pix}</span>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => copyToClipboard(pagamentoConfirm.chave_pix!)}>
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </span>
+                    </>
+                  )}
+                  {pagamentoConfirm.banco && (
+                    <>
+                      <span className="text-muted-foreground">Banco</span>
+                      <span className="font-medium flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        {pagamentoConfirm.banco}
+                      </span>
+                    </>
+                  )}
+                  {!pagamentoConfirm.chave_pix && !pagamentoConfirm.nome_pix && !pagamentoConfirm.banco && (
+                    <span className="col-span-2 text-muted-foreground italic">Nenhum dado PIX cadastrado</span>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Valores */}
+              <div className="space-y-2">
+                <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Composição dos Valores</h4>
+                <div className="grid grid-cols-2 gap-y-1.5">
+                  <span className="text-muted-foreground">Mão de Obra</span>
+                  <span className="text-right">{formatMoeda(pagamentoConfirm.financeiro.maoObra)}</span>
+                  <span className="text-muted-foreground">Peças</span>
+                  <span className="text-right">{formatMoeda(pagamentoConfirm.financeiro.pecas)}</span>
+                  <span className="text-muted-foreground">Taxa 24help (23%)</span>
+                  <span className="text-right">{formatMoeda(pagamentoConfirm.financeiro.taxa24help)}</span>
+                </div>
+                <Separator />
+                <div className="grid grid-cols-2 gap-y-1.5">
+                  <span className="text-muted-foreground font-semibold">Total da OS</span>
+                  <span className="text-right font-semibold">{formatMoeda(pagamentoConfirm.financeiro.totalOS)}</span>
+                </div>
+                <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 p-3 flex items-center justify-between">
+                  <span className="font-semibold text-green-800 dark:text-green-300">Líquido Prestador</span>
+                  <span className="text-xl font-bold text-green-700 dark:text-green-400">{formatMoeda(pagamentoConfirm.financeiro.liquidoPrestador)}</span>
+                </div>
+              </div>
+
+              {/* Confirm Button */}
+              <Button
+                className="w-full h-11 text-base"
+                disabled={markingPaid === pagamentoConfirm.id}
+                onClick={() => {
+                  marcarPago(pagamentoConfirm);
+                  setPagamentoConfirm(null);
+                }}
+              >
+                {markingPaid === pagamentoConfirm.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                )}
+                Confirmar Pagamento
+              </Button>
             </div>
           )}
         </DialogContent>

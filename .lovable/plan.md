@@ -1,35 +1,26 @@
 
 
-## Plano: Popup de Pagamento ao Prestador
+# Plano: Criar UI para inputar metas diárias (`daily_goals`)
 
-### O que muda
+## Resumo
+Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
 
-**No `PagamentoPrestadoresTabV2.tsx`**, ao clicar no botão "Pagar", em vez de executar diretamente o `marcarPago`, abre um popup (Dialog) com todas as informações do pagamento para conferência antes de confirmar.
+## Abordagem
 
-### Conteudo do Popup
+### Opção recomendada: Adicionar seção na página Settings
+Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
 
-O popup terá:
-- **X para fechar** (nativo do DialogContent)
-- **Nome do Prestador** (destaque)
-- **Nome do PIX** do prestador
-- **Chave PIX** com botão de copiar
-- **Banco** destino
-- **Numero da Ficha** (ID)
-- **Composição dos valores**:
-  - Mao de Obra
-  - Pecas
-  - Taxa 24help (23%)
-  - Total da OS
-  - **Liquido Prestador** (valor a transferir, em destaque)
-- **Botao "Confirmar Pagamento"** que executa o `marcarPago` existente
+### Funcionalidades
+- Seletor de data (calendário) para escolher o dia
+- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
+- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
+- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
+- Listagem das metas já cadastradas no mês selecionado
 
-### Implementacao
+### Arquivos a criar/editar
+1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
+2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
 
-1. Adicionar estado `pagamentoConfirm` (`FichaFinanceira | null`) no componente
-2. Trocar o `onClick` do botao "Pagar" para abrir o popup em vez de chamar `marcarPago` direto
-3. Criar um novo `Dialog` com layout limpo e organizado, usando o mesmo padrão visual do dialog de detalhes já existente (grid 2 colunas, Separators)
-4. O botão "Confirmar Pagamento" dentro do popup chama `marcarPago(pagamentoConfirm)` e fecha o dialog
-
-### Arquivo editado
-- `src/components/financeiro/PagamentoPrestadoresTabV2.tsx`
+### Nenhuma alteração de banco necessária
+A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
 
