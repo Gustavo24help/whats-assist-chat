@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
@@ -12,7 +13,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   CheckCircle2, Loader2, Copy, CreditCard, ChevronLeft, ChevronRight,
-  History, DollarSign, Info, Ban, Search, Star, Building2,
+  History, DollarSign, Info, Ban, Search, Star, Building2, X,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -99,6 +100,28 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [historicoPage, setHistoricoPage] = useState(0);
   const [historicoTotal, setHistoricoTotal] = useState(0);
   const [popupsEnabled, setPopupsEnabled] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchPaying, setBatchPaying] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const pagarTodosSelecionados = async () => {
+    const selected = filteredPendentes.filter(f => selectedIds.has(f.id));
+    if (selected.length === 0) return;
+    setBatchPaying(true);
+    for (const ficha of selected) {
+      await marcarPago(ficha);
+    }
+    setSelectedIds(new Set());
+    setBatchPaying(false);
+    toast({ title: `✅ ${selected.length} pagamento${selected.length > 1 ? "s" : ""} confirmado${selected.length > 1 ? "s" : ""}!` });
+  };
 
   const buildList = useCallback(async (pagoFilter: boolean, page?: number) => {
     let query = supabase
@@ -309,10 +332,24 @@ export const PagamentoPrestadoresTabV2 = () => {
         <Input placeholder="Buscar prestador, cliente, ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      {/* Pop-ups toggle */}
-      <div className="flex items-center gap-2">
-        <Switch checked={popupsEnabled} onCheckedChange={setPopupsEnabled} />
-        <span className="text-sm text-muted-foreground">Pop-ups de confirmação</span>
+      {/* Pop-ups toggle + batch bar */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Switch checked={popupsEnabled} onCheckedChange={setPopupsEnabled} />
+          <span className="text-sm text-muted-foreground">Pop-ups de confirmação</span>
+        </div>
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 rounded-lg border bg-card p-2 px-3 shadow-sm">
+            <span className="text-sm font-medium">{selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}</span>
+            <Button size="sm" onClick={pagarTodosSelecionados} disabled={batchPaying} className="gap-1.5">
+              {batchPaying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DollarSign className="h-3.5 w-3.5" />}
+              Pagar Todos
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())} className="gap-1.5">
+              <X className="h-3.5 w-3.5" /> Desmarcar
+            </Button>
+          </div>
+        )}
       </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>
@@ -329,8 +366,9 @@ export const PagamentoPrestadoresTabV2 = () => {
               <div className="text-center py-12"><CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-muted-foreground">Nenhum pagamento pendente!</p></div>
             ) : (
               filteredPendentes.map((f) => (
-                <div key={f.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
-
+                <div key={f.id} className={`rounded-lg border bg-card p-4 flex items-center gap-4 ${selectedIds.has(f.id) ? "ring-2 ring-primary" : ""}`}>
+                  {/* Checkbox */}
+                  <Checkbox checked={selectedIds.has(f.id)} onCheckedChange={() => toggleSelect(f.id)} className="shrink-0" />
                   {/* Avatar */}
                   <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
                     {getInitials(f.prestador_nome)}
