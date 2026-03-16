@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CheckCircle2, Loader2, ExternalLink, Copy, Clock, Ban, History, ChevronLeft, ChevronRight, Search, DollarSign, X,
+  CheckCircle2, Loader2, ExternalLink, Copy, Clock, Ban, History, ChevronLeft, ChevronRight, Search, DollarSign,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
