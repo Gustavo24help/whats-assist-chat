@@ -52,17 +52,7 @@ export const PagamentoClientesTabV2 = () => {
   const [historicoLoading, setHistoricoLoading] = useState(false);
   const [historicoPage, setHistoricoPage] = useState(0);
   const [historicoTotal, setHistoricoTotal] = useState(0);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [batchQueue, setBatchQueue] = useState<FichaCliente[]>([]);
-  const [pagamentoConfirm, setPagamentoConfirm] = useState<FichaCliente | null>(null);
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+  const [popupsEnabled, setPopupsEnabled] = useState(true);
 
   const resolveNames = async (items: any[]): Promise<FichaCliente[]> => {
     if (items.length === 0) return [];
