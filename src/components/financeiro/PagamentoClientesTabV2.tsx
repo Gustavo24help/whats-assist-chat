@@ -133,23 +133,12 @@ export const PagamentoClientesTabV2 = () => {
     toast({ title: "Copiado!", description: text });
   };
 
-  // Batch popup flow
-  const startBatchPopups = () => {
-    const selected = filteredFichas.filter(f => selectedIds.has(f.id));
-    if (selected.length === 0) return;
-    setBatchQueue(selected.slice(1));
-    setPagamentoConfirm(selected[0]);
-  };
-
-  const handleBatchConfirm = (ficha: FichaCliente) => {
-    marcarPagou(ficha);
-    setPagamentoConfirm(null);
-    setTimeout(() => {
-      if (batchQueue.length > 0) {
-        setPagamentoConfirm(batchQueue[0]);
-        setBatchQueue(prev => prev.slice(1));
-      }
-    }, 300);
+  const handlePayClick = (ficha: FichaCliente) => {
+    if (popupsEnabled) {
+      setPagamentoConfirm(ficha);
+    } else {
+      marcarPagou(ficha);
+    }
   };
 
   const filteredFichas = search
