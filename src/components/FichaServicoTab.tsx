@@ -1398,7 +1398,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                         // Abrir dialog de envio
                         setLinkDialogData({
                           url: data.payment_url,
-                          nome: nomeCliente,
+                          nome: clienteNomeResolvido,
                           valor: ficha.valor_total,
                         });
                       } else {
