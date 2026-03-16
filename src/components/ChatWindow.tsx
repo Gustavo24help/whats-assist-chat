@@ -55,6 +55,7 @@ interface Mensagem {
   remetente: string;
   status: "enviado" | "recebido" | "lido";
   status_atualizado_em?: string;
+  message_sid?: string | null;
   reply_to_message_id?: string | null;
   reply_to?: Mensagem | null;
   enviado_por?: { full_name: string } | null;
@@ -334,6 +335,23 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           setMensagens((prev) => {
             // Dedup: skip if real ID already exists
             if (prev.some((msg) => msg.id === novaMensagem.id)) return prev;
+
+            // Dedup by message_sid (sync-twilio-messages can re-insert same Twilio msg with different DB id)
+            if (novaMensagem.message_sid && prev.some((msg) => (msg as any).message_sid === novaMensagem.message_sid)) {
+              return prev;
+            }
+
+            // Dedup: same text + same sender within 30s window = duplicate
+            const msgTime = novaMensagem.data_hora ? new Date(novaMensagem.data_hora).getTime() : Date.now();
+            const isDuplicateByContent = prev.some(
+              (msg) =>
+                !msg.id.startsWith('temp-') &&
+                msg.texto === novaMensagem.texto &&
+                msg.remetente === novaMensagem.remetente &&
+                msg.data_hora &&
+                Math.abs(new Date(msg.data_hora).getTime() - msgTime) < 30000
+            );
+            if (isDuplicateByContent) return prev;
 
             // Check if this is a duplicate of an optimistic (temp) message
             const tempIndex = prev.findIndex(
