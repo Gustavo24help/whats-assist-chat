@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
@@ -13,8 +12,9 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   CheckCircle2, Loader2, Copy, CreditCard, ChevronLeft, ChevronRight,
-  History, DollarSign, Info, Ban, Search, Star, Building2, X,
+  History, DollarSign, Info, Ban, Search, Star, Building2,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -98,16 +98,7 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [historicoLoading, setHistoricoLoading] = useState(false);
   const [historicoPage, setHistoricoPage] = useState(0);
   const [historicoTotal, setHistoricoTotal] = useState(0);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [batchQueue, setBatchQueue] = useState<FichaFinanceira[]>([]);
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+  const [popupsEnabled, setPopupsEnabled] = useState(true);
 
   const buildList = useCallback(async (pagoFilter: boolean, page?: number) => {
     let query = supabase
@@ -247,7 +238,6 @@ export const PagamentoPrestadoresTabV2 = () => {
 
       toast({ title: "✅ Pagamento ao prestador confirmado!" });
       setPendentes(prev => prev.filter(f => f.id !== ficha.id));
-      setSelectedIds(prev => { const n = new Set(prev); n.delete(ficha.id); return n; });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     } finally {
@@ -263,7 +253,6 @@ export const PagamentoPrestadoresTabV2 = () => {
       .eq("id", ficha.id);
     toast({ title: "Pagamento cancelado" });
     setPendentes(prev => prev.filter(f => f.id !== ficha.id));
-    setSelectedIds(prev => { const n = new Set(prev); n.delete(ficha.id); return n; });
     setCancelando(null);
   };
 
@@ -272,24 +261,12 @@ export const PagamentoPrestadoresTabV2 = () => {
     toast({ title: "Copiado!", description: text });
   };
 
-  // Batch: open popups sequentially
-  const startBatchPopups = () => {
-    const selected = filteredPendentes.filter(f => selectedIds.has(f.id));
-    if (selected.length === 0) return;
-    setBatchQueue(selected.slice(1));
-    setPagamentoConfirm(selected[0]);
-  };
-
-  const handleBatchConfirm = (ficha: FichaFinanceira) => {
-    marcarPago(ficha);
-    setPagamentoConfirm(null);
-    // Open next in queue after short delay
-    setTimeout(() => {
-      if (batchQueue.length > 0) {
-        setPagamentoConfirm(batchQueue[0]);
-        setBatchQueue(prev => prev.slice(1));
-      }
-    }, 300);
+  const handlePayClick = (ficha: FichaFinanceira) => {
+    if (popupsEnabled) {
+      setPagamentoConfirm(ficha);
+    } else {
+      marcarPago(ficha);
+    }
   };
 
   const filteredPendentes = search
@@ -302,7 +279,7 @@ export const PagamentoPrestadoresTabV2 = () => {
 
   const totalAPagar = filteredPendentes.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
-  const hasSelection = selectedIds.size > 0;
+  
 
   const getInitials = (name: string) => {
     const parts = name.split(" ").filter(Boolean);
@@ -332,18 +309,11 @@ export const PagamentoPrestadoresTabV2 = () => {
         <Input placeholder="Buscar prestador, cliente, ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      {/* Batch action bar */}
-      {hasSelection && (
-        <div className="sticky top-16 z-10 flex items-center gap-3 rounded-lg border bg-card p-3 shadow-md">
-          <span className="text-sm font-medium">{selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}</span>
-          <Button size="sm" onClick={startBatchPopups} className="gap-1.5">
-            <DollarSign className="h-3.5 w-3.5" /> Mostrar Pop-ups
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())} className="gap-1.5">
-            <X className="h-3.5 w-3.5" /> Desmarcar
-          </Button>
-        </div>
-      )}
+      {/* Pop-ups toggle */}
+      <div className="flex items-center gap-2">
+        <Switch checked={popupsEnabled} onCheckedChange={setPopupsEnabled} />
+        <span className="text-sm text-muted-foreground">Pop-ups de confirmação</span>
+      </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList className="mb-3">
@@ -359,13 +329,7 @@ export const PagamentoPrestadoresTabV2 = () => {
               <div className="text-center py-12"><CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-muted-foreground">Nenhum pagamento pendente!</p></div>
             ) : (
               filteredPendentes.map((f) => (
-                <div key={f.id} className={`rounded-lg border bg-card p-4 flex items-center gap-4 ${selectedIds.has(f.id) ? "ring-2 ring-primary" : ""}`}>
-                  {/* Checkbox */}
-                  <Checkbox
-                    checked={selectedIds.has(f.id)}
-                    onCheckedChange={() => toggleSelect(f.id)}
-                    className="shrink-0"
-                  />
+                <div key={f.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
 
                   {/* Avatar */}
                   <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
@@ -423,7 +387,7 @@ export const PagamentoPrestadoresTabV2 = () => {
                     <Button variant="outline" size="sm" className="text-destructive border-destructive/30 h-9 px-3" disabled={cancelando === f.id} onClick={() => setConfirmCancel(f)}>
                       <Ban className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="sm" className="h-9 px-4" disabled={markingPaid === f.id} onClick={() => setPagamentoConfirm(f)}>
+                    <Button size="sm" className="h-9 px-4" disabled={markingPaid === f.id} onClick={() => handlePayClick(f)}>
                       {markingPaid === f.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                       Pagar
                     </Button>
@@ -536,13 +500,12 @@ export const PagamentoPrestadoresTabV2 = () => {
       </Dialog>
 
       {/* Payment Confirmation Dialog */}
-      <Dialog open={!!pagamentoConfirm} onOpenChange={(open) => { if (!open) { setPagamentoConfirm(null); setBatchQueue([]); } }}>
+      <Dialog open={!!pagamentoConfirm} onOpenChange={(open) => { if (!open) { setPagamentoConfirm(null); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-green-600" />
               Confirmar Pagamento
-              {batchQueue.length > 0 && <Badge variant="secondary" className="text-xs">+{batchQueue.length} restante{batchQueue.length > 1 ? "s" : ""}</Badge>}
             </DialogTitle>
           </DialogHeader>
           {pagamentoConfirm && (
@@ -627,7 +590,7 @@ export const PagamentoPrestadoresTabV2 = () => {
               <Button
                 className="w-full h-11 text-base"
                 disabled={markingPaid === pagamentoConfirm.id}
-                onClick={() => handleBatchConfirm(pagamentoConfirm)}
+                onClick={() => { marcarPago(pagamentoConfirm); setPagamentoConfirm(null); }}
               >
                 {markingPaid === pagamentoConfirm.id ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
