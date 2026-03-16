@@ -13,7 +13,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   CheckCircle2, Loader2, Copy, CreditCard, ChevronLeft, ChevronRight,
-  History, DollarSign, Info, Ban, Search, Star, Building2,
+  History, DollarSign, Info, Ban, Search, Star, Building2, X,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
