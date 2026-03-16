@@ -254,7 +254,6 @@ export const PagamentoPrestadoresTabV2 = () => {
       .eq("id", ficha.id);
     toast({ title: "Pagamento cancelado" });
     setPendentes(prev => prev.filter(f => f.id !== ficha.id));
-    setSelectedIds(prev => { const n = new Set(prev); n.delete(ficha.id); return n; });
     setCancelando(null);
   };
 
@@ -263,24 +262,12 @@ export const PagamentoPrestadoresTabV2 = () => {
     toast({ title: "Copiado!", description: text });
   };
 
-  // Batch: open popups sequentially
-  const startBatchPopups = () => {
-    const selected = filteredPendentes.filter(f => selectedIds.has(f.id));
-    if (selected.length === 0) return;
-    setBatchQueue(selected.slice(1));
-    setPagamentoConfirm(selected[0]);
-  };
-
-  const handleBatchConfirm = (ficha: FichaFinanceira) => {
-    marcarPago(ficha);
-    setPagamentoConfirm(null);
-    // Open next in queue after short delay
-    setTimeout(() => {
-      if (batchQueue.length > 0) {
-        setPagamentoConfirm(batchQueue[0]);
-        setBatchQueue(prev => prev.slice(1));
-      }
-    }, 300);
+  const handlePayClick = (ficha: FichaFinanceira) => {
+    if (popupsEnabled) {
+      setPagamentoConfirm(ficha);
+    } else {
+      marcarPago(ficha);
+    }
   };
 
   const filteredPendentes = search
