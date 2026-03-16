@@ -1348,44 +1348,35 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       if (!confirm) return;
                     }
                     
-                    // Salvar a ficha primeiro para garantir que os valores estão persistidos no banco
+                    // Salvamento LEVE: só campos de pagamento no banco, sem webhook externo
                     try {
-                      await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+                      await supabase
+                        .from('fichas_de_servico')
+                        .update({
+                          valor_total: ficha.valor_total,
+                          valor_mao_obra: ficha.valor_mao_obra,
+                          valor_pecas: ficha.valor_pecas,
+                          pagamento_tipo: ficha.pagamento_tipo as any,
+                          pagamento_parcelas: ficha.pagamento_parcelas,
+                        })
+                        .eq('id', fichaId);
                     } catch {
-                      toast.error('Erro ao salvar ficha antes de gerar link. Tente novamente.');
+                      toast.error('Erro ao salvar valores. Tente novamente.');
                       return;
                     }
                     
                     setGerandoLink(true);
                     try {
-                      // Buscar ficha atualizada do banco para garantir valores corretos
-                      const { data: fichaAtualizada } = await supabase
-                        .from('fichas_de_servico')
-                        .select('valor_total, nome_cliente, descricao, pagamento_tipo, pagamento_parcelas, telefone_cliente')
-                        .eq('id', fichaId)
-                        .single();
+                      const nomeCliente = nomeCliente || ficha.nome_cliente || 'Cliente';
                       
-                      const valorFinal = fichaAtualizada?.valor_total || ficha.valor_total;
-                      
-                      if (!valorFinal || valorFinal <= 0) {
-                        toast.error('O valor total da ficha é zero no banco. Preencha e salve o valor antes de gerar o link.');
-                        return;
-                      }
-
-                      const { data: clienteData } = await supabase
-                        .from('clientes')
-                        .select('nome')
-                        .eq('telefone', fichaAtualizada?.telefone_cliente || ficha.telefone_cliente)
-                        .maybeSingle();
-
                       const { data, error } = await supabase.functions.invoke('create-payment-link', {
                         body: {
                           ficha_id: ficha.id,
-                          nome_cliente: clienteData?.nome || fichaAtualizada?.nome_cliente || ficha.nome_cliente || 'Cliente',
-                          valor: valorFinal,
-                          descricao: fichaAtualizada?.descricao || ficha.descricao || `Serviço ${ficha.id}`,
-                          forma_pagamento: fichaAtualizada?.pagamento_tipo || ficha.pagamento_tipo,
-                          parcelas: fichaAtualizada?.pagamento_parcelas || ficha.pagamento_parcelas,
+                          nome_cliente: nomeCliente,
+                          valor: ficha.valor_total,
+                          descricao: ficha.descricao || `Serviço ${ficha.id}`,
+                          forma_pagamento: ficha.pagamento_tipo,
+                          parcelas: ficha.pagamento_parcelas,
                         },
                       });
 
@@ -1401,15 +1392,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       }
 
                       if (data?.payment_url) {
-                        // Salvar link diretamente no banco para evitar perda de valores
-                        await supabase
-                          .from('fichas_de_servico')
-                          .update({ pagamento_link: data.payment_url })
-                          .eq('id', ficha.id);
-                        
                         // Atualizar estado local
                         setFicha(prev => prev ? { ...prev, pagamento_link: data.payment_url } : prev);
-                        toast.success("Link de pagamento criado com sucesso!");
+                        
+                        // Abrir dialog de envio
+                        setLinkDialogData({
+                          url: data.payment_url,
+                          nome: nomeCliente,
+                          valor: ficha.valor_total,
+                        });
                       } else {
                         throw new Error(data?.error || 'Resposta inesperada');
                       }
