@@ -330,13 +330,7 @@ export const PagamentoPrestadoresTabV2 = () => {
               <div className="text-center py-12"><CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-muted-foreground">Nenhum pagamento pendente!</p></div>
             ) : (
               filteredPendentes.map((f) => (
-                <div key={f.id} className={`rounded-lg border bg-card p-4 flex items-center gap-4 ${selectedIds.has(f.id) ? "ring-2 ring-primary" : ""}`}>
-                  {/* Checkbox */}
-                  <Checkbox
-                    checked={selectedIds.has(f.id)}
-                    onCheckedChange={() => toggleSelect(f.id)}
-                    className="shrink-0"
-                  />
+                <div key={f.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
 
                   {/* Avatar */}
                   <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
