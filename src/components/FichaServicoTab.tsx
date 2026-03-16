@@ -1367,7 +1367,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     
                     setGerandoLink(true);
                     try {
-                      const nomeCliente = nomeCliente || ficha.nome_cliente || 'Cliente';
+                      const clienteNomeResolvido = nomeCliente || ficha.nome_cliente || 'Cliente';
                       
                       const { data, error } = await supabase.functions.invoke('create-payment-link', {
                         body: {
