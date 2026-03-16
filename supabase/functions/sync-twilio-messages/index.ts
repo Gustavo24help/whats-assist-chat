@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const DEFAULT_LOOKBACK_MINUTES = 5;
 const MAX_LOOKBACK_MINUTES = 24 * 60;
-const PLACEHOLDER_REPAIR_WINDOW_MS = 2 * 60 * 1000;
+const PLACEHOLDER_REPAIR_WINDOW_MS = 15 * 1000;
 
 const normalizeWhatsappNumber = (value?: string | null) => {
   if (!value) return "";
