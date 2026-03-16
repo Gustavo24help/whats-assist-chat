@@ -1474,12 +1474,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       // Remover mensagem temporária em caso de erro
-      const mensagemTexto = novaMsg || ""; // novaMsg pode ter sido limpa
       setMensagens(prev => prev.filter(m => !m.id.startsWith('temp-')));
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mensagem");
-      if (mensagemTexto) {
-        setNovaMsg(mensagemTexto); // Restaurar texto apenas se houver
-      }
+      setNovaMsg(mensagemTexto); // Restaurar texto original (capturado na linha 1412)
     } finally {
       setIsSending(false);
     }
