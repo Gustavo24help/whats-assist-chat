@@ -1,12 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import { getManagedWhatsappNumbers, isManagedWhatsappNumber, normalizeWhatsappNumber } from "../_shared/twilioNumbers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const NUMERO_24HELP = "whatsapp:+554138911555";
+const MANAGED_WHATSAPP_NUMBERS = getManagedWhatsappNumbers();
 
 async function fetchTwilioMessageDate(messageSid: string, requestId: string): Promise<string | null> {
   try {
@@ -69,8 +70,8 @@ serve(async (req) => {
       }
     }
 
-    const from = formData.get("From") as string;
-    const to = formData.get("To") as string;
+    const from = normalizeWhatsappNumber(formData.get("From") as string);
+    const to = normalizeWhatsappNumber(formData.get("To") as string);
     const body = (formData.get("Body") as string) || "";
     const messageSid = formData.get("MessageSid") as string;
     const numMedia = parseInt(formData.get("NumMedia") as string || "0", 10);
@@ -82,15 +83,18 @@ serve(async (req) => {
     console.log(`[${requestId}] 📎 NumMedia: ${numMedia}`);
 
     // Determinar direção da mensagem
-    const isBotMessage = from === NUMERO_24HELP;
-    const isClientMessage = to === NUMERO_24HELP && from !== NUMERO_24HELP;
+    const isBotMessage = isManagedWhatsappNumber(from, MANAGED_WHATSAPP_NUMBERS);
+    const isClientMessage = isManagedWhatsappNumber(to, MANAGED_WHATSAPP_NUMBERS) && !isBotMessage;
+    const directionLabel = isBotMessage ? "BOT → CLIENTE" : isClientMessage ? "CLIENTE → BOT" : "DESCONHECIDO";
+    const directionKey = isBotMessage ? "bot_to_client" : isClientMessage ? "client_to_bot" : "unknown";
 
-    // O telefone do CLIENTE é sempre o número que NÃO é o 24help
+    // O telefone do CLIENTE é sempre o número que NÃO é gerenciado pela 24help
     const clienteTelefone = isBotMessage ? to : from;
     const remetente = from;
 
-    console.log(`[${requestId}] 🔀 Direção: ${isBotMessage ? 'BOT → CLIENTE' : isClientMessage ? 'CLIENTE → BOT' : 'DESCONHECIDO'}`);
+    console.log(`[${requestId}] 🔀 Direção: ${directionLabel}`);
     console.log(`[${requestId}] 👤 Cliente telefone: ${clienteTelefone}`);
+    console.log(`[${requestId}] ☎️ Números gerenciados: ${MANAGED_WHATSAPP_NUMBERS.join(", ")}`);
 
     // Log debug
     await supabase.from("webhook_debug_logs").insert({
@@ -102,7 +106,7 @@ serve(async (req) => {
       success: true,
       error_message: null,
       step: "RECEIVED",
-      processed_data: { from, to, body: body?.substring(0, 200), messageSid, direction: isBotMessage ? 'bot_to_client' : 'client_to_bot' },
+      processed_data: { from, to, body: body?.substring(0, 200), messageSid, direction: directionKey },
     });
 
     // Ignorar mensagens de loop (from === to)

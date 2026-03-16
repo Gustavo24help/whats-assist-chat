@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getManagedWhatsappNumbers, isManagedWhatsappNumber, normalizeWhatsappNumber } from "../_shared/twilioNumbers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,11 +9,6 @@ const corsHeaders = {
 const DEFAULT_LOOKBACK_MINUTES = 5;
 const MAX_LOOKBACK_MINUTES = 24 * 60;
 const PLACEHOLDER_REPAIR_WINDOW_MS = 15 * 1000;
-
-const normalizeWhatsappNumber = (value?: string | null) => {
-  if (!value) return "";
-  return value.startsWith("whatsapp:") ? value : `whatsapp:${value}`;
-};
 
 const isValidDate = (value: Date) => !Number.isNaN(value.getTime());
 
@@ -163,9 +159,7 @@ Deno.serve(async (req) => {
 
     const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID") || "AC13e7e780450a855f503451bca7114c07";
     const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    let twilioWhatsappNumber = normalizeWhatsappNumber(
-      Deno.env.get("TWILIO_PHONE_NUMBER") || "whatsapp:+554138911555",
-    );
+    const managedWhatsappNumbers = getManagedWhatsappNumbers();
 
     if (!twilioAuthToken) {
       throw new Error("TWILIO_AUTH_TOKEN não configurado");
@@ -204,16 +198,29 @@ Deno.serve(async (req) => {
 
     console.log(`📞 Configuração Twilio:`);
     console.log(`   Account SID: ${twilioAccountSid}`);
-    console.log(`   WhatsApp Number: ${twilioWhatsappNumber}`);
+    console.log(`   WhatsApp Numbers: ${managedWhatsappNumbers.join(", ")}`);
     console.log(`   Customer filter: ${requestedCustomerPhone || "(nenhum)"}`);
     console.log(`   Desde: ${dateSentAfter}`);
 
-    const incomingUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json?To=${encodeURIComponent(twilioWhatsappNumber)}&DateSent>=${encodeURIComponent(dateSentAfter)}&PageSize=100`;
-    const outgoingUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json?From=${encodeURIComponent(twilioWhatsappNumber)}&DateSent>=${encodeURIComponent(dateSentAfter)}&PageSize=100`;
-
     const [incomingMessages, outgoingMessages] = await Promise.all([
-      fetchAllTwilioMessages(incomingUrl, authHeader, "incoming"),
-      fetchAllTwilioMessages(outgoingUrl, authHeader, "outgoing"),
+      Promise.all(
+        managedWhatsappNumbers.map((number) =>
+          fetchAllTwilioMessages(
+            `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json?To=${encodeURIComponent(number)}&DateSent>=${encodeURIComponent(dateSentAfter)}&PageSize=100`,
+            authHeader,
+            `incoming:${number}`,
+          )
+        ),
+      ).then((results) => results.flat()),
+      Promise.all(
+        managedWhatsappNumbers.map((number) =>
+          fetchAllTwilioMessages(
+            `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json?From=${encodeURIComponent(number)}&DateSent>=${encodeURIComponent(dateSentAfter)}&PageSize=100`,
+            authHeader,
+            `outgoing:${number}`,
+          )
+        ),
+      ).then((results) => results.flat()),
     ]);
 
     const combinedMessages = [...incomingMessages, ...outgoingMessages];
@@ -242,10 +249,10 @@ Deno.serve(async (req) => {
       try {
         const from = normalizeWhatsappNumber(msgTwilio.from);
         const to = normalizeWhatsappNumber(msgTwilio.to);
-        const isOutgoing = from === twilioWhatsappNumber;
+        const isOutgoing = isManagedWhatsappNumber(from, managedWhatsappNumbers);
         const telefoneCliente = isOutgoing ? to : from;
 
-        if (!telefoneCliente || telefoneCliente === twilioWhatsappNumber) {
+        if (!telefoneCliente || isManagedWhatsappNumber(telefoneCliente, managedWhatsappNumbers)) {
           continue;
         }
 
@@ -303,7 +310,7 @@ Deno.serve(async (req) => {
 
         const mensagemPayload = {
           cliente_id: telefoneCliente,
-          remetente: isOutgoing ? twilioWhatsappNumber : telefoneCliente,
+          remetente: isOutgoing ? from : telefoneCliente,
           texto,
           tipo: mediaInfo.tipo,
           arquivo_url: mediaInfo.arquivoUrl,
@@ -318,7 +325,7 @@ Deno.serve(async (req) => {
           const placeholder = await findOutgoingPlaceholder(
             supabase,
             telefoneCliente,
-            twilioWhatsappNumber,
+            from,
             dataHora,
           );
 
@@ -364,7 +371,7 @@ Deno.serve(async (req) => {
       ? uniqueMessages.filter((message: any) => {
           const from = normalizeWhatsappNumber(message.from);
           const to = normalizeWhatsappNumber(message.to);
-          const telefoneCliente = from === twilioWhatsappNumber ? to : from;
+          const telefoneCliente = isManagedWhatsappNumber(from, managedWhatsappNumbers) ? to : from;
           return telefoneCliente === requestedCustomerPhone;
         }).length
       : uniqueMessages.length;
