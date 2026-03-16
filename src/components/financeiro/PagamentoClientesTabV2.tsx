@@ -220,7 +220,7 @@ export const PagamentoClientesTabV2 = () => {
                     <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-9 px-3" disabled={cancelando === f.id} onClick={() => setConfirmCancel(f)}>
                       <Ban className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" className="h-9 px-4" disabled={markingPaid === f.id} onClick={() => setPagamentoConfirm(f)}>
+                    <Button size="sm" className="h-9 px-4" disabled={markingPaid === f.id} onClick={() => handlePayClick(f)}>
                       {markingPaid === f.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                       Cliente Pagou
                     </Button>
