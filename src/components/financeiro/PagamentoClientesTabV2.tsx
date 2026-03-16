@@ -53,6 +53,7 @@ export const PagamentoClientesTabV2 = () => {
   const [historicoPage, setHistoricoPage] = useState(0);
   const [historicoTotal, setHistoricoTotal] = useState(0);
   const [popupsEnabled, setPopupsEnabled] = useState(true);
+  const [pagamentoConfirm, setPagamentoConfirm] = useState<FichaCliente | null>(null);
 
   const resolveNames = async (items: any[]): Promise<FichaCliente[]> => {
     if (items.length === 0) return [];
