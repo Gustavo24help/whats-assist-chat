@@ -301,7 +301,7 @@ export const PagamentoClientesTabV2 = () => {
               <Button
                 className="w-full h-11 text-base"
                 disabled={markingPaid === pagamentoConfirm.id}
-                onClick={() => handleBatchConfirm(pagamentoConfirm)}
+                onClick={() => { marcarPagou(pagamentoConfirm); setPagamentoConfirm(null); }}
               >
                 {markingPaid === pagamentoConfirm.id ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
