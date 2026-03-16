@@ -8,6 +8,31 @@ const corsHeaders = {
 
 const NUMERO_24HELP = "whatsapp:+554138911555";
 
+async function fetchTwilioMessageDate(messageSid: string, requestId: string): Promise<string | null> {
+  try {
+    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    if (!accountSid || !authToken || !messageSid) return null;
+
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages/${messageSid}.json`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}` },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.date_sent) {
+        const dateSent = new Date(data.date_sent).toISOString();
+        console.log(`[${requestId}] 📅 DateSent real da Twilio: ${dateSent}`);
+        return dateSent;
+      }
+    }
+  } catch (e) {
+    console.log(`[${requestId}] ⚠️ Falha ao buscar DateSent: ${e}`);
+  }
+  return null;
+}
+
 serve(async (req) => {
   const requestId = crypto.randomUUID().substring(0, 8);
   console.log(`\n${"=".repeat(80)}`);
