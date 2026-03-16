@@ -1625,6 +1625,18 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           onConfirm={() => fetchFicha()}
         />
       )}
+
+      {ficha && linkDialogData && (
+        <EnviarLinkPagamentoDialog
+          open={!!linkDialogData}
+          onOpenChange={(open) => { if (!open) setLinkDialogData(null); }}
+          paymentUrl={linkDialogData.url}
+          fichaId={fichaId}
+          nomeCliente={linkDialogData.nome}
+          telefoneCliente={ficha.telefone_cliente}
+          valorTotal={linkDialogData.valor}
+        />
+      )}
     </div>
   );
 };
