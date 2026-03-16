@@ -113,8 +113,9 @@ serve(async (req) => {
 
     if (!cliente && isClientMessage) {
       // Criar cliente automaticamente para mensagens de clientes novos
-      console.log(`[${requestId}] 🆕 Criando novo cliente: ${clienteTelefone}`);
-      const nomeCliente = clienteTelefone.replace("whatsapp:", "").replace("+", "");
+      const profileName = formData.get("ProfileName") as string;
+      const nomeCliente = profileName || clienteTelefone.replace("whatsapp:", "").replace("+", "");
+      console.log(`[${requestId}] 🆕 Criando novo cliente: ${clienteTelefone} (nome: ${nomeCliente})`);
       const { data: novoCliente, error: createError } = await supabase
         .from("clientes")
         .insert({
