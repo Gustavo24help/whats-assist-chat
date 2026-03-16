@@ -399,13 +399,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           filter: `cliente_id=eq.${clienteTelefone}`
         },
         (payload) => {
-          console.log('[ChatWindow] Status de mensagem atualizado:', payload);
-          setMensagens(prev => 
-            prev.map(msg => 
-              msg.id === payload.new.id 
-                ? { ...msg, status: (payload.new as any).status, status_atualizado_em: (payload.new as any).status_atualizado_em }
-                : msg
-            )
+          console.log('[ChatWindow] Mensagem atualizada:', payload);
+          setMensagens(prev =>
+            prev
+              .map(msg =>
+                msg.id === payload.new.id
+                  ? { ...msg, ...(payload.new as Partial<Mensagem>) }
+                  : msg
+              )
+              .sort((a, b) => {
+                const timeA = new Date(a.data_hora).getTime();
+                const timeB = new Date(b.data_hora).getTime();
+                if (timeA !== timeB) return timeA - timeB;
+                return a.id.localeCompare(b.id);
+              })
           );
         }
       )
@@ -430,7 +437,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                 return prev;
               }
               console.log('[ChatWindow] Adicionando nova mensagem do bot ao estado');
-              return [...prev, payload.payload];
+              return [...prev, payload.payload].sort((a, b) => {
+                const timeA = new Date(a.data_hora).getTime();
+                const timeB = new Date(b.data_hora).getTime();
+                if (timeA !== timeB) return timeA - timeB;
+                return a.id.localeCompare(b.id);
+              });
             });
           }
         }
@@ -465,34 +477,45 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       });
 
     // Fallback para redes com bloqueio de websocket/realtime (firewall/proxy):
-    // mantém sincronização mínima via polling periódico.
+    // consulta uma janela recente para também recuperar mensagens sincronizadas com timestamp antigo.
     const pollingInterval = window.setInterval(async () => {
       const latestDate = latestMessageDateRef.current;
-      if (latestDate) {
-        const { data: novasMensagens, error } = await supabase
-          .from('mensagens')
-          .select(`
-            *,
-            enviado_por:profiles!enviado_por_id(full_name)
-          `)
-          .eq('cliente_id', clienteTelefone)
-          .gt('data_hora', latestDate)
-          .order('data_hora', { ascending: true });
+      const pollFromDate = latestDate
+        ? new Date(new Date(latestDate).getTime() - 10 * 60 * 1000).toISOString()
+        : null;
 
-        if (!error && novasMensagens?.length) {
-          setMensagens((prev) => {
-            const existentes = new Set(prev.map((m) => m.id));
-            const semDuplicatas = novasMensagens.filter((m) => !existentes.has(m.id)) as Mensagem[];
-            if (!semDuplicatas.length) return prev;
+      let pollingQuery = supabase
+        .from('mensagens')
+        .select(`
+          *,
+          enviado_por:profiles!enviado_por_id(full_name)
+        `)
+        .eq('cliente_id', clienteTelefone)
+        .order('data_hora', { ascending: true })
+        .limit(200);
 
-            return [...prev, ...semDuplicatas].sort((a, b) => {
-              const timeA = new Date(a.data_hora).getTime();
-              const timeB = new Date(b.data_hora).getTime();
-              if (timeA !== timeB) return timeA - timeB;
-              return a.id.localeCompare(b.id);
-            });
+      if (pollFromDate) {
+        pollingQuery = pollingQuery.gte('data_hora', pollFromDate);
+      }
+
+      const { data: mensagensRecentes, error } = await pollingQuery;
+
+      if (!error && mensagensRecentes?.length) {
+        setMensagens((prev) => {
+          const mensagensPorId = new Map(prev.map((mensagem) => [mensagem.id, mensagem]));
+
+          for (const mensagem of mensagensRecentes as Mensagem[]) {
+            const atual = mensagensPorId.get(mensagem.id);
+            mensagensPorId.set(mensagem.id, atual ? { ...atual, ...mensagem } : mensagem);
+          }
+
+          return Array.from(mensagensPorId.values()).sort((a, b) => {
+            const timeA = new Date(a.data_hora).getTime();
+            const timeB = new Date(b.data_hora).getTime();
+            if (timeA !== timeB) return timeA - timeB;
+            return a.id.localeCompare(b.id);
           });
-        }
+        });
       }
 
       fetchClienteData();
