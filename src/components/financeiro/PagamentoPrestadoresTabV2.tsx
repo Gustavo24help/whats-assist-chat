@@ -508,7 +508,6 @@ export const PagamentoPrestadoresTabV2 = () => {
               <DollarSign className="h-5 w-5 text-green-600" />
               Confirmar Pagamento
             </DialogTitle>
-            </DialogTitle>
           </DialogHeader>
           {pagamentoConfirm && (
             <div className="space-y-4 text-sm">
