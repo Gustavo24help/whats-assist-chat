@@ -125,7 +125,6 @@ export const PagamentoClientesTabV2 = () => {
       .eq("id", ficha.id);
     toast({ title: "Pagamento cancelado" });
     setFichas(prev => prev.filter(f => f.id !== ficha.id));
-    setSelectedIds(prev => { const n = new Set(prev); n.delete(ficha.id); return n; });
     setCancelando(null);
   };
 
