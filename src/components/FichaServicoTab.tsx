@@ -1372,7 +1372,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       const { data, error } = await supabase.functions.invoke('create-payment-link', {
                         body: {
                           ficha_id: ficha.id,
-                          nome_cliente: nomeCliente,
+                          nome_cliente: clienteNomeResolvido,
                           valor: ficha.valor_total,
                           descricao: ficha.descricao || `Serviço ${ficha.id}`,
                           forma_pagamento: ficha.pagamento_tipo,
