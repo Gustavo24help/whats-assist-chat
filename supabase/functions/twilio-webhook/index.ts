@@ -6,10 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const NUMERO_24HELP = "whatsapp:+554138911555";
+
 serve(async (req) => {
   const requestId = crypto.randomUUID().substring(0, 8);
   console.log(`\n${"=".repeat(80)}`);
-  console.log(`📤 [${requestId}] STATUS CALLBACK INICIADO - ${new Date().toISOString()}`);
+  console.log(`📤 [${requestId}] TWILIO WEBHOOK - ${new Date().toISOString()}`);
   console.log(`${"=".repeat(80)}\n`);
 
   if (req.method === "OPTIONS") {
@@ -22,7 +24,6 @@ serve(async (req) => {
 
   try {
     // Parsear dados
-    const contentType = req.headers.get("content-type") || "";
     const rawBody = await req.text();
 
     let formData: FormData;
@@ -47,27 +48,39 @@ serve(async (req) => {
     const to = formData.get("To") as string;
     const body = (formData.get("Body") as string) || "";
     const messageSid = formData.get("MessageSid") as string;
+    const numMedia = parseInt(formData.get("NumMedia") as string || "0", 10);
 
     console.log(`[${requestId}] 📤 From: ${from}`);
     console.log(`[${requestId}] 📤 To: ${to}`);
     console.log(`[${requestId}] 📤 MessageSid: ${messageSid}`);
     console.log(`[${requestId}] 💬 Body: ${body?.substring(0, 100)}`);
+    console.log(`[${requestId}] 📎 NumMedia: ${numMedia}`);
+
+    // Determinar direção da mensagem
+    const isBotMessage = from === NUMERO_24HELP;
+    const isClientMessage = to === NUMERO_24HELP && from !== NUMERO_24HELP;
+
+    // O telefone do CLIENTE é sempre o número que NÃO é o 24help
+    const clienteTelefone = isBotMessage ? to : from;
+    const remetente = from;
+
+    console.log(`[${requestId}] 🔀 Direção: ${isBotMessage ? 'BOT → CLIENTE' : isClientMessage ? 'CLIENTE → BOT' : 'DESCONHECIDO'}`);
+    console.log(`[${requestId}] 👤 Cliente telefone: ${clienteTelefone}`);
 
     // Log debug
     await supabase.from("webhook_debug_logs").insert({
       timestamp: new Date().toISOString(),
-      source: "twilio_status_callback",
-      event_type: "bot_message",
+      source: "twilio_webhook",
+      event_type: isBotMessage ? "bot_message" : "client_message",
       message_sid: messageSid,
-      client_phone: to,
+      client_phone: clienteTelefone,
       success: true,
       error_message: null,
       step: "RECEIVED",
-      processed_data: { from, to, body: body?.substring(0, 200), messageSid },
+      processed_data: { from, to, body: body?.substring(0, 200), messageSid, direction: isBotMessage ? 'bot_to_client' : 'client_to_bot' },
     });
 
-    // Salvar todas as mensagens onde from != to (mensagem do bot para cliente)
-    // Isso funciona tanto para produção quanto sandbox
+    // Ignorar mensagens de loop (from === to)
     if (from === to) {
       console.log(`[${requestId}] ⚠️ Mensagem de teste ou loop, ignorando`);
       return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
@@ -75,7 +88,7 @@ serve(async (req) => {
       });
     }
 
-    // Verificar duplicidade
+    // Verificar duplicidade por message_sid
     if (messageSid) {
       const { data: existing } = await supabase
         .from("mensagens")
@@ -84,18 +97,45 @@ serve(async (req) => {
         .maybeSingle();
 
       if (existing) {
-        console.log(`[${requestId}] ⚠️ Mensagem já existe, ignorando`);
+        console.log(`[${requestId}] ⚠️ Mensagem já existe (SID: ${messageSid}), ignorando`);
         return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
           headers: { ...corsHeaders, "Content-Type": "text/xml" },
         });
       }
     }
 
-    // Buscar cliente pelo telefone (to = destinatário)
-    const { data: cliente } = await supabase.from("clientes").select("telefone").eq("telefone", to).maybeSingle();
+    // Buscar ou criar cliente pelo telefone correto
+    let { data: cliente } = await supabase
+      .from("clientes")
+      .select("telefone")
+      .eq("telefone", clienteTelefone)
+      .maybeSingle();
+
+    if (!cliente && isClientMessage) {
+      // Criar cliente automaticamente para mensagens de clientes novos
+      console.log(`[${requestId}] 🆕 Criando novo cliente: ${clienteTelefone}`);
+      const nomeCliente = clienteTelefone.replace("whatsapp:", "").replace("+", "");
+      const { data: novoCliente, error: createError } = await supabase
+        .from("clientes")
+        .insert({
+          telefone: clienteTelefone,
+          nome: nomeCliente,
+          status_conversa: "aberta",
+          ultima_interacao: new Date().toISOString(),
+          tags: [],
+        })
+        .select("telefone")
+        .single();
+
+      if (createError) {
+        console.error(`[${requestId}] ❌ Erro ao criar cliente:`, createError);
+      } else {
+        cliente = novoCliente;
+      }
+    }
 
     if (!cliente) {
-      console.log(`[${requestId}] ⚠️ Cliente não encontrado: ${to}`);
+      console.log(`[${requestId}] ⚠️ Cliente não encontrado: ${clienteTelefone}`);
       return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
         headers: { ...corsHeaders, "Content-Type": "text/xml" },
       });
@@ -111,19 +151,38 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    // Salvar mensagem DO BOT
+    // Determinar tipo de mídia
+    let tipo = "texto";
+    let arquivoUrl: string | null = null;
+
+    if (numMedia > 0) {
+      const mediaContentType = formData.get("MediaContentType0") as string || "";
+      const mediaUrl = formData.get("MediaUrl0") as string || "";
+
+      if (mediaContentType.startsWith("image/")) tipo = "imagem";
+      else if (mediaContentType.startsWith("video/")) tipo = "video";
+      else if (mediaContentType.startsWith("audio/")) tipo = "audio";
+      else tipo = "arquivo";
+
+      arquivoUrl = mediaUrl || null;
+      console.log(`[${requestId}] 📎 Mídia: tipo=${tipo}, url=${arquivoUrl?.substring(0, 50)}...`);
+    }
+
+    // Salvar mensagem
     const mensagem = {
-      cliente_id: cliente.telefone,
-      remetente: from, // ✅ Qualquer número de bot (produção ou sandbox)
-      texto: body,
-      tipo: "texto",
-      arquivo_url: null,
-      status: "enviado",
+      cliente_id: cliente.telefone,  // ✅ Sempre o telefone do CLIENTE
+      remetente: remetente,           // ✅ Quem enviou (bot ou cliente)
+      texto: body || (numMedia > 0 ? `Arquivo ${numMedia}` : ""),
+      tipo,
+      arquivo_url: arquivoUrl,
+      status: isClientMessage ? "recebido" : "enviado",
       data_hora: new Date().toISOString(),
       ficha_id: ficha?.id || null,
       message_sid: messageSid,
       reply_to_message_id: null,
     };
+
+    console.log(`[${requestId}] 💾 Salvando: cliente_id=${mensagem.cliente_id}, remetente=${mensagem.remetente}, status=${mensagem.status}`);
 
     const { error: saveError } = await supabase.from("mensagens").insert(mensagem);
 
@@ -132,23 +191,31 @@ serve(async (req) => {
 
       await supabase.from("webhook_debug_logs").insert({
         timestamp: new Date().toISOString(),
-        source: "twilio_status_callback",
+        source: "twilio_webhook",
         event_type: "save_error",
         message_sid: messageSid,
-        client_phone: to,
+        client_phone: clienteTelefone,
         success: false,
         error_message: saveError.message,
         step: "SAVE_ERROR",
       });
     } else {
-      console.log(`[${requestId}] ✅ Mensagem do bot salva com sucesso!`);
+      console.log(`[${requestId}] ✅ Mensagem salva com sucesso! (${isBotMessage ? 'bot' : 'cliente'})`);
+
+      // Atualizar ultima_interacao do cliente quando ele envia mensagem
+      if (isClientMessage) {
+        await supabase
+          .from("clientes")
+          .update({ ultima_interacao: new Date().toISOString() })
+          .eq("telefone", cliente.telefone);
+      }
 
       await supabase.from("webhook_debug_logs").insert({
         timestamp: new Date().toISOString(),
-        source: "twilio_status_callback",
-        event_type: "bot_message_saved",
+        source: "twilio_webhook",
+        event_type: isBotMessage ? "bot_message_saved" : "client_message_saved",
         message_sid: messageSid,
-        client_phone: to,
+        client_phone: clienteTelefone,
         success: true,
         error_message: null,
         step: "SAVED",
@@ -164,7 +231,7 @@ serve(async (req) => {
     try {
       await supabase.from("webhook_debug_logs").insert({
         timestamp: new Date().toISOString(),
-        source: "twilio_status_callback",
+        source: "twilio_webhook",
         event_type: "fatal_error",
         success: false,
         error_message: error instanceof Error ? error.message : String(error),
