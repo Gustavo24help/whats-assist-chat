@@ -174,7 +174,14 @@ export const PagamentoPrestadoresTabV2 = () => {
       };
     });
 
-    const filtered = items.filter((i) => i.pago_prestador === pagoFilter);
+    const hoje = new Date();
+    hoje.setHours(23, 59, 59, 999);
+    const filtered = items.filter((i) => {
+      if (i.pago_prestador !== pagoFilter) return false;
+      // For pending: only show if payment date has arrived
+      if (!pagoFilter && i.data_pagamento_prevista > hoje) return false;
+      return true;
+    });
     return { items: filtered, total: count || 0 };
   }, []);
 
