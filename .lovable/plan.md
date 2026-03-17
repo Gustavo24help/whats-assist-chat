@@ -1,26 +1,47 @@
 
 
-# Plano: Criar UI para inputar metas diárias (`daily_goals`)
+## Plano: Restaurar pagamento das fichas antigas
 
-## Resumo
-Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
+### O que será feito
 
-## Abordagem
+Executar um UPDATE em `fichas_de_servico` para marcar `pagamento_realizado = true` em todas as fichas finalizadas antes do cutoff (13/03), **exceto** as 22 fichas listadas que continuam pendentes.
 
-### Opção recomendada: Adicionar seção na página Settings
-Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
+### SQL a executar (via insert tool)
 
-### Funcionalidades
-- Seletor de data (calendário) para escolher o dia
-- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
-- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
-- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
-- Listagem das metas já cadastradas no mês selecionado
+```sql
+UPDATE fichas_de_servico
+SET pagamento_realizado = true
+WHERE status = 'Finalizado'
+  AND updated_at < '2026-03-13T23:00:00.000Z'
+  AND pagamento_realizado = false
+  AND valor_total > 0
+  AND id NOT IN (
+    'FGM3@20250922',
+    'FGM10@20251027',
+    'FS2-251103',
+    'FS6-251110',
+    'FS5-260209',
+    'FS11-260211',
+    'FS2-260211',
+    'FS2-260212',
+    'FS3-260220',
+    'FS2-260220',
+    'FS1-260225',
+    'FS6-260220',
+    'FS4-260209',
+    'FS4-260306',
+    'FS3-260223',
+    'FS3-260310',
+    'FGM1@260302',
+    'FS5-260305',
+    'FS6-260223',
+    'FS2-260313'
+  );
+```
 
-### Arquivos a criar/editar
-1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
-2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
+**Nota:** Alguns IDs aparecem duplicados na lista (FS3-260223 x2, FS6-260223 x3) — serão tratados como um único ID cada.
 
-### Nenhuma alteração de banco necessária
-A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
+### Nenhum arquivo de código será alterado
+
+Apenas dados no banco.
 
