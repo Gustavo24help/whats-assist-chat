@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { OrcamentosSemFichaNotification } from "@/components/OrcamentosSemFichaNotification";
+import { BotSemFichaNotification } from "@/components/BotSemFichaNotification";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -148,6 +149,7 @@ const Chat = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <BotSemFichaNotification onSelectCliente={handleSelectCliente} />
           <OrcamentoNotification onSelectFicha={handleOrcamentoNotification} />
           <OrcamentosSemFichaNotification />
           <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
