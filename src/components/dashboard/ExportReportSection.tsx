@@ -29,6 +29,9 @@ const AVAILABLE_COLUMNS = [
   { id: "nome_ficha", label: "Nome da Ficha", group: "Ficha" },
   { id: "descricao", label: "Descrição do Serviço", group: "Ficha" },
   { id: "created_at", label: "Data de Criação", group: "Ficha" },
+  { id: "valor_total", label: "Valor Total (Ficha)", group: "Ficha" },
+  { id: "valor_mao_obra_ficha", label: "Valor Mão de Obra (Ficha)", group: "Ficha" },
+  { id: "valor_pecas_ficha", label: "Valor Material/Peças (Ficha)", group: "Ficha" },
   
   // Serviço
   { id: "categoria_nome", label: "Categoria do Serviço", group: "Serviço" },
@@ -41,12 +44,15 @@ const AVAILABLE_COLUMNS = [
   { id: "status", label: "Status Atual", group: "Status" },
   { id: "historico_status", label: "Histórico de Status", group: "Status" },
   
-  // Financeiro
-  { id: "valor_total", label: "Valor Total da OS", group: "Financeiro" },
-  { id: "valor_mao_obra", label: "Valor Mão de Obra", group: "Financeiro" },
-  { id: "valor_pecas", label: "Valor Material/Peças", group: "Financeiro" },
-  { id: "pagamento_realizado", label: "Serviço Pago", group: "Financeiro" },
-  { id: "pagamento_tipo", label: "Tipo de Pagamento", group: "Financeiro" },
+  // Financeiro (de transacoes_financeiras)
+  { id: "fin_valor_cliente", label: "Valor Cliente", group: "Financeiro" },
+  { id: "fin_valor_prestador", label: "Valor Prestador", group: "Financeiro" },
+  { id: "fin_lucro_bruto", label: "Lucro Bruto", group: "Financeiro" },
+  { id: "fin_margem", label: "Margem %", group: "Financeiro" },
+  { id: "fin_status_pgto_cliente", label: "Status Pgto Cliente", group: "Financeiro" },
+  { id: "fin_status_pgto_prestador", label: "Status Pgto Prestador", group: "Financeiro" },
+  { id: "fin_data_pagamento", label: "Data Pagamento", group: "Financeiro" },
+  { id: "fin_categoria", label: "Categoria Financeira", group: "Financeiro" },
 ];
 
 const COLUMN_GROUPS = ["Cliente", "Ficha", "Serviço", "Status", "Financeiro"];
