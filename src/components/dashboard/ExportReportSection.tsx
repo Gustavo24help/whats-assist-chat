@@ -93,7 +93,7 @@ interface StatusHistorico {
 export const ExportReportSection = () => {
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
     "nome_ficha", "cliente_nome", "telefone_cliente", "categoria_nome", 
-    "prestador_nome", "status", "valor_total", "pagamento_realizado"
+    "prestador_nome", "status", "fin_valor_cliente", "fin_status_pgto_cliente"
   ]);
   const [selectedPeriodo, setSelectedPeriodo] = useState("mes_passado");
   const [selectedPagamento, setSelectedPagamento] = useState("todos");
