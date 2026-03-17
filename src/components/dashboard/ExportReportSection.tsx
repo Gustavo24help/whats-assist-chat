@@ -189,6 +189,40 @@ export const ExportReportSection = () => {
     }).join(" | ");
   };
 
+  const getStatusPagamentoCliente = (
+    ficha: { status: string | null; pagamento_realizado: boolean | null },
+    transacao?: { status_pagamento_cliente?: string | null } | null,
+  ): "Pago" | "Pendente" | "" => {
+    if (transacao?.status_pagamento_cliente) {
+      return transacao.status_pagamento_cliente.toLowerCase() === "pago" ? "Pago" : "Pendente";
+    }
+
+    if (ficha.status !== "Finalizado") {
+      return "";
+    }
+
+    if (ficha.pagamento_realizado === true) {
+      return "Pago";
+    }
+
+    if (ficha.pagamento_realizado === false) {
+      return "Pendente";
+    }
+
+    return "";
+  };
+
+  const getFiltroPagamentoCliente = (
+    ficha: { status: string | null; pagamento_realizado: boolean | null },
+    transacao?: { status_pagamento_cliente?: string | null } | null,
+  ): boolean | null => {
+    const statusPagamento = getStatusPagamentoCliente(ficha, transacao);
+
+    if (statusPagamento === "Pago") return true;
+    if (statusPagamento === "Pendente") return false;
+    return null;
+  };
+
   const exportToCSV = async () => {
     if (selectedColumns.length === 0) {
       toast.error("Selecione pelo menos uma coluna para exportar");
@@ -273,20 +307,12 @@ export const ExportReportSection = () => {
         historicoMap.set(h.ficha_id, existing);
       });
 
-      // Filtrar por pagamento usando transações com fallback para a ficha
+      // Filtrar por pagamento usando transações e deixando status não finalizados em branco
       let fichasFiltradas = fichas;
       if (selectedPagamento === "pagos") {
-        fichasFiltradas = fichas.filter(f => {
-          const t = transacoesMap.get(f.id);
-          const pago = t ? t.status_pagamento_cliente === "pago" : Boolean(f.pagamento_realizado);
-          return pago;
-        });
+        fichasFiltradas = fichas.filter(f => getFiltroPagamentoCliente(f, transacoesMap.get(f.id)) === true);
       } else if (selectedPagamento === "pendentes") {
-        fichasFiltradas = fichas.filter(f => {
-          const t = transacoesMap.get(f.id);
-          const pago = t ? t.status_pagamento_cliente === "pago" : Boolean(f.pagamento_realizado);
-          return !pago;
-        });
+        fichasFiltradas = fichas.filter(f => getFiltroPagamentoCliente(f, transacoesMap.get(f.id)) === false);
       }
 
       if (fichasFiltradas.length === 0) {
@@ -340,12 +366,13 @@ export const ExportReportSection = () => {
             case "fin_margem":
               return formatCsvValue(transacao?.margem_operacional_real ?? "");
             case "fin_status_pgto_cliente":
-              if (transacao) {
-                return formatCsvValue(transacao.status_pagamento_cliente === "pago" ? "Pago" : "Pendente");
-              }
-              return formatCsvValue(ficha.pagamento_realizado ? "Pago" : "Pendente");
+              return formatCsvValue(getStatusPagamentoCliente(ficha, transacao));
             case "fin_status_pgto_prestador":
-              return formatCsvValue(transacao ? (transacao.status_pagamento_prestador === "pago" ? "Pago" : "Pendente") : "Pendente");
+              return formatCsvValue(
+                transacao
+                  ? (transacao.status_pagamento_prestador === "pago" ? "Pago" : "Pendente")
+                  : ""
+              );
             case "fin_data_pagamento":
               return formatCsvValue(transacao?.data_pagamento_realizada ? formatDate(transacao.data_pagamento_realizada as string) : "");
             case "fin_categoria":
