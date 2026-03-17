@@ -1,26 +1,44 @@
 
 
-# Plano: Criar UI para inputar metas diárias (`daily_goals`)
+## Problema
 
-## Resumo
-Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
+O relatório de exportação do Dashboard (`ExportReportSection.tsx`) puxa dados financeiros da tabela `fichas_de_servico`, onde `pagamento_realizado` é um **booleano** (Sim/Não). A maioria aparece como "Não" porque esse campo só marca se o cliente pagou.
 
-## Abordagem
+O módulo Financeiro (`HistoricoTransacoes.tsx`) usa a tabela `transacoes_financeiras`, que tem dados completos: valor cliente, valor prestador, lucro, margem, status de pagamento cliente/prestador.
 
-### Opção recomendada: Adicionar seção na página Settings
-Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
+## Solução
 
-### Funcionalidades
-- Seletor de data (calendário) para escolher o dia
-- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
-- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
-- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
-- Listagem das metas já cadastradas no mês selecionado
+Reformular o grupo "Financeiro" do exportador para buscar dados da tabela `transacoes_financeiras` (fazendo JOIN por `ficha_id`), alinhando com o módulo financeiro.
 
-### Arquivos a criar/editar
-1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
-2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
+### Mudanças em `ExportReportSection.tsx`
 
-### Nenhuma alteração de banco necessária
-A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
+**1. Substituir colunas financeiras**
+
+Trocar as colunas atuais do grupo "Financeiro":
+- ~~Valor Total da OS~~ / ~~Valor Mão de Obra~~ / ~~Valor Material/Peças~~ / ~~Serviço Pago~~ / ~~Tipo de Pagamento~~
+
+Por colunas equivalentes ao Financeiro:
+- Valor Cliente (valor_cliente_final)
+- Valor Prestador (valor_a_pagar_prestador)  
+- Lucro Bruto (valor_lucro_bruto)
+- Margem % (margem_operacional_real)
+- Status Pgto Cliente (status_pagamento_cliente)
+- Status Pgto Prestador (status_pagamento_prestador)
+- Data Pagamento (data_pagamento_realizada)
+- Categoria Financeira (categoria da transação)
+
+**2. Buscar transações financeiras no export**
+
+Após carregar as fichas, buscar `transacoes_financeiras` com `.in("ficha_id", fichaIds)` e criar um Map por `ficha_id` para acessar os dados financeiros de cada ficha.
+
+**3. Atualizar filtro de pagamento**
+
+O filtro "Apenas Pagos" / "Apenas Pendentes" passará a filtrar por `status_pagamento_cliente` da transação (pago/pendente) em vez do booleano `pagamento_realizado`.
+
+**4. Manter colunas da ficha como opção**
+
+As colunas originais da ficha (valor_total, valor_mao_obra, valor_pecas) continuam disponíveis no grupo "Ficha" para quem quiser, mas o grupo "Financeiro" refletirá os dados reais de `transacoes_financeiras`.
+
+### Arquivo afetado
+- `src/components/dashboard/ExportReportSection.tsx`
 
