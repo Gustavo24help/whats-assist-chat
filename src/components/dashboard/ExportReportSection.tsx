@@ -189,6 +189,40 @@ export const ExportReportSection = () => {
     }).join(" | ");
   };
 
+  const getStatusPagamentoCliente = (
+    ficha: { status: string | null; pagamento_realizado: boolean | null },
+    transacao?: { status_pagamento_cliente?: string | null } | null,
+  ): "Pago" | "Pendente" | "" => {
+    if (transacao?.status_pagamento_cliente) {
+      return transacao.status_pagamento_cliente.toLowerCase() === "pago" ? "Pago" : "Pendente";
+    }
+
+    if (ficha.status !== "Finalizado") {
+      return "";
+    }
+
+    if (ficha.pagamento_realizado === true) {
+      return "Pago";
+    }
+
+    if (ficha.pagamento_realizado === false) {
+      return "Pendente";
+    }
+
+    return "";
+  };
+
+  const getFiltroPagamentoCliente = (
+    ficha: { status: string | null; pagamento_realizado: boolean | null },
+    transacao?: { status_pagamento_cliente?: string | null } | null,
+  ): boolean | null => {
+    const statusPagamento = getStatusPagamentoCliente(ficha, transacao);
+
+    if (statusPagamento === "Pago") return true;
+    if (statusPagamento === "Pendente") return false;
+    return null;
+  };
+
   const exportToCSV = async () => {
     if (selectedColumns.length === 0) {
       toast.error("Selecione pelo menos uma coluna para exportar");
