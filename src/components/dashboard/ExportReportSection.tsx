@@ -366,12 +366,13 @@ export const ExportReportSection = () => {
             case "fin_margem":
               return formatCsvValue(transacao?.margem_operacional_real ?? "");
             case "fin_status_pgto_cliente":
-              if (transacao) {
-                return formatCsvValue(transacao.status_pagamento_cliente === "pago" ? "Pago" : "Pendente");
-              }
-              return formatCsvValue(ficha.pagamento_realizado ? "Pago" : "Pendente");
+              return formatCsvValue(getStatusPagamentoCliente(ficha, transacao));
             case "fin_status_pgto_prestador":
-              return formatCsvValue(transacao ? (transacao.status_pagamento_prestador === "pago" ? "Pago" : "Pendente") : "Pendente");
+              return formatCsvValue(
+                transacao
+                  ? (transacao.status_pagamento_prestador === "pago" ? "Pago" : "Pendente")
+                  : ""
+              );
             case "fin_data_pagamento":
               return formatCsvValue(transacao?.data_pagamento_realizada ? formatDate(transacao.data_pagamento_realizada as string) : "");
             case "fin_categoria":
