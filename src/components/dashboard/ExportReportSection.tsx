@@ -343,7 +343,7 @@ export const ExportReportSection = () => {
               }
               return formatCsvValue(ficha.pagamento_realizado ? "Pago" : "Pendente");
             case "fin_status_pgto_prestador":
-              return formatCsvValue(transacao ? (transacao.status_pagamento_prestador === "pago" ? "Pago" : "Pendente") : "Sem transação");
+              return formatCsvValue(transacao ? (transacao.status_pagamento_prestador === "pago" ? "Pago" : "Pendente") : "Pendente");
             case "fin_data_pagamento":
               return formatCsvValue(transacao?.data_pagamento_realizada ? formatDate(transacao.data_pagamento_realizada as string) : "");
             case "fin_categoria":
