@@ -18,6 +18,50 @@ import { cn } from "@/lib/utils";
 import logo from "@/assets/logo-24help.png";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
+// Parse number handling Brazilian locale (dot as thousand separator, comma as decimal)
+function parseLocalizedNumber(value: string): number {
+  if (!value || value.trim() === "") return 0;
+  let str = value.trim();
+  // Remove currency symbols and spaces
+  str = str.replace(/[R$\s]/g, "");
+  
+  const lastComma = str.lastIndexOf(",");
+  const lastDot = str.lastIndexOf(".");
+  
+  if (lastComma > lastDot) {
+    // Brazilian format: 4.800,50 → comma is decimal
+    str = str.replace(/\./g, "").replace(",", ".");
+  } else if (lastDot > lastComma) {
+    // Could be 4,800.50 (US) or just 4800.50
+    // Check if dot has exactly 3 digits after and no decimal part with comma
+    const afterDot = str.substring(lastDot + 1);
+    const beforeDot = str.substring(0, lastDot);
+    if (afterDot.length === 3 && !str.includes(",") && !afterDot.includes(",")) {
+      // Likely thousand separator: 4.800 → 4800
+      str = str.replace(/\./g, "");
+    } else {
+      // Normal decimal: 48.50
+      str = str.replace(/,/g, "");
+    }
+  } else {
+    // No dot or comma, or only one type present
+    if (lastComma !== -1) {
+      const afterComma = str.substring(lastComma + 1);
+      if (afterComma.length === 3) {
+        // Thousand separator: 4,800 → 4800
+        str = str.replace(/,/g, "");
+      } else {
+        // Decimal: 48,5
+        str = str.replace(",", ".");
+      }
+    }
+    // If only dots or no separators, keep as is (dots handled above)
+  }
+  
+  const parsed = parseFloat(str);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 // Helper function para formatação segura de datas
 const formatarDataSegura = (dataStr: string | null | undefined, formatStr: string): string => {
   if (!dataStr) return "Data não disponível";
