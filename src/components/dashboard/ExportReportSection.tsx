@@ -29,6 +29,9 @@ const AVAILABLE_COLUMNS = [
   { id: "nome_ficha", label: "Nome da Ficha", group: "Ficha" },
   { id: "descricao", label: "Descrição do Serviço", group: "Ficha" },
   { id: "created_at", label: "Data de Criação", group: "Ficha" },
+  { id: "valor_total", label: "Valor Total (Ficha)", group: "Ficha" },
+  { id: "valor_mao_obra_ficha", label: "Valor Mão de Obra (Ficha)", group: "Ficha" },
+  { id: "valor_pecas_ficha", label: "Valor Material/Peças (Ficha)", group: "Ficha" },
   
   // Serviço
   { id: "categoria_nome", label: "Categoria do Serviço", group: "Serviço" },
@@ -41,12 +44,15 @@ const AVAILABLE_COLUMNS = [
   { id: "status", label: "Status Atual", group: "Status" },
   { id: "historico_status", label: "Histórico de Status", group: "Status" },
   
-  // Financeiro
-  { id: "valor_total", label: "Valor Total da OS", group: "Financeiro" },
-  { id: "valor_mao_obra", label: "Valor Mão de Obra", group: "Financeiro" },
-  { id: "valor_pecas", label: "Valor Material/Peças", group: "Financeiro" },
-  { id: "pagamento_realizado", label: "Serviço Pago", group: "Financeiro" },
-  { id: "pagamento_tipo", label: "Tipo de Pagamento", group: "Financeiro" },
+  // Financeiro (de transacoes_financeiras)
+  { id: "fin_valor_cliente", label: "Valor Cliente", group: "Financeiro" },
+  { id: "fin_valor_prestador", label: "Valor Prestador", group: "Financeiro" },
+  { id: "fin_lucro_bruto", label: "Lucro Bruto", group: "Financeiro" },
+  { id: "fin_margem", label: "Margem %", group: "Financeiro" },
+  { id: "fin_status_pgto_cliente", label: "Status Pgto Cliente", group: "Financeiro" },
+  { id: "fin_status_pgto_prestador", label: "Status Pgto Prestador", group: "Financeiro" },
+  { id: "fin_data_pagamento", label: "Data Pagamento", group: "Financeiro" },
+  { id: "fin_categoria", label: "Categoria Financeira", group: "Financeiro" },
 ];
 
 const COLUMN_GROUPS = ["Cliente", "Ficha", "Serviço", "Status", "Financeiro"];
@@ -87,7 +93,7 @@ interface StatusHistorico {
 export const ExportReportSection = () => {
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
     "nome_ficha", "cliente_nome", "telefone_cliente", "categoria_nome", 
-    "prestador_nome", "status", "valor_total", "pagamento_realizado"
+    "prestador_nome", "status", "fin_valor_cliente", "fin_status_pgto_cliente"
   ]);
   const [selectedPeriodo, setSelectedPeriodo] = useState("mes_passado");
   const [selectedPagamento, setSelectedPagamento] = useState("todos");
@@ -194,7 +200,7 @@ export const ExportReportSection = () => {
     try {
       const range = getDateRange();
       
-      // Buscar fichas com filtros
+      // Buscar fichas - sem filtro de pagamento aqui (será filtrado depois via transações)
       let query = supabase
         .from("fichas_de_servico")
         .select("*")
@@ -206,13 +212,6 @@ export const ExportReportSection = () => {
       }
       if (range.to) {
         query = query.lte("created_at", range.to.toISOString());
-      }
-
-      // Filtro de pagamento
-      if (selectedPagamento === "pagos") {
-        query = query.eq("pagamento_realizado", true);
-      } else if (selectedPagamento === "pendentes") {
-        query = query.eq("pagamento_realizado", false);
       }
 
       // Filtro de status
@@ -234,8 +233,10 @@ export const ExportReportSection = () => {
       const categoriaIds = [...new Set(fichas.map(f => f.categoria_id).filter(Boolean))];
       const prestadorIds = [...new Set(fichas.map(f => f.prestador_id).filter(Boolean))];
 
-      // Buscar categorias, prestadores e histórico em paralelo
-      const [categoriasResult, prestadoresResult, historicoResult] = await Promise.all([
+      // Buscar categorias, prestadores, histórico e transações em paralelo
+      const needsFinanceiro = selectedColumns.some(c => c.startsWith("fin_")) || selectedPagamento !== "todos";
+      
+      const [categoriasResult, prestadoresResult, historicoResult, transacoesResult] = await Promise.all([
         categoriaIds.length > 0 
           ? supabase.from("categorias").select("id, nome").in("id", categoriaIds)
           : { data: [] },
@@ -244,12 +245,21 @@ export const ExportReportSection = () => {
           : { data: [] },
         selectedColumns.includes("historico_status")
           ? supabase.from("ficha_status_historico").select("*").in("ficha_id", fichaIds).order("data_inicio", { ascending: true })
+          : { data: [] },
+        needsFinanceiro
+          ? supabase.from("transacoes_financeiras").select("*").in("ficha_id", fichaIds)
           : { data: [] }
       ]);
 
       const categoriasMap = new Map((categoriasResult.data || []).map(c => [c.id, c.nome]));
       const prestadoresMap = new Map((prestadoresResult.data || []).map(p => [p.cpf, p.nome]));
       
+      // Map transações por ficha_id
+      const transacoesMap = new Map<string, typeof transacoesResult.data extends (infer T)[] | null ? T : never>();
+      (transacoesResult.data || []).forEach(t => {
+        transacoesMap.set(t.ficha_id, t);
+      });
+
       // Agrupar histórico por ficha
       const historicoMap = new Map<string, StatusHistorico[]>();
       (historicoResult.data || []).forEach(h => {
@@ -263,6 +273,26 @@ export const ExportReportSection = () => {
         historicoMap.set(h.ficha_id, existing);
       });
 
+      // Filtrar por pagamento usando transações
+      let fichasFiltradas = fichas;
+      if (selectedPagamento === "pagos") {
+        fichasFiltradas = fichas.filter(f => {
+          const t = transacoesMap.get(f.id);
+          return t && t.status_pagamento_cliente === "pago";
+        });
+      } else if (selectedPagamento === "pendentes") {
+        fichasFiltradas = fichas.filter(f => {
+          const t = transacoesMap.get(f.id);
+          return !t || t.status_pagamento_cliente !== "pago";
+        });
+      }
+
+      if (fichasFiltradas.length === 0) {
+        toast.warning("Nenhuma ficha encontrada com os filtros selecionados");
+        setIsExporting(false);
+        return;
+      }
+
       // Montar dados para exportação
       const rows: string[][] = [];
       
@@ -274,7 +304,8 @@ export const ExportReportSection = () => {
       rows.push(headers);
 
       // Dados
-      fichas.forEach(ficha => {
+      fichasFiltradas.forEach(ficha => {
+        const transacao = transacoesMap.get(ficha.id);
         const row: string[] = selectedColumns.map(colId => {
           switch (colId) {
             case "cliente_nome":
@@ -291,12 +322,29 @@ export const ExportReportSection = () => {
               return formatCsvValue(ficha.data_visita_tecnica || "");
             case "historico_status":
               return formatCsvValue(formatHistoricoStatus(historicoMap.get(ficha.id) || []));
-            case "pagamento_realizado":
-              return formatCsvValue(ficha.pagamento_realizado);
             case "valor_total":
-            case "valor_mao_obra":
-            case "valor_pecas":
-              return formatCsvValue(ficha[colId as keyof typeof ficha] || 0);
+              return formatCsvValue(ficha.valor_total || 0);
+            case "valor_mao_obra_ficha":
+              return formatCsvValue(ficha.valor_mao_obra || 0);
+            case "valor_pecas_ficha":
+              return formatCsvValue(ficha.valor_pecas || 0);
+            // Colunas financeiras de transacoes_financeiras
+            case "fin_valor_cliente":
+              return formatCsvValue(transacao?.valor_cliente_final ?? "");
+            case "fin_valor_prestador":
+              return formatCsvValue(transacao?.valor_a_pagar_prestador ?? "");
+            case "fin_lucro_bruto":
+              return formatCsvValue(transacao?.valor_lucro_bruto ?? "");
+            case "fin_margem":
+              return formatCsvValue(transacao?.margem_operacional_real ?? "");
+            case "fin_status_pgto_cliente":
+              return formatCsvValue(transacao ? (transacao.status_pagamento_cliente === "pago" ? "Pago" : "Pendente") : "Sem transação");
+            case "fin_status_pgto_prestador":
+              return formatCsvValue(transacao ? (transacao.status_pagamento_prestador === "pago" ? "Pago" : "Pendente") : "Sem transação");
+            case "fin_data_pagamento":
+              return formatCsvValue(transacao?.data_pagamento_realizada ? formatDate(transacao.data_pagamento_realizada as string) : "");
+            case "fin_categoria":
+              return formatCsvValue(transacao?.categoria ?? "");
             default:
               return formatCsvValue(ficha[colId as keyof typeof ficha]);
           }
@@ -321,7 +369,7 @@ export const ExportReportSection = () => {
       link.click();
       document.body.removeChild(link);
 
-      toast.success(`${fichas.length} fichas exportadas com sucesso!`);
+      toast.success(`${fichasFiltradas.length} fichas exportadas com sucesso!`);
     } catch (error) {
       console.error("Erro ao exportar:", error);
       toast.error("Erro ao exportar relatório");
