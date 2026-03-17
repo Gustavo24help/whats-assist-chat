@@ -255,8 +255,8 @@ const OrcamentoPublico = () => {
     setLoading(true);
 
     try {
-      const valorMaoObra = parseFloat(formData.valor_mao_obra) || 0;
-      const valorPecas = parseFloat(formData.valor_pecas) || 0;
+      const valorMaoObra = parseLocalizedNumber(formData.valor_mao_obra);
+      const valorPecas = parseLocalizedNumber(formData.valor_pecas);
       const valorTotal = calcularValorTotalComTaxa(valorMaoObra, valorPecas);
 
       const cpfLimpo = formData.prestador_cpf.replace(/\D/g, "");
