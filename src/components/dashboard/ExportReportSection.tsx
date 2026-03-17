@@ -369,7 +369,7 @@ export const ExportReportSection = () => {
       link.click();
       document.body.removeChild(link);
 
-      toast.success(`${fichas.length} fichas exportadas com sucesso!`);
+      toast.success(`${fichasFiltradas.length} fichas exportadas com sucesso!`);
     } catch (error) {
       console.error("Erro ao exportar:", error);
       toast.error("Erro ao exportar relatório");
