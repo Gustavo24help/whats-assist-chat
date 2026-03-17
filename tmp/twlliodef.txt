@@ -1,0 +1,4538 @@
+{
+  "initial_state": "Trigger",
+  "flags": {
+    "allow_concurrent_calls": true
+  },
+  "description": "A New Flow",
+  "states": [
+    {
+      "name": "Trigger",
+      "type": "trigger",
+      "transitions": [
+        {
+          "next": "POST_UserMsgTo24help_Initial",
+          "event": "incomingMessage"
+        },
+        {
+          "event": "incomingCall"
+        },
+        {
+          "event": "incomingConversationMessage"
+        },
+        {
+          "event": "incomingRequest"
+        },
+        {
+          "event": "incomingParent"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2400,
+          "y": -4610
+        }
+      }
+    },
+    {
+      "name": "split_AI_Response",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "reply_AiResponse",
+          "event": "noMatch"
+        },
+        {
+          "next": "reply_AskAgain",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "AskAgain",
+              "arguments": [
+                "{{flow.variables.aiAnswer}}"
+              ],
+              "type": "contains",
+              "value": "cannot assist with that request"
+            }
+          ]
+        },
+        {
+          "next": "reply_AskAgain",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Nenhuma resposta gerada",
+              "arguments": [
+                "{{flow.variables.aiAnswer}}"
+              ],
+              "type": "contains",
+              "value": "Nenhuma resposta gerada"
+            }
+          ]
+        },
+        {
+          "next": "msg_AskForServiceOrder",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Montar_FS",
+              "arguments": [
+                "{{flow.variables.aiAnswer}}"
+              ],
+              "type": "contains",
+              "value": "Já temos as informações que precisávamos"
+            }
+          ]
+        },
+        {
+          "next": "msg_AskForServiceOrder",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "MontaFS2",
+              "arguments": [
+                "{{flow.variables.aiAnswer}}"
+              ],
+              "type": "contains",
+              "value": "agora um operador 24help irá finalizar seu atendimento"
+            }
+          ]
+        },
+        {
+          "next": "POST_LeadOutOfArea",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Fora Regiao",
+              "arguments": [
+                "{{flow.variables.aiAnswer}}"
+              ],
+              "type": "contains",
+              "value": "ainda não estamos atendendo em sua região"
+            }
+          ]
+        },
+        {
+          "next": "msg_TransferingService",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "dados estruturados",
+              "arguments": [
+                "{{flow.variables.aiAnswer}}"
+              ],
+              "type": "contains",
+              "value": "dados estruturados"
+            }
+          ]
+        },
+        {
+          "next": "msg_TransferingService",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Ficha de Serviço",
+              "arguments": [
+                "{{flow.variables.aiAnswer}}"
+              ],
+              "type": "contains",
+              "value": "Nome do cliente:"
+            }
+          ]
+        },
+        {
+          "next": "msg_TransferingService",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "customer_name",
+              "arguments": [
+                "{{flow.variables.aiAnswer}}"
+              ],
+              "type": "contains",
+              "value": "Segue a ficha de serviço"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.variables.aiAnswer}}",
+        "offset": {
+          "x": -2500,
+          "y": -540
+        }
+      }
+    },
+    {
+      "name": "GET_IsClient",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "split_IsClient",
+          "event": "success"
+        },
+        {
+          "next": "POST_ContactUpdateLead",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3930,
+          "y": -3160
+        },
+        "method": "GET",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "url": "https://resource-24help-functions.azurewebsites.net/api/ContactSearchByPhone?code={{flow.variables.AzureFunctionsKey}}&PhoneNumber={{flow.variables.celular}}&ContactTypeID=1"
+      }
+    },
+    {
+      "name": "run_VerifyClosingTime",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "split_IsClosed",
+          "event": "success"
+        },
+        {
+          "next": "split_IsClosed",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -2290,
+          "y": -3320
+        },
+        "function_sid": "ZH6efd984c4067b1bee9affa426fa8e831",
+        "url": "https://func24help-4434.twil.io/verifyClosingTime"
+      }
+    },
+    {
+      "name": "reply_AiResponse",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "next": "POST_UserMsgTo24help2",
+          "event": "incomingMessage"
+        },
+        {
+          "next": "msg_Timeout_Copy1",
+          "event": "timeout"
+        },
+        {
+          "event": "deliveryFailure"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3700,
+          "y": -320
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "body": "{{flow.variables.aiAnswer}}",
+        "timeout": "28800"
+      }
+    },
+    {
+      "name": "POST_AI_FirstCall",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_AgentMsgTo24help",
+          "event": "success"
+        },
+        {
+          "next": "set_FailOnAiFirstCall",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4390,
+          "y": -1270
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{ \n\"UserMessage\": \"{{flow.variables.question}}\"\n}",
+        "url": "https://resource-24help-isolated-funcs.azurewebsites.net/api/AzureOpenAI?code={{flow.variables.azFuncWorkerKey}}"
+      }
+    },
+    {
+      "name": "set_AI_ResponseAndThread",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_AI_Response",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.POST_AI_FirstCall.parsed.AssistantMessage}}",
+            "key": "aiAnswer"
+          },
+          {
+            "type": "string",
+            "value": "{{widgets.POST_AI_FirstCall.parsed.ThreadID}}",
+            "key": "aiThread"
+          }
+        ],
+        "offset": {
+          "x": -3660,
+          "y": -820
+        }
+      }
+    },
+    {
+      "name": "POST_AI_Call",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "set_AI_Response_RetryCount",
+          "event": "success"
+        },
+        {
+          "next": "set_FailOnAiCall",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3060,
+          "y": 970
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{  \n\"UserMessage\": \"{{flow.variables.question}}\", \n\"ThreadID\": \"{{flow.variables.aiThread}}\" \n}",
+        "url": "https://resource-24help-isolated-funcs.azurewebsites.net/api/AzureOpenAI?code={{flow.variables.azFuncWorkerKey}}"
+      }
+    },
+    {
+      "name": "set_AI_Response_RetryCount",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_AI_Status",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.POST_AI_Call.parsed.AssistantMessage}}",
+            "key": "aiAnswer"
+          },
+          {
+            "type": "string",
+            "value": "0",
+            "key": "retryCount"
+          }
+        ],
+        "offset": {
+          "x": -3320,
+          "y": 1220
+        }
+      }
+    },
+    {
+      "name": "set_InitialVariables",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_IsTextMessage",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "28800",
+            "key": "timeOut"
+          },
+          {
+            "type": "string",
+            "value": "{{contact.channel.address}}",
+            "key": "celular"
+          },
+          {
+            "type": "string",
+            "value": "{{trigger.message.NumMedia}}",
+            "key": "media"
+          },
+          {
+            "type": "string",
+            "value": "https://api.whatsapp.com/send?phone=5541988723455&text=Ol%C3%A1%2C%20estou%20aguardando%20meu%20or%C3%A7amento%20e%20minha%20ficha%20de%20servi%C3%A7o%20%C3%A9%20a",
+            "key": "operatorWhatsappLink"
+          },
+          {
+            "type": "string",
+            "value": "5Syj2yqzn-KkFPf171p7QY4HwF9KB9OKgjY40u9g1-QLAzFucl450w==",
+            "key": "AzureFunctionsKey"
+          },
+          {
+            "type": "string",
+            "value": "{{trigger.message.Body}}",
+            "key": "question"
+          },
+          {
+            "type": "string",
+            "value": "initial_value",
+            "key": "failMessage"
+          },
+          {
+            "type": "string",
+            "value": "initial_value",
+            "key": "name"
+          },
+          {
+            "type": "string",
+            "value": "initial_value",
+            "key": "aiAnswer"
+          },
+          {
+            "type": "string",
+            "value": "nmNt58HRhlSgH79NiiE1KGbSkVy74H_yQQZVWQhaZhYIAzFuNyikUA==",
+            "key": "azFuncWorkerKey"
+          }
+        ],
+        "offset": {
+          "x": -2280,
+          "y": -3920
+        }
+      }
+    },
+    {
+      "name": "run_DelayBeforeCheckIsClient",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "GET_IsClient",
+          "event": "success"
+        },
+        {
+          "next": "GET_IsClient",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -4080,
+          "y": -3390
+        },
+        "function_sid": "ZHaa2dadc694e86a02b07ea9a95f06aab8",
+        "parameters": [
+          {
+            "value": "1500",
+            "key": "delay"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/delay"
+      }
+    },
+    {
+      "name": "msg_TransferingService",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "run_RemoveAsterisks",
+          "event": "sent"
+        },
+        {
+          "next": "run_RemoveAsterisks",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1670,
+          "y": -220
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "content_sid": "HX3711d5275223302401fa4f2b7ab53604",
+        "body": "*Agradecemos pelo seu contato*\n\n📝 Espere só um pouco, estamos consolidando suas informações para elaborar o seu orçamento."
+      }
+    },
+    {
+      "name": "set_CustomerInfoFromDB",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "run_CheckDaysDifference",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.GET_IsClient.parsed.contactName}}",
+            "key": "name"
+          },
+          {
+            "type": "string",
+            "value": "{{widgets.GET_IsClient.parsed.contactID}}",
+            "key": "contactID"
+          }
+        ],
+        "offset": {
+          "x": -4340,
+          "y": -2710
+        }
+      }
+    },
+    {
+      "name": "set_ServiceOrderRequest",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_AI_Call",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "Olívia prepare os dados para a ficha de serviço",
+            "key": "question"
+          }
+        ],
+        "offset": {
+          "x": -2600,
+          "y": 750
+        }
+      }
+    },
+    {
+      "name": "msg_AskForServiceOrder",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsg_AskForServiceOrder",
+          "event": "sent"
+        },
+        {
+          "next": "POST_AgentMsg_AskForServiceOrder",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2410,
+          "y": -160
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "{{flow.variables.aiAnswer}}"
+      }
+    },
+    {
+      "name": "GET_SendTwilioConversationLog",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_TurnBotOffOnError",
+          "event": "success"
+        },
+        {
+          "next": "POST_TurnBotOffOnError",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -470,
+          "y": 2350
+        },
+        "method": "GET",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "url": "https://resource-24help-functions.azurewebsites.net/api/ConversationLogTwilio24help_Http?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "POST_ReportFailByMail",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "msg_TransferingServiceByFail",
+          "event": "success"
+        },
+        {
+          "next": "msg_TransferingServiceByFail",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -350,
+          "y": 1610
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"ServiceID\": 1,\n  \"MessageType\": 2,\n  \"MessageSubject\": {{\n  \"[ERRO - FLUXO DO CLIENTE] Durante atendimento a \"\n  | append: flow.variables.name\n  | append: \" telefone \"\n  | append: flow.variables.celular\n  | to_json\n}},\n  \"MessagePlainText\": {{flow.variables.finalFailMessage | default: \"\" | to_json}}\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/SendMessageFromTwilioFlow?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "POST_SaveServiceOrder",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "set_ServiceOrderOnSuccess",
+          "event": "success"
+        },
+        {
+          "next": "set_failMessageOnSavingFS",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1690,
+          "y": 1660
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"ServiceOrderContent\": {{flow.variables.serviceOrderContent | to_json}}\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/ServiceOrderToBlobStorage?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "set_ServiceOrderOnSuccess",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "msg_WaitWhileTransfering",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.POST_SaveServiceOrder.parsed.serviceOrder}}",
+            "key": "serviceOrder"
+          }
+        ],
+        "offset": {
+          "x": -1740,
+          "y": 1890
+        }
+      }
+    },
+    {
+      "name": "set_failMessageOnSavingFS",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "set_finalFailMessage",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "[POST_SaveServiceOrder] Ficha de Serviço gerada com sucesso porém não pode ser salva em sua pasta de armazenamento, será enviada por e-mail regularmente. Conteúdo de widgets.POST_FillServiceOrder.body: {{widgets.POST_FillServiceOrder.body}}.",
+            "key": "failMessage"
+          },
+          {
+            "type": "string",
+            "value": "não emiida",
+            "key": "serviceOrderNumber"
+          }
+        ],
+        "offset": {
+          "x": -1120,
+          "y": 1670
+        }
+      }
+    },
+    {
+      "name": "split_IsClosed",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "set_AfterHoursFalse",
+          "event": "noMatch"
+        },
+        {
+          "next": "msg_LeaveOrContinue",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Fechados",
+              "arguments": [
+                "{{widgets.run_VerifyClosingTime.parsed.fora_do_horario}}"
+              ],
+              "type": "equal_to",
+              "value": "true"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.run_VerifyClosingTime.parsed.fora_do_horario}}",
+        "offset": {
+          "x": -2130,
+          "y": -3080
+        }
+      }
+    },
+    {
+      "name": "reply_LeaveOrContinue",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "next": "split_LeaveOrContinue",
+          "event": "incomingMessage"
+        },
+        {
+          "next": "msg_Timeout_Copy3",
+          "event": "timeout"
+        },
+        {
+          "event": "deliveryFailure"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2040,
+          "y": -2420
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "content_template",
+        "content_sid": "HX1988efbe3d37b8e8505b5366fc94bc85",
+        "timeout": "28800"
+      }
+    },
+    {
+      "name": "msg_LeaveOrContinue",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "run_DelayAfterWelcome2",
+          "event": "sent"
+        },
+        {
+          "next": "run_DelayAfterWelcome2",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1930,
+          "y": -2860
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "Bem vindo(a) à *24help*  🛠️\n\n🤖 A primeira etapa do nosso atendimento é feita por uma Agente de IA, 24h por dia.\n\nEla irá lhe atender e enviar sua solicitação para ser orçada por nossos prestadores cadastrados.\n\nMas a escolha do melhor orçamento deverá ser feita por um de nossos operadores, e neste momento já encerramos nosso atendimento. \n\nNosso expediente é de segunda a sexta das 9 às 18h."
+      }
+    },
+    {
+      "name": "split_LeaveOrContinue",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "set_AfterHoursAccepted",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Continuar",
+              "arguments": [
+                "{{widgets.reply_LeaveOrContinue.inbound.Body}}"
+              ],
+              "type": "contains",
+              "value": "continuar"
+            }
+          ]
+        },
+        {
+          "next": "msg_LeavingNow",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Sair",
+              "arguments": [
+                "{{widgets.reply_LeaveOrContinue.inbound.Body}}"
+              ],
+              "type": "contains",
+              "value": "sair"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.reply_LeaveOrContinue.inbound.Body}}",
+        "offset": {
+          "x": -2300,
+          "y": -2190
+        }
+      }
+    },
+    {
+      "name": "msg_LeavingNow",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_SaveLead",
+          "event": "sent"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1810,
+          "y": -2130
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "✅ A 24help agradece, estaremos esperando pelo seu contato novamente."
+      }
+    },
+    {
+      "name": "POST_SaveLead",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1830,
+          "y": -1900
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"ServiceID\": 1,\n  \"MessageType\": 3,\n  \"MessageSubject\": \"[FORA DO EXPEDIENTE] Lead gerado\",\n  \"MessagePlainText\": \"Recebido contato do número: {{contact.channel.address}} com a seguinte mensagem: {{trigger.message.Body}}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/SendMessageFromTwilioFlow?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "POST_FillServiceOrder",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "split_SuccessFillingServiceOrder",
+          "event": "success"
+        },
+        {
+          "next": "set_failMessageOnFillingFS",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1320,
+          "y": 680
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{ \n\"agent\": \"serviceorder\",\n\"query\": \"{{flow.variables.aiAnswer}}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/AzureOpenAIChatFunction?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "split_SuccessFillingServiceOrder",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "set_failMessageOnFillingFS",
+          "event": "noMatch"
+        },
+        {
+          "next": "run_RevertHandyManExpression",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Success FS",
+              "arguments": [
+                "{{widgets.POST_FillServiceOrder.status_code}}"
+              ],
+              "type": "equal_to",
+              "value": "200"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.POST_FillServiceOrder.status_code}}",
+        "offset": {
+          "x": -1620,
+          "y": 900
+        }
+      }
+    },
+    {
+      "name": "set_failMessageOnFillingFS",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "set_finalFailMessage",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "[POST_FillServiceOrder] Falha na geração da ficha de serviços. Conteúdo de widgets.POST_FillServiceOrder.body: {{widgets.POST_FillServiceOrder.body}}. Parâmetros enviados para o preenchimento: {{flow.variables.aiAnswer}}",
+            "key": "failMessage"
+          },
+          {
+            "type": "string",
+            "value": "não emiida",
+            "key": "serviceOrderNumber"
+          }
+        ],
+        "offset": {
+          "x": -230,
+          "y": 1170
+        }
+      }
+    },
+    {
+      "name": "POST_TriggerWebhook",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "run_VerifyClosingTime",
+          "event": "success"
+        },
+        {
+          "next": "run_VerifyClosingTime",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2190,
+          "y": -3570
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n \"ExecutionSid\": \"{{flow.sid}}\",\n \"MessageSid\": \"{{trigger.message.MessageSid}}\",\n \"From\": \"{{trigger.message.From}}\",\n \"To\": \"{{trigger.message.To}}\",\n \"Body\": \"{{trigger.message.Body}}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/TwilioStudioWebhook?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "run_DelayAfterWelcome2",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "reply_LeaveOrContinue",
+          "event": "success"
+        },
+        {
+          "next": "reply_LeaveOrContinue",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -2150,
+          "y": -2640
+        },
+        "function_sid": "ZHaa2dadc694e86a02b07ea9a95f06aab8",
+        "parameters": [
+          {
+            "value": "1500",
+            "key": "delay"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/delay"
+      }
+    },
+    {
+      "name": "reply_MayIHelpYou",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "next": "split_MediaFileOrQuestion",
+          "event": "incomingMessage"
+        },
+        {
+          "next": "msg_Timeout_Copy1",
+          "event": "timeout"
+        },
+        {
+          "event": "deliveryFailure"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4770,
+          "y": -1560
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "body": "✅ Arquivo recebido! Será posteriormente analisado por nossa equipe.\n\nEm que posso te ajudar ❓",
+        "timeout": "28800"
+      }
+    },
+    {
+      "name": "set_FailOnAiFirstCall",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "run_identifyFailReason",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "[POST_AI_FirstCall] Falha no retorno da primeira chamada para a IA, mensagem de erro devolvida: {{widgets.POST_AI_FirstCall.parsed.ErrorMessage}}",
+            "key": "failMessage"
+          },
+          {
+            "type": "string",
+            "value": "{{widgets.POST_AI_FirstCall.parsed.AssistantMessage}}",
+            "key": "aiAnswer"
+          },
+          {
+            "type": "string",
+            "value": "{{widgets.POST_AI_FirstCall.body}}",
+            "key": "bodyFail"
+          },
+          {
+            "type": "string",
+            "value": "AI_First_Call",
+            "key": "failOrigin"
+          },
+          {
+            "type": "string",
+            "value": "init_value",
+            "key": "postError"
+          }
+        ],
+        "offset": {
+          "x": -3290,
+          "y": -1440
+        }
+      }
+    },
+    {
+      "name": "set_FailOnAiCall",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "run_identifyFailReason",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "Falha no retorno da chamada para a IA, atendimento transferido para operador 24help. Erro reportado: {{widgets.POST_AI_Call.parsed.ErrorMessage}}",
+            "key": "failMessage"
+          },
+          {
+            "type": "string",
+            "value": "{{widgets.POST_AI_Call.parsed.AssistantMessage}}",
+            "key": "aiAnswer"
+          },
+          {
+            "type": "string",
+            "value": "{{widgets.POST_AI_Call.body}}",
+            "key": "bodyFail"
+          },
+          {
+            "type": "string",
+            "value": "AI_Call",
+            "key": "failOrigin"
+          },
+          {
+            "type": "string",
+            "value": "init_value",
+            "key": "postError"
+          }
+        ],
+        "offset": {
+          "x": -3250,
+          "y": -1130
+        }
+      }
+    },
+    {
+      "name": "msg_TransferingServiceByFail",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsgTo24helpOFail",
+          "event": "sent"
+        },
+        {
+          "next": "POST_AgentMsgTo24helpOFail",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -500,
+          "y": 1840
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "↪️ Agora você será encaminhado para continuar seu atendimento com um de nossos operadores."
+      }
+    },
+    {
+      "name": "reply_AskAgain",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "next": "POST_AgentMsgTo24help3",
+          "event": "incomingMessage"
+        },
+        {
+          "next": "msg_Timeout_Copy1",
+          "event": "timeout"
+        },
+        {
+          "event": "deliveryFailure"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3230,
+          "y": -230
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "body": "Desculpe não entendi, pode reformular a pergunta?",
+        "timeout": "28800"
+      }
+    },
+    {
+      "name": "msg_Timeout_Copy1",
+      "type": "send-message",
+      "transitions": [
+        {
+          "event": "sent"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4720,
+          "y": -1300
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "💤 Estamos encerrando este chat após 8h sem atividades.\n \nA 24help está sempre à sua disposição, chame quando quiser !"
+      }
+    },
+    {
+      "name": "POST_LeadOutOfArea",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2050,
+          "y": -260
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"ServiceID\": 1,\n  \"MessageType\": 3,\n  \"MessageSubject\": \"[LEAD FORA DE ÁREA] Contato de cliente fora da área de atuação\",\n  \"MessagePlainText\": \"Recebido contato por lead fora da área de atuação atual da 24help: {{flow.variables.name}} - {{flow.variables.celular}}. Última pergunta/resposta: {{flow.variables.question}} / {{flow.variables.aiAnswer}}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/SendMessageFromTwilioFlow?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "run_identifyFailReason",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "set_postErrorStep1",
+          "event": "success"
+        },
+        {
+          "next": "set_postErrorStep1",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -2610,
+          "y": -1390
+        },
+        "function_sid": "ZH1ac4a5f70091f5ce27e7a3216dc1a212",
+        "parameters": [
+          {
+            "value": "{{widgets.variables.bodyFail}}",
+            "key": "body"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/determineFailureCause"
+      }
+    },
+    {
+      "name": "split_failReason",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "set_retryCountIncrement",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "True",
+              "arguments": [
+                "{{widgets.run_identifyFailReason.parsed.retry_recomendado}}"
+              ],
+              "type": "equal_to",
+              "value": "true"
+            }
+          ]
+        },
+        {
+          "next": "set_failMessageOnAI_Http_Error",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "False",
+              "arguments": [
+                "{{widgets.run_identifyFailReason.parsed.retry_recomendado}}"
+              ],
+              "type": "equal_to",
+              "value": "false"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.run_identifyFailReason.parsed.retry_recomendado}}",
+        "offset": {
+          "x": -1600,
+          "y": -1250
+        }
+      }
+    },
+    {
+      "name": "set_retryCountIncrement",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_retryLimitCheck",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{% if flow.variables.retryCount %}{{flow.variables.retryCount | plus: 1}}{% else %}1{% endif %}",
+            "key": "retryCount"
+          }
+        ],
+        "offset": {
+          "x": -1300,
+          "y": -970
+        }
+      }
+    },
+    {
+      "name": "split_retryLimitCheck",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "set_failMessageOnAI_Http_Error",
+          "event": "noMatch"
+        },
+        {
+          "next": "run_Delay",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Less_than 3",
+              "arguments": [
+                "{{flow.variables.retryCount}}"
+              ],
+              "type": "less_than",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.variables.retryCount}}",
+        "offset": {
+          "x": -1170,
+          "y": -740
+        }
+      }
+    },
+    {
+      "name": "split_setRetryWidget",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "POST_AI_Call",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "AI_Call",
+              "arguments": [
+                "{{flow.variables.failOrigin}}"
+              ],
+              "type": "equal_to",
+              "value": "AI_Call"
+            }
+          ]
+        },
+        {
+          "next": "POST_AI_FirstCall",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "AI_First_Call",
+              "arguments": [
+                "{{flow.variables.failOrigin}}"
+              ],
+              "type": "equal_to",
+              "value": "AI_First_Call"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.variables.failOrigin}}",
+        "offset": {
+          "x": -2630,
+          "y": -1090
+        }
+      }
+    },
+    {
+      "name": "set_failMessageOnAI_Http_Error",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "set_finalFailMessage",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "json_object",
+            "value": "Falha ao efetuar Http request para IA em {{flow.variables.failOrigin}}. Mensagem de erro gerada: {{flow.variables.failMessage}}.  Erro reportado: {{widgets.POST_AI_Call.parsed.error.message | default: widgets.POST_AI_Call.body}}. . Pergunta feita::{{flow.variables.aiAnswer}}. Pilha de chamadas e causas indicadas: {{flow.variables.postError}}.",
+            "key": "failMessage"
+          },
+          {
+            "type": "string",
+            "value": "não emiida",
+            "key": "serviceOrderNumber"
+          }
+        ],
+        "offset": {
+          "x": -480,
+          "y": 390
+        }
+      }
+    },
+    {
+      "name": "split_VerifyMediaFile",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "reply_MayIHelpYou",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Has_Media_File",
+              "arguments": [
+                "{{flow.variables.media}}"
+              ],
+              "type": "greater_than",
+              "value": "0"
+            }
+          ]
+        },
+        {
+          "next": "POST_AI_FirstCall",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "No_Media_File",
+              "arguments": [
+                "{{flow.variables.media}}"
+              ],
+              "type": "equal_to",
+              "value": "0"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.variables.media}}",
+        "offset": {
+          "x": -4690,
+          "y": -2010
+        }
+      }
+    },
+    {
+      "name": "split_VerifyMediaFile2",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "msg_fileReceivedTks",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Has_Media_File",
+              "arguments": [
+                "{{widgets.reply_AiResponse.inbound.NumMedia}}"
+              ],
+              "type": "greater_than",
+              "value": "0"
+            }
+          ]
+        },
+        {
+          "next": "run_UserInputAdjusts2",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "No_Media_Files",
+              "arguments": [
+                "{{widgets.reply_AiResponse.inbound.NumMedia}}"
+              ],
+              "type": "equal_to",
+              "value": "0"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.reply_AiResponse.inbound.NumMedia}}",
+        "offset": {
+          "x": -4040,
+          "y": 630
+        }
+      }
+    },
+    {
+      "name": "set_QuestionToAI_IfFile",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_AI_Call",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "Enviei uma imagem do local e do problema para ajudar a esclarecer o que preciso",
+            "key": "question"
+          }
+        ],
+        "offset": {
+          "x": -4630,
+          "y": 1350
+        }
+      }
+    },
+    {
+      "name": "msg_fileReceivedTks",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsg_fileReceivedTks",
+          "event": "sent"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4400,
+          "y": 890
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "✅ Arquivo recebido com sucesso."
+      }
+    },
+    {
+      "name": "POST_BuildAndSendServiceOrderFolder",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_TurnBotOffOnSuccess",
+          "event": "success"
+        },
+        {
+          "next": "POST_TurnBotOffOnSuccess",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1390,
+          "y": 4590
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n\"ServiceID\": 1,\n\"MessageType\": 3,\n\"MessageSubject\": \"\",   \n\"ConvSessionID\": {{ flow.sid | to_json }},\n\"ServiceOrderName\": {{ flow.variables.serviceOrder | append: \".txt\" | to_json }},\n\"ServiceOrderContent\": {{ widgets.POST_FillServiceOrder.body | to_json }},\n\"ContactPhone\": {{ flow.variables.celular | to_json }}\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/BuildAndSendServiceOrderFolder?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "GET_SendTwilioConversationLog3",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_FillServiceOrder",
+          "event": "success"
+        },
+        {
+          "next": "POST_FillServiceOrder",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1540,
+          "y": 440
+        },
+        "method": "GET",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "url": "https://resource-24help-functions.azurewebsites.net/api/ConversationLogTwilio24help_Http?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "msg_WaitWhileTransfering",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsg_WaitWhileTransfering",
+          "event": "sent"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1890,
+          "y": 2120
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "⏱️Estamos quase lá, só mais um instante!!"
+      }
+    },
+    {
+      "name": "POST_PerformPriceQuote",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "run_NormalizeString",
+          "event": "success"
+        },
+        {
+          "next": "run_NormalizeString",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1280,
+          "y": 4110
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n\"ServiceOrderNumber\": \"{{flow.variables.serviceOrder}}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/PerformPriceQuote?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "POST_SendPriceQuoteResults",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_BuildAndSendServiceOrderFolder",
+          "event": "success"
+        },
+        {
+          "next": "POST_BuildAndSendServiceOrderFolder",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1040,
+          "y": 4370
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"ServiceID\": 1,\n  \"MessageType\": 3,\n  \"MessageSubject\": \"[COTAÇÃO AUTOMATICA] Resultados para a Ficha de Serviços {{flow.variables.serviceOrder}}\",\n  \"MessagePlainText\": {{widgets.run_NormalizeString.parsed.texto_tratado | to_json}}\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/SendMessageFromTwilioFlow?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "run_NormalizeString",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "POST_SendPriceQuoteResults",
+          "event": "success"
+        },
+        {
+          "next": "POST_SendPriceQuoteResults",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -1650,
+          "y": 4330
+        },
+        "function_sid": "ZHfbc208a836a6f939a891c94eccfb6c12",
+        "parameters": [
+          {
+            "value": "{{widgets.POST_PerformPriceQuote.body}}",
+            "key": "input"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/escapeStringToJson"
+      }
+    },
+    {
+      "name": "msg_HandoffOnSuccess",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsg_HandoffOnSuccess",
+          "event": "sent"
+        },
+        {
+          "next": "POST_AgentMsg_HandoffOnSuccess",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1140,
+          "y": 3230
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "✅ Pronto! Sua ficha de serviço já foi gerada e encaminhada para orçamento.\n\nAguarde que seu atendimento já será assumido por um de nossos operadores."
+      }
+    },
+    {
+      "name": "set_postErrorStep1",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "set_postErrorStep2",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.run_identifyFailReason.parsed.causa_provavel}}",
+            "key": "imediatePostError"
+          },
+          {
+            "type": "string",
+            "value": "{{flow.variables.postError}}",
+            "key": "addVar"
+          }
+        ],
+        "offset": {
+          "x": -2000,
+          "y": -1480
+        }
+      }
+    },
+    {
+      "name": "set_postErrorStep2",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_failReason",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "\"{{ flow.variables.addVar | append: ' / ' | append: flow.variables.imediatePostError }}\"",
+            "key": "postError"
+          }
+        ],
+        "offset": {
+          "x": -2080,
+          "y": -1240
+        }
+      }
+    },
+    {
+      "name": "msg_Timeout_Copy3",
+      "type": "send-message",
+      "transitions": [
+        {
+          "event": "sent"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1480,
+          "y": -2390
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "💤 Estamos encerrando este chat após 8h sem atividades.\n \nA 24help está sempre à sua disposição, chame quando quiser !"
+      }
+    },
+    {
+      "name": "set_NewCustomerInfo",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_VerifyMediaFile",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{trigger.message.ProfileName}}",
+            "key": "name"
+          },
+          {
+            "type": "string",
+            "value": "{{widgets.POST_ContactUpdateLead.parsed.contactID}}",
+            "key": "contactID"
+          }
+        ],
+        "offset": {
+          "x": -3580,
+          "y": -2690
+        }
+      }
+    },
+    {
+      "name": "msg_Welcome",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsg_Welcome",
+          "event": "sent"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2940,
+          "y": -3420
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "🛠️ Bem vindo(a) à *24help* 🛠️"
+      }
+    },
+    {
+      "name": "POST_ContactUpdateLead",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "set_NewCustomerInfo",
+          "event": "success"
+        },
+        {
+          "next": "set_NewCustomerInfoFail",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3380,
+          "y": -2910
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n\"ContactID \": \"\",\n\"ContactTypeID\": \"1\",\n\"ContactName\": \"{{trigger.message.ProfileName}}\",\n\"PhoneNumber\": \"{{contact.channel.address}}\",\n\"GeneralStatusID\": \"8\",\n\"LastCall\": \"{{ 'now' | date: \"%d/%m/%Y\" }}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/ContactUpdate?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "POST_ReportFailGeneratingLead",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "split_VerifyMediaFile",
+          "event": "success"
+        },
+        {
+          "next": "split_VerifyMediaFile",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3370,
+          "y": -2460
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"ServiceID\": 1,\n  \"MessageType\": 2,\n  \"MessageSubject\": \"[ERRO SILENCIOSO - FLUXO DO CLIENTE] Falha ao salvar novo LEAD\",\n  \"MessagePlainText\": \"Contato recebido de {{contact.channel.address}}, não localizado em nossa base de dados. Falhou tentativa de inserir novo lead, continuando atendimento normalmente.\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/SendMessageFromTwilioFlow?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "split_IsClient",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "set_CustomerInfoFromDB",
+          "event": "noMatch"
+        },
+        {
+          "next": "POST_ContactUpdateLead",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Not Found",
+              "arguments": [
+                "{{widgets.GET_IsClient.body}}"
+              ],
+              "type": "contains",
+              "value": "No record found"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.GET_IsClient.body}}",
+        "offset": {
+          "x": -4190,
+          "y": -2930
+        }
+      }
+    },
+    {
+      "name": "GET_SendTwilioConversationLog4",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "set_ServiceOrderRequest",
+          "event": "success"
+        },
+        {
+          "next": "set_ServiceOrderRequest",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2590,
+          "y": 530
+        },
+        "method": "GET",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "url": "https://resource-24help-functions.azurewebsites.net/api/ConversationLogTwilio24help_Http?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "set_finalFailMessage",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_ReportFailByMail",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "Pergunta feita: {{flow.variables.question}} / Resposta elaborada: {{flow.variables.aiAnswer}} / Informações sobre o erro coletadas: {{flow.variables.failMessage}}",
+            "key": "finalFailMessage"
+          }
+        ],
+        "offset": {
+          "x": -470,
+          "y": 1390
+        }
+      }
+    },
+    {
+      "name": "POST_InsertConvIdFSNumberMapping",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "msg_finishingTemplate",
+          "event": "success"
+        },
+        {
+          "next": "POST_ReportFailByMail2",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1260,
+          "y": 2430
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n    \"ConversationSID\": \"{{flow.sid}}\",\n    \"ServiceOrderNumber\": \"{{flow.variables.serviceOrder}}\",\n    \"ContactID\": \"{{flow.variables.contactID}}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/InsertServiceOrderAndConvIDMappings?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "POST_ReportFailByMail2",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "msg_finishingTemplate",
+          "event": "success"
+        },
+        {
+          "next": "msg_finishingTemplate",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1160,
+          "y": 2690
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"ServiceID\": 1,\n  \"MessageType\": 2,\n  \"MessageSubject\": \"[ERRO - FLUXO DO CLIENTE] Durante atendimento a {{flow.variables.name}} telefone {{flow.variables.celular}}\",\n  \"MessagePlainText\": \"Falha ao inserir relacionamento FS number {{flow.variables.serviceOrder}} com ConversationSID: {{flow.sid}}: {{widgets.POST_InsertConvIdFSNumberMapping.body | to_json }}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/SendMessageFromTwilioFlow?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "set_NewCustomerInfoFail",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_ReportFailGeneratingLead",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{trigger.message.ProfileName}}",
+            "key": "name"
+          },
+          {
+            "type": "string",
+            "value": "0",
+            "key": "contactID"
+          }
+        ],
+        "offset": {
+          "x": -3160,
+          "y": -2690
+        }
+      }
+    },
+    {
+      "name": "split_IsTextMessage",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "POST_TriggerWebhook",
+          "event": "noMatch"
+        },
+        {
+          "next": "run_UserInputAdjusts1",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Text_Message",
+              "arguments": [
+                "{{trigger.message.NumMedia}}"
+              ],
+              "type": "equal_to",
+              "value": "0"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{trigger.message.NumMedia}}",
+        "offset": {
+          "x": -1700,
+          "y": -3880
+        }
+      }
+    },
+    {
+      "name": "set_anotherMediaFile",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_VerifyMediaFile",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.reply_MayIHelpYou.inbound.NumMedia}}",
+            "key": "media"
+          }
+        ],
+        "offset": {
+          "x": -5070,
+          "y": -1340
+        }
+      }
+    },
+    {
+      "name": "split_MediaFileOrQuestion",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "set_varsNoMoreMediaFiles",
+          "event": "noMatch"
+        },
+        {
+          "next": "set_anotherMediaFile",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Greater_than 0",
+              "arguments": [
+                "{{widgets.reply_MayIHelpYou.inbound.NumMedia | plus: 0}}"
+              ],
+              "type": "greater_than",
+              "value": "0"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.reply_MayIHelpYou.inbound.NumMedia | plus: 0}}",
+        "offset": {
+          "x": -5190,
+          "y": -1580
+        }
+      }
+    },
+    {
+      "name": "set_varsNoMoreMediaFiles",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_VerifyMediaFile",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "0",
+            "key": "media"
+          },
+          {
+            "type": "string",
+            "value": "{{widgets.reply_MayIHelpYou.inbound.Body}}",
+            "key": "question"
+          }
+        ],
+        "offset": {
+          "x": -5270,
+          "y": -2030
+        }
+      }
+    },
+    {
+      "name": "msg_finishingTemplate",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsg_finishingTemplate",
+          "event": "sent"
+        },
+        {
+          "next": "POST_AgentMsg_finishingTemplate",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1710,
+          "y": 2720
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "content_template",
+        "to": "{{contact.channel.address}}",
+        "content_sid": "HX4e23f1682c510e6872e33cb201edcfe9"
+      }
+    },
+    {
+      "name": "split_IsNoResponseFound",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "split_AI_Response",
+          "event": "noMatch"
+        },
+        {
+          "next": "split_IsServiceOrderAsking",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Nenhuma resposta gerada",
+              "arguments": [
+                "{{flow.variables.aiAnswer}}"
+              ],
+              "type": "contains",
+              "value": "Nenhuma resposta gerada"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.variables.aiAnswer}}",
+        "offset": {
+          "x": -3360,
+          "y": 1810
+        }
+      }
+    },
+    {
+      "name": "split_IsServiceOrderAsking",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "split_AI_Response",
+          "event": "noMatch"
+        },
+        {
+          "next": "set_retryCountIncrement2",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Asking for service order",
+              "arguments": [
+                "{{flow.variables.question}}"
+              ],
+              "type": "equal_to",
+              "value": "Olívia prepare os dados para a ficha de serviço"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.variables.question}}",
+        "offset": {
+          "x": -3240,
+          "y": 2070
+        }
+      }
+    },
+    {
+      "name": "set_retryCountIncrement2",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "run_DelayBeforeRetry2",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{% if flow.variables.retryCount %}{{flow.variables.retryCount | plus: 1}}{% else %}1{% endif %}",
+            "key": "retryCount"
+          }
+        ],
+        "offset": {
+          "x": -3290,
+          "y": 2410
+        }
+      }
+    },
+    {
+      "name": "run_DelayBeforeRetry2",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "split_retryLimitCheck2",
+          "event": "success"
+        },
+        {
+          "next": "split_retryLimitCheck2",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -2910,
+          "y": 2410
+        },
+        "function_sid": "ZHaa2dadc694e86a02b07ea9a95f06aab8",
+        "parameters": [
+          {
+            "value": "2000",
+            "key": "delay"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/delay"
+      }
+    },
+    {
+      "name": "split_retryLimitCheck2",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "set_failMessageOnServiceOrderBuild",
+          "event": "noMatch"
+        },
+        {
+          "next": "POST_AI_Call",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Less_than 3",
+              "arguments": [
+                "{{flow.variables.retryCount}}"
+              ],
+              "type": "less_than",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.variables.retryCount}}",
+        "offset": {
+          "x": -3050,
+          "y": 2640
+        }
+      }
+    },
+    {
+      "name": "set_failMessageOnServiceOrderBuild",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_ReportFailByMail3",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "Falha após a terceira tentativa de gerar a ficha de serviços - motivo: Azure openAI service não gerou uma resposta contendo a ficha de serviços.",
+            "key": "failMessage"
+          }
+        ],
+        "offset": {
+          "x": -3160,
+          "y": 2870
+        }
+      }
+    },
+    {
+      "name": "POST_ReportFailByMail3",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "msg_HandoffOnFail2",
+          "event": "success"
+        },
+        {
+          "next": "msg_HandoffOnFail2",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2830,
+          "y": 2900
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"ServiceID\": 1,\n  \"MessageType\": 2,\n  \"MessageSubject\": {{\n  \"[ERRO - FLUXO DO CLIENTE] Durante atendimento a \"\n  | append: flow.variables.name\n  | append: \" telefone \"\n  | append: flow.variables.celular\n  | to_json\n}},\n  \"MessagePlainText\": {{flow.variables.failMessage | default: \"\" | to_json}}\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/SendMessageFromTwilioFlow?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "msg_HandoffOnFail2",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsgTo24helpOnServOrdFail",
+          "event": "sent"
+        },
+        {
+          "next": "POST_AgentMsgTo24helpOnServOrdFail",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2720,
+          "y": 3130
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "Aguarde que seu atendimento já será assumido por um de nossos operadores."
+      }
+    },
+    {
+      "name": "GET_SendTwilioConversationLog5",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_TurnBotOffOnServOrdFail",
+          "event": "success"
+        },
+        {
+          "next": "POST_TurnBotOffOnServOrdFail",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3250,
+          "y": 3400
+        },
+        "method": "GET",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "url": "https://resource-24help-functions.azurewebsites.net/api/ConversationLogTwilio24help_Http?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "set_AfterHoursAccepted",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "msg_Welcome",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "True",
+            "key": "afterHours"
+          }
+        ],
+        "offset": {
+          "x": -2330,
+          "y": -1940
+        }
+      }
+    },
+    {
+      "name": "set_AfterHoursFalse",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "msg_Welcome",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "False",
+            "key": "afterHours"
+          }
+        ],
+        "offset": {
+          "x": -2330,
+          "y": -2860
+        }
+      }
+    },
+    {
+      "name": "split_IsAfterHours",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "msg_AterHours",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "True",
+              "arguments": [
+                "{{flow.variables.afterHours}}"
+              ],
+              "type": "equal_to",
+              "value": "True"
+            }
+          ]
+        },
+        {
+          "next": "msg_HandoffOnSuccess",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "False",
+              "arguments": [
+                "{{flow.variables.afterHours}}"
+              ],
+              "type": "equal_to",
+              "value": "False"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.variables.afterHours}}",
+        "offset": {
+          "x": -1630,
+          "y": 3180
+        }
+      }
+    },
+    {
+      "name": "msg_AterHours",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsg_AterHours",
+          "event": "sent"
+        },
+        {
+          "next": "POST_AgentMsg_AterHours",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1680,
+          "y": 3420
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "✅ Pronto! Sua ficha de serviço já foi gerada e encaminhada para orçamento.\n\nAssim que nossos operadores chegarem irão entrar em contato para passar seu orçamento."
+      }
+    },
+    {
+      "name": "run_UserInputAdjusts2",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "set_AdjustedUserInput2",
+          "event": "success"
+        },
+        {
+          "next": "set_QuestionToAIUnescaped",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -4040,
+          "y": 930
+        },
+        "function_sid": "ZHd6d0d9b1f83dc3799db597e0323f11ff",
+        "parameters": [
+          {
+            "value": "{{widgets.reply_AiResponse.inbound.Body}}",
+            "key": "input"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/changeHandyManExpression"
+      }
+    },
+    {
+      "name": "set_QuestionToAIUnescaped",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_AI_Call",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.reply_AiResponse.inbound.Body}}",
+            "key": "question"
+          }
+        ],
+        "offset": {
+          "x": -3920,
+          "y": 1160
+        }
+      }
+    },
+    {
+      "name": "set_AdjustedUserInput2",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_AI_Call",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.run_UserInputAdjusts2.parsed.texto_tratado}}",
+            "key": "question"
+          }
+        ],
+        "offset": {
+          "x": -4240,
+          "y": 1300
+        }
+      }
+    },
+    {
+      "name": "split_AI_Status",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "set_failMessageOnAI_Http_Error",
+          "event": "noMatch"
+        },
+        {
+          "next": "set_varsOnThreadBusy",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "409",
+              "arguments": [
+                "{{widgets.POST_AI_Call.status_code}}"
+              ],
+              "type": "equal_to",
+              "value": "409"
+            }
+          ]
+        },
+        {
+          "next": "split_IsNoResponseFound",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "200",
+              "arguments": [
+                "{{widgets.POST_AI_Call.status_code}}"
+              ],
+              "type": "equal_to",
+              "value": "200"
+            }
+          ]
+        },
+        {
+          "next": "set_failMessageOnAI_Http_Error",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": ">500",
+              "arguments": [
+                "{{widgets.POST_AI_Call.status_code}}"
+              ],
+              "type": "greater_than",
+              "value": "499"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.POST_AI_Call.status_code}}",
+        "offset": {
+          "x": -3390,
+          "y": 1440
+        }
+      }
+    },
+    {
+      "name": "set_varsOnThreadBusy",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_CheckRetry",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.POST_AI_Call.content.headers['Retry-After'] | default: widgets.POST_AI_Call.content.headers['retry-after'] | default: 2 }}",
+            "key": "retryAfter"
+          }
+        ],
+        "offset": {
+          "x": -3940,
+          "y": 1790
+        }
+      }
+    },
+    {
+      "name": "split_CheckRetry",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "msg_WaitPlease",
+          "event": "noMatch"
+        },
+        {
+          "next": "run_DelayWhileThreadBusy",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Less_than 5",
+              "arguments": [
+                "{{flow.variables.retryCount}}"
+              ],
+              "type": "less_than",
+              "value": "5"
+            }
+          ]
+        },
+        {
+          "next": "msg_WaitPlease",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "Greater_than 5",
+              "arguments": [
+                "{{flow.variables.retryCount}}"
+              ],
+              "type": "greater_than",
+              "value": "5"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.variables.retryCount}}",
+        "offset": {
+          "x": -4070,
+          "y": 2010
+        }
+      }
+    },
+    {
+      "name": "run_DelayWhileThreadBusy",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "set_AddCount",
+          "event": "success"
+        },
+        {
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -3900,
+          "y": 2330
+        },
+        "function_sid": "ZHaa2dadc694e86a02b07ea9a95f06aab8",
+        "parameters": [
+          {
+            "value": "{{ (flow.variables.retryAfter | default: 2) | times: 1000 }}",
+            "key": "delay"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/delay"
+      }
+    },
+    {
+      "name": "set_AddCount",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_AI_Call",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{ (flow.variables.retryCount | default: 0) + 1 }}",
+            "key": "retryCount"
+          }
+        ],
+        "offset": {
+          "x": -3920,
+          "y": 2570
+        }
+      }
+    },
+    {
+      "name": "msg_WaitPlease",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsgTo24helpOnLazySystem",
+          "event": "sent"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4230,
+          "y": 2260
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "🐢 Nosso sistema está passando por momento de lentidão, vamos então transferir seu atendimento para um de nossos operadores."
+      }
+    },
+    {
+      "name": "POST_AgentMsgTo24help",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "set_AI_ResponseAndThread",
+          "event": "success"
+        },
+        {
+          "next": "set_AI_ResponseAndThread",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4440,
+          "y": -1040
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.POST_AI_FirstCall.parsed.To}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.POST_AI_FirstCall.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "{{widgets.POST_AI_FirstCall.parsed.NumMedia}}",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.POST_AI_FirstCall.parsed.From}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.POST_AI_FirstCall.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_UserMsgTo24help2",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_AgentMsgTo24help2",
+          "event": "success"
+        },
+        {
+          "next": "POST_AgentMsgTo24help2",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3770,
+          "y": 110
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.reply_AiResponse.inbound.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.reply_AiResponse.inbound.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "{{widgets.reply_AiResponse.inbound.NumMedia}}",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.ProfileName}}",
+            "key": "ProfileName"
+          },
+          {
+            "value": "{{widgets.reply_AiResponse.inbound.MediaUrl0}}",
+            "key": "MediaUrl0"
+          },
+          {
+            "value": "{{widgets.reply_AiResponse.inbound.MediaContentType0}}",
+            "key": "MediaContentType0"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-webhook"
+      }
+    },
+    {
+      "name": "POST_AgentMsgTo24help2",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "split_VerifyMediaFile2",
+          "event": "success"
+        },
+        {
+          "next": "split_VerifyMediaFile2",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4250,
+          "y": 380
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.reply_AiResponse.outbound.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.reply_AiResponse.outbound.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "{{widgets.reply_AiResponse.outbound.NumMedia}}",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.reply_AiResponse.outbound.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.reply_AiResponse.inbound.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_UserMsgTo24help_Initial",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "VERIFICAR_BOT",
+          "event": "success"
+        },
+        {
+          "next": "VERIFICAR_BOT",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2540,
+          "y": -4420
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{trigger.message.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{trigger.message.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{trigger.message.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "{{trigger.message.MessageSid}}",
+            "key": "MessageSid"
+          },
+          {
+            "value": "{{trigger.message.NumMedia}}",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.ProfileName}}",
+            "key": "ProfileName"
+          },
+          {
+            "value": "{{trigger.message.MediaUrl0}}",
+            "key": "MediaUrl0"
+          },
+          {
+            "value": "{{trigger.message.MediaContentType0}}",
+            "key": "MediaContentType0"
+          },
+          {
+            "value": "{{trigger.message.OriginalRepliedMessageSid}}",
+            "key": "OriginalRepliedMessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-webhook"
+      }
+    },
+    {
+      "name": "VERIFICAR_BOT",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "bot_ativo",
+          "event": "success"
+        },
+        {
+          "next": "bot_ativo",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1930,
+          "y": -4360
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\"telefone\": \"{{trigger.message.From}}\"}",
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/check-bot-status"
+      }
+    },
+    {
+      "name": "bot_ativo",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "POST_UserMsg_BotDisabled",
+          "event": "noMatch"
+        },
+        {
+          "next": "POST_UserMsg_BotDisabled",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value contains disabled",
+              "arguments": [
+                "{{widgets.VERIFICAR_BOT.parsed.bot_status}}"
+              ],
+              "type": "equal_to",
+              "value": "disabled"
+            }
+          ]
+        },
+        {
+          "next": "set_InitialVariables",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value contains enabled",
+              "arguments": [
+                "{{widgets.VERIFICAR_BOT.parsed.bot_status}}"
+              ],
+              "type": "equal_to",
+              "value": "enabled"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.VERIFICAR_BOT.parsed.bot_status}}",
+        "offset": {
+          "x": -2510,
+          "y": -4140
+        }
+      }
+    },
+    {
+      "name": "POST_TurnBotOffOnSuccess",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1550,
+          "y": 4810
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n \"telefone\": \"{{trigger.message.From}}\",\n \"bot_status\": \"disabled\",\n  \"origem\": \"automatico\" \n}",
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/toggle-bot-status"
+      }
+    },
+    {
+      "name": "END_BOT_DISABLED",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2770,
+          "y": -3700
+        }
+      }
+    },
+    {
+      "name": "POST_TurnBotOffOnError",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -340,
+          "y": 2600
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n \"telefone\": \"{{trigger.message.From}}\",\n \"bot_status\": \"disabled\",\n  \"origem\": \"automatico\" \n}",
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/toggle-bot-status"
+      }
+    },
+    {
+      "name": "POST_TurnBotOffOnServOrdFail",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2880,
+          "y": 3400
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"telefone\": \"{{trigger.message.From}}\",\n  \"bot_status\": \"disabled\",\n   \"origem\": \"automatico\" \n}",
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/toggle-bot-status"
+      }
+    },
+    {
+      "name": "POST_TurnBotOffOnLazySystem",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4580,
+          "y": 2780
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n \"telefone\": \"{{trigger.message.From}}\",\n \"bot_status\": \"disabled\",\n  \"origem\": \"automatico\" \n}",
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/toggle-bot-status"
+      }
+    },
+    {
+      "name": "POST_AgentMsgTo24helpOFail",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "GET_SendTwilioConversationLog",
+          "event": "success"
+        },
+        {
+          "next": "GET_SendTwilioConversationLog",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -320,
+          "y": 2100
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{trigger.message.To}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_TransferingServiceByFail.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.From}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_TransferingServiceByFail.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsgTo24helpOnLazySystem",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_TurnBotOffOnLazySystem",
+          "event": "success"
+        },
+        {
+          "next": "POST_TurnBotOffOnLazySystem",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4370,
+          "y": 2520
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{trigger.message.To}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_WaitPlease.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.From}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_WaitPlease.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsgTo24helpOnServOrdFail",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "GET_SendTwilioConversationLog5",
+          "event": "success"
+        },
+        {
+          "next": "GET_SendTwilioConversationLog5",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3200,
+          "y": 3170
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{trigger.message.To}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_HandoffOnFail2.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.From}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_HandoffOnFail2.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsgTo24helpOnSerOrdFail",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_PerformPriceQuote",
+          "event": "success"
+        },
+        {
+          "next": "POST_PerformPriceQuote",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1610,
+          "y": 3890
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{trigger.message.To}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_AterHours.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.From}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_AterHours.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "Copy_of_POST_AgentMsgTo24helpOnSerOrdFail",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_PerformPriceQuote",
+          "event": "success"
+        },
+        {
+          "next": "POST_PerformPriceQuote",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1200,
+          "y": 3680
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{trigger.message.To}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_HandoffOnSuccess.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.From}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_HandoffOnSuccess.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_UserMsgTo24help3",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "split_VerifyMediaFile2",
+          "event": "success"
+        },
+        {
+          "next": "split_VerifyMediaFile2",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3830,
+          "y": 380
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.reply_AskAgain.inbound.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.reply_AskAgain.inbound.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "{{widgets.reply_AskAgain.inbound.NumMedia}}",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.ProfileName}}",
+            "key": "ProfileName"
+          },
+          {
+            "value": "{{widgets.reply_AskAgain.inbound.MediaUrl0}}",
+            "key": "MediaUrl0"
+          },
+          {
+            "value": "{{widgets.reply_AskAgain.inbound.MediaContentType0}}",
+            "key": "MediaContentType0"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-webhook"
+      }
+    },
+    {
+      "name": "POST_AgentMsgTo24help3",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_UserMsgTo24help3",
+          "event": "success"
+        },
+        {
+          "next": "POST_UserMsgTo24help3",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3250,
+          "y": 270
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.reply_AskAgain.outbound.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.reply_AskAgain.outbound.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "{{widgets.reply_AskAgain.outbound.NumMedia}}",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.reply_AskAgain.outbound.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.reply_AskAgain.inbound.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "run_UserInputAdjusts1",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "set_AdjustedUserInput1",
+          "event": "success"
+        },
+        {
+          "next": "POST_TriggerWebhook",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -1480,
+          "y": -3650
+        },
+        "function_sid": "ZHd6d0d9b1f83dc3799db597e0323f11ff",
+        "parameters": [
+          {
+            "value": "{{trigger.message.Body}}",
+            "key": "input"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/changeHandyManExpression"
+      }
+    },
+    {
+      "name": "set_AdjustedUserInput1",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_TriggerWebhook",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.run_UserInputAdjusts1.parsed.texto_tratado}}",
+            "key": "question"
+          }
+        ],
+        "offset": {
+          "x": -1600,
+          "y": -3370
+        }
+      }
+    },
+    {
+      "name": "run_RevertHandyManExpression",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "set_ServOrderHandymanOk",
+          "event": "success"
+        },
+        {
+          "next": "set_ServOrderHandymanFail",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -1740,
+          "y": 1190
+        },
+        "function_sid": "ZH7b86c87071a17f8a05582a884ffb1a2c",
+        "parameters": [
+          {
+            "value": "{{widgets.POST_FillServiceOrder.body}}",
+            "key": "input"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/restoreHandyManExpression"
+      }
+    },
+    {
+      "name": "set_ServOrderHandymanFail",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_SaveServiceOrder",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.POST_FillServiceOrder.body}}",
+            "key": "serviceOrderContent"
+          }
+        ],
+        "offset": {
+          "x": -1460,
+          "y": 1410
+        }
+      }
+    },
+    {
+      "name": "set_ServOrderHandymanOk",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "POST_SaveServiceOrder",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.run_RevertHandyManExpression.parsed.texto_tratado}}",
+            "key": "serviceOrderContent"
+          }
+        ],
+        "offset": {
+          "x": -1940,
+          "y": 1410
+        }
+      }
+    },
+    {
+      "name": "send_HelloMessage",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_AgentMsg_HelloMessage",
+          "event": "sent"
+        },
+        {
+          "next": "POST_AgentMsg_HelloMessage",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3860,
+          "y": -2150
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "Olá {{flow.variables.name | strip | split: \" \" | first}}, tudo bem?"
+      }
+    },
+    {
+      "name": "POST_ContactUpdateAfterFS",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_InsertConvIdFSNumberMapping",
+          "event": "success"
+        },
+        {
+          "next": "POST_InsertConvIdFSNumberMapping",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1940,
+          "y": 2410
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n\"ContactID\": {{flow.variables.contactID}},\n\"LastCall\": \"{{ 'now' | date: \"%d/%m/%Y\" }}\",\n\"LastFsDate\": \"{{ 'now' | date: \"%d/%m/%Y\" }}\",\n\"LastFS\": \"{{flow.variables.serviceOrder}}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/ContactUpdate?code={{flow.variables.AzureFunctionsKey}}"
+      }
+    },
+    {
+      "name": "split_HasRecentFS",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "split_VerifyMediaFile",
+          "event": "noMatch"
+        },
+        {
+          "next": "split_VerifyMediaFile",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "AccessOlder",
+              "arguments": [
+                "{{widgets.run_CheckDaysDifference.parsed.isOlderThanDiffDays}}"
+              ],
+              "type": "equal_to",
+              "value": "true"
+            }
+          ]
+        },
+        {
+          "next": "send_HelloMessage",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "RecentAccess",
+              "arguments": [
+                "{{widgets.run_CheckDaysDifference.parsed.isOlderThanDiffDays}}"
+              ],
+              "type": "equal_to",
+              "value": "false"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.run_CheckDaysDifference.parsed.isOlderThanDiffDays}}",
+        "offset": {
+          "x": -4170,
+          "y": -2460
+        }
+      }
+    },
+    {
+      "name": "split_RecentContactTemplate",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "POST_TurnBotOff",
+          "event": "noMatch"
+        },
+        {
+          "next": "split_VerifyMediaFile",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "NewService",
+              "arguments": [
+                "{{widgets.reply_TemplateRecentContact.inbound.Body}}"
+              ],
+              "type": "equal_to",
+              "value": "ask_for_new_service"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.reply_TemplateRecentContact.inbound.Body}}",
+        "offset": {
+          "x": -4030,
+          "y": -1900
+        }
+      }
+    },
+    {
+      "name": "reply_TemplateRecentContact",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "next": "POST_UserMsgTo24help4",
+          "event": "incomingMessage"
+        },
+        {
+          "next": "msg_Timeout_Copy4",
+          "event": "timeout"
+        },
+        {
+          "event": "deliveryFailure"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3040,
+          "y": -1890
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "content_template",
+        "content_sid": "HX9ab6acaac16b95954b06cd304591db72",
+        "timeout": "3600"
+      }
+    },
+    {
+      "name": "POST_TurnBotOff",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4000,
+          "y": -1650
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"telefone\": \"{{trigger.message.From}}\",\n  \"bot_status\": \"disabled\"\n}",
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/toggle-bot-status"
+      }
+    },
+    {
+      "name": "run_CheckDaysDifference",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "split_HasRecentFS",
+          "event": "success"
+        },
+        {
+          "next": "split_HasRecentFS",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -4750,
+          "y": -2480
+        },
+        "function_sid": "ZH394adeb211d18851273ae4f3cf8a4745",
+        "parameters": [
+          {
+            "value": "{{widgets.GET_IsClient.parsed.lastFsDate}}",
+            "key": "dateToCheck"
+          },
+          {
+            "value": "90",
+            "key": "diffDays"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/checkDaysPassed"
+      }
+    },
+    {
+      "name": "POST_UserMsgTo24help4",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "split_RecentContactTemplate",
+          "event": "success"
+        },
+        {
+          "next": "split_RecentContactTemplate",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3480,
+          "y": -1860
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.reply_TemplateRecentContact.inbound.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.reply_TemplateRecentContact.inbound.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "{{widgets.reply_TemplateRecentContact.inbound.NumMedia}}",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.ProfileName}}",
+            "key": "ProfileName"
+          },
+          {
+            "value": "{{widgets.reply_TemplateRecentContact.inbound.MediaUrl0}}",
+            "key": "MediaUrl0"
+          },
+          {
+            "value": "{{widgets.reply_TemplateRecentContact.inbound.MediaContentType0}}",
+            "key": "MediaContentType0"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-webhook"
+      }
+    },
+    {
+      "name": "run_RemoveAsterisks",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "set_CleanedStructuredText",
+          "event": "success"
+        },
+        {
+          "next": "GET_SendTwilioConversationLog3",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -1880,
+          "y": 40
+        },
+        "function_sid": "ZHb691247164d378c26df9babd867e18cd",
+        "parameters": [
+          {
+            "value": "{{flow.variables.aiAnswer}}",
+            "key": "input"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/removeDoubleAsterisks"
+      }
+    },
+    {
+      "name": "set_CleanedStructuredText",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "GET_SendTwilioConversationLog3",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "type": "string",
+            "value": "{{widgets.run_RemoveAsterisks.parsed.output}}",
+            "key": "aiAnswer"
+          }
+        ],
+        "offset": {
+          "x": -1940,
+          "y": 430
+        }
+      }
+    },
+    {
+      "name": "message_Closed4Vacation",
+      "type": "send-message",
+      "transitions": [
+        {
+          "next": "POST_SaveContactDuringVacation",
+          "event": "sent"
+        },
+        {
+          "next": "POST_SaveContactDuringVacation",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2510,
+          "y": -4940
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "🎄 Boas festas! A 24help entra em recesso de 20/12/2025 a 04/01/2026 — voltamos no dia 05/01/2026.\n\nSe precisar de ajuda urgente, chama no WhatsApp: +55 41 99875-1600. ❤️"
+      }
+    },
+    {
+      "name": "POST_SaveContactDuringVacation",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2030,
+          "y": -4920
+        },
+        "method": "POST",
+        "content_type": "application/json;charset=utf-8",
+        "add_twilio_auth": false,
+        "body": "{\n  \"ServiceID\": 1,\n  \"MessageType\": 3,\n  \"MessageSubject\": \"[EM RECESSO] Contato registrado\",\n  \"MessagePlainText\": \"Recebido contato do número: {{contact.channel.address}} com a seguinte mensagem: {{trigger.message.Body}}\"\n}",
+        "url": "https://resource-24help-functions.azurewebsites.net/api/SendMessageFromTwilioFlow?code=5Syj2yqzn-KkFPf171p7QY4HwF9KB9OKgjY40u9g1-QLAzFucl450w=="
+      }
+    },
+    {
+      "name": "POST_AgentMsg_AskForServiceOrder",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_AgentMsg_AskForServiceOrder2",
+          "event": "success"
+        },
+        {
+          "next": "POST_AgentMsg_AskForServiceOrder2",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2580,
+          "y": 90
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsg_AskForServiceOrder2",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "GET_SendTwilioConversationLog4",
+          "event": "success"
+        },
+        {
+          "next": "GET_SendTwilioConversationLog4",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2470,
+          "y": 310
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.msg_AskForServiceOrder.parsed.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_AskForServiceOrder.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.msg_AskForServiceOrder.parsed.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_AskForServiceOrder.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsg_HandoffOnSuccess",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "Copy_of_POST_AgentMsgTo24helpOnSerOrdFail",
+          "event": "success"
+        },
+        {
+          "next": "Copy_of_POST_AgentMsgTo24helpOnSerOrdFail",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1170,
+          "y": 3450
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.msg_HandoffOnSuccess.parsed.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_HandoffOnSuccess.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.msg_HandoffOnSuccess.parsed.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_HandoffOnSuccess.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsg_WaitWhileTransfering",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_ContactUpdateAfterFS",
+          "event": "success"
+        },
+        {
+          "next": "POST_ContactUpdateAfterFS",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1260,
+          "y": 2150
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.msg_WaitWhileTransfering.parsed.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_WaitWhileTransfering.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.msg_WaitWhileTransfering.parsed.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_WaitWhileTransfering.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsg_finishingTemplate",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "split_IsAfterHours",
+          "event": "success"
+        },
+        {
+          "next": "split_IsAfterHours",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1670,
+          "y": 2950
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.msg_finishingTemplate.parsed.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_finishingTemplate.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.msg_finishingTemplate.parsed.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_finishingTemplate.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsg_Welcome",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "run_DelayBeforeCheckIsClient",
+          "event": "success"
+        },
+        {
+          "next": "run_DelayBeforeCheckIsClient",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3530,
+          "y": -3410
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.msg_Welcome.parsed.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_Welcome.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.msg_Welcome.parsed.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_Welcome.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsg_HelloMessage",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "reply_TemplateRecentContact",
+          "event": "success"
+        },
+        {
+          "next": "reply_TemplateRecentContact",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -3230,
+          "y": -2110
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.send_HelloMessage.parsed.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.send_HelloMessage.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.send_HelloMessage.parsed.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.send_HelloMessage.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsg_fileReceivedTks",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "set_QuestionToAI_IfFile",
+          "event": "success"
+        },
+        {
+          "next": "set_QuestionToAI_IfFile",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -4540,
+          "y": 1120
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.msg_fileReceivedTks.parsed.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_fileReceivedTks.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.msg_fileReceivedTks.parsed.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_fileReceivedTks.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "POST_AgentMsg_AterHours",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "POST_AgentMsgTo24helpOnSerOrdFail",
+          "event": "success"
+        },
+        {
+          "next": "POST_AgentMsgTo24helpOnSerOrdFail",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -1720,
+          "y": 3640
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{widgets.msg_AterHours.parsed.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.msg_AterHours.parsed.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "0",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{widgets.msg_AterHours.parsed.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{widgets.msg_AterHours.parsed.MessageSid}}",
+            "key": "MessageSid"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "msg_Timeout_Copy4",
+      "type": "send-message",
+      "transitions": [
+        {
+          "event": "sent"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2950,
+          "y": -1670
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "message_type": "custom",
+        "to": "{{contact.channel.address}}",
+        "body": "💤 Estamos encerrando este chat após 8h sem atividades.\n \nA 24help está sempre à sua disposição, chame quando quiser !"
+      }
+    },
+    {
+      "name": "POST_UserMsg_BotDisabled",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "END_BOT_DISABLED",
+          "event": "success"
+        },
+        {
+          "next": "END_BOT_DISABLED",
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -2780,
+          "y": -3920
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "add_twilio_auth": false,
+        "parameters": [
+          {
+            "value": "{{trigger.message.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{trigger.message.Body}}",
+            "key": "Body"
+          },
+          {
+            "value": "{{trigger.message.NumMedia}}",
+            "key": "NumMedia"
+          },
+          {
+            "value": "{{trigger.message.To}}",
+            "key": "To"
+          },
+          {
+            "value": "{{trigger.message.MessageSid}}",
+            "key": "MessageSid"
+          },
+          {
+            "value": "{{trigger.message.MediaUrl10}}",
+            "key": "MediaUr10"
+          },
+          {
+            "value": "{{trigger.message.MediaContentType0}}",
+            "key": "MediaContentType0"
+          }
+        ],
+        "url": "https://halqtsowfqkczvlvwmdd.supabase.co/functions/v1/twilio-status-callback"
+      }
+    },
+    {
+      "name": "run_Delay",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "split_setRetryWidget",
+          "event": "success"
+        },
+        {
+          "next": "split_setRetryWidget",
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "ZSbf9c5ec856bc17aaeba765468e12392d",
+        "environment_sid": "ZE8893a22dea24edd13db1bb7ce9d03f34",
+        "offset": {
+          "x": -1970,
+          "y": -900
+        },
+        "function_sid": "ZHaa2dadc694e86a02b07ea9a95f06aab8",
+        "parameters": [
+          {
+            "value": "1500",
+            "key": "delay"
+          }
+        ],
+        "url": "https://func24help-4434.twil.io/delay"
+      }
+    }
