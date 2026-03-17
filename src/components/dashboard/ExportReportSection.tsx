@@ -307,20 +307,12 @@ export const ExportReportSection = () => {
         historicoMap.set(h.ficha_id, existing);
       });
 
-      // Filtrar por pagamento usando transações com fallback para a ficha
+      // Filtrar por pagamento usando transações e deixando status não finalizados em branco
       let fichasFiltradas = fichas;
       if (selectedPagamento === "pagos") {
-        fichasFiltradas = fichas.filter(f => {
-          const t = transacoesMap.get(f.id);
-          const pago = t ? t.status_pagamento_cliente === "pago" : Boolean(f.pagamento_realizado);
-          return pago;
-        });
+        fichasFiltradas = fichas.filter(f => getFiltroPagamentoCliente(f, transacoesMap.get(f.id)) === true);
       } else if (selectedPagamento === "pendentes") {
-        fichasFiltradas = fichas.filter(f => {
-          const t = transacoesMap.get(f.id);
-          const pago = t ? t.status_pagamento_cliente === "pago" : Boolean(f.pagamento_realizado);
-          return !pago;
-        });
+        fichasFiltradas = fichas.filter(f => getFiltroPagamentoCliente(f, transacoesMap.get(f.id)) === false);
       }
 
       if (fichasFiltradas.length === 0) {
