@@ -13,9 +13,12 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   CheckCircle2, Loader2, Copy, CreditCard, ChevronLeft, ChevronRight,
-  History, DollarSign, Info, Ban, Search, Star, Building2, X,
+  History, DollarSign, Info, Ban, Search, Star, Building2, X, CalendarIcon,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
