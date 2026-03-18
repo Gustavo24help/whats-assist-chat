@@ -6,13 +6,14 @@ interface UserProfile {
   id: string;
   email: string;
   fullName: string;
-  role: 'admin' | 'supervisor' | 'user';
+  role: 'admin' | 'supervisor' | 'user' | 'chefe';
 }
 
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   isAdmin: boolean;
+  isChefe: boolean;
   isSupervisor: boolean;
   loading: boolean;
   refreshUserProfile: () => Promise<void>;
@@ -86,8 +87,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       // Normalizar role para lowercase
-      const normalizedRole = roleData?.role?.toLowerCase() as 'admin' | 'supervisor' | 'user';
-      const finalRole = normalizedRole === 'admin' ? 'admin' : normalizedRole === 'supervisor' ? 'supervisor' : 'user';
+      const normalizedRole = roleData?.role?.toLowerCase() as 'admin' | 'supervisor' | 'user' | 'chefe';
+      const finalRole = normalizedRole === 'admin' ? 'admin' : normalizedRole === 'chefe' ? 'chefe' : normalizedRole === 'supervisor' ? 'supervisor' : 'user';
 
       const userProfileData: UserProfile = {
         id: userId,
@@ -186,8 +187,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
 
-  const isAdmin = userProfile?.role === 'admin';
-  const isSupervisor = userProfile?.role === 'supervisor' || userProfile?.role === 'admin';
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'chefe';
+  const isChefe = userProfile?.role === 'chefe';
+  const isSupervisor = userProfile?.role === 'supervisor' || isAdmin;
 
   // Removido console.log que rodava a cada render (impacto de performance)
 
@@ -197,6 +199,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         user,
         userProfile,
         isAdmin,
+        isChefe,
         isSupervisor,
         loading,
         refreshUserProfile

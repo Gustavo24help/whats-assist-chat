@@ -1,28 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { isBusinessDay } from "@/lib/businessDays2026";
 import {
-  CheckCircle2, Loader2, ExternalLink, Copy, Clock, Ban, History, ChevronLeft, ChevronRight, Search, DollarSign, X, CalendarIcon,
+  Loader2, ExternalLink, Copy, Clock, History, Search, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CalendarIcon, Eye, Info,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -42,46 +36,55 @@ interface FichaCliente {
   updated_at: string;
   created_at: string;
   notas: string | null;
+  pagamento_visto_por_chefe: boolean;
+  data_pagamento_realizada: string | null;
+}
+
+/** Count business days between two dates (exclusive of start, inclusive of end) */
+function businessDaysBetween(from: Date, to: Date): number {
+  let count = 0;
+  const current = new Date(from);
+  current.setHours(0, 0, 0, 0);
+  const end = new Date(to);
+  end.setHours(0, 0, 0, 0);
+  
+  if (current >= end) return 0;
+  
+  const d = new Date(current);
+  d.setDate(d.getDate() + 1);
+  while (d <= end) {
+    if (isBusinessDay(d)) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
 }
 
 export const PagamentoClientesTabV2 = () => {
   const { toast } = useToast();
-  const [subTab, setSubTab] = useState("pendentes");
+  const { isChefe } = useAuth();
+  const [subTab, setSubTab] = useState("ativos");
   const [loading, setLoading] = useState(true);
-  const [fichas, setFichas] = useState<FichaCliente[]>([]);
-  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
-  const [confirmCancel, setConfirmCancel] = useState<FichaCliente | null>(null);
-  const [cancelando, setCancelando] = useState<string | null>(null);
+  const [fichasPendentes, setFichasPendentes] = useState<FichaCliente[]>([]);
+  const [fichasPagasRecentes, setFichasPagasRecentes] = useState<FichaCliente[]>([]);
   const [search, setSearch] = useState("");
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  
+  // Histórico (todos os pagos)
   const [historico, setHistorico] = useState<FichaCliente[]>([]);
   const [historicoLoading, setHistoricoLoading] = useState(false);
   const [historicoPage, setHistoricoPage] = useState(0);
   const [historicoTotal, setHistoricoTotal] = useState(0);
-  const [popupsEnabled, setPopupsEnabled] = useState(true);
-  const [pagamentoConfirm, setPagamentoConfirm] = useState<FichaCliente | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [batchPaying, setBatchPaying] = useState(false);
-  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  
+  // Reportar problema
+  const [problemaDialog, setProblemaDialog] = useState<FichaCliente | null>(null);
+  const [problemaTexto, setProblemaTexto] = useState("");
+  const [reportando, setReportando] = useState(false);
+  
+  // Detalhes
+  const [detalhesDialog, setDetalhesDialog] = useState<FichaCliente | null>(null);
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const pagarTodosSelecionados = async () => {
-    const selected = filteredFichas.filter(f => selectedIds.has(f.id));
-    if (selected.length === 0) return;
-    setBatchPaying(true);
-    for (const ficha of selected) {
-      await marcarPagou(ficha);
-    }
-    setSelectedIds(new Set());
-    setBatchPaying(false);
-    toast({ title: `✅ ${selected.length} pagamento${selected.length > 1 ? "s" : ""} confirmado${selected.length > 1 ? "s" : ""}!` });
-  };
+  // Track if chefe already marked items as seen in this session
+  const markedSeenRef = useRef(false);
 
   const resolveNames = async (items: any[]): Promise<FichaCliente[]> => {
     if (items.length === 0) return [];
@@ -91,70 +94,136 @@ export const PagamentoClientesTabV2 = () => {
     return items.map((f: any) => ({
       ...f,
       nome_cliente_resolved: f.nome_cliente || map.get(f.telefone_cliente) || f.telefone_cliente.replace("whatsapp:+55", ""),
+      data_pagamento_realizada: f._data_pagamento_realizada || null,
     }));
   };
 
-  const fetchPendentes = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    
+    // Fetch pending (not paid, Finalizado)
+    const { data: pendentes } = await supabase
       .from("fichas_de_servico")
-      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas")
+      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas, pagamento_visto_por_chefe")
       .or("pagamento_realizado.eq.false,pagamento_realizado.is.null")
       .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
       .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false });
-    if (!error) {
-      const filtered = (data || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
-      setFichas(await resolveNames(filtered));
+
+    // Fetch recently paid (paid, not yet seen by chefe OR within 1 business day)
+    const { data: pagos } = await supabase
+      .from("fichas_de_servico")
+      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas, pagamento_visto_por_chefe")
+      .eq("pagamento_realizado", true)
+      .gt("valor_total", 0)
+      .gte("updated_at", FINANCEIRO_CUTOFF)
+      .order("updated_at", { ascending: false });
+
+    const filteredPendentes = (pendentes || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
+    const filteredPagos = (pagos || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
+    
+    // For paid items, get data_pagamento_realizada from transacoes
+    const pagoIds = filteredPagos.map((f: any) => f.id);
+    let transacoesMap = new Map<string, string>();
+    if (pagoIds.length > 0) {
+      const { data: transacoes } = await supabase
+        .from("transacoes_financeiras")
+        .select("ficha_id, data_pagamento_realizada")
+        .in("ficha_id", pagoIds)
+        .not("data_pagamento_realizada", "is", null);
+      (transacoes || []).forEach((t: any) => {
+        transacoesMap.set(t.ficha_id, t.data_pagamento_realizada);
+      });
     }
+
+    // Add payment date to paid items
+    const pagosWithDate = filteredPagos.map((f: any) => ({
+      ...f,
+      _data_pagamento_realizada: transacoesMap.get(f.id) || f.updated_at,
+    }));
+
+    // Filter recently paid: within 1 business day OR not yet seen by chefe
+    const now = new Date();
+    const recentes = pagosWithDate.filter((f: any) => {
+      const payDate = new Date(f._data_pagamento_realizada || f.updated_at);
+      const bDays = businessDaysBetween(payDate, now);
+      const isRecent = bDays <= 1;
+      const notSeen = !f.pagamento_visto_por_chefe;
+      return isRecent || notSeen;
+    });
+
+    setFichasPendentes(await resolveNames(filteredPendentes));
+    setFichasPagasRecentes(await resolveNames(recentes));
     setLoading(false);
   }, []);
 
   const fetchHistorico = useCallback(async () => {
     setHistoricoLoading(true);
-    const { data, error, count } = await supabase
+    const { data, count } = await supabase
       .from("fichas_de_servico")
-      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas", { count: "exact" })
+      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas, pagamento_visto_por_chefe", { count: "exact" })
       .eq("pagamento_realizado", true)
       .gt("valor_total", 0)
       .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false })
       .range(historicoPage * PAGE_SIZE, (historicoPage + 1) * PAGE_SIZE - 1);
-    if (!error) {
-      const filtered = (data || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
-      setHistorico(await resolveNames(filtered));
-      setHistoricoTotal(count || 0);
-    }
+
+    const filtered = (data || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
+    setHistorico(await resolveNames(filtered));
+    setHistoricoTotal(count || 0);
     setHistoricoLoading(false);
   }, [historicoPage]);
 
-  useEffect(() => { fetchPendentes(); }, [fetchPendentes]);
+  useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { if (subTab === "historico") fetchHistorico(); }, [subTab, fetchHistorico]);
 
-  const marcarPagou = async (ficha: FichaCliente) => {
-    setMarkingPaid(ficha.id);
-    const agora = new Date().toISOString();
-    const { error } = await supabase.from("fichas_de_servico").update({ pagamento_realizado: true } as any).eq("id", ficha.id);
-    if (!error) {
-      await supabase.from("transacoes_financeiras")
-        .update({ status_pagamento_cliente: "pago", data_pagamento_realizada: agora } as any)
-        .eq("ficha_id", ficha.id);
-      toast({ title: "✅ Pagamento do cliente confirmado!" });
-      setFichas(prev => prev.filter(f => f.id !== ficha.id));
-    }
-    setMarkingPaid(null);
-  };
+  // When a chefe views the tab, mark unseen items as seen
+  useEffect(() => {
+    if (!isChefe || markedSeenRef.current || loading) return;
+    
+    const unseenIds = fichasPagasRecentes
+      .filter(f => !f.pagamento_visto_por_chefe)
+      .map(f => f.id);
+    
+    if (unseenIds.length === 0) return;
+    
+    markedSeenRef.current = true;
+    
+    // Mark as seen after a brief delay so the user sees the blink first
+    const timeout = setTimeout(async () => {
+      for (const id of unseenIds) {
+        await supabase.from("fichas_de_servico")
+          .update({ pagamento_visto_por_chefe: true } as any)
+          .eq("id", id);
+      }
+      // Update local state
+      setFichasPagasRecentes(prev => prev.map(f => 
+        unseenIds.includes(f.id) ? { ...f, pagamento_visto_por_chefe: true } : f
+      ));
+    }, 5000); // 5 seconds to see the blink before marking as seen
+    
+    return () => clearTimeout(timeout);
+  }, [isChefe, fichasPagasRecentes, loading]);
 
-  const cancelar = async (ficha: FichaCliente) => {
-    setCancelando(ficha.id);
-    setConfirmCancel(null);
+  const reportarProblema = async () => {
+    if (!problemaDialog || !problemaTexto.trim()) {
+      toast({ title: "Digite a descrição do problema", variant: "destructive" });
+      return;
+    }
+    setReportando(true);
+    const agora = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    const notaAtual = problemaDialog.notas || "";
+    const novaNota = `${notaAtual}\n[PROBLEMA PAGAMENTO ${agora}] ${problemaTexto.trim()}`.trim();
+    
     await supabase.from("fichas_de_servico")
-      .update({ status: "Perdido", motivo_perda: "Pagamento cancelado/não realizado" } as any)
-      .eq("id", ficha.id);
-    toast({ title: "Pagamento cancelado" });
-    setFichas(prev => prev.filter(f => f.id !== ficha.id));
-    setCancelando(null);
+      .update({ notas: novaNota } as any)
+      .eq("id", problemaDialog.id);
+    
+    toast({ title: "⚠️ Problema reportado na ficha" });
+    setProblemaDialog(null);
+    setProblemaTexto("");
+    setReportando(false);
   };
 
   const copyToClipboard = (text: string) => {
@@ -162,35 +231,112 @@ export const PagamentoClientesTabV2 = () => {
     toast({ title: "Copiado!", description: text });
   };
 
-  const handlePayClick = (ficha: FichaCliente) => {
-    if (popupsEnabled) {
-      setPagamentoConfirm(ficha);
-    } else {
-      marcarPagou(ficha);
+  // Filtering
+  const applyFilters = (items: FichaCliente[]) => {
+    let result = items;
+    if (filterDate) {
+      const start = new Date(filterDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(filterDate);
+      end.setHours(23, 59, 59, 999);
+      result = result.filter(f => {
+        const d = new Date(f.updated_at);
+        return d >= start && d <= end;
+      });
     }
+    if (search) {
+      const s = search.toLowerCase();
+      result = result.filter(f => f.nome_cliente_resolved.toLowerCase().includes(s) || f.id.toLowerCase().includes(s));
+    }
+    return result;
   };
 
-  const dateFilteredFichas = (() => {
-    if (!filterDate) return fichas;
-    const start = new Date(filterDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(filterDate);
-    end.setHours(23, 59, 59, 999);
-    return fichas.filter(f => {
-      const d = new Date(f.updated_at);
-      return d >= start && d <= end;
-    });
-  })();
-
-  const filteredFichas = search
-    ? dateFilteredFichas.filter(f => f.nome_cliente_resolved.toLowerCase().includes(search.toLowerCase()) || f.id.toLowerCase().includes(search.toLowerCase()))
-    : dateFilteredFichas;
-
-  const totalPendente = filteredFichas.reduce((s, f) => s + (f.valor_total || 0), 0);
-  const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
+  const filteredPendentes = applyFilters(fichasPendentes);
+  const filteredRecentes = applyFilters(fichasPagasRecentes);
+  const allAtivos = [...filteredPendentes, ...filteredRecentes.filter(f => !filteredPendentes.some(p => p.id === f.id))];
   
+  const totalPendente = filteredPendentes.reduce((s, f) => s + (f.valor_total || 0), 0);
+  const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
 
-  const formatDateShort = (d: string) => format(new Date(d), "dd/MM", { locale: ptBR });
+  const formatDateShort = (d: string) => format(new Date(d), "dd/MM HH:mm", { locale: ptBR });
+
+  const renderFichaCard = (f: FichaCliente) => {
+    const isPago = f.pagamento_realizado;
+    const shouldBlink = isPago && !f.pagamento_visto_por_chefe;
+    const isAutoConfirmed = f.notas?.includes("automaticamente via Asaas") || false;
+    
+    return (
+      <div
+        key={f.id}
+        className={cn(
+          "rounded-lg border bg-card p-4 transition-all",
+          isPago && "border-green-300 dark:border-green-800",
+          !isPago && "border-amber-300 dark:border-amber-800",
+          shouldBlink && "animate-pulse border-green-500 dark:border-green-500 shadow-md shadow-green-200 dark:shadow-green-900/50"
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          {/* Left: Client info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-sm truncate">{f.nome_cliente_resolved}</h3>
+              {isPago ? (
+                <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 text-[10px] shrink-0">
+                  <CheckCircle2 className="h-3 w-3 mr-0.5" /> Pago
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-amber-600 border-amber-400 dark:text-amber-400 text-[10px] shrink-0">
+                  <Clock className="h-3 w-3 mr-0.5" /> Pendente
+                </Badge>
+              )}
+              {isAutoConfirmed && (
+                <Badge variant="outline" className="text-[10px] border-blue-400 text-blue-600 dark:text-blue-400 shrink-0">Auto</Badge>
+              )}
+              {shouldBlink && (
+                <Badge className="bg-green-500 text-white text-[10px] shrink-0 animate-bounce">Novo!</Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="secondary" className="text-[10px]">{f.id}</Badge>
+              <span className="text-[10px] text-muted-foreground">{f.status}</span>
+              {f.pagamento_tipo && <Badge variant="outline" className="text-[10px]">{f.pagamento_tipo}</Badge>}
+              <span className="text-[10px] text-muted-foreground">{formatDateShort(f.updated_at)}</span>
+            </div>
+            {f.pagamento_link && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs">
+                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                <a href={f.pagamento_link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[180px]">Link pagamento</a>
+                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(f.pagamento_link!)}><Copy className="h-3 w-3" /></Button>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Value + Actions */}
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <div className="text-xl font-bold">{formatMoeda(f.valor_total)}</div>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2 text-xs"
+                onClick={() => setDetalhesDialog(f)}
+              >
+                <Info className="h-3.5 w-3.5 mr-1" /> Detalhes
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 px-2 text-xs text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/30"
+                onClick={() => { setProblemaDialog(f); setProblemaTexto(""); }}
+              >
+                <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Reportar Problema
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -198,14 +344,19 @@ export const PagamentoClientesTabV2 = () => {
       <div className="flex gap-3 overflow-x-auto">
         <div className="min-w-[140px] rounded-lg border bg-card p-3 shrink-0">
           <div className="text-xs text-muted-foreground">Pendentes</div>
-          <div className="text-2xl font-bold">{filteredFichas.length}</div>
+          <div className="text-2xl font-bold">{filteredPendentes.length}</div>
         </div>
         <div className="min-w-[180px] rounded-lg border bg-card p-3 shrink-0">
-          <div className="text-xs text-muted-foreground">Valor Total Pendente</div>
+          <div className="text-xs text-muted-foreground">Valor Pendente</div>
           <div className="text-xl font-bold">{formatMoeda(totalPendente)}</div>
+        </div>
+        <div className="min-w-[140px] rounded-lg border bg-card p-3 shrink-0">
+          <div className="text-xs text-muted-foreground">Pagos Recentes</div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{filteredRecentes.length}</div>
         </div>
       </div>
 
+      {/* Search + Date filter */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative max-w-sm flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -219,92 +370,58 @@ export const PagamentoClientesTabV2 = () => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={filterDate}
-              onSelect={setFilterDate}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
+            <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus className="p-3 pointer-events-auto" />
             <div className="border-t p-2">
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>
-                Todas as datas
-              </Button>
+              <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>Todas as datas</Button>
             </div>
           </PopoverContent>
         </Popover>
       </div>
 
-      {/* Pop-ups toggle + batch bar */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Switch checked={popupsEnabled} onCheckedChange={setPopupsEnabled} />
-          <span className="text-sm text-muted-foreground">Pop-ups de confirmação</span>
-        </div>
-        {selectedIds.size > 0 && (
-          <div className="flex items-center gap-3 rounded-lg border bg-card p-2 px-3 shadow-sm">
-            <span className="text-sm font-medium">{selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}</span>
-            <Button size="sm" onClick={pagarTodosSelecionados} disabled={batchPaying} className="gap-1.5">
-              {batchPaying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DollarSign className="h-3.5 w-3.5" />}
-              Pagar Todos
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())} className="gap-1.5">
-              <X className="h-3.5 w-3.5" /> Desmarcar
-            </Button>
-          </div>
-        )}
-      </div>
-
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList className="mb-3">
-          <TabsTrigger value="pendentes" className="gap-1.5 text-xs"><Clock className="h-3.5 w-3.5" /> Pendentes</TabsTrigger>
-          <TabsTrigger value="historico" className="gap-1.5 text-xs"><History className="h-3.5 w-3.5" /> Pagos</TabsTrigger>
+          <TabsTrigger value="ativos" className="gap-1.5 text-xs">
+            <Eye className="h-3.5 w-3.5" /> Pendentes e Recentes
+            {filteredRecentes.filter(f => !f.pagamento_visto_por_chefe).length > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold animate-pulse">
+                {filteredRecentes.filter(f => !f.pagamento_visto_por_chefe).length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="historico" className="gap-1.5 text-xs">
+            <History className="h-3.5 w-3.5" /> Todos os Pagos
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pendentes">
+        <TabsContent value="ativos">
           <div className="space-y-2">
             {loading ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-            ) : filteredFichas.length === 0 ? (
-              <div className="text-center py-12"><CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-muted-foreground">Todos os pagamentos em dia!</p></div>
+            ) : allAtivos.length === 0 ? (
+              <div className="text-center py-12">
+                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                <p className="text-muted-foreground">Nenhum pagamento pendente ou recente!</p>
+              </div>
             ) : (
-              filteredFichas.map(f => (
-                <div key={f.id} className={`rounded-lg border bg-card p-4 flex items-center gap-4 ${selectedIds.has(f.id) ? "ring-2 ring-primary" : ""}`}>
-                  <Checkbox checked={selectedIds.has(f.id)} onCheckedChange={() => toggleSelect(f.id)} className="shrink-0" />
-                  {/* Left: Client info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm truncate">{f.nome_cliente_resolved}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="secondary" className="text-[10px]">{f.id}</Badge>
-                      {f.pagamento_tipo && <Badge variant="outline" className="text-[10px]">{f.pagamento_tipo}</Badge>}
-                      <span className="text-xs text-muted-foreground">{formatDateShort(f.updated_at)}</span>
-                    </div>
-                    {f.pagamento_link && (
-                      <div className="flex items-center gap-1.5 mt-1.5 text-xs">
-                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                        <a href={f.pagamento_link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[180px]">Link pagamento</a>
-                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(f.pagamento_link!)}><Copy className="h-3 w-3" /></Button>
-                      </div>
-                    )}
+              <>
+                {/* Show recently paid first (blink items on top), then pending */}
+                {filteredRecentes
+                  .sort((a, b) => {
+                    // Unseen first
+                    if (!a.pagamento_visto_por_chefe && b.pagamento_visto_por_chefe) return -1;
+                    if (a.pagamento_visto_por_chefe && !b.pagamento_visto_por_chefe) return 1;
+                    return 0;
+                  })
+                  .map(renderFichaCard)}
+                {filteredRecentes.length > 0 && filteredPendentes.length > 0 && (
+                  <div className="flex items-center gap-3 py-2">
+                    <Separator className="flex-1" />
+                    <span className="text-xs text-muted-foreground font-medium">Aguardando Pagamento</span>
+                    <Separator className="flex-1" />
                   </div>
-
-                  {/* Center: Value */}
-                  <div className="text-right shrink-0">
-                    <div className="text-xl font-bold">{formatMoeda(f.valor_total)}</div>
-                  </div>
-
-                  {/* Right: Actions */}
-                  <div className="flex gap-2 shrink-0">
-                    <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-9 px-3" disabled={cancelando === f.id} onClick={() => setConfirmCancel(f)}>
-                      <Ban className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" className="h-9 px-4" disabled={markingPaid === f.id} onClick={() => handlePayClick(f)}>
-                      {markingPaid === f.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
-                      Cliente Pagou
-                    </Button>
-                  </div>
-                </div>
-              ))
+                )}
+                {filteredPendentes.map(renderFichaCard)}
+              </>
             )}
           </div>
         </TabsContent>
@@ -323,11 +440,11 @@ export const PagamentoClientesTabV2 = () => {
                     <div key={f.id} className="rounded-lg border bg-card p-3 flex items-center justify-between opacity-80">
                       <div className="min-w-0">
                         <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
-                        <p className="text-xs text-muted-foreground">{f.id}</p>
+                        <p className="text-xs text-muted-foreground">{f.id} • {formatDateShort(f.updated_at)}</p>
                       </div>
                       <div className="text-right shrink-0 flex items-center gap-2">
                         <div className="font-bold text-sm">{formatMoeda(f.valor_total)}</div>
-                        <Badge variant="secondary" className="text-[10px]">Pago</Badge>
+                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]">Pago</Badge>
                         {isAutoConfirmed && (
                           <Badge variant="outline" className="text-[10px] border-blue-400 text-blue-600 dark:text-blue-400">Auto</Badge>
                         )}
@@ -351,65 +468,103 @@ export const PagamentoClientesTabV2 = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Payment Confirmation Dialog */}
-      <Dialog open={!!pagamentoConfirm} onOpenChange={(open) => { if (!open) setPagamentoConfirm(null); }}>
+      {/* Detalhes Dialog */}
+      <Dialog open={!!detalhesDialog} onOpenChange={(open) => { if (!open) setDetalhesDialog(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-green-600" />
-              Confirmar Pagamento do Cliente
+              <Info className="h-5 w-5" />
+              Detalhes do Pagamento
             </DialogTitle>
           </DialogHeader>
-          {pagamentoConfirm && (
-            <div className="space-y-4 text-sm">
+          {detalhesDialog && (
+            <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <span className="text-muted-foreground">Cliente</span>
-                <span className="font-medium">{pagamentoConfirm.nome_cliente_resolved}</span>
+                <span className="font-medium">{detalhesDialog.nome_cliente_resolved}</span>
                 <span className="text-muted-foreground">Ficha</span>
-                <span className="font-medium">{pagamentoConfirm.id}</span>
-                <span className="text-muted-foreground">Data Contratação</span>
-                <span className="font-medium">{format(new Date(pagamentoConfirm.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
-                {pagamentoConfirm.pagamento_tipo && (
+                <span className="font-medium">{detalhesDialog.id}</span>
+                <span className="text-muted-foreground">Status Ficha</span>
+                <span className="font-medium">{detalhesDialog.status}</span>
+                <span className="text-muted-foreground">Data Criação</span>
+                <span className="font-medium">{format(new Date(detalhesDialog.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                {detalhesDialog.pagamento_tipo && (
                   <>
                     <span className="text-muted-foreground">Forma Pagamento</span>
-                    <span className="font-medium">{pagamentoConfirm.pagamento_tipo}</span>
+                    <span className="font-medium">{detalhesDialog.pagamento_tipo}</span>
                   </>
                 )}
+                <span className="text-muted-foreground">Status Pagamento</span>
+                <span className="font-medium">{detalhesDialog.pagamento_realizado ? "✅ Pago" : "⏳ Pendente"}</span>
               </div>
               <Separator />
-              <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 p-3 flex items-center justify-between">
-                <span className="font-semibold text-green-800 dark:text-green-300">Valor</span>
-                <span className="text-xl font-bold text-green-700 dark:text-green-400">{formatMoeda(pagamentoConfirm.valor_total)}</span>
+              <div className="rounded-lg bg-muted/50 border p-3 flex items-center justify-between">
+                <span className="font-semibold">Valor Total</span>
+                <span className="text-xl font-bold">{formatMoeda(detalhesDialog.valor_total)}</span>
               </div>
-              <Button
-                className="w-full h-11 text-base"
-                disabled={markingPaid === pagamentoConfirm.id}
-                onClick={() => { marcarPagou(pagamentoConfirm); setPagamentoConfirm(null); }}
-              >
-                {markingPaid === pagamentoConfirm.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                )}
-                Confirmar Pagamento
-              </Button>
+              {detalhesDialog.pagamento_link && (
+                <div className="flex items-center gap-2 text-xs">
+                  <ExternalLink className="h-3 w-3" />
+                  <a href={detalhesDialog.pagamento_link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                    {detalhesDialog.pagamento_link}
+                  </a>
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copyToClipboard(detalhesDialog.pagamento_link!)}>
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {detalhesDialog.notas && (
+                <>
+                  <Separator />
+                  <div>
+                    <span className="text-xs text-muted-foreground font-medium">Notas</span>
+                    <p className="text-xs mt-1 whitespace-pre-wrap bg-muted/30 rounded p-2">{detalhesDialog.notas}</p>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!confirmCancel} onOpenChange={() => setConfirmCancel(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar pagamento?</AlertDialogTitle>
-            <AlertDialogDescription>A ficha {confirmCancel?.id} será marcada como Perdido.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Voltar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmCancel && cancelar(confirmCancel)}>Confirmar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Reportar Problema Dialog */}
+      <Dialog open={!!problemaDialog} onOpenChange={(open) => { if (!open) { setProblemaDialog(null); setProblemaTexto(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-5 w-5" />
+              Reportar Problema
+            </DialogTitle>
+          </DialogHeader>
+          {problemaDialog && (
+            <div className="space-y-4">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Ficha:</span>{" "}
+                <span className="font-medium">{problemaDialog.id}</span>
+                {" — "}
+                <span className="font-medium">{problemaDialog.nome_cliente_resolved}</span>
+                {" — "}
+                <span className="font-bold">{formatMoeda(problemaDialog.valor_total)}</span>
+              </div>
+              <Textarea
+                placeholder="Descreva o problema com o pagamento..."
+                value={problemaTexto}
+                onChange={(e) => setProblemaTexto(e.target.value)}
+                rows={3}
+              />
+              <Button
+                className="w-full"
+                variant="outline"
+                disabled={reportando || !problemaTexto.trim()}
+                onClick={reportarProblema}
+              >
+                {reportando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <AlertTriangle className="h-4 w-4 mr-2" />}
+                Registrar Problema
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
