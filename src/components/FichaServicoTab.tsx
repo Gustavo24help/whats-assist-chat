@@ -1453,12 +1453,35 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                         // Atualizar estado local
                         setFicha(prev => prev ? { ...prev, pagamento_link: data.payment_url } : prev);
                         
-                        // Abrir dialog de envio
-                        setLinkDialogData({
-                          url: data.payment_url,
-                          nome: clienteNomeResolvido,
-                          valor: ficha.valor_total,
-                        });
+                        if (envioAutomatico && ficha.telefone_cliente) {
+                          // Envio automático
+                          toast.info('Enviando link ao cliente...');
+                          const resultado = await enviarLinkAutomatico(
+                            data.payment_url, clienteNomeResolvido, ficha.valor_total,
+                            ficha.telefone_cliente, ficha.id
+                          );
+                          
+                          if (resultado.success) {
+                            toast.success('✅ Link gerado e enviado automaticamente ao cliente!');
+                          } else {
+                            // Fallback: abrir dialog manual
+                            toast.warning(resultado.reason === 'FORA_JANELA_24H' 
+                              ? 'Fora da janela 24h. Revise e envie manualmente.' 
+                              : 'Envio automático falhou. Revise e envie manualmente.');
+                            setLinkDialogData({
+                              url: data.payment_url,
+                              nome: clienteNomeResolvido,
+                              valor: ficha.valor_total,
+                            });
+                          }
+                        } else {
+                          // Sem envio automático: abrir dialog
+                          setLinkDialogData({
+                            url: data.payment_url,
+                            nome: clienteNomeResolvido,
+                            valor: ficha.valor_total,
+                          });
+                        }
                       } else {
                         throw new Error(data?.error || 'Resposta inesperada');
                       }
