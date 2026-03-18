@@ -60,6 +60,7 @@ export const PagamentoClientesTabV2 = () => {
   const [pagamentoConfirm, setPagamentoConfirm] = useState<FichaCliente | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPaying, setBatchPaying] = useState(false);
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
