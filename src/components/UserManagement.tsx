@@ -293,15 +293,16 @@ export const UserManagement = () => {
                 <TableCell>
                   <Select
                     value={user.role}
-                    onValueChange={(v) => updateUserRole(user.id, v as 'admin' | 'supervisor' | 'user')}
+                    onValueChange={(v) => updateUserRole(user.id, v as 'admin' | 'chefe' | 'supervisor' | 'user')}
                   >
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[200px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="user">Usuário Comum</SelectItem>
                       <SelectItem value="supervisor">Supervisor</SelectItem>
                       <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="chefe">Administrador - Chefe</SelectItem>
                     </SelectContent>
                   </Select>
                 </TableCell>
