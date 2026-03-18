@@ -13,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   isAdmin: boolean;
+  isChefe: boolean;
   isSupervisor: boolean;
   loading: boolean;
   refreshUserProfile: () => Promise<void>;
