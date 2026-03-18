@@ -297,13 +297,23 @@ export const PagamentoPrestadoresTabV2 = () => {
     }
   };
 
+  const dateFilteredPendentes = (() => {
+    if (showAllDates) return pendentes;
+    if (!filterDate) return pendentes;
+    const start = new Date(filterDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(filterDate);
+    end.setHours(23, 59, 59, 999);
+    return pendentes.filter(f => f.data_pagamento_prevista >= start && f.data_pagamento_prevista <= end);
+  })();
+
   const filteredPendentes = search
-    ? pendentes.filter(f =>
+    ? dateFilteredPendentes.filter(f =>
       f.prestador_nome.toLowerCase().includes(search.toLowerCase()) ||
       f.nome_cliente_resolved.toLowerCase().includes(search.toLowerCase()) ||
       f.id.toLowerCase().includes(search.toLowerCase())
     )
-    : pendentes;
+    : dateFilteredPendentes;
 
   const totalAPagar = filteredPendentes.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
