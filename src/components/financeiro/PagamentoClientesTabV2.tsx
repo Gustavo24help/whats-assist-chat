@@ -169,9 +169,21 @@ export const PagamentoClientesTabV2 = () => {
     }
   };
 
+  const dateFilteredFichas = (() => {
+    if (!filterDate) return fichas;
+    const start = new Date(filterDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(filterDate);
+    end.setHours(23, 59, 59, 999);
+    return fichas.filter(f => {
+      const d = new Date(f.updated_at);
+      return d >= start && d <= end;
+    });
+  })();
+
   const filteredFichas = search
-    ? fichas.filter(f => f.nome_cliente_resolved.toLowerCase().includes(search.toLowerCase()) || f.id.toLowerCase().includes(search.toLowerCase()))
-    : fichas;
+    ? dateFilteredFichas.filter(f => f.nome_cliente_resolved.toLowerCase().includes(search.toLowerCase()) || f.id.toLowerCase().includes(search.toLowerCase()))
+    : dateFilteredFichas;
 
   const totalPendente = filteredFichas.reduce((s, f) => s + (f.valor_total || 0), 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
