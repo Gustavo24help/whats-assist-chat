@@ -41,6 +41,7 @@ interface FichaCliente {
   pagamento_tipo: string | null;
   updated_at: string;
   created_at: string;
+  notas: string | null;
 }
 
 export const PagamentoClientesTabV2 = () => {
@@ -97,7 +98,7 @@ export const PagamentoClientesTabV2 = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("fichas_de_servico")
-      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at")
+      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas")
       .or("pagamento_realizado.eq.false,pagamento_realizado.is.null")
       .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
@@ -114,7 +115,7 @@ export const PagamentoClientesTabV2 = () => {
     setHistoricoLoading(true);
     const { data, error, count } = await supabase
       .from("fichas_de_servico")
-      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at", { count: "exact" })
+      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas", { count: "exact" })
       .eq("pagamento_realizado", true)
       .gt("valor_total", 0)
       .gte("updated_at", FINANCEIRO_CUTOFF)
@@ -316,18 +317,24 @@ export const PagamentoClientesTabV2 = () => {
               <div className="text-center py-12 text-muted-foreground">Nenhum pagamento realizado</div>
             ) : (
               <>
-                {historico.map(f => (
-                  <div key={f.id} className="rounded-lg border bg-card p-3 flex items-center justify-between opacity-80">
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
-                      <p className="text-xs text-muted-foreground">{f.id}</p>
+                {historico.map(f => {
+                  const isAutoConfirmed = f.notas?.includes("automaticamente via Asaas") || false;
+                  return (
+                    <div key={f.id} className="rounded-lg border bg-card p-3 flex items-center justify-between opacity-80">
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
+                        <p className="text-xs text-muted-foreground">{f.id}</p>
+                      </div>
+                      <div className="text-right shrink-0 flex items-center gap-2">
+                        <div className="font-bold text-sm">{formatMoeda(f.valor_total)}</div>
+                        <Badge variant="secondary" className="text-[10px]">Pago</Badge>
+                        {isAutoConfirmed && (
+                          <Badge variant="outline" className="text-[10px] border-blue-400 text-blue-600 dark:text-blue-400">Auto</Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right shrink-0 flex items-center gap-2">
-                      <div className="font-bold text-sm">{formatMoeda(f.valor_total)}</div>
-                      <Badge variant="secondary" className="text-[10px]">Pago</Badge>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {historicoTotalPages > 1 && (
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-xs text-muted-foreground">{historicoTotal} registros</span>

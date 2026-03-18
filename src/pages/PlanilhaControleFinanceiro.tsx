@@ -1,10 +1,15 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Loader2, Download } from "lucide-react";
+import { ArrowLeft, Loader2, Download, Search, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const formatMoeda = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -40,6 +45,7 @@ interface RowData {
   desconto: number;
   lucro_bruto: number;
   rentab: number;
+  status_envio: string;
 }
 
 const columns = [
@@ -47,17 +53,18 @@ const columns = [
   "Pix", "Categoria", "Cliente", "Pagamento?", "Fone cliente",
   "Forma pgto", "Conf. pgto", "Adiant. cliente", "Adiant. prestador",
   "Tx visita", "MO", "Peças", "Taxa 24help", "Total OS",
-  "Líquido prestador", "Desconto", "Lucro bruto", "Rentab",
+  "Líquido prestador", "Desconto", "Lucro bruto", "Rentab", "Status",
 ];
 
 const PlanilhaControleFinanceiro = () => {
   const navigate = useNavigate();
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterPago, setFilterPago] = useState<"todos" | "pago" | "pendente">("todos");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -111,6 +118,7 @@ const PlanilhaControleFinanceiro = () => {
         desconto: 0,
         lucro_bruto: lucroBruto,
         rentab: Math.max(rentab, 0),
+        status_envio: t.status_pagamento_prestador === "pago" ? "Enviado" : "Pendente",
       };
     });
 
@@ -118,9 +126,26 @@ const PlanilhaControleFinanceiro = () => {
     setLoading(false);
   };
 
+  // Filters
+  const filteredRows = rows.filter(r => {
+    if (search) {
+      const s = search.toLowerCase();
+      if (!r.id_ficha.toLowerCase().includes(s) && !r.nome_prestador.toLowerCase().includes(s) && !r.nome_cliente.toLowerCase().includes(s)) return false;
+    }
+    if (filterPago === "pago" && r.pagamento_sim_nao !== "Sim") return false;
+    if (filterPago === "pendente" && r.pagamento_sim_nao !== "Não") return false;
+    if (filterDate) {
+      const start = new Date(filterDate); start.setHours(0,0,0,0);
+      const end = new Date(filterDate); end.setHours(23,59,59,999);
+      const d = r.data_execucao ? new Date(r.data_execucao) : null;
+      if (!d || d < start || d > end) return false;
+    }
+    return true;
+  });
+
   const exportCsv = () => {
     const header = columns.join(",");
-    const lines = rows.map((r) =>
+    const lines = filteredRows.map((r) =>
       [
         formatDate(r.data_contratacao), formatDate(r.data_execucao), formatDate(r.data_pgto),
         r.id_ficha, r.nome_prestador, r.cpf_prestador || "", r.cnpj || "",
@@ -131,7 +156,7 @@ const PlanilhaControleFinanceiro = () => {
         r.taxa_visita.toFixed(2), r.mao_obra.toFixed(2), r.pecas.toFixed(2),
         r.taxa_24help.toFixed(2), r.total_os.toFixed(2),
         r.liquido_prestador.toFixed(2), r.desconto.toFixed(2),
-        r.lucro_bruto.toFixed(2), r.rentab.toFixed(1) + "%",
+        r.lucro_bruto.toFixed(2), r.rentab.toFixed(1) + "%", r.status_envio,
       ].map((v) => `"${v}"`).join(",")
     );
     const csv = [header, ...lines].join("\n");
@@ -171,6 +196,7 @@ const PlanilhaControleFinanceiro = () => {
       case 22: return formatMoeda(r.desconto);
       case 23: return formatMoeda(r.lucro_bruto);
       case 24: return r.rentab.toFixed(1) + "%";
+      case 25: return r.status_envio;
       default: return "-";
     }
   };
@@ -184,14 +210,43 @@ const PlanilhaControleFinanceiro = () => {
             Voltar para Planilhas
           </Button>
           <h1 className="text-2xl md:text-3xl font-bold">Controle Financeiro</h1>
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={rows.length === 0}>
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={filteredRows.length === 0}>
             <Download className="h-4 w-4 mr-2" /> Exportar CSV
           </Button>
         </div>
 
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative max-w-sm flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar ficha, prestador ou cliente..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !filterDate && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {filterDate ? format(filterDate, "dd/MM/yyyy", { locale: ptBR }) : "Todas as datas"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus className="p-3 pointer-events-auto" />
+              <div className="border-t p-2">
+                <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>Todas as datas</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <div className="flex gap-1">
+            {(["todos", "pago", "pendente"] as const).map(s => (
+              <Button key={s} variant={filterPago === s ? "default" : "outline"} size="sm" onClick={() => setFilterPago(s)} className="capitalize text-xs">
+                {s === "todos" ? "Todos" : s === "pago" ? "Pagos" : "Pendentes"}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>Controle Financeiro ({rows.length} registros)</CardTitle>
+            <CardTitle>Controle Financeiro ({filteredRows.length} registros)</CardTitle>
             <CardDescription>Dados financeiros de transações confirmadas no sistema.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -199,7 +254,7 @@ const PlanilhaControleFinanceiro = () => {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : rows.length === 0 ? (
+            ) : filteredRows.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 Nenhuma transação financeira registrada ainda.
               </div>
@@ -216,7 +271,7 @@ const PlanilhaControleFinanceiro = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r, ri) => (
+                    {filteredRows.map((r, ri) => (
                       <tr key={ri} className="hover:bg-muted/30">
                         {columns.map((_, ci) => (
                           <td key={ci} className="p-2.5 whitespace-nowrap border-t border-r last:border-r-0 text-xs">
