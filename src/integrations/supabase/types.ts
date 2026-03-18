@@ -688,6 +688,7 @@ export type Database = {
           pagamento_tipo:
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
+          pagamento_visto_por_chefe: boolean | null
           preferencia_horario_cliente: string | null
           prestador_anterior_id: string | null
           prestador_id: string | null
@@ -731,6 +732,7 @@ export type Database = {
           pagamento_tipo?:
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
+          pagamento_visto_por_chefe?: boolean | null
           preferencia_horario_cliente?: string | null
           prestador_anterior_id?: string | null
           prestador_id?: string | null
@@ -774,6 +776,7 @@ export type Database = {
           pagamento_tipo?:
             | Database["public"]["Enums"]["tipo_pagamento_enum"]
             | null
+          pagamento_visto_por_chefe?: boolean | null
           preferencia_horario_cliente?: string | null
           prestador_anterior_id?: string | null
           prestador_id?: string | null
@@ -1901,7 +1904,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user" | "supervisor"
+      app_role: "admin" | "user" | "supervisor" | "chefe"
       status_conversa_enum: "aberta" | "fechada"
       status_ficha_enum:
         | "Não foi adiante"
@@ -2056,7 +2059,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "supervisor"],
+      app_role: ["admin", "user", "supervisor", "chefe"],
       status_conversa_enum: ["aberta", "fechada"],
       status_ficha_enum: [
         "Não foi adiante",
