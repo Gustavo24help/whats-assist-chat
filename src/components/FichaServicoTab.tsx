@@ -1518,8 +1518,20 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   checked={ficha?.pagamento_gerar_link ?? true}
                   onCheckedChange={(checked) => updateFicha({ pagamento_gerar_link: checked as boolean })}
                 />
-                <Label htmlFor="pagamento_gerar_link" className="cursor-pointer text-xs font-medium text-gray-600">
+                <Label htmlFor="pagamento_gerar_link" className="cursor-pointer text-xs font-medium text-muted-foreground">
                   Gerar link de pagamento (webhook)
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="envio_automatico"
+                  checked={envioAutomatico}
+                  onCheckedChange={(checked) => setEnvioAutomatico(checked as boolean)}
+                />
+                <Label htmlFor="envio_automatico" className="cursor-pointer text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <Zap className="h-3 w-3 text-amber-500" />
+                  Enviar link automaticamente ao gerar
                 </Label>
               </div>
 
