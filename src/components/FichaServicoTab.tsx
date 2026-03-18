@@ -1728,6 +1728,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           nomeCliente={linkDialogData.nome}
           telefoneCliente={ficha.telefone_cliente}
           valorTotal={linkDialogData.valor}
+          onEnviado={() => fetchFicha()}
         />
       )}
     </div>
