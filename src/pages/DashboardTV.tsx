@@ -265,10 +265,10 @@ function DashboardTVContent() {
       const mesFrom = `${mesFromDate}T00:00:00-03:00`;
       const mesTo = `${mesEndDate}T23:59:59-03:00`;
 
-      // Buscar fichas que entraram em "Agendado" e "Finalizado" (via histórico de status)
+      // Buscar fichas que entraram em "Agendado" (excluindo VT→Agendado) e "Finalizado" (via histórico de status)
       const [agendDia, agendMes, finDia, finMes] = await Promise.all([
-        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
-        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
+        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').neq('status_anterior', 'Visita Técnica').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
+        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').neq('status_anterior', 'Visita Técnica').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
         supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Finalizado').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
         supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Finalizado').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
       ]);
