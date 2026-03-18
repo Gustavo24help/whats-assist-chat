@@ -35,7 +35,7 @@ const AVAILABLE_FIELDS = [
   { value: "cliente.nome", label: "Cliente - Nome" },
   { value: "cliente.telefone", label: "Cliente - Telefone" },
   { value: "ficha.id", label: "Ficha - ID" },
-  { value: "ficha.nome_ficha", label: "Ficha - Nome" },
+  { value: "ficha.nome_ficha", label: "Ficha - Nome da Ficha" },
   { value: "ficha.descricao", label: "Ficha - Descrição" },
   { value: "ficha.categoria", label: "Ficha - Categoria" },
   { value: "ficha.status", label: "Ficha - Status" },
