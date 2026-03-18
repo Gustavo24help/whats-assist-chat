@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock, X, Copy, Check, XCircle, Loader2, Link } from "lucide-react";
+import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock, X, Copy, Check, XCircle, Loader2, Link, Send, Zap } from "lucide-react";
 import { toast } from "sonner";
 import debounce from "lodash-es/debounce";
 import { ReciboGenerator } from "@/components/ReciboGenerator";
