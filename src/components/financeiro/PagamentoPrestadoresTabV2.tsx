@@ -341,10 +341,34 @@ export const PagamentoPrestadoresTabV2 = () => {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Buscar prestador, cliente, ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      {/* Search + Date Filter */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar prestador, cliente, ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !filterDate && showAllDates && "text-muted-foreground")}>
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {showAllDates ? "Todas as datas" : filterDate ? format(filterDate, "dd/MM/yyyy", { locale: ptBR }) : "Filtrar data"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={filterDate}
+              onSelect={(d) => { setFilterDate(d); setShowAllDates(false); }}
+              initialFocus
+              className={cn("p-3 pointer-events-auto")}
+            />
+            <div className="border-t p-2">
+              <Button variant="ghost" size="sm" className="w-full" onClick={() => { setShowAllDates(true); setFilterDate(undefined); }}>
+                Todas as datas (vencidos)
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Pop-ups toggle + batch bar */}
