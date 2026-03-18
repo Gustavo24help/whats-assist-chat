@@ -114,7 +114,7 @@ export const PagamentoClientesTabV2 = () => {
     setHistoricoLoading(true);
     const { data, error, count } = await supabase
       .from("fichas_de_servico")
-      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at", { count: "exact" })
+      .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas", { count: "exact" })
       .eq("pagamento_realizado", true)
       .gt("valor_total", 0)
       .gte("updated_at", FINANCEIRO_CUTOFF)
