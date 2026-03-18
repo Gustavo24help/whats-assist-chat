@@ -331,7 +331,7 @@ function DashboardTVContent() {
       const metaAcumuladaValor = metasAcumuladaData.reduce((s: number, r: any) => s + (r.meta_agendamento_valor || 0), 0);
 
       return {
-        agendamentosDia: agendDiaIds.length,
+        agendamentosDia: agendamentosDiaCount,
         agendamentosMes,
         valorAgendDia,
         valorAgendMes,
