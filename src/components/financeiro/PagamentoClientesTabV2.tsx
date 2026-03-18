@@ -66,8 +66,12 @@ export const PagamentoClientesTabV2 = () => {
   const [loading, setLoading] = useState(true);
   const [fichasPendentes, setFichasPendentes] = useState<FichaCliente[]>([]);
   const [fichasPagasRecentes, setFichasPagasRecentes] = useState<FichaCliente[]>([]);
+  const [fichasProblemas, setFichasProblemas] = useState<FichaCliente[]>([]);
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  
+  // Pagos recentemente (5 dias úteis)
+  const [pagosRecentes5d, setPagosRecentes5d] = useState<FichaCliente[]>([]);
   
   // Histórico (todos os pagos)
   const [historico, setHistorico] = useState<FichaCliente[]>([]);
@@ -111,7 +115,7 @@ export const PagamentoClientesTabV2 = () => {
       .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false });
 
-    // Fetch recently paid (paid, not yet seen by chefe OR within 1 business day)
+    // Fetch all paid
     const { data: pagos } = await supabase
       .from("fichas_de_servico")
       .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas, pagamento_visto_por_chefe")
@@ -137,15 +141,15 @@ export const PagamentoClientesTabV2 = () => {
       });
     }
 
-    // Add payment date to paid items
     const pagosWithDate = filteredPagos.map((f: any) => ({
       ...f,
       _data_pagamento_realizada: transacoesMap.get(f.id) || f.updated_at,
     }));
 
-    // Filter recently paid: within 1 business day OR not yet seen by chefe
     const now = new Date();
-    const recentes = pagosWithDate.filter((f: any) => {
+
+    // "Pendentes e pagos recentemente" tab: paid within 1 bday OR not seen by chefe
+    const recentesParaAba1 = pagosWithDate.filter((f: any) => {
       const payDate = new Date(f._data_pagamento_realizada || f.updated_at);
       const bDays = businessDaysBetween(payDate, now);
       const isRecent = bDays <= 1;
@@ -153,8 +157,30 @@ export const PagamentoClientesTabV2 = () => {
       return isRecent || notSeen;
     });
 
-    setFichasPendentes(await resolveNames(filteredPendentes));
-    setFichasPagasRecentes(await resolveNames(recentes));
+    // "Pagos Recentemente" tab: paid within 5 bdays (all, no pendentes)
+    const recentesParaAba2 = pagosWithDate.filter((f: any) => {
+      const payDate = new Date(f._data_pagamento_realizada || f.updated_at);
+      const bDays = businessDaysBetween(payDate, now);
+      return bDays <= 5;
+    });
+
+    // "Problemas Reportados" tab: notas contain [PROBLEMA PAGAMENTO
+    const problemas = filteredPagos.concat(filteredPendentes).filter((f: any) => 
+      f.notas?.includes("[PROBLEMA PAGAMENTO")
+    );
+
+    const resolvedPendentes = await resolveNames(filteredPendentes);
+    const resolvedRecentes1 = await resolveNames(recentesParaAba1);
+    const resolvedRecentes2 = await resolveNames(recentesParaAba2);
+    const resolvedProblemas = await resolveNames(
+      // deduplicate
+      [...new Map(problemas.map((f: any) => [f.id, f])).values()]
+    );
+
+    setFichasPendentes(resolvedPendentes);
+    setFichasPagasRecentes(resolvedRecentes1);
+    setPagosRecentes5d(resolvedRecentes2);
+    setFichasProblemas(resolvedProblemas);
     setLoading(false);
   }, []);
 
@@ -190,18 +216,16 @@ export const PagamentoClientesTabV2 = () => {
     
     markedSeenRef.current = true;
     
-    // Mark as seen after a brief delay so the user sees the blink first
     const timeout = setTimeout(async () => {
       for (const id of unseenIds) {
         await supabase.from("fichas_de_servico")
           .update({ pagamento_visto_por_chefe: true } as any)
           .eq("id", id);
       }
-      // Update local state
       setFichasPagasRecentes(prev => prev.map(f => 
         unseenIds.includes(f.id) ? { ...f, pagamento_visto_por_chefe: true } : f
       ));
-    }, 5000); // 5 seconds to see the blink before marking as seen
+    }, 5000);
     
     return () => clearTimeout(timeout);
   }, [isChefe, fichasPagasRecentes, loading]);
@@ -224,6 +248,7 @@ export const PagamentoClientesTabV2 = () => {
     setProblemaDialog(null);
     setProblemaTexto("");
     setReportando(false);
+    fetchData(); // Refresh to show in problemas tab
   };
 
   const copyToClipboard = (text: string) => {
@@ -253,12 +278,21 @@ export const PagamentoClientesTabV2 = () => {
 
   const filteredPendentes = applyFilters(fichasPendentes);
   const filteredRecentes = applyFilters(fichasPagasRecentes);
+  const filteredPagos5d = applyFilters(pagosRecentes5d);
+  const filteredProblemas = applyFilters(fichasProblemas);
   const allAtivos = [...filteredPendentes, ...filteredRecentes.filter(f => !filteredPendentes.some(p => p.id === f.id))];
   
   const totalPendente = filteredPendentes.reduce((s, f) => s + (f.valor_total || 0), 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
+  const unseenCount = filteredRecentes.filter(f => !f.pagamento_visto_por_chefe).length;
 
   const formatDateShort = (d: string) => format(new Date(d), "dd/MM HH:mm", { locale: ptBR });
+
+  const extractProblemaText = (notas: string | null): string[] => {
+    if (!notas) return [];
+    const matches = notas.match(/\[PROBLEMA PAGAMENTO [^\]]*\] [^\n]*/g);
+    return matches || [];
+  };
 
   const renderFichaCard = (f: FichaCliente) => {
     const isPago = f.pagamento_realizado;
@@ -276,7 +310,6 @@ export const PagamentoClientesTabV2 = () => {
         )}
       >
         <div className="flex items-start justify-between gap-3">
-          {/* Left: Client info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-sm truncate">{f.nome_cliente_resolved}</h3>
@@ -311,7 +344,6 @@ export const PagamentoClientesTabV2 = () => {
             )}
           </div>
 
-          {/* Right: Value + Actions */}
           <div className="flex flex-col items-end gap-2 shrink-0">
             <div className="text-xl font-bold">{formatMoeda(f.valor_total)}</div>
             <div className="flex gap-1.5">
@@ -354,6 +386,12 @@ export const PagamentoClientesTabV2 = () => {
           <div className="text-xs text-muted-foreground">Pagos Recentes</div>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">{filteredRecentes.length}</div>
         </div>
+        {filteredProblemas.length > 0 && (
+          <div className="min-w-[140px] rounded-lg border border-destructive/30 bg-card p-3 shrink-0">
+            <div className="text-xs text-destructive">Problemas</div>
+            <div className="text-2xl font-bold text-destructive">{filteredProblemas.length}</div>
+          </div>
+        )}
       </div>
 
       {/* Search + Date filter */}
@@ -379,12 +417,23 @@ export const PagamentoClientesTabV2 = () => {
       </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>
-        <TabsList className="mb-3">
+        <TabsList className="mb-3 flex-wrap h-auto gap-1">
           <TabsTrigger value="ativos" className="gap-1.5 text-xs">
-            <Eye className="h-3.5 w-3.5" /> Pendentes e Recentes
-            {filteredRecentes.filter(f => !f.pagamento_visto_por_chefe).length > 0 && (
+            <Eye className="h-3.5 w-3.5" /> Pendentes e pagos recentemente
+            {unseenCount > 0 && (
               <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold animate-pulse">
-                {filteredRecentes.filter(f => !f.pagamento_visto_por_chefe).length}
+                {unseenCount}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="pagos_recentes" className="gap-1.5 text-xs">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Pagos Recentemente
+          </TabsTrigger>
+          <TabsTrigger value="problemas" className="gap-1.5 text-xs">
+            <AlertTriangle className="h-3.5 w-3.5" /> Problemas Reportados
+            {filteredProblemas.length > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                {filteredProblemas.length}
               </span>
             )}
           </TabsTrigger>
@@ -393,6 +442,7 @@ export const PagamentoClientesTabV2 = () => {
           </TabsTrigger>
         </TabsList>
 
+        {/* Tab 1: Pendentes e pagos recentemente */}
         <TabsContent value="ativos">
           <div className="space-y-2">
             {loading ? (
@@ -404,10 +454,8 @@ export const PagamentoClientesTabV2 = () => {
               </div>
             ) : (
               <>
-                {/* Show recently paid first (blink items on top), then pending */}
                 {filteredRecentes
                   .sort((a, b) => {
-                    // Unseen first
                     if (!a.pagamento_visto_por_chefe && b.pagamento_visto_por_chefe) return -1;
                     if (a.pagamento_visto_por_chefe && !b.pagamento_visto_por_chefe) return 1;
                     return 0;
@@ -426,6 +474,95 @@ export const PagamentoClientesTabV2 = () => {
           </div>
         </TabsContent>
 
+        {/* Tab 2: Pagos Recentemente (5 dias úteis) */}
+        <TabsContent value="pagos_recentes">
+          <div className="space-y-2">
+            {loading ? (
+              <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : filteredPagos5d.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">Nenhum pagamento nos últimos 5 dias úteis</div>
+            ) : (
+              filteredPagos5d.map(f => {
+                const isAutoConfirmed = f.notas?.includes("automaticamente via Asaas") || false;
+                return (
+                  <div key={f.id} className="rounded-lg border border-green-200 dark:border-green-900 bg-card p-3 flex items-center justify-between">
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
+                      <p className="text-xs text-muted-foreground">{f.id} • {f.status} • {formatDateShort(f.updated_at)}</p>
+                    </div>
+                    <div className="text-right shrink-0 flex items-center gap-2">
+                      <div className="font-bold text-sm">{formatMoeda(f.valor_total)}</div>
+                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]">Pago</Badge>
+                      {isAutoConfirmed && (
+                        <Badge variant="outline" className="text-[10px] border-blue-400 text-blue-600 dark:text-blue-400">Auto</Badge>
+                      )}
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setDetalhesDialog(f)}>
+                        <Info className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab 3: Problemas Reportados */}
+        <TabsContent value="problemas">
+          <div className="space-y-2">
+            {loading ? (
+              <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : filteredProblemas.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">Nenhum problema reportado</div>
+            ) : (
+              filteredProblemas.map(f => {
+                const problemas = extractProblemaText(f.notas);
+                return (
+                  <div key={f.id} className="rounded-lg border border-destructive/40 bg-card p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-sm truncate">{f.nome_cliente_resolved}</h3>
+                          <Badge variant="secondary" className="text-[10px]">{f.id}</Badge>
+                          {f.pagamento_realizado ? (
+                            <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 text-[10px]">Pago</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-amber-600 border-amber-400 text-[10px]">Pendente</Badge>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{formatDateShort(f.updated_at)}</span>
+                      </div>
+                      <div className="text-xl font-bold shrink-0">{formatMoeda(f.valor_total)}</div>
+                    </div>
+                    <div className="space-y-1">
+                      {problemas.map((p, i) => (
+                        <div key={i} className="text-xs bg-destructive/10 text-destructive dark:bg-destructive/20 rounded px-2 py-1.5 flex items-start gap-1.5">
+                          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                          <span>{p}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-1.5 pt-1">
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setDetalhesDialog(f)}>
+                        <Info className="h-3.5 w-3.5 mr-1" /> Detalhes
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700"
+                        onClick={() => { setProblemaDialog(f); setProblemaTexto(""); }}
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Novo Problema
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab 4: Todos os Pagos (histórico) */}
         <TabsContent value="historico">
           <div className="space-y-2">
             {historicoLoading ? (
