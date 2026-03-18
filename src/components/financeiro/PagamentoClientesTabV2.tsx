@@ -41,6 +41,7 @@ interface FichaCliente {
   pagamento_tipo: string | null;
   updated_at: string;
   created_at: string;
+  notas: string | null;
 }
 
 export const PagamentoClientesTabV2 = () => {
