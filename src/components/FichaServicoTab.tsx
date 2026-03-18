@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock, X, Copy, Check, XCircle, Loader2, Link } from "lucide-react";
+import { Save, FileText, DollarSign, Calendar, CreditCard, User, Clock, X, Copy, Check, XCircle, Loader2, Link, Send, Zap } from "lucide-react";
 import { toast } from "sonner";
 import debounce from "lodash-es/debounce";
 import { ReciboGenerator } from "@/components/ReciboGenerator";
@@ -109,6 +109,64 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [gerandoLink, setGerandoLink] = useState(false);
   const [linkDialogData, setLinkDialogData] = useState<{ url: string; nome: string; valor: number } | null>(null);
+  const [envioAutomatico, setEnvioAutomatico] = useState(true);
+
+  const formatMoeda = (v: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+  const registrarEnvioNaFicha = async (fichaIdParam: string, paymentUrl: string, metodo: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      const nomeUsuario = user?.email?.split('@')[0] || 'sistema';
+      const logEntry = `[${agora}] Link de pagamento enviado por ${nomeUsuario} (${metodo}) — ${paymentUrl}`;
+      
+      const { data: fichaAtual } = await supabase
+        .from('fichas_de_servico')
+        .select('notas')
+        .eq('id', fichaIdParam)
+        .single();
+      
+      const notasAtuais = fichaAtual?.notas || '';
+      const novasNotas = notasAtuais ? `${notasAtuais}\n${logEntry}` : logEntry;
+      
+      await supabase
+        .from('fichas_de_servico')
+        .update({ notas: novasNotas })
+        .eq('id', fichaIdParam);
+      
+      // Atualizar estado local
+      setFicha(prev => prev ? { ...prev, notas: novasNotas } : prev);
+    } catch (err) {
+      console.error('Erro ao registrar envio na ficha:', err);
+    }
+  };
+
+  const enviarLinkAutomatico = async (paymentUrl: string, clienteNome: string, valorTotal: number, telefone: string, fichaIdParam: string) => {
+    const mensagem = `Olá${clienteNome ? `, ${clienteNome}` : ''}! 😊\n\nSegue o link para pagamento do serviço ${fichaIdParam} no valor de ${formatMoeda(valorTotal)}:\n\n${paymentUrl}\n\nQualquer dúvida estou à disposição!`;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: { to: telefone, message: mensagem, userId: user?.id },
+      });
+
+      if (error) throw error;
+      
+      if (!data.success) {
+        if (data.error === "FORA_JANELA_24H") {
+          return { success: false, reason: 'FORA_JANELA_24H' };
+        }
+        throw new Error(data.error || "Erro ao enviar");
+      }
+
+      await registrarEnvioNaFicha(fichaIdParam, paymentUrl, 'envio automático via WhatsApp');
+      return { success: true };
+    } catch (err: any) {
+      console.error('Erro no envio automático:', err);
+      return { success: false, reason: err.message };
+    }
+  };
 
   // Função de validação de dados
   const validarDadosFicha = (fichaData: Ficha): { valid: boolean; errors: string[] } => {
@@ -1395,12 +1453,35 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                         // Atualizar estado local
                         setFicha(prev => prev ? { ...prev, pagamento_link: data.payment_url } : prev);
                         
-                        // Abrir dialog de envio
-                        setLinkDialogData({
-                          url: data.payment_url,
-                          nome: clienteNomeResolvido,
-                          valor: ficha.valor_total,
-                        });
+                        if (envioAutomatico && ficha.telefone_cliente) {
+                          // Envio automático
+                          toast.info('Enviando link ao cliente...');
+                          const resultado = await enviarLinkAutomatico(
+                            data.payment_url, clienteNomeResolvido, ficha.valor_total,
+                            ficha.telefone_cliente, ficha.id
+                          );
+                          
+                          if (resultado.success) {
+                            toast.success('✅ Link gerado e enviado automaticamente ao cliente!');
+                          } else {
+                            // Fallback: abrir dialog manual
+                            toast.warning(resultado.reason === 'FORA_JANELA_24H' 
+                              ? 'Fora da janela 24h. Revise e envie manualmente.' 
+                              : 'Envio automático falhou. Revise e envie manualmente.');
+                            setLinkDialogData({
+                              url: data.payment_url,
+                              nome: clienteNomeResolvido,
+                              valor: ficha.valor_total,
+                            });
+                          }
+                        } else {
+                          // Sem envio automático: abrir dialog
+                          setLinkDialogData({
+                            url: data.payment_url,
+                            nome: clienteNomeResolvido,
+                            valor: ficha.valor_total,
+                          });
+                        }
                       } else {
                         throw new Error(data?.error || 'Resposta inesperada');
                       }
@@ -1437,8 +1518,20 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   checked={ficha?.pagamento_gerar_link ?? true}
                   onCheckedChange={(checked) => updateFicha({ pagamento_gerar_link: checked as boolean })}
                 />
-                <Label htmlFor="pagamento_gerar_link" className="cursor-pointer text-xs font-medium text-gray-600">
+                <Label htmlFor="pagamento_gerar_link" className="cursor-pointer text-xs font-medium text-muted-foreground">
                   Gerar link de pagamento (webhook)
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="envio_automatico"
+                  checked={envioAutomatico}
+                  onCheckedChange={(checked) => setEnvioAutomatico(checked as boolean)}
+                />
+                <Label htmlFor="envio_automatico" className="cursor-pointer text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <Zap className="h-3 w-3 text-amber-500" />
+                  Enviar link automaticamente ao gerar
                 </Label>
               </div>
 
@@ -1635,6 +1728,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           nomeCliente={linkDialogData.nome}
           telefoneCliente={ficha.telefone_cliente}
           valorTotal={linkDialogData.valor}
+          onEnviado={() => fetchFicha()}
         />
       )}
     </div>

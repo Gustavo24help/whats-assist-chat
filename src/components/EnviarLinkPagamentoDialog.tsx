@@ -15,6 +15,7 @@ interface EnviarLinkPagamentoDialogProps {
   nomeCliente: string;
   telefoneCliente: string;
   valorTotal: number;
+  onEnviado?: () => void;
 }
 
 const formatMoeda = (v: number) =>
@@ -28,6 +29,7 @@ export const EnviarLinkPagamentoDialog = ({
   nomeCliente,
   telefoneCliente,
   valorTotal,
+  onEnviado,
 }: EnviarLinkPagamentoDialogProps) => {
   const defaultMsg = `Olá${nomeCliente ? `, ${nomeCliente}` : ''}! 😊\n\nSegue o link para pagamento do serviço ${fichaId} no valor de ${formatMoeda(valorTotal)}:\n\n${paymentUrl}\n\nQualquer dúvida estou à disposição!`;
 
@@ -76,6 +78,31 @@ export const EnviarLinkPagamentoDialog = ({
 
       setEnviado(true);
       toast.success("Link de pagamento enviado ao cliente!");
+
+      // Registrar envio na ficha
+      try {
+        const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        const nomeUsuario = user?.email?.split('@')[0] || 'operador';
+        const logEntry = `[${agora}] Link de pagamento enviado por ${nomeUsuario} (manual via dialog) — ${paymentUrl}`;
+        
+        const { data: fichaAtual } = await supabase
+          .from('fichas_de_servico')
+          .select('notas')
+          .eq('id', fichaId)
+          .single();
+        
+        const notasAtuais = fichaAtual?.notas || '';
+        const novasNotas = notasAtuais ? `${notasAtuais}\n${logEntry}` : logEntry;
+        
+        await supabase
+          .from('fichas_de_servico')
+          .update({ notas: novasNotas })
+          .eq('id', fichaId);
+        
+        onEnviado?.();
+      } catch (logErr) {
+        console.error('Erro ao registrar envio na ficha:', logErr);
+      }
     } catch (err: any) {
       console.error("Erro ao enviar link:", err);
       toast.error(`Erro ao enviar: ${err.message || "Erro desconhecido"}`);
