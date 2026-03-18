@@ -32,7 +32,7 @@ export const UserManagement = () => {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserName, setNewUserName] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'supervisor' | 'user'>('user');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'chefe' | 'supervisor' | 'user'>('user');
 
   useEffect(() => {
     if (isAdmin && !loading) {
