@@ -15,6 +15,7 @@ interface EnviarLinkPagamentoDialogProps {
   nomeCliente: string;
   telefoneCliente: string;
   valorTotal: number;
+  onEnviado?: () => void;
 }
 
 const formatMoeda = (v: number) =>
