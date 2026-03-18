@@ -317,18 +317,24 @@ export const PagamentoClientesTabV2 = () => {
               <div className="text-center py-12 text-muted-foreground">Nenhum pagamento realizado</div>
             ) : (
               <>
-                {historico.map(f => (
-                  <div key={f.id} className="rounded-lg border bg-card p-3 flex items-center justify-between opacity-80">
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
-                      <p className="text-xs text-muted-foreground">{f.id}</p>
+                {historico.map(f => {
+                  const isAutoConfirmed = f.notas?.includes("automaticamente via Asaas") || false;
+                  return (
+                    <div key={f.id} className="rounded-lg border bg-card p-3 flex items-center justify-between opacity-80">
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-sm truncate">{f.nome_cliente_resolved}</h3>
+                        <p className="text-xs text-muted-foreground">{f.id}</p>
+                      </div>
+                      <div className="text-right shrink-0 flex items-center gap-2">
+                        <div className="font-bold text-sm">{formatMoeda(f.valor_total)}</div>
+                        <Badge variant="secondary" className="text-[10px]">Pago</Badge>
+                        {isAutoConfirmed && (
+                          <Badge variant="outline" className="text-[10px] border-blue-400 text-blue-600 dark:text-blue-400">Auto</Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right shrink-0 flex items-center gap-2">
-                      <div className="font-bold text-sm">{formatMoeda(f.valor_total)}</div>
-                      <Badge variant="secondary" className="text-[10px]">Pago</Badge>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {historicoTotalPages > 1 && (
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-xs text-muted-foreground">{historicoTotal} registros</span>
