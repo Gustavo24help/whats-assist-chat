@@ -278,17 +278,20 @@ function DashboardTVContent() {
       const finDiaIds = [...new Set((finDia.data || []).map(r => r.ficha_id))];
       const finMesIds = [...new Set((finMes.data || []).map(r => r.ficha_id))];
 
-      // Buscar valor_total das fichas agendadas HOJE (sem filtro de Perdido — são do dia)
+      // DIÁRIO: filtrar fichas cujo status atual ≠ "Perdido" e ≠ "Não foi adiante"
       let valorAgendDia = 0;
       let valorFinDia = 0;
       let valorFinMes = 0;
+      let agendamentosDiaCount = 0;
 
       if (agendDiaIds.length > 0) {
-        const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', agendDiaIds);
-        valorAgendDia = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
+        const { data: fichas } = await supabase.from('fichas_de_servico').select('id, status, valor_total').in('id', agendDiaIds).not('status', 'in', '("Perdido","Não foi adiante")');
+        const fichasFiltradas = fichas || [];
+        agendamentosDiaCount = fichasFiltradas.length;
+        valorAgendDia = fichasFiltradas.reduce((s, f) => s + (f.valor_total || 0), 0);
       }
 
-      // MENSAL: filtrar fichas cujo status atual ≠ "Perdido"
+      // MENSAL: filtrar fichas cujo status atual ≠ "Perdido" e ≠ "Não foi adiante"
       let agendamentosMes = 0;
       let valorAgendMes = 0;
       if (agendMesIds.length > 0) {
@@ -296,7 +299,7 @@ function DashboardTVContent() {
           .from('fichas_de_servico')
           .select('id, status, valor_total')
           .in('id', agendMesIds)
-          .neq('status', 'Perdido');
+          .not('status', 'in', '("Perdido","Não foi adiante")');
         const agendMesFiltrados = fichasMes || [];
         agendamentosMes = agendMesFiltrados.length;
         valorAgendMes = agendMesFiltrados.reduce((s, f) => s + (f.valor_total || 0), 0);
