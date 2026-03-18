@@ -87,8 +87,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       // Normalizar role para lowercase
-      const normalizedRole = roleData?.role?.toLowerCase() as 'admin' | 'supervisor' | 'user';
-      const finalRole = normalizedRole === 'admin' ? 'admin' : normalizedRole === 'supervisor' ? 'supervisor' : 'user';
+      const normalizedRole = roleData?.role?.toLowerCase() as 'admin' | 'supervisor' | 'user' | 'chefe';
+      const finalRole = normalizedRole === 'admin' ? 'admin' : normalizedRole === 'chefe' ? 'chefe' : normalizedRole === 'supervisor' ? 'supervisor' : 'user';
 
       const userProfileData: UserProfile = {
         id: userId,
