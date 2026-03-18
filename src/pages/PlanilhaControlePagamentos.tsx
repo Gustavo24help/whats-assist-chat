@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Loader2, Download } from "lucide-react";
+import { ArrowLeft, Loader2, Download, Search, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const formatMoeda = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -34,13 +39,15 @@ const PlanilhaControlePagamentos = () => {
   const navigate = useNavigate();
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterStatus, setFilterStatus] = useState<"todos" | "pago" | "pendente">("todos");
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     setLoading(true);
 
-    // Get fichas finalizadas with valor > 0
     const { data: fichas } = await supabase
       .from("fichas_de_servico")
       .select("id, nome_cliente, telefone_cliente, prestador_id, valor_total, valor_mao_obra, pagamento_realizado, pagamento_link, updated_at")
@@ -92,9 +99,26 @@ const PlanilhaControlePagamentos = () => {
     setLoading(false);
   };
 
+  // Filters
+  const filteredRows = rows.filter(r => {
+    if (search) {
+      const s = search.toLowerCase();
+      if (!r.ficha_id.toLowerCase().includes(s) && !r.cliente.toLowerCase().includes(s) && !r.prestador.toLowerCase().includes(s)) return false;
+    }
+    if (filterStatus === "pago" && !r.cliente_pagou) return false;
+    if (filterStatus === "pendente" && r.cliente_pagou) return false;
+    if (filterDate) {
+      const start = new Date(filterDate); start.setHours(0,0,0,0);
+      const end = new Date(filterDate); end.setHours(23,59,59,999);
+      const d = r.data_conclusao ? new Date(r.data_conclusao) : null;
+      if (!d || d < start || d > end) return false;
+    }
+    return true;
+  });
+
   const exportCsv = () => {
     const header = "N. Ficha,Cliente,Prestador,Data conclusão,Valor,Valor MO,Cliente pagou?,Data pgto prestador,Pagamento feito?,Link ASAAS,Valor pago";
-    const lines = rows.map((r) =>
+    const lines = filteredRows.map((r) =>
       [
         r.ficha_id, r.cliente, r.prestador, formatDate(r.data_conclusao),
         r.valor.toFixed(2), r.valor_mo.toFixed(2), r.cliente_pagou ? "Sim" : "Não",
@@ -121,14 +145,43 @@ const PlanilhaControlePagamentos = () => {
             Voltar para Planilhas
           </Button>
           <h1 className="text-2xl md:text-3xl font-bold">Controle Pagamentos</h1>
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={rows.length === 0}>
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={filteredRows.length === 0}>
             <Download className="h-4 w-4 mr-2" /> Exportar CSV
           </Button>
         </div>
 
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative max-w-sm flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar ficha, cliente ou prestador..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !filterDate && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {filterDate ? format(filterDate, "dd/MM/yyyy", { locale: ptBR }) : "Todas as datas"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus className="p-3 pointer-events-auto" />
+              <div className="border-t p-2">
+                <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>Todas as datas</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <div className="flex gap-1">
+            {(["todos", "pago", "pendente"] as const).map(s => (
+              <Button key={s} variant={filterStatus === s ? "default" : "outline"} size="sm" onClick={() => setFilterStatus(s)} className="capitalize text-xs">
+                {s === "todos" ? "Todos" : s === "pago" ? "Pagos" : "Pendentes"}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>Pagamentos ({rows.length} registros)</CardTitle>
+            <CardTitle>Pagamentos ({filteredRows.length} registros)</CardTitle>
             <CardDescription>Controle de pagamentos de fichas finalizadas.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -136,7 +189,7 @@ const PlanilhaControlePagamentos = () => {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : rows.length === 0 ? (
+            ) : filteredRows.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 Nenhum registro de pagamento encontrado.
               </div>
@@ -159,7 +212,7 @@ const PlanilhaControlePagamentos = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => (
+                    {filteredRows.map((r) => (
                       <tr key={r.ficha_id} className="hover:bg-muted/30">
                         <td className="p-2.5 whitespace-nowrap border-t border-r text-xs font-medium">{r.ficha_id}</td>
                         <td className="p-2.5 whitespace-nowrap border-t border-r text-xs">{r.cliente}</td>
