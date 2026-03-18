@@ -255,7 +255,7 @@ export const UserManagement = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Tipo de Permissão</Label>
-                  <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as 'admin' | 'supervisor' | 'user')}>
+                  <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as 'admin' | 'chefe' | 'supervisor' | 'user')}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -263,6 +263,7 @@ export const UserManagement = () => {
                       <SelectItem value="user">Usuário Comum</SelectItem>
                       <SelectItem value="supervisor">Supervisor</SelectItem>
                       <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="chefe">Administrador - Chefe</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
