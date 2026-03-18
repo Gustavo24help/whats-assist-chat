@@ -199,6 +199,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         user,
         userProfile,
         isAdmin,
+        isChefe,
         isSupervisor,
         loading,
         refreshUserProfile
