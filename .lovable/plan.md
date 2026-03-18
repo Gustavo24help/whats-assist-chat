@@ -1,26 +1,36 @@
 
 
-# Plano: Criar UI para inputar metas diárias (`daily_goals`)
+# Fix: Pagamento Clientes Tab — 218 "Novos" + Aba de Problemas + Renomeações
 
-## Resumo
-Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
+## Problema Raiz: 218 "Novos"
+A coluna `pagamento_visto_por_chefe` foi adicionada com default `false`. Todas as 219 fichas pagas existentes estão marcadas como "não vistas", gerando 218 falsos "novos". Solução: migração para marcar todas as fichas pagas existentes como já vistas.
 
-## Abordagem
+## Mudanças Planejadas
 
-### Opção recomendada: Adicionar seção na página Settings
-Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
+### 1. Migração SQL
+- `UPDATE fichas_de_servico SET pagamento_visto_por_chefe = true WHERE pagamento_realizado = true` — corrige o backfill dos 219 registros existentes.
 
-### Funcionalidades
-- Seletor de data (calendário) para escolher o dia
-- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
-- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
-- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
-- Listagem das metas já cadastradas no mês selecionado
+### 2. Reestruturar as abas internas (3 abas em vez de 2)
 
-### Arquivos a criar/editar
-1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
-2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
+| Aba | Conteúdo |
+|-----|----------|
+| **Pendentes e pagos recentemente** | Fichas pendentes + pagas dentro de 1 dia útil OU não vistas pelo chefe |
+| **Pagos Recentemente** | Todos os pagos dos últimos 5 dias úteis (sem pendentes) |
+| **Problemas Reportados** | Fichas que têm `[PROBLEMA PAGAMENTO` nas notas |
 
-### Nenhuma alteração de banco necessária
-A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
+### 3. Renomear tab "Pendentes e Recentes" → "Pendentes e pagos recentemente"
+
+### 4. Aba "Problemas Reportados"
+- Filtrar fichas cujas `notas` contenham `[PROBLEMA PAGAMENTO` 
+- Mostrar o texto do problema extraído das notas
+- Cards com visual diferenciado (borda vermelha/amber)
+
+### 5. Aba "Pagos Recentemente"
+- Fichas pagas nos últimos 5 dias úteis
+- Sem pendentes misturados
+- Visual simplificado similar ao histórico atual
+
+### Arquivos Modificados
+- `src/components/financeiro/PagamentoClientesTabV2.tsx` — reestruturar abas, adicionar aba problemas
+- Migração SQL — backfill `pagamento_visto_por_chefe`
 
