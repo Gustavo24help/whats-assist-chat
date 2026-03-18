@@ -106,7 +106,7 @@ export const UserManagement = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: 'admin' | 'supervisor' | 'user') => {
+  const updateUserRole = async (userId: string, newRole: 'admin' | 'chefe' | 'supervisor' | 'user') => {
     try {
       const { data, error } = await supabase.functions.invoke('manage-users', {
         body: { action: 'update_role', userId, role: newRole }
