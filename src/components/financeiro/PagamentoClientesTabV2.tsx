@@ -98,7 +98,7 @@ export const PagamentoClientesTabV2 = () => {
     const { data, error } = await supabase
       .from("fichas_de_servico")
       .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at")
-      .eq("pagamento_realizado", false)
+      .or("pagamento_realizado.eq.false,pagamento_realizado.is.null")
       .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
       .gte("updated_at", FINANCEIRO_CUTOFF)
