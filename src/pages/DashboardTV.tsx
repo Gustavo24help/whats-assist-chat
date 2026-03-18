@@ -265,10 +265,10 @@ function DashboardTVContent() {
       const mesFrom = `${mesFromDate}T00:00:00-03:00`;
       const mesTo = `${mesEndDate}T23:59:59-03:00`;
 
-      // Buscar fichas que entraram em "Agendado" e "Finalizado" (via histórico de status)
+      // Buscar fichas que entraram em "Agendado" (excluindo VT→Agendado) e "Finalizado" (via histórico de status)
       const [agendDia, agendMes, finDia, finMes] = await Promise.all([
-        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
-        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
+        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').neq('status_anterior', 'Visita Técnica').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
+        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').neq('status_anterior', 'Visita Técnica').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
         supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Finalizado').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
         supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Finalizado').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
       ]);
@@ -278,17 +278,20 @@ function DashboardTVContent() {
       const finDiaIds = [...new Set((finDia.data || []).map(r => r.ficha_id))];
       const finMesIds = [...new Set((finMes.data || []).map(r => r.ficha_id))];
 
-      // Buscar valor_total das fichas agendadas HOJE (sem filtro de Perdido — são do dia)
+      // DIÁRIO: filtrar fichas cujo status atual ≠ "Perdido" e ≠ "Não foi adiante"
       let valorAgendDia = 0;
       let valorFinDia = 0;
       let valorFinMes = 0;
+      let agendamentosDiaCount = 0;
 
       if (agendDiaIds.length > 0) {
-        const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', agendDiaIds);
-        valorAgendDia = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
+        const { data: fichas } = await supabase.from('fichas_de_servico').select('id, status, valor_total').in('id', agendDiaIds).not('status', 'in', '("Perdido","Não foi adiante")');
+        const fichasFiltradas = fichas || [];
+        agendamentosDiaCount = fichasFiltradas.length;
+        valorAgendDia = fichasFiltradas.reduce((s, f) => s + (f.valor_total || 0), 0);
       }
 
-      // MENSAL: filtrar fichas cujo status atual ≠ "Perdido"
+      // MENSAL: filtrar fichas cujo status atual ≠ "Perdido" e ≠ "Não foi adiante"
       let agendamentosMes = 0;
       let valorAgendMes = 0;
       if (agendMesIds.length > 0) {
@@ -296,7 +299,7 @@ function DashboardTVContent() {
           .from('fichas_de_servico')
           .select('id, status, valor_total')
           .in('id', agendMesIds)
-          .neq('status', 'Perdido');
+          .not('status', 'in', '("Perdido","Não foi adiante")');
         const agendMesFiltrados = fichasMes || [];
         agendamentosMes = agendMesFiltrados.length;
         valorAgendMes = agendMesFiltrados.reduce((s, f) => s + (f.valor_total || 0), 0);
@@ -328,7 +331,7 @@ function DashboardTVContent() {
       const metaAcumuladaValor = metasAcumuladaData.reduce((s: number, r: any) => s + (r.meta_agendamento_valor || 0), 0);
 
       return {
-        agendamentosDia: agendDiaIds.length,
+        agendamentosDia: agendamentosDiaCount,
         agendamentosMes,
         valorAgendDia,
         valorAgendMes,

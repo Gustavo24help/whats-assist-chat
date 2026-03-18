@@ -1,33 +1,26 @@
 
 
-## Plano: Ajustar regras dos widgets de meta de Agendamentos no Dashboard TV
+# Plano: Criar UI para inputar metas diárias (`daily_goals`)
 
-### Regras de negócio (resumo do que você pediu)
+## Resumo
+Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
 
-1. Contar apenas **agendamento de serviço** — excluir fichas que foram para "Visita Técnica"
-2. Apenas **1 agendamento por ficha** (já funciona assim via `Set`)
-3. Ficha que sai de "Agendado":
-   - Se status atual = **Finalizado** → conta
-   - Se status atual = **Perdido** / **Não foi adiante** → não conta
-   - Se status atual = **Agendado** → conta (ainda está lá)
-   - Se está em outro status intermediário (ex: "Em andamento") → conta (pode chegar a Finalizado)
-4. Basicamente: **exclui apenas Perdido e Não foi adiante**
+## Abordagem
 
-### O que muda
+### Opção recomendada: Adicionar seção na página Settings
+Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
 
-**Arquivo:** `src/pages/DashboardTV.tsx` (query `tv-metas-independentes`, linhas ~268-302)
+### Funcionalidades
+- Seletor de data (calendário) para escolher o dia
+- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
+- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
+- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
+- Listagem das metas já cadastradas no mês selecionado
 
-**Lógica atual:**
-- Busca `ficha_status_historico` com `status_novo = 'Agendado'` (inclui fichas que vieram de Visita Técnica para Agendado)
-- Mensal: filtra `neq('status', 'Perdido')` na ficha atual
+### Arquivos a criar/editar
+1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
+2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
 
-**Nova lógica:**
-1. Na query do histórico, manter `status_novo = 'Agendado'` mas adicionar filtro para excluir registros onde `status_anterior = 'Visita Técnica'` — isso garante que só entra agendamento de serviço (fichas que foram direto para Agendado, não as que vieram de VT)
-2. Na verificação mensal/acumulada do status atual da ficha, trocar `neq('status', 'Perdido')` por `.not('status', 'in', '("Perdido","Não foi adiante")')` — para excluir ambos os status de perda
-3. Aplicar a mesma regra de exclusão para o valor (R$) dos agendados
-
-**Nota:** O filtro diário atualmente não exclui Perdido. Vou aplicar a mesma regra para consistência (excluir Perdido e Não foi adiante também no diário).
-
-### Arquivos alterados
-- `src/pages/DashboardTV.tsx` — query `tv-metas-independentes`
+### Nenhuma alteração de banco necessária
+A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
 
