@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CheckCircle2, Loader2, ExternalLink, Copy, Clock, Ban, History, ChevronLeft, ChevronRight, Search, DollarSign, X,
+  CheckCircle2, Loader2, ExternalLink, Copy, Clock, Ban, History, ChevronLeft, ChevronRight, Search, DollarSign, X, CalendarIcon,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -21,6 +21,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const EXCLUDED_FICHAS = ["FS4-260127"];
@@ -57,6 +60,7 @@ export const PagamentoClientesTabV2 = () => {
   const [pagamentoConfirm, setPagamentoConfirm] = useState<FichaCliente | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPaying, setBatchPaying] = useState(false);
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -165,9 +169,21 @@ export const PagamentoClientesTabV2 = () => {
     }
   };
 
+  const dateFilteredFichas = (() => {
+    if (!filterDate) return fichas;
+    const start = new Date(filterDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(filterDate);
+    end.setHours(23, 59, 59, 999);
+    return fichas.filter(f => {
+      const d = new Date(f.updated_at);
+      return d >= start && d <= end;
+    });
+  })();
+
   const filteredFichas = search
-    ? fichas.filter(f => f.nome_cliente_resolved.toLowerCase().includes(search.toLowerCase()) || f.id.toLowerCase().includes(search.toLowerCase()))
-    : fichas;
+    ? dateFilteredFichas.filter(f => f.nome_cliente_resolved.toLowerCase().includes(search.toLowerCase()) || f.id.toLowerCase().includes(search.toLowerCase()))
+    : dateFilteredFichas;
 
   const totalPendente = filteredFichas.reduce((s, f) => s + (f.valor_total || 0), 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
@@ -189,9 +205,33 @@ export const PagamentoClientesTabV2 = () => {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Buscar cliente ou ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar cliente ou ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !filterDate && "text-muted-foreground")}>
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {filterDate ? format(filterDate, "dd/MM/yyyy", { locale: ptBR }) : "Todas as datas"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={filterDate}
+              onSelect={setFilterDate}
+              initialFocus
+              className={cn("p-3 pointer-events-auto")}
+            />
+            <div className="border-t p-2">
+              <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>
+                Todas as datas
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Pop-ups toggle + batch bar */}

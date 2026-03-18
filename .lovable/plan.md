@@ -1,33 +1,26 @@
 
 
-## Plano: Filtro de data de pagamento em Prestadores e Clientes
+# Plano: Criar UI para inputar metas diárias (`daily_goals`)
 
-### Diagnóstico
+## Resumo
+Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
 
-O filtro que oculta pagamentos de prestadores cuja data prevista ainda não chegou **existe no código** (linha 196 de `PagamentoPrestadoresTabV2.tsx`), mas pode não estar funcionando corretamente porque:
-- Ele filtra client-side após buscar TODAS as fichas finalizadas — se houver muitas fichas (>1000), a query do Supabase trunca e o filtro pode perder dados
-- Preciso verificar se ele está de fato filtrando corretamente
+## Abordagem
 
-### O que será feito
+### Opção recomendada: Adicionar seção na página Settings
+Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
 
-**1. Garantir filtro de "data de pagamento prevista" no Prestadores**
-- Confirmar que o filtro `data_pagamento_prevista <= hoje` está ativo e funcional na aba Pendentes
-- Se necessário, corrigir a lógica
+### Funcionalidades
+- Seletor de data (calendário) para escolher o dia
+- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
+- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
+- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
+- Listagem das metas já cadastradas no mês selecionado
 
-**2. Adicionar filtro de data visual em ambas as abas**
+### Arquivos a criar/editar
+1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
+2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
 
-Em **Pagamento Prestadores**:
-- DatePicker com label "Filtrar por data de pagamento prevista"
-- Padrão: data de hoje
-- Filtra fichas cuja `data_pagamento_prevista` cai no dia selecionado (pendentes) ou cuja `data_pagamento_realizada` cai no dia selecionado (histórico/pagos)
-- Opção "Todas as datas" para ver tudo que já venceu
-
-Em **Pagamento Clientes**:
-- DatePicker com label "Filtrar por data"
-- Filtra por `updated_at` (data de finalização) no dia selecionado
-- Padrão: sem filtro (mostra todos pendentes)
-
-**3. Arquivos alterados**
-- `src/components/financeiro/PagamentoPrestadoresTabV2.tsx` — adicionar DatePicker + garantir filtro
-- `src/components/financeiro/PagamentoClientesTabV2.tsx` — adicionar DatePicker
+### Nenhuma alteração de banco necessária
+A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
 
