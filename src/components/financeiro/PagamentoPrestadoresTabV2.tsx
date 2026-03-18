@@ -105,6 +105,8 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [popupsEnabled, setPopupsEnabled] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPaying, setBatchPaying] = useState(false);
+  const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
+  const [showAllDates, setShowAllDates] = useState(false);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
