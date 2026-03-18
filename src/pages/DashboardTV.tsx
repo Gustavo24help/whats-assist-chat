@@ -265,53 +265,49 @@ function DashboardTVContent() {
       const mesFrom = `${mesFromDate}T00:00:00-03:00`;
       const mesTo = `${mesEndDate}T23:59:59-03:00`;
 
-      // Buscar fichas que entraram em "Agendado" (excluindo VT→Agendado) e "Finalizado" (via histórico de status)
-      const [agendDia, agendMes, finDia, finMes] = await Promise.all([
-        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').neq('status_anterior', 'Visita Técnica').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
-        supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Agendado').neq('status_anterior', 'Visita Técnica').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
+      // Buscar fichas que entraram em "Finalizado" no dia/mês (via histórico de status)
+      const [finDia, finMes] = await Promise.all([
         supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Finalizado').gte('data_inicio', diaFrom).lte('data_inicio', diaTo),
         supabase.from('ficha_status_historico').select('ficha_id').eq('status_novo', 'Finalizado').gte('data_inicio', mesFrom).lte('data_inicio', mesTo),
       ]);
 
-      const agendDiaIds = [...new Set((agendDia.data || []).map(r => r.ficha_id))];
-      const agendMesIds = [...new Set((agendMes.data || []).map(r => r.ficha_id))];
       const finDiaIds = [...new Set((finDia.data || []).map(r => r.ficha_id))];
       const finMesIds = [...new Set((finMes.data || []).map(r => r.ficha_id))];
 
-      // DIÁRIO: filtrar fichas cujo status atual ≠ "Perdido" e ≠ "Não foi adiante"
       let valorAgendDia = 0;
       let valorFinDia = 0;
       let valorFinMes = 0;
       let agendamentosDiaCount = 0;
-
-      if (agendDiaIds.length > 0) {
-        const { data: fichas } = await supabase.from('fichas_de_servico').select('id, status, valor_total').in('id', agendDiaIds).not('status', 'in', '("Perdido","Não foi adiante")');
-        const fichasFiltradas = fichas || [];
-        agendamentosDiaCount = fichasFiltradas.length;
-        valorAgendDia = fichasFiltradas.reduce((s, f) => s + (f.valor_total || 0), 0);
-      }
-
-      // MENSAL: filtrar fichas cujo status atual ≠ "Perdido" e ≠ "Não foi adiante"
       let agendamentosMes = 0;
       let valorAgendMes = 0;
-      if (agendMesIds.length > 0) {
-        const { data: fichasMes } = await supabase
-          .from('fichas_de_servico')
-          .select('id, status, valor_total')
-          .in('id', agendMesIds)
-          .not('status', 'in', '("Perdido","Não foi adiante")');
-        const agendMesFiltrados = fichasMes || [];
-        agendamentosMes = agendMesFiltrados.length;
-        valorAgendMes = agendMesFiltrados.reduce((s, f) => s + (f.valor_total || 0), 0);
+
+      // Para agendamentos: fichas finalizadas no período que passaram por "Agendado" (excl. VT→Agendado)
+      // Dia
+      if (finDiaIds.length > 0) {
+        const [agendCheck, fichasRes] = await Promise.all([
+          supabase.from('ficha_status_historico').select('ficha_id').in('ficha_id', finDiaIds).eq('status_novo', 'Agendado').neq('status_anterior', 'Visita Técnica'),
+          supabase.from('fichas_de_servico').select('id, valor_total').in('id', finDiaIds),
+        ]);
+        const agendIds = new Set((agendCheck.data || []).map(r => r.ficha_id));
+        const fichasDia = fichasRes.data || [];
+        const agendFichas = fichasDia.filter(f => agendIds.has(f.id));
+        agendamentosDiaCount = agendFichas.length;
+        valorAgendDia = agendFichas.reduce((s, f) => s + (f.valor_total || 0), 0);
+        valorFinDia = fichasDia.reduce((s, f) => s + (f.valor_total || 0), 0);
       }
 
-      if (finDiaIds.length > 0) {
-        const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', finDiaIds);
-        valorFinDia = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
-      }
+      // Mês
       if (finMesIds.length > 0) {
-        const { data: fichas } = await supabase.from('fichas_de_servico').select('valor_total').in('id', finMesIds);
-        valorFinMes = (fichas || []).reduce((s, f) => s + (f.valor_total || 0), 0);
+        const [agendCheck, fichasRes] = await Promise.all([
+          supabase.from('ficha_status_historico').select('ficha_id').in('ficha_id', finMesIds).eq('status_novo', 'Agendado').neq('status_anterior', 'Visita Técnica'),
+          supabase.from('fichas_de_servico').select('id, valor_total').in('id', finMesIds),
+        ]);
+        const agendIds = new Set((agendCheck.data || []).map(r => r.ficha_id));
+        const fichasMes = fichasRes.data || [];
+        const agendFichasMes = fichasMes.filter(f => agendIds.has(f.id));
+        agendamentosMes = agendFichasMes.length;
+        valorAgendMes = agendFichasMes.reduce((s, f) => s + (f.valor_total || 0), 0);
+        valorFinMes = fichasMes.reduce((s, f) => s + (f.valor_total || 0), 0);
       }
 
       // Buscar metas de daily_goals
