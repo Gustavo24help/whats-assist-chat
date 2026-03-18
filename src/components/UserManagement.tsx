@@ -16,7 +16,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'admin' | 'supervisor' | 'user';
+  role: 'admin' | 'chefe' | 'supervisor' | 'user';
 }
 
 export const UserManagement = () => {
