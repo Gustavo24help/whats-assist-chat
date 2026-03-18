@@ -187,8 +187,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
 
-  const isAdmin = userProfile?.role === 'admin';
-  const isSupervisor = userProfile?.role === 'supervisor' || userProfile?.role === 'admin';
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'chefe';
+  const isChefe = userProfile?.role === 'chefe';
+  const isSupervisor = userProfile?.role === 'supervisor' || isAdmin;
 
   // Removido console.log que rodava a cada render (impacto de performance)
 
