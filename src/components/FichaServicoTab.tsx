@@ -109,6 +109,64 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [gerandoLink, setGerandoLink] = useState(false);
   const [linkDialogData, setLinkDialogData] = useState<{ url: string; nome: string; valor: number } | null>(null);
+  const [envioAutomatico, setEnvioAutomatico] = useState(true);
+
+  const formatMoeda = (v: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+  const registrarEnvioNaFicha = async (fichaIdParam: string, paymentUrl: string, metodo: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      const nomeUsuario = user?.email?.split('@')[0] || 'sistema';
+      const logEntry = `[${agora}] Link de pagamento enviado por ${nomeUsuario} (${metodo}) — ${paymentUrl}`;
+      
+      const { data: fichaAtual } = await supabase
+        .from('fichas_de_servico')
+        .select('notas')
+        .eq('id', fichaIdParam)
+        .single();
+      
+      const notasAtuais = fichaAtual?.notas || '';
+      const novasNotas = notasAtuais ? `${notasAtuais}\n${logEntry}` : logEntry;
+      
+      await supabase
+        .from('fichas_de_servico')
+        .update({ notas: novasNotas })
+        .eq('id', fichaIdParam);
+      
+      // Atualizar estado local
+      setFicha(prev => prev ? { ...prev, notas: novasNotas } : prev);
+    } catch (err) {
+      console.error('Erro ao registrar envio na ficha:', err);
+    }
+  };
+
+  const enviarLinkAutomatico = async (paymentUrl: string, clienteNome: string, valorTotal: number, telefone: string, fichaIdParam: string) => {
+    const mensagem = `Olá${clienteNome ? `, ${clienteNome}` : ''}! 😊\n\nSegue o link para pagamento do serviço ${fichaIdParam} no valor de ${formatMoeda(valorTotal)}:\n\n${paymentUrl}\n\nQualquer dúvida estou à disposição!`;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: { to: telefone, message: mensagem, userId: user?.id },
+      });
+
+      if (error) throw error;
+      
+      if (!data.success) {
+        if (data.error === "FORA_JANELA_24H") {
+          return { success: false, reason: 'FORA_JANELA_24H' };
+        }
+        throw new Error(data.error || "Erro ao enviar");
+      }
+
+      await registrarEnvioNaFicha(fichaIdParam, paymentUrl, 'envio automático via WhatsApp');
+      return { success: true };
+    } catch (err: any) {
+      console.error('Erro no envio automático:', err);
+      return { success: false, reason: err.message };
+    }
+  };
 
   // Função de validação de dados
   const validarDadosFicha = (fichaData: Ficha): { valid: boolean; errors: string[] } => {
