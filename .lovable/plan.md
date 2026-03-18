@@ -1,33 +1,26 @@
 
 
-## Plano: Corrigir widget de meta de Agendamentos — usar data de Finalizado
+# Plano: Criar UI para inputar metas diárias (`daily_goals`)
 
-### Problema atual
-O código busca fichas que passaram por "Agendado" no `ficha_status_historico` usando `data_inicio` do status Agendado como referência temporal. Isso causa dois erros:
-1. Fichas que regrediram (ex: voltaram para "Ficha Criada") são contadas indevidamente
-2. A data de referência está errada — deveria ser a data em que foi **Finalizado**
+## Resumo
+Adicionar uma interface na página de Configurações (aba existente ou nova seção) para que admins possam cadastrar e editar as metas diárias de agendamento (quantidade e valor).
 
-### Nova lógica
+## Abordagem
 
-A contagem de "agendamentos" passa a ser: **fichas Finalizadas que passaram por Agendado (excluindo VT→Agendado), contadas pela data em que entraram em Finalizado.**
+### Opção recomendada: Adicionar seção na página Settings
+Criar um novo componente `DailyGoalsManager` e incluí-lo numa nova aba "Metas Diárias" na página Settings (acessível apenas para admins).
 
-Isso significa que uma ficha só "pontua" no widget quando é finalizada. Fichas ainda em Agendado não contam até serem finalizadas.
+### Funcionalidades
+- Seletor de data (calendário) para escolher o dia
+- Campos: `meta_agendamento_quantidade` (inteiro) e `meta_agendamento_valor` (R$)
+- Botão salvar que faz upsert na tabela `daily_goals` (onConflict: 'date')
+- Possibilidade de copiar metas de um dia para vários dias (ex: preencher a semana inteira)
+- Listagem das metas já cadastradas no mês selecionado
 
-### Mudanças no arquivo `src/pages/DashboardTV.tsx` (query `tv-metas-independentes`)
+### Arquivos a criar/editar
+1. **Criar** `src/components/DailyGoalsManager.tsx` — componente com formulário + listagem
+2. **Editar** `src/pages/Settings.tsx` — adicionar aba "Metas Diárias" (visível apenas para admins)
 
-**Substituir as queries `agendDia` e `agendMes`** por uma abordagem em 2 passos:
-
-1. **Buscar fichas que entraram em "Finalizado"** no dia/mês (já existe: `finDia` e `finMes`)
-2. **Filtrar apenas as que passaram por "Agendado" (excl. VT→Agendado)** via segunda query no histórico
-
-Concretamente:
-- Pegar os `finDiaIds` e `finMesIds` (fichas finalizadas no período)
-- Para esses IDs, verificar no `ficha_status_historico` quais têm registro de `status_novo = 'Agendado'` com `status_anterior ≠ 'Visita Técnica'`
-- A interseção = agendamentos válidos do período
-- Buscar `valor_total` dessas fichas para o valor
-
-Não é mais necessário verificar status atual (Perdido/Não foi adiante) porque se a ficha está em Finalizado, já passou por esse filtro naturalmente.
-
-### Arquivos alterados
-- `src/pages/DashboardTV.tsx` — reescrever bloco da query `tv-metas-independentes` (linhas ~269-315)
+### Nenhuma alteração de banco necessária
+A tabela `daily_goals` já existe com as colunas corretas e RLS configurado para admins.
 
