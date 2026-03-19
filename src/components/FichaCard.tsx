@@ -275,7 +275,7 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
           {ficha.formulario_orcamento_ativo === false && (
             <Badge variant="destructive" className="text-xs gap-1">
               <FileText className="h-3 w-3" />
-              Encerrado
+              Envio de Orçamentos Encerrado
             </Badge>
           )}
         </div>
