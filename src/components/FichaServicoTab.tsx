@@ -55,7 +55,18 @@ interface Ficha {
   comparecimento_prestador: string | null;
   created_at: string;
   updated_at: string;
-  data_version: number | null; // 1=formato antigo, 2=formato novo com timezone
+  data_version: number | null;
+  // Discount fields
+  tipo_desconto_mao_obra: string | null;
+  desconto_valor_mao_obra: number | null;
+  desconto_percentual_mao_obra: number | null;
+  valor_final_mao_obra: number | null;
+  tipo_desconto_pecas: string | null;
+  desconto_valor_pecas: number | null;
+  desconto_percentual_pecas: number | null;
+  valor_final_pecas: number | null;
+  subtotal: number | null;
+  valor_antes_arredondamento: number | null;
 }
 
 interface Prestador {
