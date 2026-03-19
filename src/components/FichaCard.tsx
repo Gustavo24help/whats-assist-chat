@@ -275,7 +275,7 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
           {ficha.formulario_orcamento_ativo === false && (
             <Badge variant="destructive" className="text-xs gap-1">
               <FileText className="h-3 w-3" />
-              Encerrado
+              Envio de Orçamentos Encerrado
             </Badge>
           )}
         </div>
@@ -305,7 +305,7 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
               ) : (
                 <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               )}
-              Reativar
+              Reabrir Envio de Orçamentos
             </Button>
           )}
         </div>
