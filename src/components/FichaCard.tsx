@@ -305,7 +305,7 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
               ) : (
                 <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               )}
-              Reativar
+              Reabrir Envio de Orçamentos
             </Button>
           )}
         </div>
