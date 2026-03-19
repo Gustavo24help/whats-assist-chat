@@ -427,7 +427,7 @@ export const PagamentoClientesTabV2 = () => {
             )}
           </TabsTrigger>
           <TabsTrigger value="pendentes" className="gap-1.5 text-xs">
-            <Clock className="h-3.5 w-3.5" /> Somente Pendentes
+            <Clock className="h-3.5 w-3.5" /> Pendentes
             {filteredPendentes.length > 0 && (
               <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
                 {filteredPendentes.length}
