@@ -142,13 +142,13 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
       if (mapping) {
         initialValues[index] = getFieldValue(mapping.field);
       } else {
-        // Fallback por índice: 0=Nome, 1=Ficha de Serviço, 2=Status do Serviço
+        // Fallback: {{1}} = nome do cliente, {{2}} = ficha_de_serviço, {{3}} = status
         if (index === 0) {
           initialValues[index] = clienteNome;
         } else if (index === 1) {
-          initialValues[index] = fichaAtiva?.nome_ficha || '';
+          initialValues[index] = fichaAtiva?.nome_ficha || 'ficha_de_serviço';
         } else if (index === 2) {
-          initialValues[index] = fichaAtiva?.status || '';
+          initialValues[index] = fichaAtiva?.status || 'status';
         } else {
           initialValues[index] = '';
         }
