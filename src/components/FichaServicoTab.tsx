@@ -1269,62 +1269,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               </div>
 
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="valor_total" className="text-xs font-medium text-gray-600">Valor Total</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-5 px-2 text-[10px]"
-                    onClick={() => {
-                      const maoObra = ficha?.valor_mao_obra || 0;
-                      const pecas = ficha?.valor_pecas || 0;
-                      const soma = maoObra + pecas;
-                      const dividido = soma / 0.77;
-                      // Arredondar para o próximo número terminado em 8
-                      const resto = dividido % 10;
-                      let arredondado: number;
-                      if (resto <= 8) {
-                        arredondado = Math.floor(dividido / 10) * 10 + 8;
-                      } else {
-                        arredondado = (Math.floor(dividido / 10) + 1) * 10 + 8;
-                      }
-                      updateFicha({ valor_total: arredondado });
-                      
-                      if (ficha?.prestador_id && arredondado > 0) {
-                        sincronizarOrcamentosImediato(ficha.prestador_id);
-                      }
-                    }}
-                  >
-                    Calcular
-                  </Button>
-                </div>
-                <Input
-                  id="valor_total"
-                  type="number"
-                  step="0.01"
-                  value={ficha?.valor_total || ""}
-                  onChange={(e) => {
-                    const novoValor = parseFloat(e.target.value) || 0;
-                    updateFicha({ valor_total: novoValor });
-                    
-                    // Usar debounce para evitar sincronizar com valores parciais durante digitação
-                    if (ficha?.prestador_id && novoValor > 0) {
-                      debouncedSincronizarOrcamentos(
-                        ficha.prestador_id,
-                        novoValor,
-                        ficha.valor_mao_obra || 0,
-                        ficha.valor_pecas || 0
-                      );
-                    }
-                  }}
-                  placeholder="0.00"
-                  className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="valor_mao_obra" className="text-xs font-medium text-gray-600">Valor Mão de Obra</Label>
+                <Label htmlFor="valor_mao_obra" className="text-xs font-medium text-muted-foreground">Valor Mão de Obra</Label>
                 <Input
                   id="valor_mao_obra"
                   type="number"
@@ -1334,10 +1279,44 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   placeholder="0.00"
                   className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
+                <DescontoField
+                  label="mao_obra"
+                  valorOriginal={ficha?.valor_mao_obra || 0}
+                  tipoDesconto={ficha?.tipo_desconto_mao_obra || null}
+                  descontoValor={ficha?.desconto_valor_mao_obra || null}
+                  descontoPercentual={ficha?.desconto_percentual_mao_obra || null}
+                  valorFinal={ficha?.valor_final_mao_obra || null}
+                  onApplyDesconto={(tipo, desconto) => {
+                    const valorOriginal = ficha?.valor_mao_obra || 0;
+                    let descontoEmReais: number;
+                    let percentual: number | null = null;
+                    if (tipo === 'percentual') {
+                      descontoEmReais = (valorOriginal * desconto) / 100;
+                      percentual = desconto;
+                    } else {
+                      descontoEmReais = desconto;
+                    }
+                    const valorFinal = Math.max(0, valorOriginal - descontoEmReais);
+                    updateFicha({
+                      tipo_desconto_mao_obra: tipo,
+                      desconto_valor_mao_obra: descontoEmReais,
+                      desconto_percentual_mao_obra: percentual,
+                      valor_final_mao_obra: valorFinal,
+                    });
+                  }}
+                  onRemoveDesconto={() => {
+                    updateFicha({
+                      tipo_desconto_mao_obra: null,
+                      desconto_valor_mao_obra: null,
+                      desconto_percentual_mao_obra: null,
+                      valor_final_mao_obra: null,
+                    });
+                  }}
+                />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="valor_pecas" className="text-xs font-medium text-gray-600">Valor Peças</Label>
+                <Label htmlFor="valor_pecas" className="text-xs font-medium text-muted-foreground">Valor Peças</Label>
                 <Input
                   id="valor_pecas"
                   type="number"
@@ -1347,6 +1326,107 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   placeholder="0.00"
                   className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
+                <DescontoField
+                  label="pecas"
+                  valorOriginal={ficha?.valor_pecas || 0}
+                  tipoDesconto={ficha?.tipo_desconto_pecas || null}
+                  descontoValor={ficha?.desconto_valor_pecas || null}
+                  descontoPercentual={ficha?.desconto_percentual_pecas || null}
+                  valorFinal={ficha?.valor_final_pecas || null}
+                  onApplyDesconto={(tipo, desconto) => {
+                    const valorOriginal = ficha?.valor_pecas || 0;
+                    let descontoEmReais: number;
+                    let percentual: number | null = null;
+                    if (tipo === 'percentual') {
+                      descontoEmReais = (valorOriginal * desconto) / 100;
+                      percentual = desconto;
+                    } else {
+                      descontoEmReais = desconto;
+                    }
+                    const valorFinal = Math.max(0, valorOriginal - descontoEmReais);
+                    updateFicha({
+                      tipo_desconto_pecas: tipo,
+                      desconto_valor_pecas: descontoEmReais,
+                      desconto_percentual_pecas: percentual,
+                      valor_final_pecas: valorFinal,
+                    });
+                  }}
+                  onRemoveDesconto={() => {
+                    updateFicha({
+                      tipo_desconto_pecas: null,
+                      desconto_valor_pecas: null,
+                      desconto_percentual_pecas: null,
+                      valor_final_pecas: null,
+                    });
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="valor_total" className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                    Valor Total
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Lock className="h-3 w-3 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Calculado automaticamente: (Mão de Obra + Peças) / 0.77</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2.5 text-[10px] gap-1"
+                    onClick={() => {
+                      const maoObra = ficha?.valor_final_mao_obra ?? ficha?.valor_mao_obra ?? 0;
+                      const pecas = ficha?.valor_final_pecas ?? ficha?.valor_pecas ?? 0;
+                      const sub = maoObra + pecas;
+                      const antesArr = sub / 0.77;
+                      // Arredondar para terminado em 8
+                      const valorInteiro = Math.floor(antesArr);
+                      const ultimoDigito = valorInteiro % 10;
+                      let arredondado: number;
+                      if (ultimoDigito <= 8) {
+                        arredondado = valorInteiro - ultimoDigito + 8;
+                      } else {
+                        arredondado = valorInteiro - ultimoDigito + 18;
+                      }
+                      updateFicha({
+                        valor_total: arredondado,
+                        subtotal: sub,
+                        valor_antes_arredondamento: antesArr,
+                      });
+                      
+                      if (ficha?.prestador_id && arredondado > 0) {
+                        sincronizarOrcamentosImediato(ficha.prestador_id);
+                      }
+                    }}
+                  >
+                    <Calculator className="h-3 w-3" />
+                    Calcular
+                  </Button>
+                </div>
+                <Input
+                  id="valor_total"
+                  type="number"
+                  step="0.01"
+                  value={ficha?.valor_total || ""}
+                  readOnly
+                  className="h-9 text-sm bg-muted cursor-not-allowed"
+                />
+                {ficha?.subtotal != null && (
+                  <div className="text-[10px] text-muted-foreground space-y-0.5 pl-1">
+                    <div>Subtotal: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ficha.subtotal)}</div>
+                    {ficha.valor_antes_arredondamento != null && (
+                      <div>Antes do arredondamento: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ficha.valor_antes_arredondamento)}</div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">
