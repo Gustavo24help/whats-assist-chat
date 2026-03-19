@@ -671,9 +671,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     
     const updatedFicha = { ...ficha, ...updates };
     
-    // Auto-calculate valor_total when relevant fields change
+    // Auto-calculate valor_total when relevant fields change (only if not in manual mode)
     const recalcFields = ['valor_mao_obra', 'valor_pecas', 'valor_final_mao_obra', 'valor_final_pecas', 'tipo_desconto_mao_obra', 'tipo_desconto_pecas', 'desconto_valor_mao_obra', 'desconto_valor_pecas', 'desconto_percentual_mao_obra', 'desconto_percentual_pecas'];
-    const shouldRecalc = recalcFields.some(f => f in updates);
+    const shouldRecalc = recalcFields.some(f => f in updates) && !editarManualmente;
     if (shouldRecalc) {
       const maoObra = updatedFicha.valor_final_mao_obra ?? updatedFicha.valor_mao_obra ?? 0;
       const pecas = updatedFicha.valor_final_pecas ?? updatedFicha.valor_pecas ?? 0;
