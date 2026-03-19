@@ -1377,39 +1377,6 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       </Tooltip>
                     </TooltipProvider>
                   </Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2.5 text-[10px] gap-1"
-                    onClick={() => {
-                      const maoObra = ficha?.valor_final_mao_obra ?? ficha?.valor_mao_obra ?? 0;
-                      const pecas = ficha?.valor_final_pecas ?? ficha?.valor_pecas ?? 0;
-                      const sub = maoObra + pecas;
-                      const antesArr = sub / 0.77;
-                      // Arredondar para terminado em 8
-                      const valorInteiro = Math.floor(antesArr);
-                      const ultimoDigito = valorInteiro % 10;
-                      let arredondado: number;
-                      if (ultimoDigito <= 8) {
-                        arredondado = valorInteiro - ultimoDigito + 8;
-                      } else {
-                        arredondado = valorInteiro - ultimoDigito + 18;
-                      }
-                      updateFicha({
-                        valor_total: arredondado,
-                        subtotal: sub,
-                        valor_antes_arredondamento: antesArr,
-                      });
-                      
-                      if (ficha?.prestador_id && arredondado > 0) {
-                        sincronizarOrcamentosImediato(ficha.prestador_id);
-                      }
-                    }}
-                  >
-                    <Calculator className="h-3 w-3" />
-                    Calcular
-                  </Button>
                 </div>
                 <Input
                   id="valor_total"
@@ -1422,11 +1389,24 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 {ficha?.subtotal != null && (
                   <div className="text-[10px] text-muted-foreground space-y-0.5 pl-1">
                     <div>Subtotal: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ficha.subtotal)}</div>
-                    {ficha.valor_antes_arredondamento != null && (
-                      <div>Antes do arredondamento: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(ficha.valor_antes_arredondamento)}</div>
-                    )}
                   </div>
                 )}
+                {ficha?.valor_total != null && ficha.valor_total > 0 && (() => {
+                  const maoObra = ficha.valor_final_mao_obra ?? ficha.valor_mao_obra ?? 0;
+                  const pecas = ficha.valor_final_pecas ?? ficha.valor_pecas ?? 0;
+                  const custos = maoObra + pecas;
+                  const margem = custos > 0 ? 1 - (custos / ficha.valor_total) : 0;
+                  const margemPercent = (margem * 100);
+                  const abaixoMinima = margemPercent < 23;
+                  return (
+                    <div className={`text-[10px] pl-1 font-medium ${abaixoMinima ? 'text-destructive' : 'text-emerald-600'}`}>
+                      Margem: {margemPercent.toFixed(1)}%
+                      {abaixoMinima && (
+                        <span className="ml-1 font-semibold">⚠ Valor Abaixo da Margem Mínima</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="space-y-1.5">
