@@ -345,19 +345,27 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
                     <Edit className="h-4 w-4" />
                     <span>Preencher Variáveis</span>
                   </div>
-                  {selectedTemplate.variables.map((_, index) => (
-                    <div key={index} className="space-y-2">
-                      <Label htmlFor={`var-${index}`}>
-                        Variável {index + 1}
-                      </Label>
-                      <Input
-                        id={`var-${index}`}
-                        value={variableValues[index] || ''}
-                        onChange={(e) => handleVariableChange(index, e.target.value)}
-                        placeholder={`Digite o valor para {{${index + 1}}}`}
-                      />
-                    </div>
-                  ))}
+                  {selectedTemplate.variables.map((_, index) => {
+                    const varNames: Record<number, string> = {
+                      0: '{{1}}',
+                      1: '{{ficha_de_servico}}',
+                      2: '{{status_do_servico}}',
+                    };
+                    const varLabel = varNames[index] || `Variável ${index + 1}`;
+                    return (
+                      <div key={index} className="space-y-2">
+                        <Label htmlFor={`var-${index}`}>
+                          {varLabel}
+                        </Label>
+                        <Input
+                          id={`var-${index}`}
+                          value={variableValues[index] || ''}
+                          onChange={(e) => handleVariableChange(index, e.target.value)}
+                          placeholder={`Digite o valor para ${varLabel}`}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
