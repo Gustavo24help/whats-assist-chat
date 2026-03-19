@@ -1394,25 +1394,66 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <div className="flex items-center justify-between">
                   <Label htmlFor="valor_total" className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                     Valor Total
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Lock className="h-3 w-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Calculado automaticamente: (Mão de Obra + Peças) / 0.77</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    {!editarManualmente ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Lock className="h-3 w-3 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Calculado automaticamente: (Mão de Obra + Peças) / 0.77</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <Unlock className="h-3 w-3 text-amber-500" />
+                    )}
                   </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="editar-manual-switch" className="text-[10px] text-muted-foreground cursor-pointer">
+                      Editar manualmente
+                    </Label>
+                    <Switch
+                      id="editar-manual-switch"
+                      checked={editarManualmente}
+                      onCheckedChange={(checked) => {
+                        setEditarManualmente(checked);
+                        if (!checked && ficha) {
+                          const maoObra = ficha.valor_final_mao_obra ?? ficha.valor_mao_obra ?? 0;
+                          const pecas = ficha.valor_final_pecas ?? ficha.valor_pecas ?? 0;
+                          const sub = maoObra + pecas;
+                          if (sub > 0) {
+                            const antesArr = sub / 0.77;
+                            const valorInteiro = Math.floor(antesArr);
+                            const ultimoDigito = valorInteiro % 10;
+                            const arredondado = ultimoDigito <= 8
+                              ? valorInteiro - ultimoDigito + 8
+                              : valorInteiro - ultimoDigito + 18;
+                            updateFicha({ valor_total: arredondado, subtotal: sub, valor_antes_arredondamento: antesArr });
+                          } else {
+                            updateFicha({ valor_total: 0, subtotal: null, valor_antes_arredondamento: null });
+                          }
+                        }
+                      }}
+                      className="scale-75"
+                    />
+                  </div>
                 </div>
+                {editarManualmente && (
+                  <Alert className="border-amber-300 bg-amber-50 py-2 px-3">
+                    <AlertDescription className="text-[11px] text-amber-800">
+                      ⚠ Atenção: Editar o valor total manualmente desativa o cálculo automático. Use com cautela e verifique se o valor está correto.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <Input
                   id="valor_total"
                   type="number"
                   step="0.01"
                   value={ficha?.valor_total || ""}
-                  readOnly
-                  className="h-9 text-sm bg-muted cursor-not-allowed"
+                  readOnly={!editarManualmente}
+                  onChange={editarManualmente ? (e) => updateFicha({ valor_total: Number(e.target.value) }) : undefined}
+                  className={`h-9 text-sm ${editarManualmente ? 'focus:ring-2 focus:ring-amber-400/40 border-amber-300' : 'bg-muted cursor-not-allowed'}`}
                 />
                 {ficha?.subtotal != null && (
                   <div className="text-[10px] text-muted-foreground space-y-0.5 pl-1">
