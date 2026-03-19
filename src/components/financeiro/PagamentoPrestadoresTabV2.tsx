@@ -26,10 +26,8 @@ import {
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const EXCLUDED_FICHAS = ["FS4-260127"];
-const FINANCEIRO_CUTOFF = "2026-03-13T23:00:00.000Z";
 const PAGE_SIZE = 20;
 
-/** Add N business days to a date */
 function addBusinessDays(date: Date | string, n: number): Date {
   const d = new Date(date);
   let added = 0;
@@ -129,14 +127,14 @@ export const PagamentoPrestadoresTabV2 = () => {
   };
 
   const buildList = useCallback(async (pagoFilter: boolean, page?: number) => {
+    // Query all Finalizado fichas with valor > 0 and a prestador assigned
     let query = supabase
       .from("fichas_de_servico")
       .select("id, nome_ficha, nome_cliente, telefone_cliente, status, valor_total, valor_mao_obra, valor_pecas, prestador_id, pagamento_realizado, pagamento_link, updated_at, created_at", { count: "exact" })
       .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
       .not("prestador_id", "is", null)
-      .gte("updated_at", FINANCEIRO_CUTOFF)
-      .order("updated_at", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (page !== undefined) {
       query = query.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
@@ -193,14 +191,8 @@ export const PagamentoPrestadoresTabV2 = () => {
       };
     });
 
-    const hoje = new Date();
-    hoje.setHours(23, 59, 59, 999);
-    const filtered = items.filter((i) => {
-      if (i.pago_prestador !== pagoFilter) return false;
-      // For pending: only show if payment date has arrived
-      if (!pagoFilter && i.data_pagamento_prevista > hoje) return false;
-      return true;
-    });
+    // Separate by pago_prestador status
+    const filtered = items.filter((i) => i.pago_prestador === pagoFilter);
     return { items: filtered, total: count || 0 };
   }, []);
 
@@ -264,12 +256,10 @@ export const PagamentoPrestadoresTabV2 = () => {
         } as any);
       }
 
-      // Atualizar ficha sinalizando webhook pendente
       await supabase.from("fichas_de_servico")
         .update({ webhook_pendente: true } as any)
         .eq("id", ficha.id);
 
-      // Disparar webhook para sincronizar planilha externa
       try {
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         await fetch(`https://${projectId}.supabase.co/functions/v1/webhook-update-planilha`, {
@@ -344,7 +334,6 @@ export const PagamentoPrestadoresTabV2 = () => {
 
   const totalAPagar = filteredPendentes.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
-  
 
   const getInitials = (name: string) => {
     const parts = name.split(" ").filter(Boolean);
@@ -391,7 +380,7 @@ export const PagamentoPrestadoresTabV2 = () => {
             />
             <div className="border-t p-2">
               <Button variant="ghost" size="sm" className="w-full" onClick={() => { setShowAllDates(true); setFilterDate(undefined); }}>
-                Todas as datas (vencidos)
+                Todas as datas
               </Button>
             </div>
           </PopoverContent>
@@ -433,14 +422,11 @@ export const PagamentoPrestadoresTabV2 = () => {
             ) : (
               filteredPendentes.map((f) => (
                 <div key={f.id} className={`rounded-lg border bg-card p-4 flex items-center gap-4 ${selectedIds.has(f.id) ? "ring-2 ring-primary" : ""}`}>
-                  {/* Checkbox */}
                   <Checkbox checked={selectedIds.has(f.id)} onCheckedChange={() => toggleSelect(f.id)} className="shrink-0" />
-                  {/* Avatar */}
                   <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
                     {getInitials(f.prestador_nome)}
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm truncate">{f.prestador_nome}</h3>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -457,9 +443,8 @@ export const PagamentoPrestadoresTabV2 = () => {
                         </span>
                       )}
                     </div>
-                    {/* Date + PIX */}
                     <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
-                      <span>Pgto: {formatDateShort(f.data_pagamento_prevista)}</span>
+                      <span>Pgto prev.: {formatDateShort(f.data_pagamento_prevista)}</span>
                       {f.chave_pix && (
                         <span className="inline-flex items-center gap-1 truncate max-w-[200px]">
                           <CreditCard className="h-3 w-3 shrink-0" />
@@ -477,13 +462,11 @@ export const PagamentoPrestadoresTabV2 = () => {
                     </div>
                   </div>
 
-                  {/* Value */}
                   <div className="text-right shrink-0">
                     <div className="text-xl font-bold">{formatMoeda(f.financeiro.liquidoPrestador)}</div>
                     <div className="text-[10px] text-muted-foreground">Líquido</div>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex gap-2 shrink-0">
                     <Button variant="outline" size="sm" className="h-9 px-3" onClick={() => { setDetalhesSel(f); setDetalhesOpen(true); }}>
                       <Info className="h-3.5 w-3.5" />
@@ -614,7 +597,6 @@ export const PagamentoPrestadoresTabV2 = () => {
           </DialogHeader>
           {pagamentoConfirm && (
             <div className="space-y-4 text-sm">
-              {/* Prestador */}
               <div className="flex items-center gap-3">
                 <div className="h-11 w-11 rounded-full bg-muted flex items-center justify-center text-sm font-bold shrink-0">
                   {getInitials(pagamentoConfirm.prestador_nome)}
@@ -630,7 +612,6 @@ export const PagamentoPrestadoresTabV2 = () => {
 
               <Separator />
 
-              {/* PIX Info */}
               <div className="space-y-2">
                 <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Dados PIX</h4>
                 <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
@@ -668,7 +649,6 @@ export const PagamentoPrestadoresTabV2 = () => {
 
               <Separator />
 
-              {/* Valores */}
               <div className="space-y-2">
                 <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Composição dos Valores</h4>
                 <div className="grid grid-cols-2 gap-y-1.5">
@@ -690,7 +670,6 @@ export const PagamentoPrestadoresTabV2 = () => {
                 </div>
               </div>
 
-              {/* Confirm Button */}
               <Button
                 className="w-full h-11 text-base"
                 disabled={markingPaid === pagamentoConfirm.id}
