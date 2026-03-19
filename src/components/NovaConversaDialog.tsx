@@ -14,6 +14,13 @@ import { Label } from "@/components/ui/label";
 import { UserPlus, Loader2, Edit, Phone, User, ArrowRight, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  applyTemplateVariables,
+  formatTemplatePlaceholder,
+  getDefaultTemplateField,
+  getTemplateVariableLabel,
+  normalizeTemplateVariables,
+} from "@/lib/whatsappTemplateVariables";
 
 interface Template {
   id: string;
@@ -30,7 +37,7 @@ interface NovaConversaDialogProps {
 
 export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<'number' | 'template'>('number');
+  const [step, setStep] = useState<"number" | "template">("number");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [contactName, setContactName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,15 +48,14 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
   const [createdClient, setCreatedClient] = useState<{ telefone: string; nome: string } | null>(null);
 
   useEffect(() => {
-    if (open && step === 'template') {
+    if (open && step === "template") {
       fetchTemplates();
     }
   }, [open, step]);
 
   useEffect(() => {
     if (!open) {
-      // Reset state when closing
-      setStep('number');
+      setStep("number");
       setPhoneNumber("");
       setContactName("");
       setSelectedTemplate(null);
@@ -59,15 +65,29 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
   }, [open]);
 
   const formatPhoneNumber = (phone: string): string => {
-    // Remove tudo que não é número
-    let cleaned = phone.replace(/\D/g, '');
-    
-    // Se não começa com 55 (Brasil), adiciona
-    if (!cleaned.startsWith('55') && cleaned.length <= 11) {
-      cleaned = '55' + cleaned;
+    let cleaned = phone.replace(/\D/g, "");
+
+    if (!cleaned.startsWith("55") && cleaned.length <= 11) {
+      cleaned = "55" + cleaned;
     }
-    
+
     return `whatsapp:+${cleaned}`;
+  };
+
+  const getFieldValue = (field: string): string => {
+    const [entity, property] = field.split(".");
+
+    if (entity !== "cliente") return "";
+
+    if (property === "nome") {
+      return createdClient?.nome || contactName || "";
+    }
+
+    if (property === "telefone") {
+      return createdClient?.telefone || (phoneNumber ? formatPhoneNumber(phoneNumber) : "");
+    }
+
+    return "";
   };
 
   const handleCreateContact = async () => {
@@ -81,7 +101,6 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
       const formattedPhone = formatPhoneNumber(phoneNumber);
       const name = contactName.trim() || phoneNumber;
 
-      // Verificar se já existe
       const { data: existingClient } = await supabase
         .from("clientes")
         .select("telefone, nome")
@@ -90,23 +109,22 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
 
       if (existingClient) {
         toast.info("Este contato já existe", {
-          description: `${existingClient.nome} (${existingClient.telefone.replace('whatsapp:+', '')})`
+          description: `${existingClient.nome} (${existingClient.telefone.replace("whatsapp:+", "")})`,
         });
         setCreatedClient(existingClient);
-        setStep('template');
+        setStep("template");
         return;
       }
 
-      // Criar novo cliente
       const { data: newClient, error } = await supabase
         .from("clientes")
         .insert({
           telefone: formattedPhone,
           nome: name,
-          status_conversa: 'aberta',
+          status_conversa: "aberta",
           ultima_interacao: new Date().toISOString(),
           tags: [],
-          bot_habilitado: false, // Bot desabilitado por padrão para novos contatos manuais
+          bot_habilitado: false,
         })
         .select()
         .single();
@@ -115,8 +133,8 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
 
       toast.success("Contato criado com sucesso!");
       setCreatedClient({ telefone: newClient.telefone, nome: newClient.nome });
-      setStep('template');
-      
+      setStep("template");
+
       if (onContactCreated) {
         onContactCreated({ telefone: newClient.telefone, nome: newClient.nome });
       }
@@ -138,14 +156,17 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
 
       if (error) throw error;
 
-      const mappedTemplates = (data || []).map(t => ({
-        ...t,
-        variables: Array.isArray(t.variables) ? (t.variables as string[]) : [],
-        variable_mapping: Array.isArray(t.variable_mapping)
-          ? (t.variable_mapping as Array<{ index: number; field: string }>)
-          : []
+      const mappedTemplates = (data || []).map((template) => ({
+        ...template,
+        variables: normalizeTemplateVariables(
+          Array.isArray(template.variables) ? (template.variables as string[]) : [],
+          template.body,
+        ),
+        variable_mapping: Array.isArray(template.variable_mapping)
+          ? (template.variable_mapping as Array<{ index: number; field: string }>)
+          : [],
       }));
-      
+
       setTemplates(mappedTemplates);
     } catch (error) {
       console.error("Erro ao buscar templates:", error);
@@ -157,18 +178,21 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
 
   const handleSelectTemplate = (template: Template) => {
     setSelectedTemplate(template);
-    // Preencher primeira variável com nome do cliente
+
     const initialValues: Record<number, string> = {};
-    template.variables.forEach((_, index) => {
-      initialValues[index] = index === 0 ? (createdClient?.nome || contactName || '') : '';
+    template.variables.forEach((variableToken, index) => {
+      const mapping = template.variable_mapping.find((item) => item.index === index);
+      const defaultField = mapping?.field || getDefaultTemplateField(variableToken, index);
+      initialValues[index] = defaultField ? getFieldValue(defaultField) : "";
     });
+
     setVariableValues(initialValues);
   };
 
   const handleVariableChange = (index: number, value: string) => {
-    setVariableValues(prev => ({
+    setVariableValues((prev) => ({
       ...prev,
-      [index]: value
+      [index]: value,
     }));
   };
 
@@ -210,7 +234,7 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
       }
 
       toast.success("✅ Template enviado com sucesso!", {
-        description: `Enviado para ${createdClient.nome}`
+        description: `Enviado para ${createdClient.nome}`,
       });
       setOpen(false);
     } catch (error) {
@@ -222,28 +246,22 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
   };
 
   const getTemplatePreview = (template: Template) => {
-    if (!template.body || template.body.trim() === '') {
+    if (!template.body || template.body.trim() === "") {
       if (template.variables.length > 0) {
         const varsText = template.variables
-          .map((_, idx) => variableValues[idx] || `{{${idx + 1}}}`)
-          .join(' | ');
+          .map((variable, index) => variableValues[index] || formatTemplatePlaceholder(variable))
+          .join(" | ");
         return `Template: ${template.friendly_name} - ${varsText}`;
       }
       return `Template: ${template.friendly_name}`;
     }
-    
-    let preview = template.body;
-    template.variables.forEach((_, index) => {
-      const value = variableValues[index] || `{{${index + 1}}}`;
-      preview = preview.replace(new RegExp(`\\{\\{${index + 1}\\}\\}`, 'g'), value);
-    });
-    
-    return preview;
+
+    return applyTemplateVariables(template.body, template.variables, variableValues);
   };
 
   const handleSkipTemplate = () => {
     toast.success("Contato adicionado!", {
-      description: "Você pode enviar um template depois quando quiser iniciar a conversa."
+      description: "Você pode enviar um template depois quando quiser iniciar a conversa.",
     });
     setOpen(false);
   };
@@ -258,18 +276,15 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
       </DialogTrigger>
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle>
-            {step === 'number' ? 'Adicionar Novo Contato' : 'Enviar Template'}
-          </DialogTitle>
+          <DialogTitle>{step === "number" ? "Adicionar Novo Contato" : "Enviar Template"}</DialogTitle>
           <DialogDescription>
-            {step === 'number' 
-              ? 'Digite o número de telefone do novo contato para iniciar uma conversa via WhatsApp'
-              : `Selecione um template para enviar para ${createdClient?.nome}`
-            }
+            {step === "number"
+              ? "Digite o número de telefone do novo contato para iniciar uma conversa via WhatsApp"
+              : `Selecione um template para enviar para ${createdClient?.nome}`}
           </DialogDescription>
         </DialogHeader>
 
-        {step === 'number' && (
+        {step === "number" && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="phone" className="flex items-center gap-2">
@@ -302,11 +317,7 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
               />
             </div>
 
-            <Button
-              className="w-full"
-              onClick={handleCreateContact}
-              disabled={loading || !phoneNumber.trim()}
-            >
+            <Button className="w-full" onClick={handleCreateContact} disabled={loading || !phoneNumber.trim()}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -322,7 +333,7 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
           </div>
         )}
 
-        {step === 'template' && (
+        {step === "template" && (
           <div className="space-y-4">
             {createdClient && (
               <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border">
@@ -330,7 +341,7 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
                 <div>
                   <p className="font-medium text-sm">{createdClient.nome}</p>
                   <p className="text-xs text-muted-foreground font-mono">
-                    {createdClient.telefone.replace('whatsapp:+', '+')}
+                    {createdClient.telefone.replace("whatsapp:+", "+")}
                   </p>
                 </div>
               </div>
@@ -357,13 +368,11 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
                           <h4 className="font-medium">{template.friendly_name}</h4>
                           {template.variables.length > 0 && (
                             <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                              {template.variables.length} {template.variables.length === 1 ? 'variável' : 'variáveis'}
+                              {template.variables.length} {template.variables.length === 1 ? "variável" : "variáveis"}
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {template.body}
-                        </p>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{template.body}</p>
                       </div>
                     </div>
                   ))}
@@ -393,34 +402,29 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
                       <Edit className="h-4 w-4" />
                       <span>Preencher Variáveis</span>
                     </div>
-                    {selectedTemplate.variables.map((_, index) => (
-                      <div key={index} className="space-y-2">
-                        <Label htmlFor={`var-${index}`}>
-                          Variável {index + 1}
-                        </Label>
-                        <Input
-                          id={`var-${index}`}
-                          value={variableValues[index] || ''}
-                          onChange={(e) => handleVariableChange(index, e.target.value)}
-                          placeholder={`Digite o valor para {{${index + 1}}}`}
-                        />
-                      </div>
-                    ))}
+                    {selectedTemplate.variables.map((variable, index) => {
+                      const variableLabel = getTemplateVariableLabel(variable, index);
+                      return (
+                        <div key={`${variable}-${index}`} className="space-y-2">
+                          <Label htmlFor={`var-${index}`}>{variableLabel}</Label>
+                          <Input
+                            id={`var-${index}`}
+                            value={variableValues[index] || ""}
+                            onChange={(e) => handleVariableChange(index, e.target.value)}
+                            placeholder={`Digite o valor para ${variableLabel}`}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
                 <div className="bg-muted/50 rounded-md p-4 border">
                   <p className="text-xs font-medium text-muted-foreground mb-3">Prévia da mensagem:</p>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                    {getTemplatePreview(selectedTemplate)}
-                  </p>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{getTemplatePreview(selectedTemplate)}</p>
                 </div>
 
-                <Button
-                  className="w-full"
-                  onClick={handleSendTemplate}
-                  disabled={sending}
-                >
+                <Button className="w-full" onClick={handleSendTemplate} disabled={sending}>
                   {sending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -439,11 +443,7 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
               </div>
             )}
 
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleSkipTemplate}
-            >
+            <Button variant="outline" className="w-full" onClick={handleSkipTemplate}>
               Pular e adicionar contato apenas
             </Button>
           </div>

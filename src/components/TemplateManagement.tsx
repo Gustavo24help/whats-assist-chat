@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { normalizeTemplateVariables } from "@/lib/whatsappTemplateVariables";
 
 interface Template {
   id: string;
@@ -47,13 +48,18 @@ export const TemplateManagement = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setTemplates((data || []).map(t => ({
-        ...t,
-        variables: Array.isArray(t.variables) ? (t.variables as string[]) : [],
-        variable_mapping: Array.isArray(t.variable_mapping) 
-          ? (t.variable_mapping as Array<{ index: number; field: string }>)
-          : []
-      })));
+      setTemplates(
+        (data || []).map((template) => ({
+          ...template,
+          variables: normalizeTemplateVariables(
+            Array.isArray(template.variables) ? (template.variables as string[]) : [],
+            template.body,
+          ),
+          variable_mapping: Array.isArray(template.variable_mapping)
+            ? (template.variable_mapping as Array<{ index: number; field: string }>)
+            : [],
+        })),
+      );
     } catch (error) {
       console.error("Erro ao buscar templates:", error);
       toast.error("Erro ao buscar templates");
@@ -70,7 +76,6 @@ export const TemplateManagement = () => {
 
     setAdding(true);
     try {
-      // Buscar informações do template na Twilio
       const { data, error } = await supabase.functions.invoke("get-twilio-templates", {
         body: { contentSid: newSid.trim() },
       });
@@ -80,15 +85,15 @@ export const TemplateManagement = () => {
       }
 
       const template = data.template;
+      const normalizedVariables = normalizeTemplateVariables(template.variables, template.body);
 
-      // Salvar no banco
       const { error: insertError } = await supabase
         .from("whatsapp_templates")
         .insert({
           content_sid: template.sid,
           friendly_name: template.friendly_name,
           body: template.body,
-          variables: template.variables,
+          variables: normalizedVariables,
         });
 
       if (insertError) {
@@ -111,10 +116,7 @@ export const TemplateManagement = () => {
 
   const handleDeleteTemplate = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("whatsapp_templates")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("whatsapp_templates").delete().eq("id", id);
 
       if (error) throw error;
 
@@ -190,15 +192,13 @@ export const TemplateManagement = () => {
 
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Templates Cadastrados</h3>
-        
+
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : templates.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            Nenhum template cadastrado ainda
-          </div>
+          <div className="text-center py-8 text-muted-foreground">Nenhum template cadastrado ainda</div>
         ) : (
           <Table>
             <TableHeader>
@@ -221,7 +221,7 @@ export const TemplateManagement = () => {
                   <TableCell className="text-sm">
                     {template.variables.length > 0 ? (
                       <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                        {template.variables.length} {template.variables.length === 1 ? 'variável' : 'variáveis'}
+                        {template.variables.length} {template.variables.length === 1 ? "variável" : "variáveis"}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">Nenhuma</span>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MapPin } from "lucide-react";
+import { getTemplateVariableLabel } from "@/lib/whatsappTemplateVariables";
 
 interface VariableMapping {
   index: number;
@@ -54,6 +55,10 @@ export const VariableMappingDialog = ({
 }: VariableMappingDialogProps) => {
   const [mapping, setMapping] = useState<VariableMapping[]>(currentMapping);
 
+  useEffect(() => {
+    setMapping(currentMapping);
+  }, [currentMapping, open]);
+
   const handleFieldChange = (index: number, field: string) => {
     setMapping((prev) => {
       const existing = prev.find((m) => m.index === index);
@@ -83,11 +88,9 @@ export const VariableMappingDialog = ({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {variables.map((_, index) => (
-            <div key={index} className="space-y-2">
-              <Label htmlFor={`var-${index}`}>
-                Variável {`{{${index + 1}}}`}
-              </Label>
+          {variables.map((variable, index) => (
+            <div key={`${variable}-${index}`} className="space-y-2">
+              <Label htmlFor={`var-${index}`}>{getTemplateVariableLabel(variable, index)}</Label>
               <Select
                 value={mapping.find((m) => m.index === index)?.field || ""}
                 onValueChange={(value) => handleFieldChange(index, value)}
