@@ -142,8 +142,16 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
       if (mapping) {
         initialValues[index] = getFieldValue(mapping.field);
       } else {
-        // Fallback: primeira variável = nome do cliente
-        initialValues[index] = index === 0 ? clienteNome : '';
+        // Fallback por índice: 0=Nome, 1=Ficha de Serviço, 2=Status do Serviço
+        if (index === 0) {
+          initialValues[index] = clienteNome;
+        } else if (index === 1) {
+          initialValues[index] = fichaAtiva?.nome_ficha || '';
+        } else if (index === 2) {
+          initialValues[index] = fichaAtiva?.status || '';
+        } else {
+          initialValues[index] = '';
+        }
       }
     });
     setVariableValues(initialValues);
