@@ -264,6 +264,33 @@ export const PagamentoPrestadoresTabV2 = () => {
         } as any);
       }
 
+      // Atualizar ficha sinalizando webhook pendente
+      await supabase.from("fichas_de_servico")
+        .update({ webhook_pendente: true } as any)
+        .eq("id", ficha.id);
+
+      // Disparar webhook para sincronizar planilha externa
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        await fetch(`https://${projectId}.supabase.co/functions/v1/webhook-update-planilha`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ficha_id: ficha.id,
+            acao: "pagamento_prestador",
+            prestador_nome: ficha.prestador_nome,
+            prestador_cpf: ficha.prestador_cpf,
+            status_pagamento_prestador: "pago",
+            data_pagamento_realizada: agora,
+            valor_a_pagar_prestador: ficha.financeiro.liquidoPrestador,
+            valor_total: ficha.valor_total,
+            cliente_nome: ficha.nome_cliente_resolved,
+          }),
+        });
+      } catch (webhookErr) {
+        console.error("[marcarPago] Erro ao chamar webhook-update-planilha:", webhookErr);
+      }
+
       toast({ title: "✅ Pagamento ao prestador confirmado!" });
       setPendentes(prev => prev.filter(f => f.id !== ficha.id));
     } catch (e: any) {
