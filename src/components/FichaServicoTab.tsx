@@ -668,6 +668,31 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
     
     const updatedFicha = { ...ficha, ...updates };
+    
+    // Auto-calculate valor_total when relevant fields change
+    const recalcFields = ['valor_mao_obra', 'valor_pecas', 'valor_final_mao_obra', 'valor_final_pecas', 'tipo_desconto_mao_obra', 'tipo_desconto_pecas', 'desconto_valor_mao_obra', 'desconto_valor_pecas', 'desconto_percentual_mao_obra', 'desconto_percentual_pecas'];
+    const shouldRecalc = recalcFields.some(f => f in updates);
+    if (shouldRecalc) {
+      const maoObra = updatedFicha.valor_final_mao_obra ?? updatedFicha.valor_mao_obra ?? 0;
+      const pecas = updatedFicha.valor_final_pecas ?? updatedFicha.valor_pecas ?? 0;
+      const sub = maoObra + pecas;
+      if (sub > 0) {
+        const antesArr = sub / 0.77;
+        const valorInteiro = Math.floor(antesArr);
+        const ultimoDigito = valorInteiro % 10;
+        const arredondado = ultimoDigito <= 8
+          ? valorInteiro - ultimoDigito + 8
+          : valorInteiro - ultimoDigito + 18;
+        updatedFicha.valor_total = arredondado;
+        updatedFicha.subtotal = sub;
+        updatedFicha.valor_antes_arredondamento = antesArr;
+      } else {
+        updatedFicha.valor_total = 0;
+        updatedFicha.subtotal = null;
+        updatedFicha.valor_antes_arredondamento = null;
+      }
+    }
+    
     setFicha(updatedFicha);
     
     // Auto-save em mudança de STATUS
