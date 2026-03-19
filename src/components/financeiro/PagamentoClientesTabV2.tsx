@@ -482,6 +482,22 @@ export const PagamentoClientesTabV2 = () => {
           </div>
         </TabsContent>
 
+        {/* Tab: Somente Pendentes */}
+        <TabsContent value="pendentes">
+          <div className="space-y-2">
+            {loading ? (
+              <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : filteredPendentes.length === 0 ? (
+              <div className="text-center py-12">
+                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                <p className="text-muted-foreground">Nenhum pagamento pendente!</p>
+              </div>
+            ) : (
+              filteredPendentes.map(renderFichaCard)
+            )}
+          </div>
+        </TabsContent>
+
         {/* Tab 2: Pagos Recentemente (5 dias úteis) */}
         <TabsContent value="pagos_recentes">
           <div className="space-y-2">
