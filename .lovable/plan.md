@@ -1,39 +1,32 @@
 
 
-# Atualização: Encerrar envio de orçamentos ao mudar para "Perdido"
+# Plan: Toggle para Edição Manual do Valor Total
+
+## Resumo
+Adicionar um checkbox/switch ao lado do campo "Valor Total" que permite alternar entre modo automático (calculado) e modo manual (editável). No modo manual, exibir um alerta de cautela. No modo automático, o cálculo acontece sozinho como hoje.
 
 ## Mudanças
 
-### 1. FichaCard.tsx — Renomear textos
-- Badge "Encerrado" → **"Envio de Orçamentos Encerrado"**
-- Botão "Reativar" → **"Reabrir Envio de Orçamentos"**
+### 1. FichaServicoTab.tsx - Campo Valor Total (linhas ~1390-1435)
 
-### 2. Migração SQL — Trigger para fechar formulário automaticamente
-Criar trigger `BEFORE UPDATE` na tabela `fichas_de_servico` que, ao detectar mudança de status para **"Agendado"**, **"Orçamento Aprovado / Agendamento"** ou **"Perdido"**, define automaticamente:
-- `formulario_orcamento_ativo = false`
-- `formulario_orcamento_encerrado_em = NOW()`
+**Adicionar estado local**: `editarManualmente` (boolean, default false)
 
-```sql
-CREATE OR REPLACE FUNCTION public.close_orcamento_on_status()
-RETURNS trigger AS $$
-BEGIN
-  IF NEW.status IN ('Agendado', 'Orçamento Aprovado / Agendamento', 'Perdido')
-     AND OLD.status IS DISTINCT FROM NEW.status
-     AND NEW.formulario_orcamento_ativo = true THEN
-    NEW.formulario_orcamento_ativo := false;
-    NEW.formulario_orcamento_encerrado_em := NOW();
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+**Substituir o campo atual por**:
+- Um Switch/Checkbox com label "Editar manualmente" ao lado do label "Valor Total"
+- Quando **desmarcado** (padrão): campo read-only com fundo cinza, cálculo automático (comportamento atual)
+- Quando **marcado**: campo editável, fundo branco, e exibir um Alert amarelo/warning abaixo dizendo:
+  > "⚠ Atenção: Editar o valor total manualmente desativa o cálculo automático. Use com cautela e verifique se o valor está correto."
 
-CREATE TRIGGER trg_close_orcamento_on_status
-  BEFORE UPDATE ON fichas_de_servico
-  FOR EACH ROW
-  EXECUTE FUNCTION close_orcamento_on_status();
-```
+**Quando desmarcar o switch**: recalcular o valor total automaticamente (chamar a mesma lógica de cálculo que já existe no `updateFicha`)
 
-### Arquivos modificados
-- `src/components/FichaCard.tsx` — labels renomeados
-- Migração SQL — trigger automático para 3 status
+### 2. Ajuste no updateFicha (linha ~673-694)
+
+Condicionar o auto-cálculo: só recalcular `valor_total` se `editarManualmente` for false. Se o usuário estiver em modo manual, não sobrescrever o valor.
+
+### 3. Permitir onChange no Input quando manual
+
+Quando `editarManualmente` for true, o Input do valor_total terá um `onChange` que chama `updateFicha({ valor_total: novoValor })` sem disparar o recálculo.
+
+## Arquivos modificados
+- `src/components/FichaServicoTab.tsx` — único arquivo alterado
 
