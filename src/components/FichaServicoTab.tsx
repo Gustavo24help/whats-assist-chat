@@ -419,6 +419,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         horario_visita_tecnica: visitaTecnicaISO,
         motivo_perda: fichaData.motivo_perda?.trim()?.substring(0, 500) || null,
         comparecimento_prestador: fichaData.comparecimento_prestador,
+        // Discount fields
+        tipo_desconto_mao_obra: fichaData.tipo_desconto_mao_obra,
+        desconto_valor_mao_obra: fichaData.desconto_valor_mao_obra,
+        desconto_percentual_mao_obra: fichaData.desconto_percentual_mao_obra,
+        valor_final_mao_obra: fichaData.valor_final_mao_obra,
+        tipo_desconto_pecas: fichaData.tipo_desconto_pecas,
+        desconto_valor_pecas: fichaData.desconto_valor_pecas,
+        desconto_percentual_pecas: fichaData.desconto_percentual_pecas,
+        valor_final_pecas: fichaData.valor_final_pecas,
+        subtotal: fichaData.subtotal,
+        valor_antes_arredondamento: fichaData.valor_antes_arredondamento,
       };
 
       const { error } = await supabase
