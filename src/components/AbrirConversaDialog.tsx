@@ -347,7 +347,7 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
                   </div>
                   {selectedTemplate.variables.map((_, index) => {
                     const varNames: Record<number, string> = {
-                      0: '{{1}}',
+                      0: '{{nome}}',
                       1: '{{ficha_de_servico}}',
                       2: '{{status_do_servico}}',
                     };
