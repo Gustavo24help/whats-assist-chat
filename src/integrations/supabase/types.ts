@@ -667,6 +667,10 @@ export type Database = {
           created_at: string | null
           data_version: number | null
           data_visita_tecnica: string | null
+          desconto_percentual_mao_obra: number | null
+          desconto_percentual_pecas: number | null
+          desconto_valor_mao_obra: number | null
+          desconto_valor_pecas: number | null
           descricao: string | null
           endereco: string | null
           formulario_orcamento_ativo: boolean | null
@@ -694,9 +698,15 @@ export type Database = {
           prestador_id: string | null
           recibo_url: string | null
           status: Database["public"]["Enums"]["status_ficha_enum"] | null
+          subtotal: number | null
           telefone_cliente: string
           tempo_servico: string | null
+          tipo_desconto_mao_obra: string | null
+          tipo_desconto_pecas: string | null
           updated_at: string | null
+          valor_antes_arredondamento: number | null
+          valor_final_mao_obra: number | null
+          valor_final_pecas: number | null
           valor_mao_obra: number | null
           valor_pecas: number | null
           valor_total: number | null
@@ -711,6 +721,10 @@ export type Database = {
           created_at?: string | null
           data_version?: number | null
           data_visita_tecnica?: string | null
+          desconto_percentual_mao_obra?: number | null
+          desconto_percentual_pecas?: number | null
+          desconto_valor_mao_obra?: number | null
+          desconto_valor_pecas?: number | null
           descricao?: string | null
           endereco?: string | null
           formulario_orcamento_ativo?: boolean | null
@@ -738,9 +752,15 @@ export type Database = {
           prestador_id?: string | null
           recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
+          subtotal?: number | null
           telefone_cliente: string
           tempo_servico?: string | null
+          tipo_desconto_mao_obra?: string | null
+          tipo_desconto_pecas?: string | null
           updated_at?: string | null
+          valor_antes_arredondamento?: number | null
+          valor_final_mao_obra?: number | null
+          valor_final_pecas?: number | null
           valor_mao_obra?: number | null
           valor_pecas?: number | null
           valor_total?: number | null
@@ -755,6 +775,10 @@ export type Database = {
           created_at?: string | null
           data_version?: number | null
           data_visita_tecnica?: string | null
+          desconto_percentual_mao_obra?: number | null
+          desconto_percentual_pecas?: number | null
+          desconto_valor_mao_obra?: number | null
+          desconto_valor_pecas?: number | null
           descricao?: string | null
           endereco?: string | null
           formulario_orcamento_ativo?: boolean | null
@@ -782,9 +806,15 @@ export type Database = {
           prestador_id?: string | null
           recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
+          subtotal?: number | null
           telefone_cliente?: string
           tempo_servico?: string | null
+          tipo_desconto_mao_obra?: string | null
+          tipo_desconto_pecas?: string | null
           updated_at?: string | null
+          valor_antes_arredondamento?: number | null
+          valor_final_mao_obra?: number | null
+          valor_final_pecas?: number | null
           valor_mao_obra?: number | null
           valor_pecas?: number | null
           valor_total?: number | null
