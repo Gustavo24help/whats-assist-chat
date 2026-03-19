@@ -1,32 +1,36 @@
 
 
-# Plan: Toggle para Edição Manual do Valor Total
+# Revisão: Fluxo "Pagar" no Pagamento Prestadores
 
-## Resumo
-Adicionar um checkbox/switch ao lado do campo "Valor Total" que permite alternar entre modo automático (calculado) e modo manual (editável). No modo manual, exibir um alerta de cautela. No modo automático, o cálculo acontece sozinho como hoje.
+## Problemas Encontrados
 
-## Mudanças
+### 1. `marcarPago` NÃO dispara webhook para planilha
+O fluxo `marcarPago` (linhas 229-274 do `PagamentoPrestadoresTabV2.tsx`) apenas:
+- Cria/atualiza `transacoes_financeiras` com `status_pagamento_prestador: "pago"`
+- **NÃO chama** `webhook-financeiro` nem `webhook-update-planilha`
 
-### 1. FichaServicoTab.tsx - Campo Valor Total (linhas ~1390-1435)
+Resultado: a `/planilha` (PlanilhaControlePagamentos) vai mostrar os dados atualizados porque lê direto do banco, mas a **planilha externa (Google Sheets via Make.com)** NÃO será notificada.
 
-**Adicionar estado local**: `editarManualmente` (boolean, default false)
+### 2. Dados PIX estão visíveis e copiáveis — OK
+- A query na linha 156 busca `chave_pix, nome_pix, banco` dos prestadores
+- Na lista pendente (linhas 436-444), o PIX aparece com botão de copiar
+- No popup de confirmação (linhas 606-640), nome PIX, chave PIX (com botão copiar) e banco são exibidos
+- Se não há dados PIX cadastrados, mostra "Nenhum dado PIX cadastrado"
 
-**Substituir o campo atual por**:
-- Um Switch/Checkbox com label "Editar manualmente" ao lado do label "Valor Total"
-- Quando **desmarcado** (padrão): campo read-only com fundo cinza, cálculo automático (comportamento atual)
-- Quando **marcado**: campo editável, fundo branco, e exibir um Alert amarelo/warning abaixo dizendo:
-  > "⚠ Atenção: Editar o valor total manualmente desativa o cálculo automático. Use com cautela e verifique se o valor está correto."
+### 3. Informações sobre a ficha NÃO são atualizadas
+O `marcarPago` não atualiza a `fichas_de_servico` (por exemplo, não seta `webhook_pendente` ou outros campos). A ficha permanece inalterada — só a `transacoes_financeiras` é modificada.
 
-**Quando desmarcar o switch**: recalcular o valor total automaticamente (chamar a mesma lógica de cálculo que já existe no `updateFicha`)
+### 4. `PopupConfirmacaoFinanceira` não é usado no fluxo de Prestadores
+O popup de confirmação do PagamentoPrestadoresTabV2 (linhas 579-682) é um dialog inline simples. O componente `PopupConfirmacaoFinanceira.tsx` é outro fluxo (para confirmação de clientes/financeiro geral) que **chama** o webhook-financeiro. Mas no fluxo de "Pagar Prestador", esse componente não é invocado.
 
-### 2. Ajuste no updateFicha (linha ~673-694)
+## Plano de Correção
 
-Condicionar o auto-cálculo: só recalcular `valor_total` se `editarManualmente` for false. Se o usuário estiver em modo manual, não sobrescrever o valor.
+### 1. Adicionar chamada ao webhook após `marcarPago`
+No `marcarPago` (PagamentoPrestadoresTabV2.tsx), após criar/atualizar a transação, chamar `webhook-update-planilha` com os dados relevantes (ficha_id, prestador, status_pagamento_prestador, data_pagamento_realizada, valor).
 
-### 3. Permitir onChange no Input quando manual
+### 2. Atualizar `fichas_de_servico` no `marcarPago`
+Após confirmar pagamento do prestador, setar `webhook_pendente: true` na ficha para sinalizar que houve atualização financeira.
 
-Quando `editarManualmente` for true, o Input do valor_total terá um `onChange` que chama `updateFicha({ valor_total: novoValor })` sem disparar o recálculo.
-
-## Arquivos modificados
-- `src/components/FichaServicoTab.tsx` — único arquivo alterado
+### Arquivos a modificar
+- `src/components/financeiro/PagamentoPrestadoresTabV2.tsx` — adicionar webhook call e update na ficha dentro do `marcarPago`
 
