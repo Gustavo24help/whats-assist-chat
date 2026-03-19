@@ -125,6 +125,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [gerandoLink, setGerandoLink] = useState(false);
   const [linkDialogData, setLinkDialogData] = useState<{ url: string; nome: string; valor: number } | null>(null);
   const [envioAutomatico, setEnvioAutomatico] = useState(true);
+  const [editarManualmente, setEditarManualmente] = useState(false);
 
   const formatMoeda = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
