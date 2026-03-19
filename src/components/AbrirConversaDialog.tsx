@@ -14,6 +14,13 @@ import { Label } from "@/components/ui/label";
 import { MessageSquare, Loader2, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  applyTemplateVariables,
+  formatTemplatePlaceholder,
+  getDefaultTemplateField,
+  getTemplateVariableLabel,
+  normalizeTemplateVariables,
+} from "@/lib/whatsappTemplateVariables";
 
 interface Template {
   id: string;
@@ -47,7 +54,6 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
 
   const fetchFichaAtiva = async () => {
     try {
-      // Buscar cliente com ficha ativa
       const { data: clienteData } = await supabase
         .from("clientes")
         .select("ficha_ativa_id")
@@ -55,7 +61,6 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         .single();
 
       if (clienteData?.ficha_ativa_id) {
-        // Buscar dados da ficha ativa
         const { data: fichaData } = await supabase
           .from("fichas_de_servico")
           .select("*")
@@ -79,17 +84,19 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
 
       if (error) throw error;
 
-      const mappedTemplates = (data || []).map(t => ({
-        ...t,
-        variables: Array.isArray(t.variables) ? (t.variables as string[]) : [],
-        variable_mapping: Array.isArray(t.variable_mapping)
-          ? (t.variable_mapping as Array<{ index: number; field: string }>)
-          : []
+      const mappedTemplates = (data || []).map((template) => ({
+        ...template,
+        variables: normalizeTemplateVariables(
+          Array.isArray(template.variables) ? (template.variables as string[]) : [],
+          template.body,
+        ),
+        variable_mapping: Array.isArray(template.variable_mapping)
+          ? (template.variable_mapping as Array<{ index: number; field: string }>)
+          : [],
       }));
-      
+
       setTemplates(mappedTemplates);
-      
-      // Mover toast para fora do setState para evitar warning
+
       if (mappedTemplates.length === 0) {
         setTimeout(() => {
           toast.info("Nenhum template cadastrado. Configure templates nas Configurações.");
@@ -107,67 +114,55 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   };
 
   const getFieldValue = (field: string): string => {
-    const [entity, property] = field.split('.');
-    
-    if (entity === 'cliente') {
-      if (property === 'nome') return clienteNome;
-      if (property === 'telefone') return clienteTelefone;
+    const [entity, property] = field.split(".");
+
+    if (entity === "cliente") {
+      if (property === "nome") return clienteNome;
+      if (property === "telefone") return clienteTelefone;
     }
-    
-    if (entity === 'ficha' && fichaAtiva) {
-      if (property === 'id') return fichaAtiva.id || '';
-      if (property === 'nome_ficha') return fichaAtiva.nome_ficha || '';
-      if (property === 'descricao') return fichaAtiva.descricao || '';
-      if (property === 'categoria') return fichaAtiva.categoria_id?.toString() || '';
-      if (property === 'status') return fichaAtiva.status || '';
-      if (property === 'endereco') return fichaAtiva.endereco || '';
-      if (property === 'cpf') return fichaAtiva.cpf || '';
-      if (property === 'horario_agendamento') {
-        return fichaAtiva.horario_agendamento 
-          ? new Date(fichaAtiva.horario_agendamento).toLocaleString('pt-BR')
-          : '';
+
+    if (entity === "ficha" && fichaAtiva) {
+      if (property === "id") return fichaAtiva.id || "";
+      if (property === "nome_ficha") return fichaAtiva.nome_ficha || "";
+      if (property === "descricao") return fichaAtiva.descricao || "";
+      if (property === "categoria") return fichaAtiva.categoria_id?.toString() || "";
+      if (property === "status") return fichaAtiva.status || "";
+      if (property === "endereco") return fichaAtiva.endereco || "";
+      if (property === "cpf") return fichaAtiva.cpf || "";
+      if (property === "horario_agendamento") {
+        return fichaAtiva.horario_agendamento
+          ? new Date(fichaAtiva.horario_agendamento).toLocaleString("pt-BR")
+          : "";
       }
-      if (property === 'prestador_id') return fichaAtiva.prestador_id || '';
+      if (property === "prestador_id") return fichaAtiva.prestador_id || "";
     }
-    
-    return '';
+
+    return "";
   };
 
   const handleSelectTemplate = (template: Template) => {
     setSelectedTemplate(template);
-    // Preencher automaticamente com base no mapeamento
+
     const initialValues: Record<number, string> = {};
-    template.variables.forEach((_, index) => {
-      const mapping = template.variable_mapping.find(m => m.index === index);
-      if (mapping) {
-        initialValues[index] = getFieldValue(mapping.field);
-      } else {
-        // Fallback: {{1}} = nome do cliente, {{2}} = ficha_de_serviço, {{3}} = status
-        if (index === 0) {
-          initialValues[index] = clienteNome;
-        } else if (index === 1) {
-          initialValues[index] = fichaAtiva?.nome_ficha || 'ficha_de_serviço';
-        } else if (index === 2) {
-          initialValues[index] = fichaAtiva?.status || 'status';
-        } else {
-          initialValues[index] = '';
-        }
-      }
+    template.variables.forEach((variableToken, index) => {
+      const mapping = template.variable_mapping.find((item) => item.index === index);
+      const defaultField = mapping?.field || getDefaultTemplateField(variableToken, index);
+      initialValues[index] = defaultField ? getFieldValue(defaultField) : "";
     });
+
     setVariableValues(initialValues);
   };
 
   const handleVariableChange = (index: number, value: string) => {
-    setVariableValues(prev => ({
+    setVariableValues((prev) => ({
       ...prev,
-      [index]: value
+      [index]: value,
     }));
   };
 
   const handleSendTemplate = async () => {
     if (!selectedTemplate) return;
 
-    // Validar se todas as variáveis estão preenchidas
     if (selectedTemplate.variables.length > 0) {
       const allFilled = selectedTemplate.variables.every((_, index) => variableValues[index]?.trim());
       if (!allFilled) {
@@ -178,21 +173,16 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
 
     setSending(true);
     try {
-      // Garantir formato correto do número
       let phoneNumber = clienteTelefone;
-      if (!phoneNumber.startsWith('whatsapp:')) {
-        phoneNumber = phoneNumber.startsWith('+') 
-          ? `whatsapp:${phoneNumber}` 
-          : `whatsapp:+${phoneNumber}`;
+      if (!phoneNumber.startsWith("whatsapp:")) {
+        phoneNumber = phoneNumber.startsWith("+") ? `whatsapp:${phoneNumber}` : `whatsapp:+${phoneNumber}`;
       }
 
-      // Preparar variáveis para envio (formato que a Twilio espera)
       const contentVariables: Record<string, string> = {};
       selectedTemplate.variables.forEach((_, index) => {
         contentVariables[(index + 1).toString()] = variableValues[index];
       });
 
-      // Gerar preview do template com variáveis substituídas
       const templateBody = getTemplatePreview(selectedTemplate);
 
       const { data, error } = await supabase.functions.invoke("send-template", {
@@ -212,23 +202,21 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         throw new Error(data?.error || "Erro ao enviar template");
       }
 
-      // Desativar o bot automaticamente após enviar template
       try {
         await supabase.functions.invoke("toggle-bot-status", {
           body: {
             telefone: clienteTelefone,
-            bot_status: 'disabled',
-            origem: 'manual'
+            bot_status: "disabled",
+            origem: "manual",
           },
         });
         console.log("🤖 Bot desativado automaticamente após envio de template");
       } catch (botError) {
         console.error("Erro ao desativar bot:", botError);
-        // Não bloqueia o sucesso do envio do template
       }
 
       toast.success("✅ Template enviado com sucesso!", {
-        description: `Enviado para ${clienteNome} (bot desativado)`
+        description: `Enviado para ${clienteNome} (bot desativado)`,
       });
       setOpen(false);
       setSelectedTemplate(null);
@@ -242,32 +230,25 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
   };
 
   const getTemplatePreview = (template: Template) => {
-    if (!template.body || template.body.trim() === '') {
-      console.warn("⚠️ Template sem body:", template.friendly_name);
-      // Se não tem body, criar uma mensagem com as variáveis
+    if (!template.body || template.body.trim() === "") {
       if (template.variables.length > 0) {
         const varsText = template.variables
-          .map((_, idx) => variableValues[idx] || `{{${idx + 1}}}`)
-          .join(' | ');
+          .map((variable, index) => variableValues[index] || formatTemplatePlaceholder(variable))
+          .join(" | ");
         return `Template: ${template.friendly_name} - ${varsText}`;
       }
       return `Template: ${template.friendly_name}`;
     }
-    
-    let preview = template.body;
-    // Substituir variáveis do tipo {{1}}, {{2}}, etc
-    template.variables.forEach((_, index) => {
-      const value = variableValues[index] || `{{${index + 1}}}`;
-      preview = preview.replace(new RegExp(`\\{\\{${index + 1}\\}\\}`, 'g'), value);
-    });
-    
-    console.log("📝 Preview gerado:", { 
+
+    const preview = applyTemplateVariables(template.body, template.variables, variableValues);
+
+    console.log("📝 Preview gerado:", {
       template: template.friendly_name,
       originalBody: template.body,
       preview,
-      variables: variableValues 
+      variables: variableValues,
     });
-    
+
     return preview;
   };
 
@@ -286,7 +267,7 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
             Selecione um template aprovado do WhatsApp para iniciar a conversa com {clienteNome}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {loading && (
             <div className="flex items-center justify-center py-8">
@@ -309,13 +290,11 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
                         <h4 className="font-medium">{template.friendly_name}</h4>
                         {template.variables.length > 0 && (
                           <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                            {template.variables.length} {template.variables.length === 1 ? 'variável' : 'variáveis'}
+                            {template.variables.length} {template.variables.length === 1 ? "variável" : "variáveis"}
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {template.body}
-                      </p>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{template.body}</p>
                     </div>
                   </div>
                 ))}
@@ -345,23 +324,16 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
                     <Edit className="h-4 w-4" />
                     <span>Preencher Variáveis</span>
                   </div>
-                  {selectedTemplate.variables.map((_, index) => {
-                    const varNames: Record<number, string> = {
-                      0: '{{nome}}',
-                      1: '{{ficha_de_servico}}',
-                      2: '{{status_do_servico}}',
-                    };
-                    const varLabel = varNames[index] || `Variável ${index + 1}`;
+                  {selectedTemplate.variables.map((variable, index) => {
+                    const variableLabel = getTemplateVariableLabel(variable, index);
                     return (
-                      <div key={index} className="space-y-2">
-                        <Label htmlFor={`var-${index}`}>
-                          {varLabel}
-                        </Label>
+                      <div key={`${variable}-${index}`} className="space-y-2">
+                        <Label htmlFor={`var-${index}`}>{variableLabel}</Label>
                         <Input
                           id={`var-${index}`}
-                          value={variableValues[index] || ''}
+                          value={variableValues[index] || ""}
                           onChange={(e) => handleVariableChange(index, e.target.value)}
-                          placeholder={`Digite o valor para ${varLabel}`}
+                          placeholder={`Digite o valor para ${variableLabel}`}
                         />
                       </div>
                     );
@@ -371,16 +343,10 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
 
               <div className="bg-muted/50 rounded-md p-4 border">
                 <p className="text-xs font-medium text-muted-foreground mb-3">Prévia da mensagem:</p>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                  {getTemplatePreview(selectedTemplate)}
-                </p>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{getTemplatePreview(selectedTemplate)}</p>
               </div>
 
-              <Button
-                className="w-full"
-                onClick={handleSendTemplate}
-                disabled={sending}
-              >
+              <Button className="w-full" onClick={handleSendTemplate} disabled={sending}>
                 {sending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
