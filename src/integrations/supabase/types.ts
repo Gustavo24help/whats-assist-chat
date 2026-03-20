@@ -690,6 +690,8 @@ export type Database = {
           nome_cliente: string | null
           nome_ficha: string | null
           notas: string | null
+          observacao_financeira: string | null
+          observacao_financeira_por: string | null
           pagamento_gerar_link: boolean | null
           pagamento_link: string | null
           pagamento_parcelas: number | null
@@ -750,6 +752,8 @@ export type Database = {
           nome_cliente?: string | null
           nome_ficha?: string | null
           notas?: string | null
+          observacao_financeira?: string | null
+          observacao_financeira_por?: string | null
           pagamento_gerar_link?: boolean | null
           pagamento_link?: string | null
           pagamento_parcelas?: number | null
@@ -810,6 +814,8 @@ export type Database = {
           nome_cliente?: string | null
           nome_ficha?: string | null
           notas?: string | null
+          observacao_financeira?: string | null
+          observacao_financeira_por?: string | null
           pagamento_gerar_link?: boolean | null
           pagamento_link?: string | null
           pagamento_parcelas?: number | null
