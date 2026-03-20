@@ -665,6 +665,7 @@ export type Database = {
           comparecimento_prestador: string | null
           cpf: string | null
           created_at: string | null
+          data_retorno: string | null
           data_version: number | null
           data_visita_tecnica: string | null
           desconto_percentual_mao_obra: number | null
@@ -676,6 +677,10 @@ export type Database = {
           formulario_orcamento_ativo: boolean | null
           formulario_orcamento_data_primeiro_envio: string | null
           formulario_orcamento_encerrado_em: string | null
+          hora_fim_agendamento: string | null
+          hora_fim_retorno: string | null
+          hora_inicio_agendamento: string | null
+          hora_inicio_retorno: string | null
           horario_agendamento: string | null
           horario_visita_tecnica: string | null
           id: string
@@ -701,6 +706,7 @@ export type Database = {
           subtotal: number | null
           telefone_cliente: string
           tempo_servico: string | null
+          tipo_agendamento: string | null
           tipo_desconto_mao_obra: string | null
           tipo_desconto_pecas: string | null
           updated_at: string | null
@@ -719,6 +725,7 @@ export type Database = {
           comparecimento_prestador?: string | null
           cpf?: string | null
           created_at?: string | null
+          data_retorno?: string | null
           data_version?: number | null
           data_visita_tecnica?: string | null
           desconto_percentual_mao_obra?: number | null
@@ -730,6 +737,10 @@ export type Database = {
           formulario_orcamento_ativo?: boolean | null
           formulario_orcamento_data_primeiro_envio?: string | null
           formulario_orcamento_encerrado_em?: string | null
+          hora_fim_agendamento?: string | null
+          hora_fim_retorno?: string | null
+          hora_inicio_agendamento?: string | null
+          hora_inicio_retorno?: string | null
           horario_agendamento?: string | null
           horario_visita_tecnica?: string | null
           id: string
@@ -755,6 +766,7 @@ export type Database = {
           subtotal?: number | null
           telefone_cliente: string
           tempo_servico?: string | null
+          tipo_agendamento?: string | null
           tipo_desconto_mao_obra?: string | null
           tipo_desconto_pecas?: string | null
           updated_at?: string | null
@@ -773,6 +785,7 @@ export type Database = {
           comparecimento_prestador?: string | null
           cpf?: string | null
           created_at?: string | null
+          data_retorno?: string | null
           data_version?: number | null
           data_visita_tecnica?: string | null
           desconto_percentual_mao_obra?: number | null
@@ -784,6 +797,10 @@ export type Database = {
           formulario_orcamento_ativo?: boolean | null
           formulario_orcamento_data_primeiro_envio?: string | null
           formulario_orcamento_encerrado_em?: string | null
+          hora_fim_agendamento?: string | null
+          hora_fim_retorno?: string | null
+          hora_inicio_agendamento?: string | null
+          hora_inicio_retorno?: string | null
           horario_agendamento?: string | null
           horario_visita_tecnica?: string | null
           id?: string
@@ -809,6 +826,7 @@ export type Database = {
           subtotal?: number | null
           telefone_cliente?: string
           tempo_servico?: string | null
+          tipo_agendamento?: string | null
           tipo_desconto_mao_obra?: string | null
           tipo_desconto_pecas?: string | null
           updated_at?: string | null
@@ -1952,6 +1970,7 @@ export type Database = {
         | "Garantia"
         | "Perdido"
         | "pendente"
+        | "Retorno"
       status_mensagem_enum: "enviado" | "recebido" | "lido"
       status_orcamento_enum: "pendente" | "aprovado" | "rejeitado"
       tipo_mensagem_enum: "texto" | "arquivo" | "imagem" | "video" | "audio"
@@ -2107,6 +2126,7 @@ export const Constants = {
         "Garantia",
         "Perdido",
         "pendente",
+        "Retorno",
       ],
       status_mensagem_enum: ["enviado", "recebido", "lido"],
       status_orcamento_enum: ["pendente", "aprovado", "rejeitado"],
