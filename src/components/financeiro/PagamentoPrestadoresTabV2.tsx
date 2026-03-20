@@ -722,6 +722,33 @@ export const PagamentoPrestadoresTabV2 = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Observação Financeira popup */}
+      <Dialog open={!!obsPopup} onOpenChange={() => setObsPopup(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Observação Financeira — {obsPopup?.id}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm whitespace-pre-wrap">{obsPopup?.observacao_financeira}</p>
+            {obsPopup && (() => {
+              const margin = obsPopup.valor_total > 0
+                ? ((obsPopup.valor_total - (obsPopup.valor_mao_obra + obsPopup.valor_pecas)) / obsPopup.valor_total) * 100
+                : 0;
+              const isNegative = margin < 0;
+              return isNegative ? (
+                <div className="text-sm font-semibold text-destructive">
+                  Margem: {margin.toFixed(1)}%
+                </div>
+              ) : null;
+            })()}
+            <Separator />
+            <p className="text-xs text-muted-foreground">
+              Registrado por: {obsPopup?.observacao_operador_nome || "Operador não identificado"}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
