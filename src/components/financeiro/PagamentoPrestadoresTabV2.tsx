@@ -82,6 +82,9 @@ interface FichaFinanceira {
   nps_nota: number | null;
   financeiro: ReturnType<typeof calcFinanceiro>;
   data_pagamento_prevista: Date;
+  observacao_financeira: string | null;
+  observacao_financeira_por: string | null;
+  observacao_operador_nome: string | null;
 }
 
 export const PagamentoPrestadoresTabV2 = () => {
