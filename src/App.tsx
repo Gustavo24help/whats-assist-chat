@@ -33,6 +33,7 @@ import RegistroPontoPage from "./pages/RegistroPonto";
 import Planilha from "./pages/Planilha";
 import PlanilhaControleFinanceiro from "./pages/PlanilhaControleFinanceiro";
 import PlanilhaControlePagamentos from "./pages/PlanilhaControlePagamentos";
+import Calendario from "./pages/Calendario";
 
 const queryClient = new QueryClient();
 
@@ -221,6 +222,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <FichaDetalhes />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/calendario"
+                element={
+                  <ProtectedRoute>
+                    <Calendario />
                   </ProtectedRoute>
                 }
               />
