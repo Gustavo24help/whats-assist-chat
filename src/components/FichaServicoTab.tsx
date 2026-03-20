@@ -69,6 +69,8 @@ interface Ficha {
   valor_final_pecas: number | null;
   subtotal: number | null;
   valor_antes_arredondamento: number | null;
+  observacao_financeira: string | null;
+  observacao_financeira_por: string | null;
 }
 
 interface Prestador {
