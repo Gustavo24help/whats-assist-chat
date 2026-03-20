@@ -69,6 +69,8 @@ interface Ficha {
   valor_final_pecas: number | null;
   subtotal: number | null;
   valor_antes_arredondamento: number | null;
+  observacao_financeira: string | null;
+  observacao_financeira_por: string | null;
 }
 
 interface Prestador {
@@ -1487,6 +1489,28 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   placeholder="Ex: 2 horas"
                   className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
+              </div>
+
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="observacao_financeira" className="text-xs font-medium text-amber-600">
+                  Observação Financeira (opcional)
+                </Label>
+                <textarea
+                  id="observacao_financeira"
+                  value={ficha?.observacao_financeira || ""}
+                  onChange={async (e) => {
+                    const value = e.target.value || null;
+                    const { data: { user } } = await supabase.auth.getUser();
+                    updateFicha({
+                      observacao_financeira: value,
+                      observacao_financeira_por: value ? (user?.id || null) : null,
+                    } as any);
+                  }}
+                  placeholder="Explique irregularidades nos valores, margem, etc."
+                  rows={2}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+                <p className="text-[10px] text-muted-foreground">Será exibido como aviso no módulo Financeiro</p>
               </div>
             </div>
           </AccordionContent>

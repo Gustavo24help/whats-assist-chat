@@ -82,6 +82,9 @@ interface FichaFinanceira {
   nps_nota: number | null;
   financeiro: ReturnType<typeof calcFinanceiro>;
   data_pagamento_prevista: Date;
+  observacao_financeira: string | null;
+  observacao_financeira_por: string | null;
+  observacao_operador_nome: string | null;
 }
 
 export const PagamentoPrestadoresTabV2 = () => {
@@ -105,6 +108,7 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [batchPaying, setBatchPaying] = useState(false);
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [showAllDates, setShowAllDates] = useState(true);
+  const [obsPopup, setObsPopup] = useState<FichaFinanceira | null>(null);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -130,7 +134,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     // Query all Finalizado fichas with valor > 0 and a prestador assigned
     let query = supabase
       .from("fichas_de_servico")
-      .select("id, nome_ficha, nome_cliente, telefone_cliente, status, valor_total, valor_mao_obra, valor_pecas, prestador_id, pagamento_realizado, pagamento_link, updated_at, created_at", { count: "exact" })
+      .select("id, nome_ficha, nome_cliente, telefone_cliente, status, valor_total, valor_mao_obra, valor_pecas, prestador_id, pagamento_realizado, pagamento_link, updated_at, created_at, observacao_financeira, observacao_financeira_por", { count: "exact" })
       .eq("status", "Finalizado" as any)
       .gt("valor_total", 0)
       .not("prestador_id", "is", null)
@@ -149,18 +153,23 @@ export const PagamentoPrestadoresTabV2 = () => {
     const prestadorIds = [...new Set(fichas.map((f: any) => f.prestador_id))];
     const phones = [...new Set(fichas.map((f: any) => f.telefone_cliente))];
     const fichaIds = fichas.map((f: any) => f.id);
+    const obsOperadorIds = [...new Set(fichas.map((f: any) => f.observacao_financeira_por).filter(Boolean))];
 
-    const [prestRes, clienteRes, transRes, npsRes] = await Promise.all([
+    const [prestRes, clienteRes, transRes, npsRes, profilesRes] = await Promise.all([
       supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix, banco").in("cpf", prestadorIds),
       supabase.from("clientes").select("telefone, nome").in("telefone", phones),
       supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador").in("ficha_id", fichaIds),
       supabase.from("nps_respostas").select("ficha_id, nota").in("ficha_id", fichaIds),
+      obsOperadorIds.length > 0
+        ? supabase.from("profiles").select("id, full_name").in("id", obsOperadorIds)
+        : Promise.resolve({ data: [] }),
     ]);
 
     const prestMap = new Map((prestRes.data || []).map((p: any) => [p.cpf, p]));
     const clienteMap = new Map((clienteRes.data || []).map((c: any) => [c.telefone, c.nome]));
     const transMap = new Map((transRes.data || []).map((t: any) => [t.ficha_id, t]));
     const npsMap = new Map((npsRes.data || []).map((n: any) => [n.ficha_id, n.nota]));
+    const profilesMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p.full_name]));
 
     const items: FichaFinanceira[] = fichas.map((f: any) => {
       const prest = prestMap.get(f.prestador_id);
@@ -188,6 +197,9 @@ export const PagamentoPrestadoresTabV2 = () => {
         nps_nota: npsMap.get(f.id) ?? null,
         financeiro: fin,
         data_pagamento_prevista: addBusinessDays(f.created_at, 2),
+        observacao_financeira: f.observacao_financeira || null,
+        observacao_financeira_por: f.observacao_financeira_por || null,
+        observacao_operador_nome: f.observacao_financeira_por ? (profilesMap.get(f.observacao_financeira_por) || null) : null,
       };
     });
 
@@ -441,6 +453,14 @@ export const PagamentoPrestadoresTabV2 = () => {
                         <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
                           <Star className="h-3 w-3 text-yellow-500" /> {f.nps_nota}
                         </span>
+                      )}
+                      {f.observacao_financeira && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setObsPopup(f); }}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full hover:bg-amber-200 transition-colors max-w-[220px] truncate"
+                        >
+                          ⚠ {f.observacao_financeira.substring(0, 60)}{f.observacao_financeira.length > 60 ? "…" : ""}
+                        </button>
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
@@ -702,6 +722,33 @@ export const PagamentoPrestadoresTabV2 = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Observação Financeira popup */}
+      <Dialog open={!!obsPopup} onOpenChange={() => setObsPopup(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Observação Financeira — {obsPopup?.id}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm whitespace-pre-wrap">{obsPopup?.observacao_financeira}</p>
+            {obsPopup && (() => {
+              const margin = obsPopup.valor_total > 0
+                ? ((obsPopup.valor_total - (obsPopup.valor_mao_obra + obsPopup.valor_pecas)) / obsPopup.valor_total) * 100
+                : 0;
+              const isNegative = margin < 0;
+              return isNegative ? (
+                <div className="text-sm font-semibold text-destructive">
+                  Margem: {margin.toFixed(1)}%
+                </div>
+              ) : null;
+            })()}
+            <Separator />
+            <p className="text-xs text-muted-foreground">
+              Registrado por: {obsPopup?.observacao_operador_nome || "Operador não identificado"}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
