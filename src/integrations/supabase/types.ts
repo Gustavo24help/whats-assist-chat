@@ -342,6 +342,7 @@ export type Database = {
           marcado_nao_lido: boolean | null
           nome: string
           notas_internas: string | null
+          numero_twilio: string | null
           status_conversa:
             | Database["public"]["Enums"]["status_conversa_enum"]
             | null
@@ -366,6 +367,7 @@ export type Database = {
           marcado_nao_lido?: boolean | null
           nome?: string
           notas_internas?: string | null
+          numero_twilio?: string | null
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
             | null
@@ -390,6 +392,7 @@ export type Database = {
           marcado_nao_lido?: boolean | null
           nome?: string
           notas_internas?: string | null
+          numero_twilio?: string | null
           status_conversa?:
             | Database["public"]["Enums"]["status_conversa_enum"]
             | null
@@ -493,6 +496,44 @@ export type Database = {
             columns: ["transacao_id"]
             isOneToOne: false
             referencedRelation: "transacoes_financeiras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversa_ficha_vinculo: {
+        Row: {
+          ativo: boolean | null
+          cliente_telefone: string | null
+          ficha_id: string
+          id: string
+          prestador_telefone: string | null
+          vinculado_em: string | null
+          vinculado_por: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cliente_telefone?: string | null
+          ficha_id: string
+          id?: string
+          prestador_telefone?: string | null
+          vinculado_em?: string | null
+          vinculado_por?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cliente_telefone?: string | null
+          ficha_id?: string
+          id?: string
+          prestador_telefone?: string | null
+          vinculado_em?: string | null
+          vinculado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversa_ficha_vinculo_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
             referencedColumns: ["id"]
           },
         ]
@@ -1016,6 +1057,7 @@ export type Database = {
           ficha_id: string | null
           id: string
           message_sid: string | null
+          numero_twilio: string | null
           remetente: string
           reply_to_message_id: string | null
           status: Database["public"]["Enums"]["status_mensagem_enum"] | null
@@ -1031,6 +1073,7 @@ export type Database = {
           ficha_id?: string | null
           id?: string
           message_sid?: string | null
+          numero_twilio?: string | null
           remetente: string
           reply_to_message_id?: string | null
           status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
@@ -1046,6 +1089,7 @@ export type Database = {
           ficha_id?: string | null
           id?: string
           message_sid?: string | null
+          numero_twilio?: string | null
           remetente?: string
           reply_to_message_id?: string | null
           status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
@@ -1194,6 +1238,69 @@ export type Database = {
           titulo?: string
         }
         Relationships: []
+      }
+      mensagens_prestadores: {
+        Row: {
+          arquivo_url: string | null
+          data_hora: string | null
+          enviado_por_id: string | null
+          ficha_id: string | null
+          id: string
+          message_sid: string | null
+          numero_twilio: string | null
+          prestador_telefone: string
+          remetente: string
+          reply_to_message_id: string | null
+          status: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          texto: string | null
+          tipo: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+        }
+        Insert: {
+          arquivo_url?: string | null
+          data_hora?: string | null
+          enviado_por_id?: string | null
+          ficha_id?: string | null
+          id?: string
+          message_sid?: string | null
+          numero_twilio?: string | null
+          prestador_telefone: string
+          remetente: string
+          reply_to_message_id?: string | null
+          status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          texto?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+        }
+        Update: {
+          arquivo_url?: string | null
+          data_hora?: string | null
+          enviado_por_id?: string | null
+          ficha_id?: string | null
+          id?: string
+          message_sid?: string | null
+          numero_twilio?: string | null
+          prestador_telefone?: string
+          remetente?: string
+          reply_to_message_id?: string | null
+          status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
+          texto?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_prestadores_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_prestadores_prestador_telefone_fkey"
+            columns: ["prestador_telefone"]
+            isOneToOne: false
+            referencedRelation: "prestadores_chat"
+            referencedColumns: ["telefone"]
+          },
+        ]
       }
       notificacoes: {
         Row: {
@@ -1410,6 +1517,62 @@ export type Database = {
           telefone?: string
         }
         Relationships: []
+      }
+      prestadores_chat: {
+        Row: {
+          arquivado: boolean | null
+          cpf: string | null
+          created_at: string | null
+          marcado_nao_lido: boolean | null
+          nome: string
+          notas_internas: string | null
+          numero_twilio: string | null
+          status_conversa:
+            | Database["public"]["Enums"]["status_conversa_enum"]
+            | null
+          tags: string[] | null
+          telefone: string
+          ultima_interacao: string | null
+        }
+        Insert: {
+          arquivado?: boolean | null
+          cpf?: string | null
+          created_at?: string | null
+          marcado_nao_lido?: boolean | null
+          nome?: string
+          notas_internas?: string | null
+          numero_twilio?: string | null
+          status_conversa?:
+            | Database["public"]["Enums"]["status_conversa_enum"]
+            | null
+          tags?: string[] | null
+          telefone: string
+          ultima_interacao?: string | null
+        }
+        Update: {
+          arquivado?: boolean | null
+          cpf?: string | null
+          created_at?: string | null
+          marcado_nao_lido?: boolean | null
+          nome?: string
+          notas_internas?: string | null
+          numero_twilio?: string | null
+          status_conversa?:
+            | Database["public"]["Enums"]["status_conversa_enum"]
+            | null
+          tags?: string[] | null
+          telefone?: string
+          ultima_interacao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prestadores_chat_cpf_fkey"
+            columns: ["cpf"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["cpf"]
+          },
+        ]
       }
       profiles: {
         Row: {
