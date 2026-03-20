@@ -152,18 +152,23 @@ export const PagamentoPrestadoresTabV2 = () => {
     const prestadorIds = [...new Set(fichas.map((f: any) => f.prestador_id))];
     const phones = [...new Set(fichas.map((f: any) => f.telefone_cliente))];
     const fichaIds = fichas.map((f: any) => f.id);
+    const obsOperadorIds = [...new Set(fichas.map((f: any) => f.observacao_financeira_por).filter(Boolean))];
 
-    const [prestRes, clienteRes, transRes, npsRes] = await Promise.all([
+    const [prestRes, clienteRes, transRes, npsRes, profilesRes] = await Promise.all([
       supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix, banco").in("cpf", prestadorIds),
       supabase.from("clientes").select("telefone, nome").in("telefone", phones),
       supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador").in("ficha_id", fichaIds),
       supabase.from("nps_respostas").select("ficha_id, nota").in("ficha_id", fichaIds),
+      obsOperadorIds.length > 0
+        ? supabase.from("profiles").select("id, full_name").in("id", obsOperadorIds)
+        : Promise.resolve({ data: [] }),
     ]);
 
     const prestMap = new Map((prestRes.data || []).map((p: any) => [p.cpf, p]));
     const clienteMap = new Map((clienteRes.data || []).map((c: any) => [c.telefone, c.nome]));
     const transMap = new Map((transRes.data || []).map((t: any) => [t.ficha_id, t]));
     const npsMap = new Map((npsRes.data || []).map((n: any) => [n.ficha_id, n.nota]));
+    const profilesMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p.full_name]));
 
     const items: FichaFinanceira[] = fichas.map((f: any) => {
       const prest = prestMap.get(f.prestador_id);
@@ -191,6 +196,9 @@ export const PagamentoPrestadoresTabV2 = () => {
         nps_nota: npsMap.get(f.id) ?? null,
         financeiro: fin,
         data_pagamento_prevista: addBusinessDays(f.created_at, 2),
+        observacao_financeira: f.observacao_financeira || null,
+        observacao_financeira_por: f.observacao_financeira_por || null,
+        observacao_operador_nome: f.observacao_financeira_por ? (profilesMap.get(f.observacao_financeira_por) || null) : null,
       };
     });
 
