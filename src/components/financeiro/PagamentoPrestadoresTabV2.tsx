@@ -454,6 +454,14 @@ export const PagamentoPrestadoresTabV2 = () => {
                           <Star className="h-3 w-3 text-yellow-500" /> {f.nps_nota}
                         </span>
                       )}
+                      {f.observacao_financeira && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setObsPopup(f); }}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full hover:bg-amber-200 transition-colors max-w-[220px] truncate"
+                        >
+                          ⚠ {f.observacao_financeira.substring(0, 60)}{f.observacao_financeira.length > 60 ? "…" : ""}
+                        </button>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
                       <span>Pgto prev.: {formatDateShort(f.data_pagamento_prevista)}</span>
