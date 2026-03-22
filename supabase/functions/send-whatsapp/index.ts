@@ -234,30 +234,56 @@ serve(async (req) => {
       return 'arquivo';
     };
 
-    // Salvar mensagem
-    const { error: insertError } = await supabase.from('mensagens').insert({
-      cliente_id: to,
-      remetente: 'whatsapp:+554138911555',
-      texto: message,
-      tipo: mediaUrl ? getMediaType(mediaUrl) : 'texto',
-      arquivo_url: mediaUrl || null,
-      status: 'enviado',
-      data_hora: new Date().toISOString(),
-      message_sid: twilioData.sid,
-      enviado_por_id: userData.user.id,
-      reply_to_message_id: replyToMessageId || null
-    });
+    // Salvar mensagem na tabela correta
+    if (isPrestadorMessage) {
+      const { error: insertError } = await supabase.from('mensagens_prestadores').insert({
+        prestador_telefone: to,
+        remetente: sendFromNumber,
+        texto: message,
+        tipo: mediaUrl ? getMediaType(mediaUrl) : 'texto',
+        arquivo_url: mediaUrl || null,
+        status: 'enviado',
+        data_hora: new Date().toISOString(),
+        message_sid: twilioData.sid,
+        enviado_por_id: userData.user.id,
+        reply_to_message_id: replyToMessageId || null,
+        numero_twilio: sendFromNumber,
+        ficha_id: ficha_id || null,
+      });
 
-    if (insertError) {
-      console.error("Erro ao inserir mensagem:", insertError);
-      throw new Error(`Erro ao salvar mensagem: ${insertError.message}`);
+      if (insertError) {
+        console.error("Erro ao inserir mensagem prestador:", insertError);
+        throw new Error(`Erro ao salvar mensagem: ${insertError.message}`);
+      }
+
+      await supabase
+        .from('prestadores_chat')
+        .update({ ultima_interacao: new Date().toISOString() })
+        .eq('telefone', to);
+    } else {
+      const { error: insertError } = await supabase.from('mensagens').insert({
+        cliente_id: to,
+        remetente: sendFromNumber,
+        texto: message,
+        tipo: mediaUrl ? getMediaType(mediaUrl) : 'texto',
+        arquivo_url: mediaUrl || null,
+        status: 'enviado',
+        data_hora: new Date().toISOString(),
+        message_sid: twilioData.sid,
+        enviado_por_id: userData.user.id,
+        reply_to_message_id: replyToMessageId || null,
+      });
+
+      if (insertError) {
+        console.error("Erro ao inserir mensagem:", insertError);
+        throw new Error(`Erro ao salvar mensagem: ${insertError.message}`);
+      }
+
+      await supabase
+        .from('clientes')
+        .update({ ultima_interacao: new Date().toISOString() })
+        .eq('telefone', to);
     }
-
-    // Atualizar última interação
-    await supabase
-      .from('clientes')
-      .update({ ultima_interacao: new Date().toISOString() })
-      .eq('telefone', to);
 
     return new Response(
       JSON.stringify({ success: true, messageSid: twilioData.sid, dentroJanela24h }),

@@ -117,143 +117,260 @@ serve(async (req) => {
       });
     }
 
-    // Verificar duplicidade por message_sid
-    if (messageSid) {
-      const { data: existing } = await supabase
-        .from("mensagens")
-        .select("id")
-        .eq("message_sid", messageSid)
+    // ========== ROTEAMENTO: Prestadores vs Clientes ==========
+    // Determinar qual número da 24help recebeu/enviou a mensagem
+    const numeroDestino = isBotMessage ? from : to;
+    const isPrestadorRoute = isPrestadoresNumber(numeroDestino);
+
+    if (isPrestadorRoute) {
+      console.log(`[${requestId}] 🔧 ROTA PRESTADORES - número: ${numeroDestino}`);
+
+      // Verificar duplicidade em mensagens_prestadores
+      if (messageSid) {
+        const { data: existing } = await supabase
+          .from("mensagens_prestadores")
+          .select("id")
+          .eq("message_sid", messageSid)
+          .maybeSingle();
+
+        if (existing) {
+          console.log(`[${requestId}] ⚠️ Mensagem prestador já existe (SID: ${messageSid}), ignorando`);
+          return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+            headers: { ...corsHeaders, "Content-Type": "text/xml" },
+          });
+        }
+      }
+
+      // Buscar ou criar prestador_chat
+      let { data: prestadorChat } = await supabase
+        .from("prestadores_chat")
+        .select("telefone, nome, cpf")
+        .eq("telefone", clienteTelefone)
         .maybeSingle();
 
-      if (existing) {
-        console.log(`[${requestId}] ⚠️ Mensagem já existe (SID: ${messageSid}), ignorando`);
+      if (!prestadorChat && isClientMessage) {
+        // Tentar encontrar nome do prestador na tabela prestadores
+        const phoneDigits = clienteTelefone.replace("whatsapp:", "").replace("+", "").replace("55", "");
+        const { data: prestadorCadastrado } = await supabase
+          .from("prestadores")
+          .select("nome, cpf, telefone")
+          .or(`telefone.ilike.%${phoneDigits}`)
+          .limit(1)
+          .maybeSingle();
+
+        const profileName = formData.get("ProfileName") as string;
+        const nomePrestador = prestadorCadastrado?.nome || profileName || clienteTelefone.replace("whatsapp:", "").replace("+", "");
+
+        console.log(`[${requestId}] 🆕 Criando prestador_chat: ${clienteTelefone} (nome: ${nomePrestador})`);
+        const { data: novoPrestador, error: createError } = await supabase
+          .from("prestadores_chat")
+          .insert({
+            telefone: clienteTelefone,
+            nome: nomePrestador,
+            cpf: prestadorCadastrado?.cpf || null,
+            status_conversa: "aberta",
+            ultima_interacao: new Date().toISOString(),
+            tags: [],
+            numero_twilio: numeroDestino,
+          })
+          .select("telefone, nome, cpf")
+          .single();
+
+        if (createError) {
+          console.error(`[${requestId}] ❌ Erro ao criar prestador_chat:`, createError);
+        } else {
+          prestadorChat = novoPrestador;
+        }
+      }
+
+      if (!prestadorChat) {
+        console.log(`[${requestId}] ⚠️ Prestador chat não encontrado: ${clienteTelefone}`);
         return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
           headers: { ...corsHeaders, "Content-Type": "text/xml" },
         });
       }
-    }
 
-    // Buscar ou criar cliente pelo telefone correto
-    let { data: cliente } = await supabase
-      .from("clientes")
-      .select("telefone")
-      .eq("telefone", clienteTelefone)
-      .maybeSingle();
+      // Determinar tipo de mídia
+      let tipo = "texto";
+      let arquivoUrl: string | null = null;
+      if (numMedia > 0) {
+        const mediaContentType = formData.get("MediaContentType0") as string || "";
+        const mediaUrl = formData.get("MediaUrl0") as string || "";
+        if (mediaContentType.startsWith("image/")) tipo = "imagem";
+        else if (mediaContentType.startsWith("video/")) tipo = "video";
+        else if (mediaContentType.startsWith("audio/")) tipo = "audio";
+        else tipo = "arquivo";
+        arquivoUrl = mediaUrl || null;
+      }
 
-    if (!cliente && isClientMessage) {
-      // Criar cliente automaticamente para mensagens de clientes novos
-      const profileName = formData.get("ProfileName") as string;
-      const nomeCliente = profileName || clienteTelefone.replace("whatsapp:", "").replace("+", "");
-      console.log(`[${requestId}] 🆕 Criando novo cliente: ${clienteTelefone} (nome: ${nomeCliente})`);
-      const { data: novoCliente, error: createError } = await supabase
-        .from("clientes")
-        .insert({
-          telefone: clienteTelefone,
-          nome: nomeCliente,
-          status_conversa: "aberta",
-          ultima_interacao: new Date().toISOString(),
-          tags: [],
-        })
-        .select("telefone")
-        .single();
+      const realDateSent = messageSid ? await fetchTwilioMessageDate(messageSid, requestId) : null;
+      const dataHora = realDateSent || new Date().toISOString();
 
-      if (createError) {
-        console.error(`[${requestId}] ❌ Erro ao criar cliente:`, createError);
+      const mensagemPrestador = {
+        prestador_telefone: prestadorChat.telefone,
+        remetente: remetente,
+        texto: body || (numMedia > 0 ? `Arquivo ${numMedia}` : ""),
+        tipo,
+        arquivo_url: arquivoUrl,
+        status: isClientMessage ? "recebido" : "enviado",
+        data_hora: dataHora,
+        numero_twilio: numeroDestino,
+        message_sid: messageSid,
+      };
+
+      const { error: saveError } = await supabase.from("mensagens_prestadores").insert(mensagemPrestador);
+
+      if (saveError) {
+        console.error(`[${requestId}] ❌ Erro ao salvar msg prestador:`, saveError);
       } else {
-        cliente = novoCliente;
+        console.log(`[${requestId}] ✅ Mensagem prestador salva com sucesso!`);
+        if (isClientMessage) {
+          await supabase
+            .from("prestadores_chat")
+            .update({ ultima_interacao: new Date().toISOString() })
+            .eq("telefone", prestadorChat.telefone);
+        }
       }
-    }
 
-    if (!cliente) {
-      console.log(`[${requestId}] ⚠️ Cliente não encontrado: ${clienteTelefone}`);
-      return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
-        headers: { ...corsHeaders, "Content-Type": "text/xml" },
-      });
-    }
-
-    // Buscar ficha ativa
-    const { data: ficha } = await supabase
-      .from("fichas_de_servico")
-      .select("id")
-      .eq("telefone_cliente", cliente.telefone)
-      .eq("status", "Agendado")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // Determinar tipo de mídia
-    let tipo = "texto";
-    let arquivoUrl: string | null = null;
-
-    if (numMedia > 0) {
-      const mediaContentType = formData.get("MediaContentType0") as string || "";
-      const mediaUrl = formData.get("MediaUrl0") as string || "";
-
-      if (mediaContentType.startsWith("image/")) tipo = "imagem";
-      else if (mediaContentType.startsWith("video/")) tipo = "video";
-      else if (mediaContentType.startsWith("audio/")) tipo = "audio";
-      else tipo = "arquivo";
-
-      arquivoUrl = mediaUrl || null;
-      console.log(`[${requestId}] 📎 Mídia: tipo=${tipo}, url=${arquivoUrl?.substring(0, 50)}...`);
-    }
-
-    // Buscar timestamp real da Twilio
-    const realDateSent = messageSid ? await fetchTwilioMessageDate(messageSid, requestId) : null;
-    const dataHora = realDateSent || new Date().toISOString();
-
-    // Salvar mensagem
-    const mensagem = {
-      cliente_id: cliente.telefone,  // ✅ Sempre o telefone do CLIENTE
-      remetente: remetente,           // ✅ Quem enviou (bot ou cliente)
-      texto: body || (numMedia > 0 ? `Arquivo ${numMedia}` : ""),
-      tipo,
-      arquivo_url: arquivoUrl,
-      status: isClientMessage ? "recebido" : "enviado",
-      data_hora: dataHora,
-      ficha_id: ficha?.id || null,
-      message_sid: messageSid,
-      reply_to_message_id: null,
-    };
-
-    console.log(`[${requestId}] 💾 Salvando: cliente_id=${mensagem.cliente_id}, remetente=${mensagem.remetente}, status=${mensagem.status}`);
-
-    const { error: saveError } = await supabase.from("mensagens").insert(mensagem);
-
-    if (saveError) {
-      console.error(`[${requestId}] ❌ Erro ao salvar:`, saveError);
-
-      await supabase.from("webhook_debug_logs").insert({
-        timestamp: new Date().toISOString(),
-        source: "twilio_webhook",
-        event_type: "save_error",
-        message_sid: messageSid,
-        client_phone: clienteTelefone,
-        success: false,
-        error_message: saveError.message,
-        step: "SAVE_ERROR",
-      });
     } else {
-      console.log(`[${requestId}] ✅ Mensagem salva com sucesso! (${isBotMessage ? 'bot' : 'cliente'})`);
+      // ========== ROTA CLIENTES (lógica 100% original) ==========
 
-      // Atualizar ultima_interacao do cliente quando ele envia mensagem
-      if (isClientMessage) {
-        await supabase
-          .from("clientes")
-          .update({ ultima_interacao: new Date().toISOString() })
-          .eq("telefone", cliente.telefone);
+      // Verificar duplicidade por message_sid
+      if (messageSid) {
+        const { data: existing } = await supabase
+          .from("mensagens")
+          .select("id")
+          .eq("message_sid", messageSid)
+          .maybeSingle();
+
+        if (existing) {
+          console.log(`[${requestId}] ⚠️ Mensagem já existe (SID: ${messageSid}), ignorando`);
+          return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+            headers: { ...corsHeaders, "Content-Type": "text/xml" },
+          });
+        }
       }
 
-      await supabase.from("webhook_debug_logs").insert({
-        timestamp: new Date().toISOString(),
-        source: "twilio_webhook",
-        event_type: isBotMessage ? "bot_message_saved" : "client_message_saved",
+      // Buscar ou criar cliente pelo telefone correto
+      let { data: cliente } = await supabase
+        .from("clientes")
+        .select("telefone")
+        .eq("telefone", clienteTelefone)
+        .maybeSingle();
+
+      if (!cliente && isClientMessage) {
+        const profileName = formData.get("ProfileName") as string;
+        const nomeCliente = profileName || clienteTelefone.replace("whatsapp:", "").replace("+", "");
+        console.log(`[${requestId}] 🆕 Criando novo cliente: ${clienteTelefone} (nome: ${nomeCliente})`);
+        const { data: novoCliente, error: createError } = await supabase
+          .from("clientes")
+          .insert({
+            telefone: clienteTelefone,
+            nome: nomeCliente,
+            status_conversa: "aberta",
+            ultima_interacao: new Date().toISOString(),
+            tags: [],
+          })
+          .select("telefone")
+          .single();
+
+        if (createError) {
+          console.error(`[${requestId}] ❌ Erro ao criar cliente:`, createError);
+        } else {
+          cliente = novoCliente;
+        }
+      }
+
+      if (!cliente) {
+        console.log(`[${requestId}] ⚠️ Cliente não encontrado: ${clienteTelefone}`);
+        return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+          headers: { ...corsHeaders, "Content-Type": "text/xml" },
+        });
+      }
+
+      // Buscar ficha ativa
+      const { data: ficha } = await supabase
+        .from("fichas_de_servico")
+        .select("id")
+        .eq("telefone_cliente", cliente.telefone)
+        .eq("status", "Agendado")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Determinar tipo de mídia
+      let tipo = "texto";
+      let arquivoUrl: string | null = null;
+
+      if (numMedia > 0) {
+        const mediaContentType = formData.get("MediaContentType0") as string || "";
+        const mediaUrl = formData.get("MediaUrl0") as string || "";
+
+        if (mediaContentType.startsWith("image/")) tipo = "imagem";
+        else if (mediaContentType.startsWith("video/")) tipo = "video";
+        else if (mediaContentType.startsWith("audio/")) tipo = "audio";
+        else tipo = "arquivo";
+
+        arquivoUrl = mediaUrl || null;
+        console.log(`[${requestId}] 📎 Mídia: tipo=${tipo}, url=${arquivoUrl?.substring(0, 50)}...`);
+      }
+
+      // Buscar timestamp real da Twilio
+      const realDateSent = messageSid ? await fetchTwilioMessageDate(messageSid, requestId) : null;
+      const dataHora = realDateSent || new Date().toISOString();
+
+      // Salvar mensagem
+      const mensagem = {
+        cliente_id: cliente.telefone,
+        remetente: remetente,
+        texto: body || (numMedia > 0 ? `Arquivo ${numMedia}` : ""),
+        tipo,
+        arquivo_url: arquivoUrl,
+        status: isClientMessage ? "recebido" : "enviado",
+        data_hora: dataHora,
+        ficha_id: ficha?.id || null,
         message_sid: messageSid,
-        client_phone: clienteTelefone,
-        success: true,
-        error_message: null,
-        step: "SAVED",
-      });
+        reply_to_message_id: null,
+      };
+
+      console.log(`[${requestId}] 💾 Salvando: cliente_id=${mensagem.cliente_id}, remetente=${mensagem.remetente}, status=${mensagem.status}`);
+
+      const { error: saveError } = await supabase.from("mensagens").insert(mensagem);
+
+      if (saveError) {
+        console.error(`[${requestId}] ❌ Erro ao salvar:`, saveError);
+
+        await supabase.from("webhook_debug_logs").insert({
+          timestamp: new Date().toISOString(),
+          source: "twilio_webhook",
+          event_type: "save_error",
+          message_sid: messageSid,
+          client_phone: clienteTelefone,
+          success: false,
+          error_message: saveError.message,
+          step: "SAVE_ERROR",
+        });
+      } else {
+        console.log(`[${requestId}] ✅ Mensagem salva com sucesso! (${isBotMessage ? 'bot' : 'cliente'})`);
+
+        if (isClientMessage) {
+          await supabase
+            .from("clientes")
+            .update({ ultima_interacao: new Date().toISOString() })
+            .eq("telefone", cliente.telefone);
+        }
+
+        await supabase.from("webhook_debug_logs").insert({
+          timestamp: new Date().toISOString(),
+          source: "twilio_webhook",
+          event_type: isBotMessage ? "bot_message_saved" : "client_message_saved",
+          message_sid: messageSid,
+          client_phone: clienteTelefone,
+          success: true,
+          error_message: null,
+          step: "SAVED",
+        });
+      }
     }
 
     return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
