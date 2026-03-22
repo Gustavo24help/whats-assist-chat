@@ -193,7 +193,7 @@ serve(async (req) => {
     
     const body = new URLSearchParams();
     body.append('To', to);
-    body.append('From', fromNumber);
+    body.append('From', sendFromNumber);
     if (message) {
       body.append('Body', message);
     }
