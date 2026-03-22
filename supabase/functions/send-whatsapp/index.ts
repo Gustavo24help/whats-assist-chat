@@ -77,7 +77,11 @@ serve(async (req) => {
     }
 
     // Determinar número de envio (padrão = número de clientes)
-    const isPrestadorMessage = !!fromNumber && fromNumber === twilioPhoneNumber2;
+    // Frontend pode enviar "TWILIO_PHONE_NUMBER_2" como indicador ou o número real
+    const isPrestadorMessage = !!fromNumber && (
+      fromNumber === "TWILIO_PHONE_NUMBER_2" || 
+      fromNumber === twilioPhoneNumber2
+    );
     const activePhoneNumber = isPrestadorMessage ? twilioPhoneNumber2 : twilioPhoneNumber;
 
     const supabase = createClient(supabaseUrl, supabaseKey);
