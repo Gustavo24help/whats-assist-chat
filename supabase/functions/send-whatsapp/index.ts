@@ -82,8 +82,8 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ========== PROTEÇÃO: Bloquear mensagens do bot se estiver desabilitado ==========
-    if (remetente === 'bot') {
+    // ========== PROTEÇÃO: Bloquear mensagens do bot se estiver desabilitado (só para clientes) ==========
+    if (remetente === 'bot' && !isPrestadorMessage) {
       const { data: clienteBot } = await supabase
         .from('clientes')
         .select('bot_habilitado')
