@@ -1,0 +1,325 @@
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Send, Paperclip, ArrowLeft, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { AudioPlayer } from "@/components/AudioPlayer";
+import { format, isToday, isYesterday, isSameDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { FichaVinculoSelector } from "./FichaVinculoSelector";
+
+const NUMERO_PRESTADORES = import.meta.env.VITE_TWILIO_PHONE_NUMBER_2 || "";
+
+interface Mensagem {
+  id: string;
+  texto: string | null;
+  tipo: "texto" | "arquivo" | "imagem" | "video" | "audio";
+  arquivo_url: string | null;
+  data_hora: string | null;
+  remetente: string;
+  status: "enviado" | "recebido" | "lido";
+  message_sid?: string | null;
+  ficha_id?: string | null;
+  enviado_por_id?: string | null;
+}
+
+interface ChatWindowPrestadoresProps {
+  prestadorTelefone: string;
+  prestadorNome: string;
+  prestadorCpf?: string | null;
+  onBack: () => void;
+}
+
+// Check if sender is the system (our numbers)
+const isAtendente = (remetente: string): boolean => {
+  const systemPrefixes = ["whatsapp:+554138911555", "whatsapp:+14155238886", "whatsapp:+554138910814"];
+  return systemPrefixes.some((prefix) => remetente.startsWith(prefix)) || remetente === "atendente" || remetente === "bot";
+};
+
+export const ChatWindowPrestadores = ({
+  prestadorTelefone,
+  prestadorNome,
+  prestadorCpf,
+  onBack,
+}: ChatWindowPrestadoresProps) => {
+  const { user } = useAuth();
+  const [mensagens, setMensagens] = useState<Mensagem[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const fetchMessages = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("mensagens_prestadores")
+      .select("*")
+      .eq("prestador_telefone", prestadorTelefone)
+      .order("data_hora", { ascending: true });
+
+    if (error) {
+      console.error("Erro ao buscar mensagens:", error);
+      return;
+    }
+
+    setMensagens((data as Mensagem[]) || []);
+    setLoading(false);
+    setTimeout(scrollToBottom, 100);
+  }, [prestadorTelefone, scrollToBottom]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  // Realtime
+  useEffect(() => {
+    const channel = supabase
+      .channel(`prestador_msgs_${prestadorTelefone}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "mensagens_prestadores",
+          filter: `prestador_telefone=eq.${prestadorTelefone}`,
+        },
+        (payload) => {
+          setMensagens((prev) => [...prev, payload.new as Mensagem]);
+          setTimeout(scrollToBottom, 100);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [prestadorTelefone, scrollToBottom]);
+
+  // Mark as read when opening
+  useEffect(() => {
+    supabase
+      .from("prestadores_chat")
+      .update({ marcado_nao_lido: false })
+      .eq("telefone", prestadorTelefone)
+      .then();
+  }, [prestadorTelefone]);
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || sending) return;
+    setSending(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            to: prestadorTelefone,
+            message: newMessage.trim(),
+            fromNumber: "TWILIO_PHONE_NUMBER_2",
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.error === "FORA_JANELA_24H") {
+        toast.error("Fora da janela de 24h. Use um template aprovado.");
+        return;
+      }
+
+      if (!result.success) {
+        toast.error(result.message || "Erro ao enviar mensagem");
+        return;
+      }
+
+      setNewMessage("");
+      textareaRef.current?.focus();
+    } catch (error) {
+      console.error("Erro ao enviar:", error);
+      toast.error("Erro ao enviar mensagem");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const filePath = `prestadores/${prestadorTelefone}/${Date.now()}_${file.name}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("chat-files")
+      .upload(filePath, file);
+
+    if (uploadError) {
+      toast.error("Erro ao enviar arquivo");
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("chat-files")
+      .getPublicUrl(filePath);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          to: prestadorTelefone,
+          message: "",
+          mediaUrl: urlData.publicUrl,
+          fromNumber: "TWILIO_PHONE_NUMBER_2",
+        }),
+      }
+    );
+  };
+
+  const formatDateSeparator = (dateStr: string) => {
+    const date = new Date(dateStr);
+    if (isToday(date)) return "Hoje";
+    if (isYesterday(date)) return "Ontem";
+    return format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  };
+
+  const renderMessage = (msg: Mensagem, index: number) => {
+    const isSystem = isAtendente(msg.remetente);
+    const showDateSeparator =
+      index === 0 ||
+      !isSameDay(new Date(msg.data_hora || ""), new Date(mensagens[index - 1]?.data_hora || ""));
+
+    return (
+      <React.Fragment key={msg.id}>
+        {showDateSeparator && msg.data_hora && (
+          <div className="flex justify-center my-3">
+            <span className="bg-muted px-3 py-1 rounded-full text-xs text-muted-foreground">
+              {formatDateSeparator(msg.data_hora)}
+            </span>
+          </div>
+        )}
+        <div className={cn("flex mb-2", isSystem ? "justify-end" : "justify-start")}>
+          <div
+            className={cn(
+              "max-w-[75%] rounded-2xl px-4 py-2 text-sm",
+              isSystem
+                ? "bg-primary text-primary-foreground rounded-br-md"
+                : "bg-muted text-foreground rounded-bl-md"
+            )}
+          >
+            {msg.tipo === "imagem" && msg.arquivo_url && (
+              <img src={msg.arquivo_url} alt="Imagem" className="max-w-full rounded-lg mb-1" />
+            )}
+            {msg.tipo === "audio" && msg.arquivo_url && (
+              <AudioPlayer src={msg.arquivo_url} />
+            )}
+            {msg.tipo === "video" && msg.arquivo_url && (
+              <video src={msg.arquivo_url} controls className="max-w-full rounded-lg mb-1" />
+            )}
+            {msg.tipo === "arquivo" && msg.arquivo_url && (
+              <a href={msg.arquivo_url} target="_blank" rel="noopener noreferrer" className="underline">
+                📎 Arquivo
+              </a>
+            )}
+            {msg.texto && <p className="whitespace-pre-wrap break-words">{msg.texto}</p>}
+            {msg.data_hora && (
+              <p className={cn("text-[10px] mt-1", isSystem ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                {format(new Date(msg.data_hora), "HH:mm")}
+              </p>
+            )}
+          </div>
+        </div>
+      </React.Fragment>
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="border-b bg-background p-3 flex items-center gap-3 shrink-0">
+        <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm truncate">{prestadorNome}</h3>
+          <p className="text-xs text-muted-foreground truncate">
+            {prestadorTelefone.replace("whatsapp:", "")}
+            {prestadorCpf && ` · CPF: ${prestadorCpf}`}
+          </p>
+        </div>
+        <FichaVinculoSelector prestadorTelefone={prestadorTelefone} />
+      </div>
+
+      {/* Messages */}
+      <ScrollArea className="flex-1 p-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : mensagens.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+            Nenhuma mensagem ainda
+          </div>
+        ) : (
+          mensagens.map((msg, i) => renderMessage(msg, i))
+        )}
+        <div ref={messagesEndRef} />
+      </ScrollArea>
+
+      {/* Input */}
+      <div className="border-t bg-background p-3 shrink-0">
+        <div className="flex items-end gap-2">
+          <label className="cursor-pointer">
+            <input type="file" className="hidden" onChange={handleFileUpload} />
+            <Paperclip className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
+          </label>
+          <Textarea
+            ref={textareaRef}
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Digite uma mensagem..."
+            className="min-h-[40px] max-h-[120px] resize-none flex-1"
+            rows={1}
+          />
+          <Button
+            size="icon"
+            onClick={handleSend}
+            disabled={!newMessage.trim() || sending}
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
