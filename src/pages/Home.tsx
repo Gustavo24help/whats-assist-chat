@@ -106,6 +106,26 @@ const Home = () => {
           </button>
 
           <button
+            onClick={() => navigate("/chat-prestadores")}
+            className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-yellow/30 animate-slide-up"
+            style={{ animationDelay: "0.15s" }}
+          >
+            <div className="icon-container brand-yellow mb-6">
+              <Wrench className="h-7 w-7" />
+            </div>
+            <h2 className="text-2xl font-semibold text-foreground mb-2 group-hover:text-brand-yellow transition-colors">
+              Chat Prestadores
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Atendimento WhatsApp dedicado aos prestadores de serviço.
+            </p>
+            <div className="flex items-center text-brand-yellow font-medium">
+              Acessar
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </button>
+
+          <button
             onClick={() => navigate("/dashboard")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-yellow/30 animate-slide-up"
             style={{ animationDelay: "0.2s" }}

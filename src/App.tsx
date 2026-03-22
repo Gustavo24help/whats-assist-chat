@@ -34,6 +34,7 @@ import Planilha from "./pages/Planilha";
 import PlanilhaControleFinanceiro from "./pages/PlanilhaControleFinanceiro";
 import PlanilhaControlePagamentos from "./pages/PlanilhaControlePagamentos";
 import Calendario from "./pages/Calendario";
+import ChatPrestadores from "./pages/ChatPrestadores";
 
 const queryClient = new QueryClient();
 
@@ -230,6 +231,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Calendario />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/chat-prestadores"
+                element={
+                  <ProtectedRoute>
+                    <ChatPrestadores />
                   </ProtectedRoute>
                 }
               />

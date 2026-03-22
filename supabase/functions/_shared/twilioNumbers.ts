@@ -14,6 +14,7 @@ export const getManagedWhatsappNumbers = () => {
   const envNumbers = [
     Deno.env.get("TWILIO_PHONE_NUMBER"),
     Deno.env.get("TWILIO_SANDBOX_NUMBER"),
+    Deno.env.get("TWILIO_PHONE_NUMBER_2"),
     ...(Deno.env.get("TWILIO_PHONE_NUMBERS")?.split(",") ?? []),
   ];
 
@@ -30,3 +31,9 @@ export const isManagedWhatsappNumber = (
   value?: string | null,
   managedNumbers = getManagedWhatsappNumbers(),
 ) => managedNumbers.includes(normalizeWhatsappNumber(value));
+
+export const getNumeroPrestadores = () =>
+  normalizeWhatsappNumber(Deno.env.get("TWILIO_PHONE_NUMBER_2"));
+
+export const isPrestadoresNumber = (value?: string | null) =>
+  normalizeWhatsappNumber(value) === getNumeroPrestadores();
