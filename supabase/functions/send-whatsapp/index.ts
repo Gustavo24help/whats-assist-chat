@@ -187,9 +187,9 @@ serve(async (req) => {
 
     // Enviar via Twilio
     const auth = btoa(`${twilioAccountSid}:${twilioAuthToken}`);
-    const fromNumber = to.startsWith('whatsapp:') && !twilioPhoneNumber.startsWith('whatsapp:') 
-      ? `whatsapp:${twilioPhoneNumber}` 
-      : twilioPhoneNumber;
+    const sendFromNumber = to.startsWith('whatsapp:') && !activePhoneNumber!.startsWith('whatsapp:') 
+      ? `whatsapp:${activePhoneNumber}` 
+      : activePhoneNumber!;
     
     const body = new URLSearchParams();
     body.append('To', to);
