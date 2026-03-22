@@ -104,47 +104,85 @@ serve(async (req) => {
       }
     }
 
-    // Verificar janela de 24h usando o histórico real de mensagens do cliente
-    const { data: cliente } = await supabase
-      .from('clientes')
-      .select('ultima_interacao')
-      .eq('telefone', to)
-      .single();
+    // ========== Verificar janela de 24h ==========
+    if (isPrestadorMessage) {
+      // Para prestadores, verificar janela usando mensagens_prestadores
+      const { data: prestadorChat } = await supabase
+        .from('prestadores_chat')
+        .select('ultima_interacao')
+        .eq('telefone', to)
+        .single();
 
-    const { data: recentMessages, error: recentMessagesError } = await supabase
-      .from('mensagens')
-      .select('data_hora, remetente')
-      .eq('cliente_id', to)
-      .not('data_hora', 'is', null)
-      .order('data_hora', { ascending: false })
-      .limit(20);
+      const { data: recentMsgsPrest } = await supabase
+        .from('mensagens_prestadores')
+        .select('data_hora, remetente')
+        .eq('prestador_telefone', to)
+        .not('data_hora', 'is', null)
+        .order('data_hora', { ascending: false })
+        .limit(20);
 
-    if (recentMessagesError) {
-      console.warn('[send-whatsapp] Erro ao buscar histórico recente:', recentMessagesError.message);
-    }
-
-    const ultimaMensagemCliente = recentMessages?.find(
-      (msg) => msg.data_hora && (msg.remetente === 'cliente' || msg.remetente === to)
-    );
-
-    const now = new Date();
-    const referenciaJanela24h = ultimaMensagemCliente?.data_hora ?? cliente?.ultima_interacao ?? null;
-    const ultimaInteracao = referenciaJanela24h ? new Date(referenciaJanela24h) : null;
-    const diferencaHoras = ultimaInteracao
-      ? (now.getTime() - ultimaInteracao.getTime()) / (1000 * 60 * 60)
-      : 25;
-
-    const dentroJanela24h = diferencaHoras < 24;
-
-    if (!dentroJanela24h) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'FORA_JANELA_24H',
-          message: 'Conversa fora da janela de 24h. Use um template aprovado.'
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      const ultimaMsgPrest = recentMsgsPrest?.find(
+        (msg) => msg.data_hora && !msg.remetente?.startsWith('whatsapp:+5541389')
       );
+
+      const now = new Date();
+      const refJanela = ultimaMsgPrest?.data_hora ?? prestadorChat?.ultima_interacao ?? null;
+      const ultimaInt = refJanela ? new Date(refJanela) : null;
+      const diffHoras = ultimaInt ? (now.getTime() - ultimaInt.getTime()) / (1000 * 60 * 60) : 25;
+
+      if (diffHoras >= 24) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'FORA_JANELA_24H',
+            message: 'Conversa fora da janela de 24h. Use um template aprovado.'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      // Para clientes, lógica original
+      const { data: cliente } = await supabase
+        .from('clientes')
+        .select('ultima_interacao')
+        .eq('telefone', to)
+        .single();
+
+      const { data: recentMessages, error: recentMessagesError } = await supabase
+        .from('mensagens')
+        .select('data_hora, remetente')
+        .eq('cliente_id', to)
+        .not('data_hora', 'is', null)
+        .order('data_hora', { ascending: false })
+        .limit(20);
+
+      if (recentMessagesError) {
+        console.warn('[send-whatsapp] Erro ao buscar histórico recente:', recentMessagesError.message);
+      }
+
+      const ultimaMensagemCliente = recentMessages?.find(
+        (msg) => msg.data_hora && (msg.remetente === 'cliente' || msg.remetente === to)
+      );
+
+      const now = new Date();
+      const referenciaJanela24h = ultimaMensagemCliente?.data_hora ?? cliente?.ultima_interacao ?? null;
+      const ultimaInteracao = referenciaJanela24h ? new Date(referenciaJanela24h) : null;
+      const diferencaHoras = ultimaInteracao
+        ? (now.getTime() - ultimaInteracao.getTime()) / (1000 * 60 * 60)
+        : 25;
+
+      const dentroJanela24h = diferencaHoras < 24;
+
+      if (!dentroJanela24h) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'FORA_JANELA_24H',
+            message: 'Conversa fora da janela de 24h. Use um template aprovado.'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Enviar via Twilio
