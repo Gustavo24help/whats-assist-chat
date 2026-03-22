@@ -70,10 +70,15 @@ serve(async (req) => {
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
     const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
+    const twilioPhoneNumber2 = Deno.env.get('TWILIO_PHONE_NUMBER_2');
 
     if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
       throw new Error('Credenciais Twilio não configuradas');
     }
+
+    // Determinar número de envio (padrão = número de clientes)
+    const isPrestadorMessage = !!fromNumber && fromNumber === twilioPhoneNumber2;
+    const activePhoneNumber = isPrestadorMessage ? twilioPhoneNumber2 : twilioPhoneNumber;
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
