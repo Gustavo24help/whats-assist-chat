@@ -260,106 +260,202 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        if (msgTwilio.sid) {
-          const { data: existente } = await supabase
-            .from("mensagens")
-            .select("id")
-            .eq("message_sid", msgTwilio.sid)
+        // Determinar qual número gerenciado está envolvido
+        const numeroGerenciado = isOutgoing ? from : to;
+        const isPrestadorRoute = isPrestadoresNumber(numeroGerenciado);
+
+        if (isPrestadorRoute) {
+          // ========== ROTA PRESTADORES ==========
+          if (msgTwilio.sid) {
+            const { data: existente } = await supabase
+              .from("mensagens_prestadores")
+              .select("id")
+              .eq("message_sid", msgTwilio.sid)
+              .maybeSingle();
+
+            if (existente) {
+              mensagensJaExistem++;
+              continue;
+            }
+          }
+
+          // Buscar ou criar prestador_chat
+          let { data: prestadorChat } = await supabase
+            .from("prestadores_chat")
+            .select("telefone, nome, cpf")
+            .eq("telefone", telefoneCliente)
             .maybeSingle();
 
-          if (existente) {
-            mensagensJaExistem++;
-            continue;
+          if (!prestadorChat) {
+            // Tentar encontrar nome na tabela prestadores
+            const phoneDigits = telefoneCliente.replace("whatsapp:", "").replace("+", "").replace("55", "");
+            const { data: prestadorCadastrado } = await supabase
+              .from("prestadores")
+              .select("nome, cpf, telefone")
+              .or(`telefone.ilike.%${phoneDigits}`)
+              .limit(1)
+              .maybeSingle();
+
+            const nomePrestador = prestadorCadastrado?.nome || telefoneCliente.replace("whatsapp:", "").replace("+", "");
+
+            const { data: novoPrestador, error: createError } = await supabase
+              .from("prestadores_chat")
+              .insert({
+                telefone: telefoneCliente,
+                nome: nomePrestador,
+                cpf: prestadorCadastrado?.cpf || null,
+                status_conversa: "aberta",
+                ultima_interacao: new Date().toISOString(),
+                tags: [],
+                numero_twilio: numeroGerenciado,
+              })
+              .select("telefone, nome, cpf")
+              .single();
+
+            if (createError) {
+              erros++;
+              errosDetalhados.push(`Prestador ${telefoneCliente}: ${createError.message}`);
+              continue;
+            }
+            prestadorChat = novoPrestador;
           }
-        }
 
-        let { data: cliente } = await supabase
-          .from("clientes")
-          .select("telefone, nome, ficha_ativa_id")
-          .eq("telefone", telefoneCliente)
-          .maybeSingle();
+          const mediaInfo = await fetchMessageMedia(msgTwilio, authHeader, twilioAccountSid);
+          const rawDate = msgTwilio.date_sent || msgTwilio.date_created || msgTwilio.date_updated;
+          const parsedDate = rawDate ? new Date(rawDate) : new Date();
+          const dataHora = isValidDate(parsedDate) ? parsedDate.toISOString() : new Date().toISOString();
+          const texto = String(msgTwilio.body || mediaInfo.textoFallback || "");
 
-        if (!cliente) {
-          const nomeCliente = telefoneCliente.replace("whatsapp:", "").replace("+", "");
-          const { data: novoCliente, error: createClienteError } = await supabase
-            .from("clientes")
+          const { error: insertError } = await supabase
+            .from("mensagens_prestadores")
             .insert({
-              telefone: telefoneCliente,
-              nome: nomeCliente,
-              status_conversa: "aberta",
-              ultima_interacao: new Date().toISOString(),
-              tags: [],
-            })
-            .select("telefone, nome, ficha_ativa_id")
-            .single();
+              prestador_telefone: telefoneCliente,
+              remetente: isOutgoing ? from : telefoneCliente,
+              texto,
+              tipo: mediaInfo.tipo,
+              arquivo_url: mediaInfo.arquivoUrl,
+              status: isOutgoing ? "enviado" : "recebido",
+              data_hora: dataHora,
+              numero_twilio: numeroGerenciado,
+              message_sid: msgTwilio.sid || null,
+            });
 
-          if (createClienteError) {
-            erros++;
-            errosDetalhados.push(`Cliente ${telefoneCliente}: ${createClienteError.message}`);
-            continue;
+          if (insertError) {
+            throw insertError;
           }
 
-          cliente = novoCliente;
-        }
+          if (!isOutgoing) {
+            await supabase
+              .from("prestadores_chat")
+              .update({ ultima_interacao: dataHora })
+              .eq("telefone", telefoneCliente);
+          }
 
-        const mediaInfo = await fetchMessageMedia(msgTwilio, authHeader, twilioAccountSid);
-        const rawDate = msgTwilio.date_sent || msgTwilio.date_created || msgTwilio.date_updated;
-        const parsedDate = rawDate ? new Date(rawDate) : new Date();
-        const dataHora = isValidDate(parsedDate) ? parsedDate.toISOString() : new Date().toISOString();
-        const texto = String(msgTwilio.body || mediaInfo.textoFallback || "");
+          mensagensNovas++;
 
-        const mensagemPayload = {
-          cliente_id: telefoneCliente,
-          remetente: isOutgoing ? from : telefoneCliente,
-          texto,
-          tipo: mediaInfo.tipo,
-          arquivo_url: mediaInfo.arquivoUrl,
-          status: isOutgoing ? "enviado" : "recebido",
-          data_hora: dataHora,
-          ficha_id: cliente?.ficha_ativa_id || null,
-          message_sid: msgTwilio.sid || null,
-          reply_to_message_id: null,
-        };
-
-        if (isOutgoing && msgTwilio.sid) {
-          const placeholder = await findOutgoingPlaceholder(
-            supabase,
-            telefoneCliente,
-            from,
-            dataHora,
-          );
-
-          if (placeholder) {
-            const { error: repairError } = await supabase
+        } else {
+          // ========== ROTA CLIENTES (lógica original) ==========
+          if (msgTwilio.sid) {
+            const { data: existente } = await supabase
               .from("mensagens")
-              .update(mensagemPayload)
-              .eq("id", placeholder.id);
+              .select("id")
+              .eq("message_sid", msgTwilio.sid)
+              .maybeSingle();
 
-            if (repairError) {
-              throw repairError;
+            if (existente) {
+              mensagensJaExistem++;
+              continue;
+            }
+          }
+
+          let { data: cliente } = await supabase
+            .from("clientes")
+            .select("telefone, nome, ficha_ativa_id")
+            .eq("telefone", telefoneCliente)
+            .maybeSingle();
+
+          if (!cliente) {
+            const nomeCliente = telefoneCliente.replace("whatsapp:", "").replace("+", "");
+            const { data: novoCliente, error: createClienteError } = await supabase
+              .from("clientes")
+              .insert({
+                telefone: telefoneCliente,
+                nome: nomeCliente,
+                status_conversa: "aberta",
+                ultima_interacao: new Date().toISOString(),
+                tags: [],
+              })
+              .select("telefone, nome, ficha_ativa_id")
+              .single();
+
+            if (createClienteError) {
+              erros++;
+              errosDetalhados.push(`Cliente ${telefoneCliente}: ${createClienteError.message}`);
+              continue;
             }
 
-            mensagensReparadas++;
-            continue;
+            cliente = novoCliente;
           }
+
+          const mediaInfo = await fetchMessageMedia(msgTwilio, authHeader, twilioAccountSid);
+          const rawDate = msgTwilio.date_sent || msgTwilio.date_created || msgTwilio.date_updated;
+          const parsedDate = rawDate ? new Date(rawDate) : new Date();
+          const dataHora = isValidDate(parsedDate) ? parsedDate.toISOString() : new Date().toISOString();
+          const texto = String(msgTwilio.body || mediaInfo.textoFallback || "");
+
+          const mensagemPayload = {
+            cliente_id: telefoneCliente,
+            remetente: isOutgoing ? from : telefoneCliente,
+            texto,
+            tipo: mediaInfo.tipo,
+            arquivo_url: mediaInfo.arquivoUrl,
+            status: isOutgoing ? "enviado" : "recebido",
+            data_hora: dataHora,
+            ficha_id: cliente?.ficha_ativa_id || null,
+            message_sid: msgTwilio.sid || null,
+            reply_to_message_id: null,
+          };
+
+          if (isOutgoing && msgTwilio.sid) {
+            const placeholder = await findOutgoingPlaceholder(
+              supabase,
+              telefoneCliente,
+              from,
+              dataHora,
+            );
+
+            if (placeholder) {
+              const { error: repairError } = await supabase
+                .from("mensagens")
+                .update(mensagemPayload)
+                .eq("id", placeholder.id);
+
+              if (repairError) {
+                throw repairError;
+              }
+
+              mensagensReparadas++;
+              continue;
+            }
+          }
+
+          const { error: insertError } = await supabase
+            .from("mensagens")
+            .insert(mensagemPayload);
+
+          if (insertError) {
+            throw insertError;
+          }
+
+          if (!isOutgoing) {
+            await supabase
+              .from("clientes")
+              .update({ ultima_interacao: dataHora })
+              .eq("telefone", telefoneCliente);
+          }
+
+          mensagensNovas++;
         }
-
-        const { error: insertError } = await supabase
-          .from("mensagens")
-          .insert(mensagemPayload);
-
-        if (insertError) {
-          throw insertError;
-        }
-
-        if (!isOutgoing) {
-          await supabase
-            .from("clientes")
-            .update({ ultima_interacao: dataHora })
-            .eq("telefone", telefoneCliente);
-        }
-
-        mensagensNovas++;
       } catch (err) {
         console.error("💥 Erro ao processar mensagem Twilio:", err);
         erros++;
