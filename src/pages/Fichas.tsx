@@ -181,7 +181,21 @@ const Fichas = () => {
                     {new Date(f.created_at).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                <div className="text-right shrink-0 ml-4">
+                <div className="text-right shrink-0 ml-4 flex items-center gap-2">
+                  {f.status === "Finalizado" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-orange-600 hover:bg-orange-50"
+                      title="Ajustar data de finalização"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAjustarFicha(f);
+                      }}
+                    >
+                      <CalendarCog className="h-4 w-4" />
+                    </Button>
+                  )}
                   <div className="font-bold text-sm">{formatMoeda(f.valor_total || 0)}</div>
                 </div>
               </div>
@@ -206,6 +220,15 @@ const Fichas = () => {
           </div>
         )}
       </main>
+
+      <AjustarDataFinalizacaoDialog
+        open={!!ajustarFicha}
+        onOpenChange={(open) => { if (!open) setAjustarFicha(null); }}
+        fichaId={ajustarFicha?.id || ""}
+        prestadorNome={ajustarFicha?.prestador_nome_resolved}
+        prestadorId={ajustarFicha?.prestador_id}
+        onAjustado={() => fetchFichas()}
+      />
     </div>
   );
 };
