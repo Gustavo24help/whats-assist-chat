@@ -1921,6 +1921,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           onEnviado={() => fetchFicha()}
         />
       )}
+
+      {ficha && ficha.status === 'Finalizado' && (
+        <AjustarDataFinalizacaoDialog
+          open={ajustarDataOpen}
+          onOpenChange={setAjustarDataOpen}
+          fichaId={fichaId}
+          prestadorNome={prestadores.find(p => p.cpf === ficha.prestador_id)?.nome}
+          prestadorId={ficha.prestador_id}
+          onAjustado={() => fetchFicha()}
+        />
+      )}
     </div>
   );
 };
