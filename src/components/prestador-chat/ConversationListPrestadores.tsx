@@ -170,10 +170,17 @@ export const ConversationListPrestadores = ({
               )}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="font-medium text-sm truncate flex-1">{prestador.nome}</span>
+                <span className="font-medium text-sm truncate flex-1">
+                  {/^\d+$/.test(prestador.nome) 
+                    ? `(${prestador.nome.replace(/^55(\d{2})/, '($1) ').replace(/(\d{4,5})(\d{4})$/, '$1-$2')})` 
+                    : prestador.nome}
+                </span>
                 <span className="text-xs text-muted-foreground ml-2">
                   {formatTime(prestador.ultima_interacao)}
                 </span>
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {prestador.telefone.replace("whatsapp:+", "+")}
               </div>
               {prestador.cpf && (
                 <div className="text-xs text-muted-foreground mb-1">CPF: {prestador.cpf}</div>
