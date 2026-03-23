@@ -190,6 +190,21 @@ serve(async (req) => {
         });
       }
 
+      // Update name from WhatsApp ProfileName if current name is just a phone number
+      if (isClientMessage && prestadorChat) {
+        const profileName = formData.get("ProfileName") as string;
+        const currentName = prestadorChat.nome || "";
+        const isNameJustNumber = /^\d+$/.test(currentName) || currentName.startsWith("whatsapp:");
+        if (profileName && isNameJustNumber) {
+          console.log(`[${requestId}] 📝 Atualizando nome prestador: ${currentName} → ${profileName}`);
+          await supabase
+            .from("prestadores_chat")
+            .update({ nome: profileName })
+            .eq("telefone", clienteTelefone);
+          prestadorChat.nome = profileName;
+        }
+      }
+
       // Determinar tipo de mídia
       let tipo = "texto";
       let arquivoUrl: string | null = null;
