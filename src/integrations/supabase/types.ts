@@ -64,6 +64,42 @@ export type Database = {
           },
         ]
       }
+      ajustes_data_finalizacao: {
+        Row: {
+          ajustado_por: string
+          created_at: string | null
+          data_anterior: string
+          data_nova: string
+          ficha_id: string
+          id: string
+          justificativa: string
+          prestador_id: string | null
+          prestador_nome: string | null
+        }
+        Insert: {
+          ajustado_por: string
+          created_at?: string | null
+          data_anterior: string
+          data_nova: string
+          ficha_id: string
+          id?: string
+          justificativa: string
+          prestador_id?: string | null
+          prestador_nome?: string | null
+        }
+        Update: {
+          ajustado_por?: string
+          created_at?: string | null
+          data_anterior?: string
+          data_nova?: string
+          ficha_id?: string
+          id?: string
+          justificativa?: string
+          prestador_id?: string | null
+          prestador_nome?: string | null
+        }
+        Relationships: []
+      }
       avaliacao_prestador: {
         Row: {
           classificacao: string | null
