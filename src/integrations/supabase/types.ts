@@ -1741,8 +1741,10 @@ export type Database = {
           data_pagamento_prevista: string
           data_pagamento_realizada: string | null
           ficha_id: string
+          ficha_troca_ref: string | null
           forma_pagamento_cliente: string | null
           id: string
+          justificativa_troca: string | null
           link_pagamento_asaas: string | null
           margem_operacional_real: number
           margem_percentual: number
@@ -1762,6 +1764,7 @@ export type Database = {
           taxa_visita: number
           tem_adiantamento: boolean | null
           tem_desconto: boolean | null
+          tipo_troca: string | null
           updated_at: string | null
           valor_a_pagar_prestador: number
           valor_cliente_calculado: number
@@ -1790,8 +1793,10 @@ export type Database = {
           data_pagamento_prevista: string
           data_pagamento_realizada?: string | null
           ficha_id: string
+          ficha_troca_ref?: string | null
           forma_pagamento_cliente?: string | null
           id?: string
+          justificativa_troca?: string | null
           link_pagamento_asaas?: string | null
           margem_operacional_real?: number
           margem_percentual?: number
@@ -1811,6 +1816,7 @@ export type Database = {
           taxa_visita?: number
           tem_adiantamento?: boolean | null
           tem_desconto?: boolean | null
+          tipo_troca?: string | null
           updated_at?: string | null
           valor_a_pagar_prestador?: number
           valor_cliente_calculado?: number
@@ -1839,8 +1845,10 @@ export type Database = {
           data_pagamento_prevista?: string
           data_pagamento_realizada?: string | null
           ficha_id?: string
+          ficha_troca_ref?: string | null
           forma_pagamento_cliente?: string | null
           id?: string
+          justificativa_troca?: string | null
           link_pagamento_asaas?: string | null
           margem_operacional_real?: number
           margem_percentual?: number
@@ -1860,6 +1868,7 @@ export type Database = {
           taxa_visita?: number
           tem_adiantamento?: boolean | null
           tem_desconto?: boolean | null
+          tipo_troca?: string | null
           updated_at?: string | null
           valor_a_pagar_prestador?: number
           valor_cliente_calculado?: number

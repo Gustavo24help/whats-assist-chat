@@ -1,0 +1,4 @@
+ALTER TABLE public.transacoes_financeiras 
+  ADD COLUMN IF NOT EXISTS tipo_troca TEXT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS justificativa_troca TEXT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS ficha_troca_ref UUID DEFAULT NULL;
