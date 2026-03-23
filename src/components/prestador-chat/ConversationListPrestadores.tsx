@@ -118,6 +118,16 @@ export const ConversationListPrestadores = ({
     return format(date, "dd/MM", { locale: ptBR });
   };
 
+  const getPrestadorDisplayName = (nome: string) => {
+    const trimmedName = nome.trim();
+
+    if (!trimmedName) return "Prestador";
+    if (trimmedName.startsWith("whatsapp:")) return "Nome do WhatsApp indisponível";
+    if (/^[0-9()+\-\s]+$/.test(trimmedName)) return "Nome do WhatsApp indisponível";
+
+    return trimmedName;
+  };
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-3 border-b space-y-2">
@@ -171,9 +181,7 @@ export const ConversationListPrestadores = ({
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-medium text-sm truncate flex-1">
-                  {/^\d+$/.test(prestador.nome) 
-                    ? `(${prestador.nome.replace(/^55(\d{2})/, '($1) ').replace(/(\d{4,5})(\d{4})$/, '$1-$2')})` 
-                    : prestador.nome}
+                  {getPrestadorDisplayName(prestador.nome)}
                 </span>
                 <span className="text-xs text-muted-foreground ml-2">
                   {formatTime(prestador.ultima_interacao)}
