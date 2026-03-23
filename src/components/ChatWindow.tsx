@@ -286,6 +286,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     setIsLoadingMessages(true);
     setHasMoreMessages(false);
     setOldestMessageDate(null);
+    setConversationId(null); // Reset conversation_id ao trocar de conversa
     // Limpar arquivo pendente ao trocar de conversa
     if (pendingFile) {
       URL.revokeObjectURL(pendingFile.previewUrl);
