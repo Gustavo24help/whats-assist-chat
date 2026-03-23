@@ -202,6 +202,8 @@ export const PagamentoPrestadoresTabV2 = () => {
         observacao_financeira: f.observacao_financeira || null,
         observacao_financeira_por: f.observacao_financeira_por || null,
         observacao_operador_nome: f.observacao_financeira_por ? (profilesMap.get(f.observacao_financeira_por) || null) : null,
+        tipo_troca: trans?.tipo_troca || null,
+        justificativa_troca: trans?.justificativa_troca || null,
       };
     });
 
