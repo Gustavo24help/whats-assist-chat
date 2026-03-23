@@ -118,12 +118,25 @@ export const ConversationListPrestadores = ({
     return format(date, "dd/MM", { locale: ptBR });
   };
 
+  const formatPhoneNumber = (phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    // Remove country code 55
+    const local = digits.startsWith("55") ? digits.slice(2) : digits;
+    if (local.length === 11) {
+      return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+    }
+    if (local.length === 10) {
+      return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+    }
+    return phone.replace("whatsapp:", "").replace("+", "");
+  };
+
   const getPrestadorDisplayName = (nome: string) => {
     const trimmedName = nome.trim();
 
     if (!trimmedName) return "Prestador";
-    if (trimmedName.startsWith("whatsapp:")) return "Nome do WhatsApp indisponível";
-    if (/^[0-9()+\-\s]+$/.test(trimmedName)) return "Nome do WhatsApp indisponível";
+    if (trimmedName.startsWith("whatsapp:")) return null;
+    if (/^[0-9()+\-\s]+$/.test(trimmedName)) return null;
 
     return trimmedName;
   };
@@ -181,7 +194,7 @@ export const ConversationListPrestadores = ({
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-medium text-sm truncate flex-1">
-                  {getPrestadorDisplayName(prestador.nome)}
+                  {getPrestadorDisplayName(prestador.nome) || formatPhoneNumber(prestador.telefone)}
                 </span>
                 <span className="text-xs text-muted-foreground ml-2">
                   {formatTime(prestador.ultima_interacao)}
