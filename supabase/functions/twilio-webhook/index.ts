@@ -331,6 +331,8 @@ serve(async (req) => {
         ficha_id: ficha?.id || null,
         message_sid: messageSid,
         reply_to_message_id: null,
+        tipo_remetente: isClientMessage ? 'cliente' : 'bot',
+        operador_nome: isBotMessage ? 'Bot Automático' : null,
       };
 
       console.log(`[${requestId}] 💾 Salvando: cliente_id=${mensagem.cliente_id}, remetente=${mensagem.remetente}, status=${mensagem.status}`);

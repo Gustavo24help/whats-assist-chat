@@ -44,7 +44,7 @@ serve(async (req) => {
       );
     }
 
-    const { to, message, mediaUrl, userId, remetente, replyToMessageId, fromNumber, ficha_id } = await req.json();
+    const { to, message, mediaUrl, userId, remetente, replyToMessageId, fromNumber, ficha_id, conversation_id, operador_nome, tipo_remetente } = await req.json();
 
     // Input validation
     if (!to || typeof to !== 'string' || to.length > 50) {
@@ -276,6 +276,10 @@ serve(async (req) => {
         message_sid: twilioData.sid,
         enviado_por_id: userData.user.id,
         reply_to_message_id: replyToMessageId || null,
+        ficha_id: ficha_id || null,
+        conversation_id: conversation_id || null,
+        operador_nome: operador_nome || null,
+        tipo_remetente: tipo_remetente || (remetente === 'bot' ? 'bot' : 'atendente'),
       });
 
       if (insertError) {
