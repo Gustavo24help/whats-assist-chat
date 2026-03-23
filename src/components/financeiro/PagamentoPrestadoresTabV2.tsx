@@ -85,6 +85,8 @@ interface FichaFinanceira {
   observacao_financeira: string | null;
   observacao_financeira_por: string | null;
   observacao_operador_nome: string | null;
+  tipo_troca: string | null;
+  justificativa_troca: string | null;
 }
 
 export const PagamentoPrestadoresTabV2 = () => {
