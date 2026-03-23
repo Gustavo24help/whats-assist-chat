@@ -21,7 +21,7 @@ const DEFAULT_FIELD_BY_ALIAS: Record<string, string> = {
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const normalizeTemplateVariableToken = (token: string) =>
-  token.replace(/^\{\{\s*|\s*\}\}$/g, "").trim();
+  token.replace(/^\{\{\s*|\s*\}\}$/g, "").replace(/^["']+|["']+$/g, "").trim();
 
 export const formatTemplatePlaceholder = (token: string) =>
   `{{${normalizeTemplateVariableToken(token)}}}`;
