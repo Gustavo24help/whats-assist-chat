@@ -1,57 +1,43 @@
 
 
-# Correção: Variáveis de Templates WhatsApp Chegando com Valores Errados
+# Correção: Data de Pagamento Prevista — Diagnóstico e Plano
 
-## Problema Identificado
+## O que está errado
 
-O template `novas_informacoes_cliente` no banco usa variáveis **nomeadas** no body: `{{nome}}`, `{{ficha_de_servico}}`, `{{status_do_servico}}`.
+### Problema 1: `PopupConfirmacaoFinanceira` calcula a partir de HOJE, não da data de execução
+**Linha 34-44**: `calcularDataPagamento()` usa `new Date()` (momento que o popup é aberto) como base. Deveria usar a data de execução do serviço. Também não considera feriados — só pula sábado/domingo.
 
-Porém, ao enviar para a Twilio, o código monta o `ContentVariables` com chaves **numéricas sequenciais**: `{"1": "valor", "2": "valor", "3": "valor"}`.
+### Problema 2: `PagamentoPrestadoresTabV2` ignora o valor salvo e recalcula errado
+**Linha 199**: `data_pagamento_prevista: addBusinessDays(f.created_at, 2)` — usa `created_at` (data de CRIAÇÃO da ficha), não a data de execução. Ignora completamente o valor `data_pagamento_prevista` que já está salvo na tabela `transacoes_financeiras`.
 
-A API da Twilio espera que as chaves correspondam aos nomes das variáveis do Content Template. Como `"1"` não corresponde a `"nome"`, a Twilio ignora e usa os valores de amostra (Daniel, FS1-260125, agendado).
+### Problema 3: DB function `adicionar_dias_uteis` também não considera feriados
+A função SQL no banco só verifica sábado/domingo, igual ao frontend.
 
-**Causa raiz:** Em `AbrirConversaDialog.tsx` (linha ~170) e `NovaConversaDialog.tsx` (linha ~213):
-```js
-// ERRADO - usa índice numérico como chave
-contentVariables[(index + 1).toString()] = variableValues[index];
-
-// CORRETO - deve usar o token real da variável
-contentVariables[variable] = variableValues[index];
-```
-
-## Problema Secundário
-
-O `get-twilio-templates` adiciona prefixo `var_` nas variáveis numéricas (ex: `{{1}}` vira `var_1`), causando incompatibilidade no DB para templates futuros.
+### Caso FS5-260319
+- Ficha criada: provavelmente ~19/03 (quinta)
+- Serviço executado: sábado 21/03
+- O código calcula: `created_at` (quinta 19) + 2 dias úteis = sexta 20 + segunda 23 = **23/03** ← ERRADO
+- Correto: execução (sábado 21) + 2 dias úteis = segunda 24 + terça 25 = **25/03/2026**
 
 ## Correções
 
-### 1. `src/components/AbrirConversaDialog.tsx`
-Alterar construção de `contentVariables` para usar o token real da variável, removendo prefixo `var_` se presente:
-```js
-selectedTemplate.variables.forEach((variable, index) => {
-  const key = variable.startsWith('var_') ? variable.replace('var_', '') : variable;
-  contentVariables[key] = variableValues[index];
-});
-```
+### 1. `PopupConfirmacaoFinanceira.tsx`
+- Alterar `calcularDataPagamento()` para receber uma data base como parâmetro (a `data_execucao`)
+- Usar `isBusinessDay` de `businessDays2026.ts` em vez de só checar sábado/domingo
+- Usar `data_execucao` (que já é salva como `new Date().toISOString()` na linha 307) como base
 
-### 2. `src/components/NovaConversaDialog.tsx`
-Mesma correção.
+### 2. `PagamentoPrestadoresTabV2.tsx`
+- Na linha 199: usar o `data_pagamento_prevista` salvo na transação financeira quando existir
+- Fallback: recalcular a partir de `updated_at` (proxy da data de finalização), não `created_at`
 
-### 3. `supabase/functions/get-twilio-templates/index.ts`
-Linha 77 — remover o prefixo `var_`:
-```js
-// DE:
-const variables = [...body.matchAll(/\{\{(\d+)\}\}/g)].map(match => `var_${match[1]}`);
-// PARA:
-const variables = [...body.matchAll(/\{\{(\d+)\}\}/g)].map(match => match[1]);
-```
+### 3. Migração SQL para corrigir `adicionar_dias_uteis`
+- Adicionar tabela de feriados 2026 ou hardcode no SQL para consistência com o frontend
 
-### 4. Atualizar registros existentes no DB
-Migração para corrigir templates com `var_N` → `N` no campo `variables`.
+### 4. Corrigir FS5-260319 no banco
+- Atualizar o `data_pagamento_prevista` da transação existente para 25/03/2026
 
 ## Impacto
-- Templates com variáveis nomeadas (`{{nome}}`) passarão a enviar valores corretos
-- Templates com variáveis numéricas (`{{1}}`) continuam funcionando
-- Templates existentes com `var_1` no DB serão corrigidos
-- Zero impacto em outras funcionalidades
+- Pagamentos futuros terão data prevista correta (baseada na execução, com feriados)
+- UI exibirá o valor salvo no banco em vez de recalcular errado
+- Ficha FS5-260319 corrigida para 25/03/2026
 
