@@ -1,43 +1,57 @@
 
 
-# Correção: Data de Pagamento Prevista — Diagnóstico e Plano
+# Pagamento Dividido na Troca de Prestador (Ficha Agendada)
 
-## O que está errado
+## Resumo
 
-### Problema 1: `PopupConfirmacaoFinanceira` calcula a partir de HOJE, não da data de execução
-**Linha 34-44**: `calcularDataPagamento()` usa `new Date()` (momento que o popup é aberto) como base. Deveria usar a data de execução do serviço. Também não considera feriados — só pula sábado/domingo.
+Quando um prestador é trocado em uma ficha com status "Agendado", o sistema abrirá dois popups sequenciais para que o operador defina manualmente quanto cada prestador receberá. Isso gera duas transações financeiras separadas para a mesma ficha, com marcações visuais no módulo Financeiro.
 
-### Problema 2: `PagamentoPrestadoresTabV2` ignora o valor salvo e recalcula errado
-**Linha 199**: `data_pagamento_prevista: addBusinessDays(f.created_at, 2)` — usa `created_at` (data de CRIAÇÃO da ficha), não a data de execução. Ignora completamente o valor `data_pagamento_prevista` que já está salvo na tabela `transacoes_financeiras`.
+## Fluxo do Operador
 
-### Problema 3: DB function `adicionar_dias_uteis` também não considera feriados
-A função SQL no banco só verifica sábado/domingo, igual ao frontend.
+1. Operador clica em "Trocar Prestador" numa ficha com status "Agendado"
+2. Preenche o motivo e confirma a troca (fluxo existente)
+3. **Popup 1 — Prestador Anterior**: Exibe o valor total da ficha e pede que o operador digite o valor a pagar ao prestador que saiu, com campo de justificativa obrigatório
+4. **Popup 2 — Prestador Substituto**: Exibe o valor restante (total - valor do anterior), campo de justificativa. Se o operador digitar valor que excede o restante, mostra aviso. Se sobrar valor não alocado, mostra alerta
+5. Ambas as transações são criadas em `transacoes_financeiras` com um campo extra `tipo_troca` (`prestador_trocado` ou `prestador_substituto`) e `justificativa_troca`
 
-### Caso FS5-260319
-- Ficha criada: provavelmente ~19/03 (quinta)
-- Serviço executado: sábado 21/03
-- O código calcula: `created_at` (quinta 19) + 2 dias úteis = sexta 20 + segunda 23 = **23/03** ← ERRADO
-- Correto: execução (sábado 21) + 2 dias úteis = segunda 24 + terça 25 = **25/03/2026**
+## Alterações Técnicas
 
-## Correções
+### 1. Migração SQL — adicionar campos à `transacoes_financeiras`
+- `tipo_troca TEXT` — valores: `prestador_trocado`, `prestador_substituto`, ou NULL (normal)
+- `justificativa_troca TEXT` — justificativa do operador para a divisão de valores
+- `ficha_troca_ref TEXT` — referência à outra transação da mesma troca (para vincular o par)
 
-### 1. `PopupConfirmacaoFinanceira.tsx`
-- Alterar `calcularDataPagamento()` para receber uma data base como parâmetro (a `data_execucao`)
-- Usar `isBusinessDay` de `businessDays2026.ts` em vez de só checar sábado/domingo
-- Usar `data_execucao` (que já é salva como `new Date().toISOString()` na linha 307) como base
+### 2. Novo componente `TrocaPrestadorPagamentoDialog.tsx`
+Dialog com dois passos sequenciais (step 1 e step 2):
+- **Step 1 (Prestador Anterior)**: Mostra nome do prestador, valor total da ficha como referência, input para valor a pagar, campo de justificativa
+- **Step 2 (Prestador Substituto)**: Mostra o restante automático (total - valor anterior), input editável com aviso se exceder/sobrar, campo de justificativa
+- Ao confirmar o Step 2, cria as duas transações no banco
 
-### 2. `PagamentoPrestadoresTabV2.tsx`
-- Na linha 199: usar o `data_pagamento_prevista` salvo na transação financeira quando existir
-- Fallback: recalcular a partir de `updated_at` (proxy da data de finalização), não `created_at`
+### 3. Atualizar `TrocarPrestadorDialog.tsx`
+- Após a troca bem-sucedida, se o status da ficha for "Agendado", abrir o novo `TrocaPrestadorPagamentoDialog` em vez de simplesmente fechar
+- Passar os dados de ambos os prestadores e da ficha
 
-### 3. Migração SQL para corrigir `adicionar_dias_uteis`
-- Adicionar tabela de feriados 2026 ou hardcode no SQL para consistência com o frontend
+### 4. Atualizar `PagamentoPrestadoresTabV2.tsx`
+- Na query de `transacoes_financeiras`, incluir os novos campos `tipo_troca` e `justificativa_troca`
+- Nos cards de pagamento pendente: exibir badge "Prestador Trocado" (laranja) ou "Prestador Substituto" (azul) quando `tipo_troca` não for null
+- Ao clicar no badge, exibir popup com a justificativa
 
-### 4. Corrigir FS5-260319 no banco
-- Atualizar o `data_pagamento_prevista` da transação existente para 25/03/2026
+### 5. Salvar histórico na ficha
+- Registrar no `prestador_historico` os dados da divisão de pagamento (valores, justificativas) em `dados_extras`
+- Consultável na aba Histórico da ficha (`FichaDetalhes`)
+
+## Detalhes da Lógica de Valores
+
+- Valor de referência = `valor_total` da ficha (mão de obra + peças)
+- Operador digita livremente o valor do 1º prestador
+- Valor restante = referência - valor digitado no step 1
+- Se step 2 exceder o restante → aviso amarelo "Valor excede o restante"
+- Se step 2 for menor que o restante → aviso "R$ X não alocado"
+- Ambos os valores são salvos independentemente (o sistema não bloqueia, apenas avisa)
 
 ## Impacto
-- Pagamentos futuros terão data prevista correta (baseada na execução, com feriados)
-- UI exibirá o valor salvo no banco em vez de recalcular errado
-- Ficha FS5-260319 corrigida para 25/03/2026
+- Apenas fichas com status "Agendado" disparam o fluxo de pagamento dividido
+- Fichas com outros status continuam com a troca simples existente
+- Duas entradas separadas no Financeiro permitem controle individual de pagamento
+- Justificativas ficam registradas e consultáveis
 
