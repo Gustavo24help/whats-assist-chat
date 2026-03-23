@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getManagedWhatsappNumbers, isManagedWhatsappNumber, normalizeWhatsappNumber } from "../_shared/twilioNumbers.ts";
+import { getManagedWhatsappNumbers, isManagedWhatsappNumber, normalizeWhatsappNumber, isPrestadoresNumber } from "../_shared/twilioNumbers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
