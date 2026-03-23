@@ -49,6 +49,7 @@ const Fichas = () => {
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
+  const [ajustarFicha, setAjustarFicha] = useState<FichaRow | null>(null);
 
   const fetchFichas = useCallback(async () => {
     setLoading(true);
