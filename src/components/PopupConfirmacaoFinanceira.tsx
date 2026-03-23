@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Calculator, AlertTriangle, CheckCircle2, Search, ExternalLink, Loader2 } from "lucide-react";
+import { isBusinessDay } from "@/lib/businessDays2026";
 
 interface PopupConfirmacaoFinanceiraProps {
   open: boolean;
@@ -30,14 +31,13 @@ function arredondarPara8(valor: number): number {
   return inteiro + (8 - ultimoDigito);
 }
 
-// Calcula 2 dias úteis à frente
-function calcularDataPagamento(): string {
-  const data = new Date();
+// Calcula 2 dias úteis à frente a partir de uma data base
+function calcularDataPagamento(dataBase?: Date | string): string {
+  const data = dataBase ? new Date(dataBase) : new Date();
   let diasAdicionados = 0;
   while (diasAdicionados < 2) {
     data.setDate(data.getDate() + 1);
-    const diaSemana = data.getDay();
-    if (diaSemana !== 0 && diaSemana !== 6) {
+    if (isBusinessDay(data)) {
       diasAdicionados++;
     }
   }
@@ -288,7 +288,8 @@ export function PopupConfirmacaoFinanceira({
       }
 
       const subtotal = (parseFloat(valorMaoObra) || 0) + (parseFloat(valorMaterial) || 0) + (parseFloat(taxaVisita) || 0);
-      const dataPagPrevista = calcularDataPagamento();
+      const dataExecucao = new Date();
+      const dataPagPrevista = calcularDataPagamento(dataExecucao);
 
       // Obter user autenticado
       const { data: { user } } = await supabase.auth.getUser();
