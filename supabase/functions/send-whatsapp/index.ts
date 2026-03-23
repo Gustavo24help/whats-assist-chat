@@ -290,7 +290,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, messageSid: twilioData.sid, dentroJanela24h }),
+      JSON.stringify({ success: true, messageSid: twilioData.sid }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
