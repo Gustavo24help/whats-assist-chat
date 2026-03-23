@@ -138,6 +138,7 @@ const FichaDetalhes = () => {
     if (tipo === "troca_prestador") return "🔀";
     if (tipo === "comparecimento") return "📍";
     if (tipo === "orcamento") return "💰";
+    if (tipo === "pagamento_troca") return "💸";
     return "📋";
   };
 
