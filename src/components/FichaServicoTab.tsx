@@ -1870,35 +1870,37 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         </AccordionItem>
       </Accordion>
 
-      {ficha && (ficha.status === 'Finalizado' || ficha.status === 'Em andamento') && ficha.prestador_id && (
-        <Button 
-          onClick={() => setFinanceiroOpen(true)}
-          variant="outline"
-          className="fixed bottom-6 right-24 shadow-2xl z-50 hover:scale-[0.98] active:scale-95 transition-all h-10 text-sm border-green-500 text-green-700 hover:bg-green-50"
-        >
-          <DollarSign className="mr-2 h-4 w-4" />
-          Confirmar Financeiro
-        </Button>
-      )}
-
-      {ficha && ficha.status === 'Finalizado' && (
+      <div className="fixed bottom-6 right-6 z-50 flex flex-wrap-reverse items-center justify-end gap-2 max-w-[calc(100vw-2rem)]">
         <Button
-          onClick={() => setAjustarDataOpen(true)}
-          variant="outline"
-          className="fixed bottom-6 right-[17rem] shadow-2xl z-50 hover:scale-[0.98] active:scale-95 transition-all h-10 text-sm border-orange-500 text-orange-700 hover:bg-orange-50"
+          onClick={salvarManualmente}
+          className="shadow-2xl hover:scale-[0.98] active:scale-95 active:animate-pulse transition-all h-10 text-sm"
         >
-          <Calendar className="mr-2 h-4 w-4" />
-          Ajustar Data Finalização
+          <Save className="mr-2 h-4 w-4" />
+          Salvar Ficha
         </Button>
-      )}
 
-      <Button 
-        onClick={salvarManualmente} 
-        className="fixed bottom-6 right-6 shadow-2xl z-50 hover:scale-[0.98] active:scale-95 active:animate-pulse transition-all h-10 text-sm"
-      >
-        <Save className="mr-2 h-4 w-4" />
-        Salvar Ficha
-      </Button>
+        {ficha && (ficha.status === 'Finalizado' || ficha.status === 'Em andamento') && ficha.prestador_id && (
+          <Button
+            onClick={() => setFinanceiroOpen(true)}
+            variant="outline"
+            className="shadow-2xl hover:scale-[0.98] active:scale-95 transition-all h-10 text-sm border-green-500 text-green-700 hover:bg-green-50"
+          >
+            <DollarSign className="mr-2 h-4 w-4" />
+            Confirmar Financeiro
+          </Button>
+        )}
+
+        {ficha && ficha.status === 'Finalizado' && (
+          <Button
+            onClick={() => setAjustarDataOpen(true)}
+            variant="outline"
+            className="shadow-2xl hover:scale-[0.98] active:scale-95 transition-all h-10 text-sm border-orange-500 text-orange-700 hover:bg-orange-50"
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            Ajustar Data Finalização
+          </Button>
+        )}
+      </div>
 
       {ficha && (
         <PopupConfirmacaoFinanceira
