@@ -162,13 +162,14 @@ interface ChatWindowProps {
 }
 
 export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha }: ChatWindowProps) => {
-  const { user, isSupervisor } = useAuth();
+  const { user, userProfile, isSupervisor } = useAuth();
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Mensagem | null>(null);
   const [fichaId, setFichaId] = useState<string | undefined>();
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
   const [isTogglingBot, setIsTogglingBot] = useState(false);
@@ -1329,6 +1330,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       // Obter usuário atual para registrar quem enviou
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Gerar ou reusar conversation_id
+      const convId = conversationId || crypto.randomUUID();
+      if (!conversationId) setConversationId(convId);
+
+      const operadorNome = userProfile?.fullName || user?.email?.split('@')[0] || 'Operador';
+
       // Enviar via Twilio apenas com o arquivo
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
@@ -1336,6 +1343,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           message: "",
           mediaUrl: mediaUrl,
           userId: user?.id,
+          ficha_id: fichaId || null,
+          conversation_id: convId,
+          operador_nome: operadorNome,
+          tipo_remetente: 'atendente'
         },
       });
 
@@ -1431,12 +1442,22 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Gerar ou reusar conversation_id para áudio
+      const convId = conversationId || crypto.randomUUID();
+      if (!conversationId) setConversationId(convId);
+
+      const operadorNome = userProfile?.fullName || user?.email?.split('@')[0] || 'Operador';
+
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
           to: clienteTelefone,
           message: "",
           mediaUrl: mediaUrl,
           userId: user?.id,
+          ficha_id: fichaId || null,
+          conversation_id: convId,
+          operador_nome: operadorNome,
+          tipo_remetente: 'atendente'
         },
       });
 
@@ -1528,13 +1549,23 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         userId: user?.id
       });
       
+      // Gerar ou reusar conversation_id
+      const convId = conversationId || crypto.randomUUID();
+      if (!conversationId) setConversationId(convId);
+
+      const operadorNome = userProfile?.fullName || user?.email?.split('@')[0] || 'Operador';
+
       // Enviar via Twilio
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
           to: clienteTelefone,
           message: mensagemTexto,
           userId: user?.id,
-          replyToMessageId: replyId
+          replyToMessageId: replyId,
+          ficha_id: fichaId || null,
+          conversation_id: convId,
+          operador_nome: operadorNome,
+          tipo_remetente: 'atendente'
         },
       });
       
