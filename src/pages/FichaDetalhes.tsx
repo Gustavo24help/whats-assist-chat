@@ -259,6 +259,8 @@ const FichaDetalhes = () => {
           onOpenChange={setTrocarOpen}
           fichaId={fichaId}
           prestadorAtualId={ficha?.prestador_id}
+          fichaStatus={ficha?.status}
+          fichaData={ficha}
           onSuccess={() => {
             loadFicha();
             loadHistorico();
