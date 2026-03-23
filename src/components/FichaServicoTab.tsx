@@ -19,6 +19,7 @@ import { ReciboGenerator } from "@/components/ReciboGenerator";
 import { ResumoConversaDialog } from "@/components/ResumoConversaDialog";
 import { PopupConfirmacaoFinanceira } from "@/components/PopupConfirmacaoFinanceira";
 import { EnviarLinkPagamentoDialog } from "@/components/EnviarLinkPagamentoDialog";
+import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
 
 interface FichaServicoTabProps {
   fichaId: string;
@@ -124,6 +125,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [horaVisitaTecnica, setHoraVisitaTecnica] = useState<string>('');
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
+  const [ajustarDataOpen, setAjustarDataOpen] = useState(false);
   const [gerandoLink, setGerandoLink] = useState(false);
   const [linkDialogData, setLinkDialogData] = useState<{ url: string; nome: string; valor: number } | null>(null);
   const [envioAutomatico, setEnvioAutomatico] = useState(true);
@@ -1876,6 +1878,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         >
           <DollarSign className="mr-2 h-4 w-4" />
           Confirmar Financeiro
+        </Button>
+      )}
+
+      {ficha && ficha.status === 'Finalizado' && (
+        <Button
+          onClick={() => setAjustarDataOpen(true)}
+          variant="outline"
+          className="fixed bottom-6 right-[17rem] shadow-2xl z-50 hover:scale-[0.98] active:scale-95 transition-all h-10 text-sm border-orange-500 text-orange-700 hover:bg-orange-50"
+        >
+          <Calendar className="mr-2 h-4 w-4" />
+          Ajustar Data Finalização
         </Button>
       )}
 
