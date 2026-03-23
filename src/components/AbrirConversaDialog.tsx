@@ -179,8 +179,9 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
       }
 
       const contentVariables: Record<string, string> = {};
-      selectedTemplate.variables.forEach((_, index) => {
-        contentVariables[(index + 1).toString()] = variableValues[index];
+      selectedTemplate.variables.forEach((variable, index) => {
+        const key = variable.startsWith('var_') ? variable.replace('var_', '') : variable;
+        contentVariables[key] = variableValues[index];
       });
 
       const templateBody = getTemplatePreview(selectedTemplate);

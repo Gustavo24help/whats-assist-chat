@@ -74,7 +74,7 @@ serve(async (req) => {
     }
 
     // Extrair variáveis do body
-    const variables = [...body.matchAll(/\{\{(\d+)\}\}/g)].map(match => `var_${match[1]}`);
+    const variables = [...body.matchAll(/\{\{(\d+)\}\}/g)].map(match => match[1]);
     
     console.log("📝 Variáveis encontradas:", variables);
     console.log("📝 Body extraído:", body.substring(0, 100) + (body.length > 100 ? '...' : ''));
