@@ -466,6 +466,22 @@ export const PagamentoPrestadoresTabV2 = () => {
                           ⚠ {f.observacao_financeira.substring(0, 60)}{f.observacao_financeira.length > 60 ? "…" : ""}
                         </button>
                       )}
+                      {f.tipo_troca === "prestador_trocado" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toast({ title: "Prestador Trocado", description: f.justificativa_troca || "Sem justificativa" }); }}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded-full hover:bg-orange-200 transition-colors"
+                        >
+                          🔀 Prestador Trocado
+                        </button>
+                      )}
+                      {f.tipo_troca === "prestador_substituto" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toast({ title: "Prestador Substituto", description: f.justificativa_troca || "Sem justificativa" }); }}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full hover:bg-blue-200 transition-colors"
+                        >
+                          🔄 Prestador Substituto
+                        </button>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
                       <span>Pgto prev.: {formatDateShort(f.data_pagamento_prevista)}</span>
