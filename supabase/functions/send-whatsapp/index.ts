@@ -276,6 +276,10 @@ serve(async (req) => {
         message_sid: twilioData.sid,
         enviado_por_id: userData.user.id,
         reply_to_message_id: replyToMessageId || null,
+        ficha_id: ficha_id || null,
+        conversation_id: conversation_id || null,
+        operador_nome: operador_nome || null,
+        tipo_remetente: tipo_remetente || (remetente === 'bot' ? 'bot' : 'atendente'),
       });
 
       if (insertError) {
