@@ -138,6 +138,7 @@ const FichaDetalhes = () => {
     if (tipo === "troca_prestador") return "🔀";
     if (tipo === "comparecimento") return "📍";
     if (tipo === "orcamento") return "💰";
+    if (tipo === "pagamento_troca") return "💸";
     return "📋";
   };
 
@@ -259,6 +260,8 @@ const FichaDetalhes = () => {
           onOpenChange={setTrocarOpen}
           fichaId={fichaId}
           prestadorAtualId={ficha?.prestador_id}
+          fichaStatus={ficha?.status}
+          fichaData={ficha}
           onSuccess={() => {
             loadFicha();
             loadHistorico();

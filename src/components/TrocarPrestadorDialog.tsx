@@ -2,11 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,12 +10,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { TrocaPrestadorPagamentoDialog } from "@/components/TrocaPrestadorPagamentoDialog";
 
 interface TrocarPrestadorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fichaId: string;
   prestadorAtualId: string | null;
+  fichaStatus?: string | null;
+  fichaData?: any;
   onSuccess: () => void;
 }
 
@@ -29,17 +28,20 @@ interface Prestador {
 }
 
 export const TrocarPrestadorDialog = ({
-  open,
-  onOpenChange,
-  fichaId,
-  prestadorAtualId,
-  onSuccess,
+  open, onOpenChange, fichaId, prestadorAtualId, fichaStatus, fichaData, onSuccess,
 }: TrocarPrestadorDialogProps) => {
   const { user } = useAuth();
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
   const [novoPrestadorId, setNovoPrestadorId] = useState("");
   const [motivo, setMotivo] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pagamentoOpen, setPagamentoOpen] = useState(false);
+  const [trocaInfo, setTrocaInfo] = useState<{
+    prestadorAnteriorId: string;
+    prestadorAnteriorNome: string;
+    novoPrestadorId: string;
+    novoPrestadorNome: string;
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -123,7 +125,19 @@ export const TrocarPrestadorDialog = ({
 
       toast.success("Prestador trocado com sucesso!");
       onOpenChange(false);
-      onSuccess();
+
+      // If ficha is "Agendado", open split payment dialog
+      if (fichaStatus === "Agendado" && prestadorAtualId) {
+        setTrocaInfo({
+          prestadorAnteriorId: prestadorAtualId,
+          prestadorAnteriorNome,
+          novoPrestadorId,
+          novoPrestadorNome,
+        });
+        setPagamentoOpen(true);
+      } else {
+        onSuccess();
+      }
     } catch (e: any) {
       toast.error("Erro ao trocar prestador: " + e.message);
     } finally {
@@ -132,61 +146,84 @@ export const TrocarPrestadorDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Trocar Prestador</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Trocar Prestador</DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div>
-            <Label className="text-xs text-muted-foreground">Prestador atual</Label>
-            <p className="font-medium text-sm">
-              {prestadorAtualId
-                ? prestadores.find((p) => p.cpf === prestadorAtualId)?.nome || prestadorAtualId
-                : "Nenhum"}
-            </p>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">Prestador atual</Label>
+              <p className="font-medium text-sm">
+                {prestadorAtualId
+                  ? prestadores.find((p) => p.cpf === prestadorAtualId)?.nome || prestadorAtualId
+                  : "Nenhum"}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Novo Prestador</Label>
+              <Select value={novoPrestadorId} onValueChange={setNovoPrestadorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o novo prestador" />
+                </SelectTrigger>
+                <SelectContent>
+                  {prestadores
+                    .filter((p) => p.cpf !== prestadorAtualId)
+                    .map((p) => (
+                      <SelectItem key={p.cpf} value={p.cpf}>
+                        {p.nome}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Motivo da troca *</Label>
+              <Textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                placeholder="Descreva o motivo da troca de prestador..."
+                rows={3}
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Novo Prestador</Label>
-            <Select value={novoPrestadorId} onValueChange={setNovoPrestadorId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o novo prestador" />
-              </SelectTrigger>
-              <SelectContent>
-                {prestadores
-                  .filter((p) => p.cpf !== prestadorAtualId)
-                  .map((p) => (
-                    <SelectItem key={p.cpf} value={p.cpf}>
-                      {p.nome}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleTroca} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Confirmar Troca
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-          <div className="space-y-2">
-            <Label>Motivo da troca *</Label>
-            <Textarea
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-              placeholder="Descreva o motivo da troca de prestador..."
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleTroca} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-            Confirmar Troca
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {trocaInfo && (
+        <TrocaPrestadorPagamentoDialog
+          open={pagamentoOpen}
+          onOpenChange={(v) => {
+            setPagamentoOpen(v);
+            if (!v) {
+              setTrocaInfo(null);
+              onSuccess();
+            }
+          }}
+          fichaId={fichaId}
+          valorTotalFicha={fichaData?.valor_total || 0}
+          prestadorAnteriorId={trocaInfo.prestadorAnteriorId}
+          prestadorAnteriorNome={trocaInfo.prestadorAnteriorNome}
+          novoPrestadorId={trocaInfo.novoPrestadorId}
+          novoPrestadorNome={trocaInfo.novoPrestadorNome}
+          fichaData={fichaData}
+          onSuccess={onSuccess}
+        />
+      )}
+    </>
   );
 };

@@ -85,6 +85,8 @@ interface FichaFinanceira {
   observacao_financeira: string | null;
   observacao_financeira_por: string | null;
   observacao_operador_nome: string | null;
+  tipo_troca: string | null;
+  justificativa_troca: string | null;
 }
 
 export const PagamentoPrestadoresTabV2 = () => {
@@ -158,7 +160,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     const [prestRes, clienteRes, transRes, npsRes, profilesRes] = await Promise.all([
       supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix, banco").in("cpf", prestadorIds),
       supabase.from("clientes").select("telefone, nome").in("telefone", phones),
-      supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_prevista").in("ficha_id", fichaIds),
+      supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_prevista, tipo_troca, justificativa_troca").in("ficha_id", fichaIds),
       supabase.from("nps_respostas").select("ficha_id, nota").in("ficha_id", fichaIds),
       obsOperadorIds.length > 0
         ? supabase.from("profiles").select("id, full_name").in("id", obsOperadorIds)
@@ -200,6 +202,8 @@ export const PagamentoPrestadoresTabV2 = () => {
         observacao_financeira: f.observacao_financeira || null,
         observacao_financeira_por: f.observacao_financeira_por || null,
         observacao_operador_nome: f.observacao_financeira_por ? (profilesMap.get(f.observacao_financeira_por) || null) : null,
+        tipo_troca: trans?.tipo_troca || null,
+        justificativa_troca: trans?.justificativa_troca || null,
       };
     });
 
@@ -460,6 +464,22 @@ export const PagamentoPrestadoresTabV2 = () => {
                           className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full hover:bg-amber-200 transition-colors max-w-[220px] truncate"
                         >
                           ⚠ {f.observacao_financeira.substring(0, 60)}{f.observacao_financeira.length > 60 ? "…" : ""}
+                        </button>
+                      )}
+                      {f.tipo_troca === "prestador_trocado" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toast({ title: "Prestador Trocado", description: f.justificativa_troca || "Sem justificativa" }); }}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded-full hover:bg-orange-200 transition-colors"
+                        >
+                          🔀 Prestador Trocado
+                        </button>
+                      )}
+                      {f.tipo_troca === "prestador_substituto" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toast({ title: "Prestador Substituto", description: f.justificativa_troca || "Sem justificativa" }); }}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full hover:bg-blue-200 transition-colors"
+                        >
+                          🔄 Prestador Substituto
                         </button>
                       )}
                     </div>
