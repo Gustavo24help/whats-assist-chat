@@ -158,8 +158,8 @@ serve(async (req) => {
           .limit(1)
           .maybeSingle();
 
-        const profileName = formData.get("ProfileName") as string;
-        const nomePrestador = prestadorCadastrado?.nome || profileName || clienteTelefone.replace("whatsapp:", "").replace("+", "");
+        const profileName = ((formData.get("ProfileName") as string) || "").trim();
+        const nomePrestador = profileName || prestadorCadastrado?.nome || clienteTelefone.replace("whatsapp:", "").replace("+", "");
 
         console.log(`[${requestId}] 🆕 Criando prestador_chat: ${clienteTelefone} (nome: ${nomePrestador})`);
         const { data: novoPrestador, error: createError } = await supabase
@@ -190,12 +190,11 @@ serve(async (req) => {
         });
       }
 
-      // Update name from WhatsApp ProfileName if current name is just a phone number
+      // Update name from WhatsApp ProfileName whenever it differs from the stored value
       if (isClientMessage && prestadorChat) {
-        const profileName = formData.get("ProfileName") as string;
-        const currentName = prestadorChat.nome || "";
-        const isNameJustNumber = /^\d+$/.test(currentName) || currentName.startsWith("whatsapp:");
-        if (profileName && isNameJustNumber) {
+        const profileName = ((formData.get("ProfileName") as string) || "").trim();
+        const currentName = (prestadorChat.nome || "").trim();
+        if (profileName && profileName !== currentName) {
           console.log(`[${requestId}] 📝 Atualizando nome prestador: ${currentName} → ${profileName}`);
           await supabase
             .from("prestadores_chat")
