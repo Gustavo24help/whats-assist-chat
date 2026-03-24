@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Archive, ArchiveRestore, ArrowLeft, Bell, CalendarDays, CheckCircle2, ImageIcon, PlusCircle, Trash2, Upload, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Bell, CalendarDays, CheckCircle2, Eye, ImageIcon, PlusCircle, Trash2, Upload, Users, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +49,13 @@ type AvisoDestinatario = {
   user_id: string;
 };
 
+type AvisoLeitura = {
+  user_id: string;
+  lido_em: string;
+  user_name: string | null;
+  user_email: string | null;
+};
+
 type SistemaUsuario = {
   id: string;
   email: string;
@@ -77,6 +84,9 @@ const Avisos = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [destinatariosPorAviso, setDestinatariosPorAviso] = useState<Record<string, Set<string>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [leiturasAviso, setLeiturasAviso] = useState<AvisoLeitura[]>([]);
+  const [loadingLeituras, setLoadingLeituras] = useState(false);
+  const [showLeituras, setShowLeituras] = useState(false);
 
   const loadUsuariosSistema = async () => {
     if (!isAdmin) return;
@@ -196,9 +206,44 @@ const Avisos = () => {
     setLidos((prev) => new Set([...prev, avisoId]));
   };
 
+  const loadLeituras = async (avisoId: string) => {
+    if (!isAdmin) return;
+    setLoadingLeituras(true);
+    setLeiturasAviso([]);
+
+    const { data: leituras, error } = await (supabase as any)
+      .from("aviso_leituras")
+      .select("user_id, lido_em")
+      .eq("aviso_id", avisoId);
+
+    if (error) {
+      setLoadingLeituras(false);
+      return;
+    }
+
+    // Map user IDs to names using usuariosSistema
+    const mapped: AvisoLeitura[] = (leituras || []).map((l: any) => {
+      const usr = usuariosSistema.find((u) => u.id === l.user_id);
+      return {
+        user_id: l.user_id,
+        lido_em: l.lido_em,
+        user_name: usr?.full_name || null,
+        user_email: usr?.email || null,
+      };
+    });
+
+    setLeiturasAviso(mapped.sort((a, b) => new Date(a.lido_em).getTime() - new Date(b.lido_em).getTime()));
+    setLoadingLeituras(false);
+  };
+
   const openAviso = async (aviso: Aviso) => {
     setSelectedAviso(aviso);
+    setShowLeituras(false);
+    setLeiturasAviso([]);
     await markAsRead(aviso.id);
+    if (isAdmin) {
+      loadLeituras(aviso.id);
+    }
   };
 
   const toggleArquivar = async (aviso: Aviso, arquivar: boolean) => {
@@ -606,6 +651,46 @@ const Avisos = () => {
                     <CheckCircle2 className="h-4 w-4" />
                     Marcado como lido
                   </div>
+
+                  {/* Quem leu - apenas admin */}
+                  {isAdmin && (
+                    <div className="border rounded-md p-3 space-y-2">
+                      <button
+                        onClick={() => setShowLeituras(!showLeituras)}
+                        className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors w-full"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Quem leu este aviso ({leiturasAviso.length})
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {showLeituras ? "▲" : "▼"}
+                        </span>
+                      </button>
+
+                      {showLeituras && (
+                        <div className="space-y-1 pt-1">
+                          {loadingLeituras && (
+                            <p className="text-xs text-muted-foreground">Carregando...</p>
+                          )}
+                          {!loadingLeituras && leiturasAviso.length === 0 && (
+                            <p className="text-xs text-muted-foreground">Ninguém leu ainda.</p>
+                          )}
+                          {!loadingLeituras && leiturasAviso.map((leitura) => (
+                            <div key={leitura.user_id} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+                              <div className="flex items-center gap-2">
+                                <Users className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-medium">
+                                  {leitura.user_name || leitura.user_email || "Usuário desconhecido"}
+                                </span>
+                              </div>
+                              <span className="text-muted-foreground">
+                                {new Date(leitura.lido_em).toLocaleString("pt-BR")}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
 
