@@ -49,6 +49,13 @@ type AvisoDestinatario = {
   user_id: string;
 };
 
+type AvisoLeitura = {
+  user_id: string;
+  lido_em: string;
+  user_name: string | null;
+  user_email: string | null;
+};
+
 type SistemaUsuario = {
   id: string;
   email: string;
