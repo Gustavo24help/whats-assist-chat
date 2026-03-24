@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Archive, ArchiveRestore, ArrowLeft, Bell, CalendarDays, CheckCircle2, ImageIcon, PlusCircle, Trash2, Upload, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Bell, CalendarDays, CheckCircle2, Eye, ImageIcon, PlusCircle, Trash2, Upload, Users, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
