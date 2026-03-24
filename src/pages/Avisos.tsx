@@ -206,9 +206,44 @@ const Avisos = () => {
     setLidos((prev) => new Set([...prev, avisoId]));
   };
 
+  const loadLeituras = async (avisoId: string) => {
+    if (!isAdmin) return;
+    setLoadingLeituras(true);
+    setLeiturasAviso([]);
+
+    const { data: leituras, error } = await (supabase as any)
+      .from("aviso_leituras")
+      .select("user_id, lido_em")
+      .eq("aviso_id", avisoId);
+
+    if (error) {
+      setLoadingLeituras(false);
+      return;
+    }
+
+    // Map user IDs to names using usuariosSistema
+    const mapped: AvisoLeitura[] = (leituras || []).map((l: any) => {
+      const usr = usuariosSistema.find((u) => u.id === l.user_id);
+      return {
+        user_id: l.user_id,
+        lido_em: l.lido_em,
+        user_name: usr?.full_name || null,
+        user_email: usr?.email || null,
+      };
+    });
+
+    setLeiturasAviso(mapped.sort((a, b) => new Date(a.lido_em).getTime() - new Date(b.lido_em).getTime()));
+    setLoadingLeituras(false);
+  };
+
   const openAviso = async (aviso: Aviso) => {
     setSelectedAviso(aviso);
+    setShowLeituras(false);
+    setLeiturasAviso([]);
     await markAsRead(aviso.id);
+    if (isAdmin) {
+      loadLeituras(aviso.id);
+    }
   };
 
   const toggleArquivar = async (aviso: Aviso, arquivar: boolean) => {
