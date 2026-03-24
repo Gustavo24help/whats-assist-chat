@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Paperclip, ArrowLeft, Loader2, FileText } from "lucide-react";
+import { Send, Paperclip, ArrowLeft, Loader2, FileText, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
@@ -11,13 +11,12 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FichaVinculoSelector } from "./FichaVinculoSelector";
+import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const NUMERO_PRESTADORES = import.meta.env.VITE_TWILIO_PHONE_NUMBER_2 || "";
 
@@ -66,6 +65,8 @@ export const ChatWindowPrestadores = ({
   const [loading, setLoading] = useState(true);
   const [fichasAtivas, setFichasAtivas] = useState<FichaAtiva[]>([]);
   const [fichaSelecionadaId, setFichaSelecionadaId] = useState<string>("none");
+  const [fichaSearch, setFichaSearch] = useState("");
+  const [fichaPopoverOpen, setFichaPopoverOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -327,26 +328,67 @@ export const ChatWindowPrestadores = ({
         <FichaVinculoSelector prestadorTelefone={prestadorTelefone} />
       </div>
 
-      {/* Ficha selector */}
+      {/* Ficha selector with search */}
       {fichasAtivas.length > 0 && (
         <div className="border-b bg-muted/30 px-3 py-2 shrink-0 flex items-center gap-2">
           <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-          <Select value={fichaSelecionadaId} onValueChange={setFichaSelecionadaId}>
-            <SelectTrigger className="h-8 text-xs flex-1">
-              <SelectValue placeholder="Selecione uma ficha..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhuma ficha (sem prefixo)</SelectItem>
-              {fichasAtivas.map((f) => (
-                <SelectItem key={f.id} value={f.id}>
-                  {f.id} - {(f.descricao || f.nome_ficha || "Sem descrição").slice(0, 50)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={fichaPopoverOpen} onOpenChange={setFichaPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-8 text-xs flex-1 justify-start font-normal">
+                {fichaSelecionada
+                  ? `${fichaSelecionada.id} - ${(fichaSelecionada.descricao || fichaSelecionada.nome_ficha || "Sem descrição").slice(0, 40)}`
+                  : "Selecione uma ficha..."}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-2" align="start">
+              <div className="flex items-center gap-2 mb-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar ficha por ID ou descrição..."
+                  value={fichaSearch}
+                  onChange={(e) => setFichaSearch(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                <button
+                  onClick={() => { setFichaSelecionadaId("none"); setFichaPopoverOpen(false); setFichaSearch(""); }}
+                  className={cn(
+                    "w-full text-left px-2 py-1.5 rounded text-xs hover:bg-accent transition-colors",
+                    fichaSelecionadaId === "none" && "bg-accent font-medium"
+                  )}
+                >
+                  Nenhuma ficha (sem prefixo)
+                </button>
+                {fichasAtivas
+                  .filter((f) => {
+                    if (!fichaSearch.trim()) return true;
+                    const term = fichaSearch.toLowerCase();
+                    return (
+                      f.id.toLowerCase().includes(term) ||
+                      (f.descricao || "").toLowerCase().includes(term) ||
+                      (f.nome_ficha || "").toLowerCase().includes(term)
+                    );
+                  })
+                  .map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => { setFichaSelecionadaId(f.id); setFichaPopoverOpen(false); setFichaSearch(""); }}
+                      className={cn(
+                        "w-full text-left px-2 py-1.5 rounded text-xs hover:bg-accent transition-colors",
+                        fichaSelecionadaId === f.id && "bg-accent font-medium"
+                      )}
+                    >
+                      <span className="font-mono">{f.id}</span>
+                      <span className="text-muted-foreground"> — {(f.descricao || f.nome_ficha || "Sem descrição").slice(0, 45)}</span>
+                    </button>
+                  ))}
+              </div>
+            </PopoverContent>
+          </Popover>
           {fichaSelecionada && (
             <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-              Prefixo automático ativo
+              ✅ Prefixo ativo
             </span>
           )}
         </div>

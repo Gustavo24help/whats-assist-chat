@@ -8,9 +8,11 @@ import { Logo } from "@/components/Logo";
 import { LogOut, Settings, Home, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
 
 const ChatPrestadores = () => {
   const navigate = useNavigate();
+  const { openRoute } = useOpenInNewTab();
   const [selectedPrestador, setSelectedPrestador] = useState<any>(null);
 
   useEffect(() => {
@@ -40,10 +42,10 @@ const ChatPrestadores = () => {
             <span className="font-semibold text-sm">Chat Prestadores</span>
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/chat")}>
+            <Button variant="ghost" size="sm" onClick={() => openRoute("/chat")}>
               Chat Clientes
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+            <Button variant="ghost" size="sm" onClick={() => openRoute("/dashboard")}>
               Dashboard
             </Button>
           </div>

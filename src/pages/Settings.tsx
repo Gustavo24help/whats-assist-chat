@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, Copy, ExternalLink } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,11 +18,13 @@ import { TemplateManagement } from "@/components/TemplateManagement";
 import { FerramentasManutencao } from "@/components/FerramentasManutencao";
 import { DailyGoalsManager } from "@/components/DailyGoalsManager";
 import { StatusAlertSettings } from "@/components/StatusAlertSettings";
+import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isAdmin, loading } = useAuth();
+  const { isAdmin, isAdminTI, loading } = useAuth();
+  const { sameTab, setSameTab, canToggle } = useOpenInNewTab();
   const [twilioAccountSid, setTwilioAccountSid] = useState("");
   const [twilioAuthToken, setTwilioAuthToken] = useState("");
   const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
@@ -444,10 +447,26 @@ const Settings = () => {
                   Outras configurações do sistema
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Configurações adicionais serão adicionadas aqui.
-                </p>
+              <CardContent className="space-y-4">
+                {canToggle && (
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium">Abrir módulos na mesma aba</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Por padrão, os módulos abrem em nova aba. Ative para navegar na mesma janela.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={sameTab}
+                      onCheckedChange={setSameTab}
+                    />
+                  </div>
+                )}
+                {!canToggle && (
+                  <p className="text-sm text-muted-foreground">
+                    Configurações adicionais serão adicionadas aqui.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

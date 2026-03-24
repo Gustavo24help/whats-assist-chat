@@ -16,7 +16,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'admin' | 'chefe' | 'supervisor' | 'user';
+  role: 'admin' | 'chefe' | 'supervisor' | 'user' | 'admin_ti';
 }
 
 export const UserManagement = () => {
@@ -32,7 +32,7 @@ export const UserManagement = () => {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserName, setNewUserName] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'chefe' | 'supervisor' | 'user'>('user');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'chefe' | 'supervisor' | 'user' | 'admin_ti'>('user');
 
   useEffect(() => {
     if (isAdmin && !loading) {
@@ -106,7 +106,7 @@ export const UserManagement = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: 'admin' | 'chefe' | 'supervisor' | 'user') => {
+  const updateUserRole = async (userId: string, newRole: 'admin' | 'chefe' | 'supervisor' | 'user' | 'admin_ti') => {
     try {
       const { data, error } = await supabase.functions.invoke('manage-users', {
         body: { action: 'update_role', userId, role: newRole }
@@ -255,7 +255,7 @@ export const UserManagement = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Tipo de Permissão</Label>
-                  <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as 'admin' | 'chefe' | 'supervisor' | 'user')}>
+                  <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as typeof newUserRole)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -264,6 +264,7 @@ export const UserManagement = () => {
                       <SelectItem value="supervisor">Supervisor</SelectItem>
                       <SelectItem value="admin">Administrador</SelectItem>
                       <SelectItem value="chefe">Administrador - Chefe</SelectItem>
+                      <SelectItem value="admin_ti">Administrador TI</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -293,7 +294,7 @@ export const UserManagement = () => {
                 <TableCell>
                   <Select
                     value={user.role}
-                    onValueChange={(v) => updateUserRole(user.id, v as 'admin' | 'chefe' | 'supervisor' | 'user')}
+                    onValueChange={(v) => updateUserRole(user.id, v as typeof user.role)}
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue />
@@ -303,6 +304,7 @@ export const UserManagement = () => {
                       <SelectItem value="supervisor">Supervisor</SelectItem>
                       <SelectItem value="admin">Administrador</SelectItem>
                       <SelectItem value="chefe">Administrador - Chefe</SelectItem>
+                      <SelectItem value="admin_ti">Administrador TI</SelectItem>
                     </SelectContent>
                   </Select>
                 </TableCell>
