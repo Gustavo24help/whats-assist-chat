@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Paperclip, ArrowLeft, Loader2, FileText } from "lucide-react";
+import { Send, Paperclip, ArrowLeft, Loader2, FileText, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
@@ -11,13 +11,12 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FichaVinculoSelector } from "./FichaVinculoSelector";
+import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const NUMERO_PRESTADORES = import.meta.env.VITE_TWILIO_PHONE_NUMBER_2 || "";
 
@@ -66,6 +65,8 @@ export const ChatWindowPrestadores = ({
   const [loading, setLoading] = useState(true);
   const [fichasAtivas, setFichasAtivas] = useState<FichaAtiva[]>([]);
   const [fichaSelecionadaId, setFichaSelecionadaId] = useState<string>("none");
+  const [fichaSearch, setFichaSearch] = useState("");
+  const [fichaPopoverOpen, setFichaPopoverOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
