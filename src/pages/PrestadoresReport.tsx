@@ -199,6 +199,23 @@ const PrestadoresReportPage = () => {
     return days > 1; // Don't show for "Hoje"
   };
 
+  const fetchAllPaginated = async <T,>(
+    queryBuilder: () => ReturnType<ReturnType<typeof supabase.from>['select']>
+  ): Promise<T[]> => {
+    let allData: T[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await (queryBuilder() as any).range(from, from + pageSize - 1);
+      if (error) { console.error("Fetch paginated error:", error); break; }
+      if (!data || data.length === 0) break;
+      allData.push(...(data as T[]));
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return allData;
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -208,33 +225,40 @@ const PrestadoresReportPage = () => {
         .eq("ativo", true)
         .order("nome");
 
-      const { data: fichasData } = await supabase
-        .from("fichas_de_servico")
-        .select("id, prestador_id, status, valor_total, valor_mao_obra, valor_pecas, horario_agendamento, bairro, categoria_id, created_at")
-        .not("prestador_id", "is", null)
-        .in("status", ["Finalizado", "Agendado", "Em andamento", "Perdido"]);
-
-      const { data: orcamentosData } = await supabase
-        .from("orcamentos")
-        .select("id, prestador_cpf, ficha_nome, status, valor_total, data_criacao, categoria");
-
-      if (orcamentosData && orcamentosData.length > 0) {
-        const fichaIds = [...new Set(orcamentosData.map(o => o.ficha_nome))];
-        const { data: fichasOrcamentosData } = await supabase
+      const fichasData = await fetchAllPaginated<FichaServico>(
+        () => supabase
           .from("fichas_de_servico")
-          .select("id, created_at, prestador_id")
-          .in("id", fichaIds);
+          .select("id, prestador_id, status, valor_total, valor_mao_obra, valor_pecas, horario_agendamento, bairro, categoria_id, created_at")
+          .not("prestador_id", "is", null)
+          .in("status", ["Finalizado", "Agendado", "Em andamento", "Perdido"])
+      );
 
+      const orcamentosData = await fetchAllPaginated<Orcamento>(
+        () => supabase
+          .from("orcamentos")
+          .select("id, prestador_cpf, ficha_nome, status, valor_total, data_criacao, categoria")
+      );
+
+      if (orcamentosData.length > 0) {
+        const fichaIds = [...new Set(orcamentosData.map(o => o.ficha_nome))];
+        // Fetch in chunks of 500 to avoid URL length limits
         const fichasMap: Record<string, FichaParaOrcamento> = {};
-        fichasOrcamentosData?.forEach(f => {
-          fichasMap[f.id] = f;
-        });
+        for (let i = 0; i < fichaIds.length; i += 500) {
+          const chunk = fichaIds.slice(i, i + 500);
+          const { data: fichasOrcamentosData } = await supabase
+            .from("fichas_de_servico")
+            .select("id, created_at, prestador_id")
+            .in("id", chunk);
+          fichasOrcamentosData?.forEach(f => {
+            fichasMap[f.id] = f;
+          });
+        }
         setFichasParaOrcamentos(fichasMap);
       }
 
       setPrestadores(prestadoresData || []);
-      setFichas(fichasData || []);
-      setOrcamentos(orcamentosData || []);
+      setFichas(fichasData);
+      setOrcamentos(orcamentosData);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
     } finally {
