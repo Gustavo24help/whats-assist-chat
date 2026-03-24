@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Paperclip, ArrowLeft, Loader2 } from "lucide-react";
+import { Send, Paperclip, ArrowLeft, Loader2, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
@@ -11,6 +11,13 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FichaVinculoSelector } from "./FichaVinculoSelector";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const NUMERO_PRESTADORES = import.meta.env.VITE_TWILIO_PHONE_NUMBER_2 || "";
 
@@ -27,6 +34,13 @@ interface Mensagem {
   enviado_por_id?: string | null;
 }
 
+interface FichaAtiva {
+  id: string;
+  descricao: string | null;
+  nome_ficha: string | null;
+  status: string | null;
+}
+
 interface ChatWindowPrestadoresProps {
   prestadorTelefone: string;
   prestadorNome: string;
@@ -34,7 +48,6 @@ interface ChatWindowPrestadoresProps {
   onBack: () => void;
 }
 
-// Check if sender is the system (our numbers)
 const isAtendente = (remetente: string): boolean => {
   const systemPrefixes = ["whatsapp:+554138911555", "whatsapp:+14155238886", "whatsapp:+554138910814"];
   return systemPrefixes.some((prefix) => remetente.startsWith(prefix)) || remetente === "atendente" || remetente === "bot";
@@ -51,12 +64,37 @@ export const ChatWindowPrestadores = ({
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fichasAtivas, setFichasAtivas] = useState<FichaAtiva[]>([]);
+  const [fichaSelecionadaId, setFichaSelecionadaId] = useState<string>("none");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
+
+  // Fetch active fichas for this prestador
+  useEffect(() => {
+    if (!prestadorCpf) return;
+    const fetchFichas = async () => {
+      const { data } = await supabase
+        .from("fichas_de_servico")
+        .select("id, descricao, nome_ficha, status")
+        .eq("prestador_id", prestadorCpf)
+        .not("status", "in", '("Finalizado","Perdido")')
+        .order("created_at", { ascending: false });
+
+      const fichas = (data as FichaAtiva[]) || [];
+      setFichasAtivas(fichas);
+      // Auto-select if only 1
+      if (fichas.length === 1) {
+        setFichaSelecionadaId(fichas[0].id);
+      }
+    };
+    fetchFichas();
+  }, [prestadorCpf]);
+
+  const fichaSelecionada = fichasAtivas.find((f) => f.id === fichaSelecionadaId) || null;
 
   const fetchMessages = useCallback(async () => {
     const { data, error } = await supabase
@@ -121,6 +159,14 @@ export const ChatWindowPrestadores = ({
         return;
       }
 
+      // Build message with ficha prefix
+      let textoFinal = newMessage.trim();
+      if (fichaSelecionada) {
+        const descResumo = fichaSelecionada.descricao || fichaSelecionada.nome_ficha || "Serviço";
+        const prefixo = `📋 *Ref: ${fichaSelecionada.id} - ${descResumo}*\n---\n`;
+        textoFinal = prefixo + textoFinal;
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`,
         {
@@ -131,8 +177,9 @@ export const ChatWindowPrestadores = ({
           },
           body: JSON.stringify({
             to: prestadorTelefone,
-            message: newMessage.trim(),
+            message: textoFinal,
             fromNumber: "TWILIO_PHONE_NUMBER_2",
+            ...(fichaSelecionada ? { fichaId: fichaSelecionada.id } : {}),
           }),
         }
       );
@@ -200,6 +247,7 @@ export const ChatWindowPrestadores = ({
           message: "",
           mediaUrl: urlData.publicUrl,
           fromNumber: "TWILIO_PHONE_NUMBER_2",
+          ...(fichaSelecionada ? { fichaId: fichaSelecionada.id } : {}),
         }),
       }
     );
@@ -278,6 +326,31 @@ export const ChatWindowPrestadores = ({
         </div>
         <FichaVinculoSelector prestadorTelefone={prestadorTelefone} />
       </div>
+
+      {/* Ficha selector */}
+      {fichasAtivas.length > 0 && (
+        <div className="border-b bg-muted/30 px-3 py-2 shrink-0 flex items-center gap-2">
+          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Select value={fichaSelecionadaId} onValueChange={setFichaSelecionadaId}>
+            <SelectTrigger className="h-8 text-xs flex-1">
+              <SelectValue placeholder="Selecione uma ficha..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Nenhuma ficha (sem prefixo)</SelectItem>
+              {fichasAtivas.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.id} - {(f.descricao || f.nome_ficha || "Sem descrição").slice(0, 50)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {fichaSelecionada && (
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              Prefixo automático ativo
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4">
