@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', authUser.id)
-      .eq('role', 'admin')
+      .in('role', ['admin', 'chefe', 'admin_ti'])
       .single();
 
     const { action, userId, email, password, fullName, role } = await req.json()
