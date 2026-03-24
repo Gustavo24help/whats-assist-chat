@@ -15,9 +15,11 @@ import { OrcamentosSemFichaNotification } from "@/components/OrcamentosSemFichaN
 import { BotSemFichaNotification } from "@/components/BotSemFichaNotification";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
 
 const Chat = () => {
   const navigate = useNavigate();
+  const { openRoute } = useOpenInNewTab();
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [fichaOpen, setFichaOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
@@ -135,14 +137,14 @@ const Chat = () => {
             <Button 
               variant="ghost"
               size="sm" 
-              onClick={() => navigate("/analise-servicos")}
+              onClick={() => openRoute("/analise-servicos")}
             >
               Análise de Serviços
             </Button>
             <Button 
               variant="ghost"
               size="sm" 
-              onClick={() => navigate("/dashboard")}
+              onClick={() => openRoute("/dashboard")}
             >
               Dashboard
             </Button>
