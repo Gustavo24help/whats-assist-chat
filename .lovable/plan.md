@@ -1,52 +1,43 @@
 
 
-# Ajuste Manual de Data de Finalização
+# Seletor de Ficha Ativa no Chat de Prestadores com Prefixo Automático na Mensagem
 
 ## Problema
-Quando um serviço é finalizado em final de semana ou feriado, a data registrada (via `ficha_status_historico.data_inicio` e `transacoes_financeiras.data_execucao`) fica incorreta, afetando o cálculo de prazo de pagamento (2 dias úteis) e relatórios.
+Um prestador pode estar atendendo múltiplas fichas ao mesmo tempo. Quando o operador envia mensagens, o prestador não sabe a qual serviço a mensagem se refere, causando confusão.
 
 ## Solução
+Adicionar um seletor acima da caixa de mensagem que mostra apenas as fichas ativas daquele prestador (não finalizadas/perdidas). Ao selecionar uma ficha, toda mensagem enviada será automaticamente prefixada com uma referência clara à ficha, no formato:
 
-### 1. Novo componente: `AjustarDataFinalizacaoDialog.tsx`
-Dialog que aparece apenas para fichas com status "Finalizado". Campos:
-- **Data de finalização real** (datepicker, obrigatório)
-- **Justificativa** (textarea, obrigatório)
-- **Prestador** (exibido read-only, puxado da ficha)
-- **Operador** (capturado automaticamente via `auth.uid()`)
-
-Ao confirmar:
-1. Atualiza `ficha_status_historico` onde `ficha_id = X` e `status_novo = 'Finalizado'`: seta `data_inicio` para a nova data
-2. Atualiza `transacoes_financeiras` onde `ficha_id = X`: seta `data_execucao` para a nova data e recalcula `data_pagamento_prevista` (2 dias úteis a partir da nova data)
-3. Registra o ajuste em `ficha_status_historico` como nota ou em uma nova coluna de auditoria
-
-### 2. Migration: tabela de auditoria `ajustes_data_finalizacao`
-```sql
-CREATE TABLE ajustes_data_finalizacao (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  ficha_id text NOT NULL,
-  data_anterior timestamptz NOT NULL,
-  data_nova timestamptz NOT NULL,
-  justificativa text NOT NULL,
-  prestador_id text,
-  prestador_nome text,
-  ajustado_por uuid NOT NULL,
-  created_at timestamptz DEFAULT now()
-);
 ```
-Com RLS para authenticated users poderem inserir e selecionar.
+📋 *Ref: FS5-260319 - Instalação de torneira*
+---
+Corpo da mensagem normal aqui
+```
 
-### 3. Botão no `FichaServicoTab.tsx`
-Ao lado do botão "Confirmar Financeiro", mostrar botão "Ajustar Data Finalização" apenas quando `ficha.status === 'Finalizado'`. Ícone de calendário.
+O prestador recebe no WhatsApp a mensagem completa com a referência. O operador digita apenas o corpo — o prefixo é adicionado automaticamente.
 
-### 4. Botão na listagem `/fichas` (`Fichas.tsx`)
-Na row de cada ficha finalizada, um pequeno ícone/botão de calendário para abrir o mesmo dialog.
+## Alterações
 
-### 5. Recálculo compatível
-A função `calcularDataPagamento` já existe em `PopupConfirmacaoFinanceira.tsx`. Será extraída ou reutilizada para recalcular `data_pagamento_prevista` com base na nova data, mantendo consistência com o fluxo financeiro existente.
+### 1. `ChatWindowPrestadores.tsx`
+- Adicionar state `fichasAtivas` — lista de fichas onde `prestador_id = prestadorCpf` e status NOT IN ('Finalizado', 'Perdido')
+- Adicionar state `fichaSelecionada` — ficha escolhida para contextualizar mensagens
+- Carregar fichas ativas ao abrir o chat (useEffect com query)
+- No `handleSend`: se uma ficha estiver selecionada, prefixar a mensagem com `📋 *Ref: {ficha.id} - {ficha.descricao || ficha.nome_ficha}*\n---\n` antes de enviar ao WhatsApp
+- Exibir um seletor (Select ou chips) entre o header e as mensagens, mostrando as fichas ativas com ID + descrição resumida
+- Permitir "Nenhuma ficha" como opção (envia sem prefixo)
 
-### Detalhes técnicos
-- Migration cria tabela `ajustes_data_finalizacao` com RLS
-- Updates em `ficha_status_historico` e `transacoes_financeiras` feitos via Supabase client
-- O trigger `update_updated_at_column` preserva `updated_at` manual (já documentado)
-- A `data_pagamento_prevista` é recalculada client-side usando `isBusinessDay` e salva via update
+### 2. UI do seletor
+- Barra compacta abaixo do header: `[📋 Ficha: FS5-260319 - Instalação ▾]`
+- Se só há 1 ficha ativa, já vem pré-selecionada
+- Se não há fichas ativas, não exibe o seletor
+- Badge colorido na ficha selecionada para destaque visual
+
+### 3. Na mensagem salva no banco (`mensagens_prestadores`)
+- O `texto` salvo inclui o prefixo completo (para histórico)
+- O `ficha_id` é preenchido com a ficha selecionada
+
+## Detalhes
+- A query busca fichas por `prestador_id = prestadorCpf` (CPF do prestador, que é a FK usada em `fichas_de_servico`)
+- Props `prestadorCpf` já é passado ao componente
+- Não requer migração — usa dados existentes
 
