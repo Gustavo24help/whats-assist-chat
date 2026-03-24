@@ -6,13 +6,14 @@ interface UserProfile {
   id: string;
   email: string;
   fullName: string;
-  role: 'admin' | 'supervisor' | 'user' | 'chefe';
+  role: 'admin' | 'supervisor' | 'user' | 'chefe' | 'admin_ti';
 }
 
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   isAdmin: boolean;
+  isAdminTI: boolean;
   isChefe: boolean;
   isSupervisor: boolean;
   loading: boolean;
@@ -87,8 +88,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       // Normalizar role para lowercase
-      const normalizedRole = roleData?.role?.toLowerCase() as 'admin' | 'supervisor' | 'user' | 'chefe';
-      const finalRole = normalizedRole === 'admin' ? 'admin' : normalizedRole === 'chefe' ? 'chefe' : normalizedRole === 'supervisor' ? 'supervisor' : 'user';
+      const normalizedRole = roleData?.role?.toLowerCase() as 'admin' | 'supervisor' | 'user' | 'chefe' | 'admin_ti';
+      const finalRole = normalizedRole === 'admin' ? 'admin' : normalizedRole === 'admin_ti' ? 'admin_ti' : normalizedRole === 'chefe' ? 'chefe' : normalizedRole === 'supervisor' ? 'supervisor' : 'user';
 
       const userProfileData: UserProfile = {
         id: userId,
@@ -187,7 +188,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
 
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'chefe';
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'chefe' || userProfile?.role === 'admin_ti';
+  const isAdminTI = userProfile?.role === 'admin_ti';
   const isChefe = userProfile?.role === 'chefe';
   const isSupervisor = userProfile?.role === 'supervisor' || isAdmin;
 
@@ -199,6 +201,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         user,
         userProfile,
         isAdmin,
+        isAdminTI,
         isChefe,
         isSupervisor,
         loading,
