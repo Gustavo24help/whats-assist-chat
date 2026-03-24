@@ -84,6 +84,9 @@ const Avisos = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [destinatariosPorAviso, setDestinatariosPorAviso] = useState<Record<string, Set<string>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [leiturasAviso, setLeiturasAviso] = useState<AvisoLeitura[]>([]);
+  const [loadingLeituras, setLoadingLeituras] = useState(false);
+  const [showLeituras, setShowLeituras] = useState(false);
 
   const loadUsuariosSistema = async () => {
     if (!isAdmin) return;
