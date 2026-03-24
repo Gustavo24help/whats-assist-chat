@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import {
@@ -26,6 +27,7 @@ import { toast } from "sonner";
 const Home = () => {
   const navigate = useNavigate();
   const { user, userProfile } = useAuth();
+  const { openRoute } = useOpenInNewTab();
   const [unreadAvisos, setUnreadAvisos] = useState(0);
 
   const loadUnreadAvisos = async () => {
@@ -86,7 +88,7 @@ const Home = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-6xl w-full">
           <button
-            onClick={() => navigate("/chat")}
+            onClick={() => openRoute("/chat")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-green/30 animate-slide-up"
             style={{ animationDelay: "0.1s" }}
           >
@@ -106,7 +108,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/chat-prestadores")}
+            onClick={() => openRoute("/chat-prestadores")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-yellow/30 animate-slide-up"
             style={{ animationDelay: "0.15s" }}
           >
@@ -126,7 +128,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => openRoute("/dashboard")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-yellow/30 animate-slide-up"
             style={{ animationDelay: "0.2s" }}
           >
@@ -146,7 +148,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/gerenciamento-prestadores")}
+            onClick={() => openRoute("/gerenciamento-prestadores")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-green/30 animate-slide-up"
             style={{ animationDelay: "0.3s" }}
           >
@@ -166,7 +168,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/analise-servicos")}
+            onClick={() => openRoute("/analise-servicos")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-yellow/30 animate-slide-up"
             style={{ animationDelay: "0.4s" }}
           >
@@ -186,7 +188,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/financeiro")}
+            onClick={() => openRoute("/financeiro")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-yellow/30 animate-slide-up"
             style={{ animationDelay: "0.45s" }}
           >
@@ -206,7 +208,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/manutencao")}
+            onClick={() => openRoute("/manutencao")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-green/30 animate-slide-up"
             style={{ animationDelay: "0.5s" }}
           >
@@ -226,7 +228,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/avisos")}
+            onClick={() => openRoute("/avisos")}
             className={`group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 animate-slide-up ${
               unreadAvisos > 0
                 ? "border-orange-400/70 shadow-[0_0_30px_rgba(251,146,60,0.5)]"
@@ -250,7 +252,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/calendario")}
+            onClick={() => openRoute("/calendario")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-yellow/30 animate-slide-up"
             style={{ animationDelay: "0.62s" }}
           >
@@ -270,7 +272,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/planilha")}
+            onClick={() => openRoute("/planilha")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-green/30 animate-slide-up"
             style={{ animationDelay: "0.65s" }}
           >
@@ -290,7 +292,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/fichas")}
+            onClick={() => openRoute("/fichas")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-green/30 animate-slide-up"
             style={{ animationDelay: "0.73s" }}
           >
@@ -310,7 +312,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/registro-ponto")}
+            onClick={() => openRoute("/registro-ponto")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-yellow/30 animate-slide-up"
             style={{ animationDelay: "0.75s" }}
           >
@@ -330,7 +332,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate("/mensagens")}
+            onClick={() => openRoute("/mensagens")}
             className="group saas-card p-8 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-2 border-transparent hover:border-brand-green/30 animate-slide-up"
             style={{ animationDelay: "0.7s" }}
           >
