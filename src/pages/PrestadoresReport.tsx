@@ -144,7 +144,7 @@ const PrestadoresReportPage = () => {
         .from("fichas_de_servico")
         .select("id, prestador_id, status, valor_total, valor_mao_obra, valor_pecas, horario_agendamento, bairro, categoria_id, created_at")
         .not("prestador_id", "is", null)
-        .in("status", ["Finalizado", "Agendado", "Em andamento"]);
+        .in("status", ["Finalizado", "Agendado", "Em andamento", "Perdido"]);
 
       const { data: orcamentosData } = await supabase
         .from("orcamentos")
@@ -208,19 +208,21 @@ const PrestadoresReportPage = () => {
     
     const orcamentosDoPrestador = orcamentosFiltrados.filter(o => o.prestador_cpf === cpf);
     
-    // CORREÇÃO: Orçamento aceito = aprovado E prestador foi escolhido para executar
+    // Orçamento aceito = aprovado E prestador foi escolhido para executar
     const orcamentosAceitos = orcamentosDoPrestador.filter(o => {
       if (o.status !== "aprovado") return false;
       const ficha = fichasParaOrcamentos[o.ficha_nome];
       return ficha?.prestador_id === o.prestador_cpf;
     }).length;
     
-    // Orçamentos não aprovados = rejeitados OU aprovados mas outro prestador foi escolhido
+    // Rejeitados = status "rejeitado" OU aprovado mas outro prestador executou
     const orcamentosRejeitados = orcamentosDoPrestador.filter(o => {
-      if (o.status === "rejeitado" || o.status === "Não Aprovado") return true;
+      if (o.status === "rejeitado") return true;
       if (o.status === "aprovado") {
         const ficha = fichasParaOrcamentos[o.ficha_nome];
-        return ficha?.prestador_id !== o.prestador_cpf;
+        // Se ficha não existe no mapa, não contar como rejeitado
+        if (!ficha) return false;
+        return ficha.prestador_id !== o.prestador_cpf;
       }
       return false;
     }).length;
@@ -230,7 +232,9 @@ const PrestadoresReportPage = () => {
     const valorTotal = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_total || 0), 0);
     const valorTotalMaoObra = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_mao_obra || 0), 0);
     const valorTotalPecas = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_pecas || 0), 0);
-    const ticketMedio = fichasFinalizadas.length > 0 ? valorTotal / fichasFinalizadas.length : 0;
+    // Ticket Médio: excluir fichas com valor_total = 0 para não diluir a média
+    const fichasComValor = fichasFinalizadas.filter(f => (f.valor_total || 0) > 0);
+    const ticketMedio = fichasComValor.length > 0 ? valorTotal / fichasComValor.length : 0;
 
     let temposResposta: number[] = [];
     orcamentosDoPrestador.forEach(orc => {
