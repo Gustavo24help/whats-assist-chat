@@ -651,6 +651,46 @@ const Avisos = () => {
                     <CheckCircle2 className="h-4 w-4" />
                     Marcado como lido
                   </div>
+
+                  {/* Quem leu - apenas admin */}
+                  {isAdmin && (
+                    <div className="border rounded-md p-3 space-y-2">
+                      <button
+                        onClick={() => setShowLeituras(!showLeituras)}
+                        className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors w-full"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Quem leu este aviso ({leiturasAviso.length})
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {showLeituras ? "▲" : "▼"}
+                        </span>
+                      </button>
+
+                      {showLeituras && (
+                        <div className="space-y-1 pt-1">
+                          {loadingLeituras && (
+                            <p className="text-xs text-muted-foreground">Carregando...</p>
+                          )}
+                          {!loadingLeituras && leiturasAviso.length === 0 && (
+                            <p className="text-xs text-muted-foreground">Ninguém leu ainda.</p>
+                          )}
+                          {!loadingLeituras && leiturasAviso.map((leitura) => (
+                            <div key={leitura.user_id} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+                              <div className="flex items-center gap-2">
+                                <Users className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-medium">
+                                  {leitura.user_name || leitura.user_email || "Usuário desconhecido"}
+                                </span>
+                              </div>
+                              <span className="text-muted-foreground">
+                                {new Date(leitura.lido_em).toLocaleString("pt-BR")}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
 
