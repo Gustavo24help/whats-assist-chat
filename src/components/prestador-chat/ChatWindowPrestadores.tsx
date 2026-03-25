@@ -264,7 +264,51 @@ export const ChatWindowPrestadores = ({
     return format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   };
 
-  const renderMessage = (msg: Mensagem, index: number) => {
+  const handleEditMessage = async (messageId: string, newText: string) => {
+    try {
+      const { error } = await supabase
+        .from('mensagens_prestadores')
+        .update({ texto: newText })
+        .eq('id', messageId);
+      if (error) throw error;
+      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: newText } : m));
+      toast.success("Mensagem editada!");
+      setEditingMessageId(null);
+      setEditingText("");
+    } catch (error) {
+      console.error('Erro ao editar mensagem:', error);
+      toast.error("Erro ao editar mensagem");
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('mensagens_prestadores')
+        .update({ texto: "[Mensagem apagada]" })
+        .eq('id', messageId);
+      if (error) throw error;
+      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: "[Mensagem apagada]" } : m));
+      toast.success("Mensagem apagada!");
+    } catch (error) {
+      console.error('Erro ao apagar mensagem:', error);
+      toast.error("Erro ao apagar mensagem");
+    }
+  };
+
+  const handleStartEdit = (messageId: string) => {
+    const msg = mensagens.find(m => m.id === messageId);
+    if (msg) {
+      setEditingMessageId(messageId);
+      setEditingText(msg.texto || "");
+    }
+  };
+
+  const canEditDeleteMessage = (msg: Mensagem): boolean => {
+    if (!isAtendente(msg.remetente)) return false;
+    if (msg.texto === "[Mensagem apagada]") return false;
+    return (msg.enviado_por_id === user?.id) || isSupervisor;
+  };
     const isSystem = isAtendente(msg.remetente);
     const showDateSeparator =
       index === 0 ||
