@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Paperclip, ArrowLeft, Loader2, FileText, Search } from "lucide-react";
+import { MessageContextMenu } from "@/components/MessageContextMenu";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
