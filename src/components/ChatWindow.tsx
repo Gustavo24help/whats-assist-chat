@@ -228,6 +228,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const takeoverRequestIdRef = useRef<string | null>(null);
   const takeoverWaitingOperadorNomeRef = useRef("");
   
+  // Estados para edição de mensagem
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
   const latestMessageDateRef = useRef<string | null>(null);
