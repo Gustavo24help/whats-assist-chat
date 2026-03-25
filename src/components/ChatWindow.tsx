@@ -1992,6 +1992,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <div className="flex items-center gap-1.5 shrink-0">
           {!fichaOpen && (
             <>
+              {/* Botão copiar info do serviço para prestador */}
+              {fichaId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopyServiceInfo}
+                  className="h-9 px-2 hover:bg-accent"
+                  title="Copiar informações do serviço para enviar ao prestador"
+                >
+                  <ClipboardList className="h-4 w-4" />
+                </Button>
+              )}
               {/* Botão de busca no chat */}
               <Button
                 variant="ghost"
