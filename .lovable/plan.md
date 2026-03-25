@@ -1,54 +1,82 @@
 
 
-# Bug: Ranking de Prestadores mostrando 0 para filtro "Mês"
+# Editar/Apagar mensagens + Botão "Copiar Info do Serviço"
 
-## Causa Raiz
+## Resumo
 
-A tabela `orcamentos` tem **1673 registros**, mas a query do Supabase no `fetchData()` (linha 217-219) **não especifica nenhum limite**, fazendo o Supabase aplicar o limite padrão de **1000 linhas**. Isso significa que ~673 orçamentos são silenciosamente descartados.
+Três funcionalidades:
+1. **Editar e apagar mensagens** no chat de clientes e prestadores (via context menu)
+2. **Botão "Copiar informações do serviço"** no chat de atendimento para enviar dados organizados ao prestador
 
-Como a ordenação padrão do Supabase tende a retornar registros mais antigos primeiro, muitos orçamentos de março (mês atual) ficam de fora dos 1000 retornados. Quando o filtro "Este Mês" é aplicado no `orcamentosFiltrados`, quase todos os orçamentos do mês estão faltando, resultando em **0 enviados** para todos os prestadores.
+---
 
-O mesmo problema pode afetar a query de `fichas_de_servico` (linha 211-215), que atualmente retorna fichas com 4 status diferentes e provavelmente também excede 1000 registros.
+## 1. Editar e Apagar Mensagens
 
-## Dados confirmados
-- 420 orçamentos existem em março 2026 (134 aprovados, 150 pendentes, 136 rejeitados)
-- Top prestador tem 54 orçamentos enviados este mês
-- Query retorna apenas 1000 dos 1673 totais
+### Regras de negócio
+- Apenas mensagens **enviadas pelo operador** (isAtendente) podem ser editadas/apagadas
+- Apenas o **próprio operador** que enviou (ou admin) pode editar/apagar
+- Mensagens de **clientes/prestadores** não podem ser alteradas (veio do WhatsApp, não temos controle)
+- Editar atualiza o campo `texto` na tabela; apagar faz soft-delete (texto = "[Mensagem apagada]")
+- Não há como editar/apagar no WhatsApp do destinatário — apenas no sistema interno
 
-## Correção
+### Alterações
 
-### `src/pages/PrestadoresReport.tsx` — `fetchData()`
+**`src/components/MessageContextMenu.tsx`**
+- Adicionar props: `onEdit`, `onDelete`, `canEditDelete` (boolean)
+- Adicionar itens "Editar mensagem" (Pencil icon) e "Apagar mensagem" (Trash2 icon) no context menu
+- Mostrar apenas quando `canEditDelete = true`
+- Apagar abre confirmação inline antes de executar
 
-1. **Queries paginadas**: Para ambas as queries (`orcamentos` e `fichas_de_servico`), implementar fetch paginado para garantir que TODOS os registros sejam carregados:
+**`src/components/ChatWindow.tsx`** (chat clientes)
+- Criar funções `handleEditMessage(id, newText)` e `handleDeleteMessage(id)`
+- `handleEditMessage`: update na tabela `mensagens` campo `texto`
+- `handleDeleteMessage`: update `texto` = "[Mensagem apagada]" na tabela `mensagens`
+- Passar `onEdit`, `onDelete` e `canEditDelete` ao `MessageContextMenu`
+- `canEditDelete` = true se `isAtendente(msg.remetente)` e (`msg.enviado_por_id === user.id` ou `isAdmin`)
 
-```typescript
-// Helper para buscar todos os registros sem limite de 1000
-const fetchAll = async (table, selectQuery, filters) => {
-  let allData = [];
-  let from = 0;
-  const pageSize = 1000;
-  while (true) {
-    const { data } = await supabase
-      .from(table)
-      .select(selectQuery)
-      ...filters
-      .range(from, from + pageSize - 1);
-    if (!data || data.length === 0) break;
-    allData.push(...data);
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
-  return allData;
-};
+**`src/components/prestador-chat/ChatWindowPrestadores.tsx`** (chat prestadores)
+- Importar e usar `MessageContextMenu` (atualmente não usa)
+- Criar mesmas funções `handleEditMessage` e `handleDeleteMessage` para tabela `mensagens_prestadores`
+- Envolver cada mensagem com `MessageContextMenu`
+
+**Database**: Ambas as tabelas `mensagens` e `mensagens_prestadores` já permitem UPDATE para authenticated users — nenhuma migration necessária.
+
+---
+
+## 2. Botão "Copiar Info do Serviço para Prestador"
+
+### Regras de negócio
+- No chat de atendimento ao cliente, quando há ficha ativa, exibir um botão na toolbar/header
+- Ao clicar, busca os dados da ficha (`fichas_de_servico`) e formata um texto organizado pronto para colar no chat de prestadores
+- Texto formatado inclui: ID da ficha, nome do cliente, endereço, descrição do serviço, categoria, valores, tempo de serviço, horário agendado
+
+### Formato do texto copiado
+
+```text
+📋 *Ficha #FS-001234*
+👤 Cliente: João Silva
+📍 Endereço: Rua Exemplo, 123 - Bairro
+🔧 Serviço: Troca de torneira
+📂 Categoria: Hidráulica
+⏱ Tempo estimado: 2 horas
+📅 Agendamento: 25/03/2026 às 14:00
+💰 Valor total: R$ 350,00
+📝 Obs: Cliente pediu para ligar antes
 ```
 
-2. Aplicar a paginação nas 3 queries:
-   - `orcamentos` (1673 registros, excede 1000)
-   - `fichas_de_servico` principal (potencialmente excede 1000)
-   - `fichas_de_servico` para mapa de orçamentos (busca por IDs, pode exceder 1000)
+### Alterações
 
-## Impacto
-- Todos os orçamentos serão carregados independente do volume
-- O ranking e contagens refletirão os dados reais
-- Filtro "Este Mês" passará a mostrar os 420 orçamentos corretamente
+**`src/components/ChatWindow.tsx`**
+- Criar função `handleCopyServiceInfo()` que busca a ficha ativa no banco e formata o texto
+- Adicionar botão (ícone ClipboardList ou Copy) na barra de ações do header do chat, visível quando `fichaId` existe
+- Copiar para clipboard e mostrar toast de sucesso
+
+---
+
+## Detalhes Técnicos
+
+- Edit inline: ao clicar "Editar", o texto da mensagem vira um `<Textarea>` editável com botões Salvar/Cancelar
+- Delete: soft-delete apenas (update texto), mantém registro no banco
+- A cópia de info usa `navigator.clipboard.writeText()` como já feito no `MessageContextMenu`
+- Para o chat de prestadores, o `MessageContextMenu` será reutilizado sem as opções de "preencher campo da ficha" (pois não se aplica)
 
