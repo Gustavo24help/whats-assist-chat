@@ -256,7 +256,96 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const canWrite = isMyTicket || isSupervisor;
   const needsToAssume = !atendenteAtual && !isSupervisor;
 
-  // Auto-resize do textarea
+  // Handlers para editar/apagar mensagens
+  const handleEditMessage = async (messageId: string, newText: string) => {
+    try {
+      const { error } = await supabase
+        .from('mensagens')
+        .update({ texto: newText })
+        .eq('id', messageId);
+      if (error) throw error;
+      toast.success("Mensagem editada!");
+      setEditingMessageId(null);
+      setEditingText("");
+    } catch (error) {
+      console.error('Erro ao editar mensagem:', error);
+      toast.error("Erro ao editar mensagem");
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('mensagens')
+        .update({ texto: "[Mensagem apagada]" })
+        .eq('id', messageId);
+      if (error) throw error;
+      toast.success("Mensagem apagada!");
+    } catch (error) {
+      console.error('Erro ao apagar mensagem:', error);
+      toast.error("Erro ao apagar mensagem");
+    }
+  };
+
+  const handleStartEdit = (messageId: string) => {
+    const msg = mensagens.find(m => m.id === messageId);
+    if (msg) {
+      setEditingMessageId(messageId);
+      setEditingText(msg.texto || "");
+    }
+  };
+
+  const canEditDeleteMessage = (msg: Mensagem): boolean => {
+    if (!isAtendente(msg.remetente)) return false;
+    if (msg.texto === "[Mensagem apagada]") return false;
+    // Próprio operador ou admin/supervisor
+    return (msg.enviado_por_id === user?.id) || isSupervisor;
+  };
+
+  // Copiar informações do serviço para enviar ao prestador
+  const handleCopyServiceInfo = async () => {
+    if (!fichaId) return;
+    try {
+      const { data: ficha, error } = await supabase
+        .from('fichas_de_servico')
+        .select('*, categorias(nome)')
+        .eq('id', fichaId)
+        .maybeSingle();
+
+      if (error || !ficha) {
+        toast.error("Erro ao buscar dados da ficha");
+        return;
+      }
+
+      const lines: string[] = [];
+      lines.push(`📋 *Ficha #${ficha.id}*`);
+      if (ficha.nome_cliente) lines.push(`👤 Cliente: ${ficha.nome_cliente}`);
+      if (ficha.endereco) {
+        let addr = ficha.endereco;
+        if (ficha.bairro) addr += ` - ${ficha.bairro}`;
+        if (ficha.cidade) addr += ` - ${ficha.cidade}`;
+        lines.push(`📍 Endereço: ${addr}`);
+      }
+      if (ficha.descricao) lines.push(`🔧 Serviço: ${ficha.descricao}`);
+      if ((ficha as any).categorias?.nome) lines.push(`📂 Categoria: ${(ficha as any).categorias.nome}`);
+      if (ficha.tempo_servico) lines.push(`⏱ Tempo estimado: ${ficha.tempo_servico}`);
+      if (ficha.horario_agendamento) {
+        const d = new Date(ficha.horario_agendamento);
+        lines.push(`📅 Agendamento: ${format(d, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
+      }
+      if (ficha.valor_total) lines.push(`💰 Valor total: R$ ${Number(ficha.valor_total).toFixed(2).replace('.', ',')}`);
+      if (ficha.notas) lines.push(`📝 Obs: ${ficha.notas}`);
+
+      const text = lines.join('\n');
+      await navigator.clipboard.writeText(text);
+      toast.success("Informações do serviço copiadas!");
+    } catch (error) {
+      console.error('Erro ao copiar info do serviço:', error);
+      toast.error("Erro ao copiar informações");
+    }
+  };
+
+
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
