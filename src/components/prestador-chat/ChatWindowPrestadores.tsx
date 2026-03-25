@@ -59,7 +59,7 @@ export const ChatWindowPrestadores = ({
   prestadorCpf,
   onBack,
 }: ChatWindowPrestadoresProps) => {
-  const { user } = useAuth();
+  const { user, isSupervisor } = useAuth();
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -68,6 +68,8 @@ export const ChatWindowPrestadores = ({
   const [fichaSelecionadaId, setFichaSelecionadaId] = useState<string>("none");
   const [fichaSearch, setFichaSearch] = useState("");
   const [fichaPopoverOpen, setFichaPopoverOpen] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
