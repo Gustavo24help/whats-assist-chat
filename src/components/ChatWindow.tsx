@@ -61,6 +61,8 @@ interface Mensagem {
   reply_to?: Mensagem | null;
   enviado_por?: { full_name: string } | null;
   enviado_por_id?: string | null;
+  tipo_remetente?: string | null;
+  operador_nome?: string | null;
 }
 
 const QuotedMessage = React.memo(({ 
@@ -264,6 +266,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         .update({ texto: newText })
         .eq('id', messageId);
       if (error) throw error;
+      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: newText } : m));
       toast.success("Mensagem editada!");
       setEditingMessageId(null);
       setEditingText("");
@@ -280,6 +283,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         .update({ texto: "[Mensagem apagada]" })
         .eq('id', messageId);
       if (error) throw error;
+      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: "[Mensagem apagada]" } : m));
       toast.success("Mensagem apagada!");
     } catch (error) {
       console.error('Erro ao apagar mensagem:', error);
@@ -2581,20 +2585,64 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     )}>
                       {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
                     </p>
-                    {isAtendente(msg.remetente) && msg.enviado_por?.full_name && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-semibold ml-0.5 cursor-default">
-                              {msg.enviado_por.full_name.charAt(0).toUpperCase()}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            {msg.enviado_por.full_name}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
+                    {(() => {
+                      // Determine sender label
+                      if (isAtendente(msg.remetente)) {
+                        // Bot messages
+                        if (msg.tipo_remetente === 'bot' || (msg.remetente === 'bot' && !msg.enviado_por_id)) {
+                          return (
+                            <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full ml-0.5 font-medium">
+                              🤖 Bot
+                            </span>
+                          );
+                        }
+                        // Operator messages (with name)
+                        if (msg.enviado_por?.full_name) {
+                          return (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-semibold ml-0.5 cursor-default">
+                                    {msg.enviado_por.full_name.charAt(0).toUpperCase()}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">
+                                  {msg.enviado_por.full_name}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        }
+                        // Operator without profile (e.g. template) but has operador_nome
+                        if (msg.operador_nome) {
+                          return (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-semibold ml-0.5 cursor-default">
+                                    {msg.operador_nome.charAt(0).toUpperCase()}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">
+                                  {msg.operador_nome}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        }
+                        return null;
+                      } else {
+                        // Client messages
+                        return (
+                          <span className={cn(
+                            "text-[9px] px-1.5 py-0.5 rounded-full ml-0.5 font-medium",
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            Cliente
+                          </span>
+                        );
+                      }
+                    })()}
                   </div>
                     </div>
                   </div>
