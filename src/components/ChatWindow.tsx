@@ -2504,6 +2504,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   fichaId={fichaId || null}
                   messageData={msg}
                   onReply={() => setReplyingTo(msg)}
+                  onEdit={handleStartEdit}
+                  onDelete={handleDeleteMessage}
+                  canEditDelete={canEditDeleteMessage(msg)}
                 >
                   <div
                     className={cn(
@@ -2518,7 +2521,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                           ? "bg-primary text-primary-foreground rounded-br-sm"
                           : "bg-card border rounded-bl-sm",
                         highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]",
-                        searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30"
+                        searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30",
+                        msg.texto === "[Mensagem apagada]" && "opacity-60 italic"
                       )}
                     >
                       {msg.reply_to_message_id && msg.reply_to && (
@@ -2527,7 +2531,34 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                           onScrollToMessage={scrollToMessage}
                         />
                       )}
-                      {msg.texto && (
+                      {editingMessageId === msg.id ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="min-h-[60px] text-sm bg-background text-foreground rounded-lg"
+                            autoFocus
+                          />
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs"
+                              onClick={() => { setEditingMessageId(null); setEditingText(""); }}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => handleEditMessage(msg.id, editingText)}
+                              disabled={!editingText.trim() || editingText === msg.texto}
+                            >
+                              Salvar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : msg.texto && (
                         <p 
                           className="text-sm break-words leading-relaxed whitespace-pre-wrap select-text"
                           dangerouslySetInnerHTML={
