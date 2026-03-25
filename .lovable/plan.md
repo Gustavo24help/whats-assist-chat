@@ -1,82 +1,69 @@
 
 
-# Editar/Apagar mensagens + Botão "Copiar Info do Serviço"
+# Fix: Bot messages showing as "Atendente (não identificado)"
 
-## Resumo
+## Problem
 
-Três funcionalidades:
-1. **Editar e apagar mensagens** no chat de clientes e prestadores (via context menu)
-2. **Botão "Copiar informações do serviço"** no chat de atendimento para enviar dados organizados ao prestador
+Bot messages sent via the Twilio flow have `remetente = 'whatsapp:+554138911555'` (the 24help number), `tipo_remetente = NULL`, `operador_nome = NULL`, and `enviado_por_id = NULL`. The current rendering logic checks `tipo_remetente === 'bot'` or `remetente === 'bot'`, but neither matches for these messages. They fall through all conditions and render with no badge (or the user sees them as unidentified operators).
 
----
+Similarly, **template messages** saved by `send-template` edge function set `remetente: 'atendente'` but do NOT set `tipo_remetente` or `operador_nome`, so even when sent by a known operator, the attribution may be lost.
 
-## 1. Editar e Apagar Mensagens
+### Root causes:
+1. **Old messages in DB** have `tipo_remetente = NULL` — the webhook only started setting this field recently
+2. **send-template function** doesn't save `tipo_remetente` or `operador_nome`
+3. **ChatWindow rendering** doesn't have a heuristic fallback for unidentified atendente messages (should assume bot if no `enviado_por_id`)
 
-### Regras de negócio
-- Apenas mensagens **enviadas pelo operador** (isAtendente) podem ser editadas/apagadas
-- Apenas o **próprio operador** que enviou (ou admin) pode editar/apagar
-- Mensagens de **clientes/prestadores** não podem ser alteradas (veio do WhatsApp, não temos controle)
-- Editar atualiza o campo `texto` na tabela; apagar faz soft-delete (texto = "[Mensagem apagada]")
-- Não há como editar/apagar no WhatsApp do destinatário — apenas no sistema interno
+## Plan
 
-### Alterações
+### 1. Fix ChatWindow rendering heuristic (frontend)
 
-**`src/components/MessageContextMenu.tsx`**
-- Adicionar props: `onEdit`, `onDelete`, `canEditDelete` (boolean)
-- Adicionar itens "Editar mensagem" (Pencil icon) e "Apagar mensagem" (Trash2 icon) no context menu
-- Mostrar apenas quando `canEditDelete = true`
-- Apagar abre confirmação inline antes de executar
+**File: `src/components/ChatWindow.tsx`** — In the sender badge logic (lines ~2588-2645):
 
-**`src/components/ChatWindow.tsx`** (chat clientes)
-- Criar funções `handleEditMessage(id, newText)` e `handleDeleteMessage(id)`
-- `handleEditMessage`: update na tabela `mensagens` campo `texto`
-- `handleDeleteMessage`: update `texto` = "[Mensagem apagada]" na tabela `mensagens`
-- Passar `onEdit`, `onDelete` e `canEditDelete` ao `MessageContextMenu`
-- `canEditDelete` = true se `isAtendente(msg.remetente)` e (`msg.enviado_por_id === user.id` ou `isAdmin`)
+Change the detection order so that after checking `tipo_remetente === 'bot'`, add a **fallback heuristic**: if `isAtendente(msg.remetente)` is true AND `enviado_por_id` is null AND `operador_nome` is null AND `tipo_remetente` is not explicitly set — then it's a bot message (no human operator sent it).
 
-**`src/components/prestador-chat/ChatWindowPrestadores.tsx`** (chat prestadores)
-- Importar e usar `MessageContextMenu` (atualmente não usa)
-- Criar mesmas funções `handleEditMessage` e `handleDeleteMessage` para tabela `mensagens_prestadores`
-- Envolver cada mensagem com `MessageContextMenu`
+```
+Current flow:
+  isAtendente? → tipo_remetente=bot? → enviado_por.full_name? → operador_nome? → null (broken)
 
-**Database**: Ambas as tabelas `mensagens` e `mensagens_prestadores` já permitem UPDATE para authenticated users — nenhuma migration necessária.
-
----
-
-## 2. Botão "Copiar Info do Serviço para Prestador"
-
-### Regras de negócio
-- No chat de atendimento ao cliente, quando há ficha ativa, exibir um botão na toolbar/header
-- Ao clicar, busca os dados da ficha (`fichas_de_servico`) e formata um texto organizado pronto para colar no chat de prestadores
-- Texto formatado inclui: ID da ficha, nome do cliente, endereço, descrição do serviço, categoria, valores, tempo de serviço, horário agendado
-
-### Formato do texto copiado
-
-```text
-📋 *Ficha #FS-001234*
-👤 Cliente: João Silva
-📍 Endereço: Rua Exemplo, 123 - Bairro
-🔧 Serviço: Troca de torneira
-📂 Categoria: Hidráulica
-⏱ Tempo estimado: 2 horas
-📅 Agendamento: 25/03/2026 às 14:00
-💰 Valor total: R$ 350,00
-📝 Obs: Cliente pediu para ligar antes
+Fixed flow:
+  isAtendente? → tipo_remetente=bot OR (no enviado_por_id AND no operador_nome)? → 🤖 Bot
+             → enviado_por.full_name? → initial+tooltip
+             → operador_nome? → initial+tooltip
 ```
 
-### Alterações
+### 2. Fix send-template to save attribution (backend)
 
-**`src/components/ChatWindow.tsx`**
-- Criar função `handleCopyServiceInfo()` que busca a ficha ativa no banco e formata o texto
-- Adicionar botão (ícone ClipboardList ou Copy) na barra de ações do header do chat, visível quando `fichaId` existe
-- Copiar para clipboard e mostrar toast de sucesso
+**File: `supabase/functions/send-template/index.ts`** — When inserting the message (line ~146), add:
+- `tipo_remetente: 'atendente'`
+- `operador_nome`: fetch from profiles table using `userId`
 
----
+This ensures template messages sent by operators are properly attributed.
 
-## Detalhes Técnicos
+### 3. Backfill existing NULL records (migration)
 
-- Edit inline: ao clicar "Editar", o texto da mensagem vira um `<Textarea>` editável com botões Salvar/Cancelar
-- Delete: soft-delete apenas (update texto), mantém registro no banco
-- A cópia de info usa `navigator.clipboard.writeText()` como já feito no `MessageContextMenu`
-- Para o chat de prestadores, o `MessageContextMenu` será reutilizado sem as opções de "preencher campo da ficha" (pois não se aplica)
+**SQL migration**: Update old messages that have `tipo_remetente IS NULL` and `enviado_por_id IS NULL` and `remetente` matches system numbers → set `tipo_remetente = 'bot'`.
+
+```sql
+UPDATE mensagens
+SET tipo_remetente = 'bot'
+WHERE tipo_remetente IS NULL
+  AND enviado_por_id IS NULL
+  AND (remetente = 'whatsapp:+554138911555'
+    OR remetente = 'whatsapp:+14155238886'
+    OR remetente = 'atendente'
+    OR remetente = 'bot');
+```
+
+And for template messages with `enviado_por_id` set but no `tipo_remetente`:
+```sql
+UPDATE mensagens
+SET tipo_remetente = 'atendente'
+WHERE tipo_remetente IS NULL
+  AND enviado_por_id IS NOT NULL;
+```
+
+## Summary of files changed
+- `src/components/ChatWindow.tsx` — fix sender badge fallback logic
+- `supabase/functions/send-template/index.ts` — add `tipo_remetente` and `operador_nome` on insert
+- New SQL migration — backfill `tipo_remetente` for existing records
 
