@@ -61,6 +61,8 @@ interface Mensagem {
   reply_to?: Mensagem | null;
   enviado_por?: { full_name: string } | null;
   enviado_por_id?: string | null;
+  tipo_remetente?: string | null;
+  operador_nome?: string | null;
 }
 
 const QuotedMessage = React.memo(({ 
@@ -264,6 +266,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         .update({ texto: newText })
         .eq('id', messageId);
       if (error) throw error;
+      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: newText } : m));
       toast.success("Mensagem editada!");
       setEditingMessageId(null);
       setEditingText("");
@@ -280,6 +283,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         .update({ texto: "[Mensagem apagada]" })
         .eq('id', messageId);
       if (error) throw error;
+      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: "[Mensagem apagada]" } : m));
       toast.success("Mensagem apagada!");
     } catch (error) {
       console.error('Erro ao apagar mensagem:', error);
