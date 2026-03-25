@@ -309,10 +309,13 @@ export const ChatWindowPrestadores = ({
     if (msg.texto === "[Mensagem apagada]") return false;
     return (msg.enviado_por_id === user?.id) || isSupervisor;
   };
+
+  const renderMessage = (msg: Mensagem, index: number) => {
     const isSystem = isAtendente(msg.remetente);
     const showDateSeparator =
       index === 0 ||
       !isSameDay(new Date(msg.data_hora || ""), new Date(mensagens[index - 1]?.data_hora || ""));
+    const isDeleted = msg.texto === "[Mensagem apagada]";
 
     return (
       <React.Fragment key={msg.id}>
@@ -323,37 +326,66 @@ export const ChatWindowPrestadores = ({
             </span>
           </div>
         )}
-        <div className={cn("flex mb-2", isSystem ? "justify-end" : "justify-start")}>
-          <div
-            className={cn(
-              "max-w-[75%] rounded-2xl px-4 py-2 text-sm",
-              isSystem
-                ? "bg-primary text-primary-foreground rounded-br-md"
-                : "bg-muted text-foreground rounded-bl-md"
-            )}
-          >
-            {msg.tipo === "imagem" && msg.arquivo_url && (
-              <img src={msg.arquivo_url} alt="Imagem" className="max-w-full rounded-lg mb-1" />
-            )}
-            {msg.tipo === "audio" && msg.arquivo_url && (
-              <AudioPlayer src={msg.arquivo_url} />
-            )}
-            {msg.tipo === "video" && msg.arquivo_url && (
-              <video src={msg.arquivo_url} controls className="max-w-full rounded-lg mb-1" />
-            )}
-            {msg.tipo === "arquivo" && msg.arquivo_url && (
-              <a href={msg.arquivo_url} target="_blank" rel="noopener noreferrer" className="underline">
-                📎 Arquivo
-              </a>
-            )}
-            {msg.texto && <p className="whitespace-pre-wrap break-words">{msg.texto}</p>}
-            {msg.data_hora && (
-              <p className={cn("text-[10px] mt-1", isSystem ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                {format(new Date(msg.data_hora), "HH:mm")}
-              </p>
-            )}
+        <MessageContextMenu
+          messageText={msg.texto || ""}
+          fichaId={null}
+          messageData={msg}
+          onEdit={handleStartEdit}
+          onDelete={handleDeleteMessage}
+          canEditDelete={canEditDeleteMessage(msg)}
+        >
+          <div className={cn("flex mb-2", isSystem ? "justify-end" : "justify-start")}>
+            <div
+              className={cn(
+                "max-w-[75%] rounded-2xl px-4 py-2 text-sm cursor-context-menu",
+                isSystem
+                  ? "bg-primary text-primary-foreground rounded-br-md"
+                  : "bg-muted text-foreground rounded-bl-md",
+                isDeleted && "opacity-60 italic"
+              )}
+            >
+              {msg.tipo === "imagem" && msg.arquivo_url && (
+                <img src={msg.arquivo_url} alt="Imagem" className="max-w-full rounded-lg mb-1" />
+              )}
+              {msg.tipo === "audio" && msg.arquivo_url && (
+                <AudioPlayer src={msg.arquivo_url} />
+              )}
+              {msg.tipo === "video" && msg.arquivo_url && (
+                <video src={msg.arquivo_url} controls className="max-w-full rounded-lg mb-1" />
+              )}
+              {msg.tipo === "arquivo" && msg.arquivo_url && (
+                <a href={msg.arquivo_url} target="_blank" rel="noopener noreferrer" className="underline">
+                  📎 Arquivo
+                </a>
+              )}
+              {editingMessageId === msg.id ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={editingText}
+                    onChange={(e) => setEditingText(e.target.value)}
+                    className="min-h-[60px] text-sm bg-background text-foreground rounded-lg"
+                    autoFocus
+                  />
+                  <div className="flex gap-1 justify-end">
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditingMessageId(null); setEditingText(""); }}>
+                      Cancelar
+                    </Button>
+                    <Button size="sm" className="h-7 text-xs" onClick={() => handleEditMessage(msg.id, editingText)} disabled={!editingText.trim() || editingText === msg.texto}>
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                msg.texto && <p className="whitespace-pre-wrap break-words">{msg.texto}</p>
+              )}
+              {msg.data_hora && (
+                <p className={cn("text-[10px] mt-1", isSystem ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                  {format(new Date(msg.data_hora), "HH:mm")}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        </MessageContextMenu>
       </React.Fragment>
     );
   };
