@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Paperclip, ArrowLeft, Loader2, FileText, Search } from "lucide-react";
+import { MessageContextMenu } from "@/components/MessageContextMenu";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
@@ -58,7 +59,7 @@ export const ChatWindowPrestadores = ({
   prestadorCpf,
   onBack,
 }: ChatWindowPrestadoresProps) => {
-  const { user } = useAuth();
+  const { user, isSupervisor } = useAuth();
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -67,6 +68,8 @@ export const ChatWindowPrestadores = ({
   const [fichaSelecionadaId, setFichaSelecionadaId] = useState<string>("none");
   const [fichaSearch, setFichaSearch] = useState("");
   const [fichaPopoverOpen, setFichaPopoverOpen] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -261,11 +264,58 @@ export const ChatWindowPrestadores = ({
     return format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   };
 
+  const handleEditMessage = async (messageId: string, newText: string) => {
+    try {
+      const { error } = await supabase
+        .from('mensagens_prestadores')
+        .update({ texto: newText })
+        .eq('id', messageId);
+      if (error) throw error;
+      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: newText } : m));
+      toast.success("Mensagem editada!");
+      setEditingMessageId(null);
+      setEditingText("");
+    } catch (error) {
+      console.error('Erro ao editar mensagem:', error);
+      toast.error("Erro ao editar mensagem");
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('mensagens_prestadores')
+        .update({ texto: "[Mensagem apagada]" })
+        .eq('id', messageId);
+      if (error) throw error;
+      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: "[Mensagem apagada]" } : m));
+      toast.success("Mensagem apagada!");
+    } catch (error) {
+      console.error('Erro ao apagar mensagem:', error);
+      toast.error("Erro ao apagar mensagem");
+    }
+  };
+
+  const handleStartEdit = (messageId: string) => {
+    const msg = mensagens.find(m => m.id === messageId);
+    if (msg) {
+      setEditingMessageId(messageId);
+      setEditingText(msg.texto || "");
+    }
+  };
+
+  const canEditDeleteMessage = (msg: Mensagem): boolean => {
+    if (!isAtendente(msg.remetente)) return false;
+    if (msg.texto === "[Mensagem apagada]") return false;
+    return (msg.enviado_por_id === user?.id) || isSupervisor;
+  };
+
   const renderMessage = (msg: Mensagem, index: number) => {
     const isSystem = isAtendente(msg.remetente);
     const showDateSeparator =
       index === 0 ||
       !isSameDay(new Date(msg.data_hora || ""), new Date(mensagens[index - 1]?.data_hora || ""));
+    const isDeleted = msg.texto === "[Mensagem apagada]";
 
     return (
       <React.Fragment key={msg.id}>
@@ -276,37 +326,66 @@ export const ChatWindowPrestadores = ({
             </span>
           </div>
         )}
-        <div className={cn("flex mb-2", isSystem ? "justify-end" : "justify-start")}>
-          <div
-            className={cn(
-              "max-w-[75%] rounded-2xl px-4 py-2 text-sm",
-              isSystem
-                ? "bg-primary text-primary-foreground rounded-br-md"
-                : "bg-muted text-foreground rounded-bl-md"
-            )}
-          >
-            {msg.tipo === "imagem" && msg.arquivo_url && (
-              <img src={msg.arquivo_url} alt="Imagem" className="max-w-full rounded-lg mb-1" />
-            )}
-            {msg.tipo === "audio" && msg.arquivo_url && (
-              <AudioPlayer src={msg.arquivo_url} />
-            )}
-            {msg.tipo === "video" && msg.arquivo_url && (
-              <video src={msg.arquivo_url} controls className="max-w-full rounded-lg mb-1" />
-            )}
-            {msg.tipo === "arquivo" && msg.arquivo_url && (
-              <a href={msg.arquivo_url} target="_blank" rel="noopener noreferrer" className="underline">
-                📎 Arquivo
-              </a>
-            )}
-            {msg.texto && <p className="whitespace-pre-wrap break-words">{msg.texto}</p>}
-            {msg.data_hora && (
-              <p className={cn("text-[10px] mt-1", isSystem ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                {format(new Date(msg.data_hora), "HH:mm")}
-              </p>
-            )}
+        <MessageContextMenu
+          messageText={msg.texto || ""}
+          fichaId={null}
+          messageData={msg}
+          onEdit={handleStartEdit}
+          onDelete={handleDeleteMessage}
+          canEditDelete={canEditDeleteMessage(msg)}
+        >
+          <div className={cn("flex mb-2", isSystem ? "justify-end" : "justify-start")}>
+            <div
+              className={cn(
+                "max-w-[75%] rounded-2xl px-4 py-2 text-sm cursor-context-menu",
+                isSystem
+                  ? "bg-primary text-primary-foreground rounded-br-md"
+                  : "bg-muted text-foreground rounded-bl-md",
+                isDeleted && "opacity-60 italic"
+              )}
+            >
+              {msg.tipo === "imagem" && msg.arquivo_url && (
+                <img src={msg.arquivo_url} alt="Imagem" className="max-w-full rounded-lg mb-1" />
+              )}
+              {msg.tipo === "audio" && msg.arquivo_url && (
+                <AudioPlayer src={msg.arquivo_url} />
+              )}
+              {msg.tipo === "video" && msg.arquivo_url && (
+                <video src={msg.arquivo_url} controls className="max-w-full rounded-lg mb-1" />
+              )}
+              {msg.tipo === "arquivo" && msg.arquivo_url && (
+                <a href={msg.arquivo_url} target="_blank" rel="noopener noreferrer" className="underline">
+                  📎 Arquivo
+                </a>
+              )}
+              {editingMessageId === msg.id ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={editingText}
+                    onChange={(e) => setEditingText(e.target.value)}
+                    className="min-h-[60px] text-sm bg-background text-foreground rounded-lg"
+                    autoFocus
+                  />
+                  <div className="flex gap-1 justify-end">
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditingMessageId(null); setEditingText(""); }}>
+                      Cancelar
+                    </Button>
+                    <Button size="sm" className="h-7 text-xs" onClick={() => handleEditMessage(msg.id, editingText)} disabled={!editingText.trim() || editingText === msg.texto}>
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                msg.texto && <p className="whitespace-pre-wrap break-words">{msg.texto}</p>
+              )}
+              {msg.data_hora && (
+                <p className={cn("text-[10px] mt-1", isSystem ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                  {format(new Date(msg.data_hora), "HH:mm")}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        </MessageContextMenu>
       </React.Fragment>
     );
   };

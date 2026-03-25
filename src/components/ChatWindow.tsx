@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus, ScrollText } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus, ScrollText, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
@@ -60,6 +60,7 @@ interface Mensagem {
   reply_to_message_id?: string | null;
   reply_to?: Mensagem | null;
   enviado_por?: { full_name: string } | null;
+  enviado_por_id?: string | null;
 }
 
 const QuotedMessage = React.memo(({ 
@@ -227,6 +228,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const takeoverRequestIdRef = useRef<string | null>(null);
   const takeoverWaitingOperadorNomeRef = useRef("");
   
+  // Estados para edição de mensagem
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
   const latestMessageDateRef = useRef<string | null>(null);
@@ -251,7 +256,96 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const canWrite = isMyTicket || isSupervisor;
   const needsToAssume = !atendenteAtual && !isSupervisor;
 
-  // Auto-resize do textarea
+  // Handlers para editar/apagar mensagens
+  const handleEditMessage = async (messageId: string, newText: string) => {
+    try {
+      const { error } = await supabase
+        .from('mensagens')
+        .update({ texto: newText })
+        .eq('id', messageId);
+      if (error) throw error;
+      toast.success("Mensagem editada!");
+      setEditingMessageId(null);
+      setEditingText("");
+    } catch (error) {
+      console.error('Erro ao editar mensagem:', error);
+      toast.error("Erro ao editar mensagem");
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('mensagens')
+        .update({ texto: "[Mensagem apagada]" })
+        .eq('id', messageId);
+      if (error) throw error;
+      toast.success("Mensagem apagada!");
+    } catch (error) {
+      console.error('Erro ao apagar mensagem:', error);
+      toast.error("Erro ao apagar mensagem");
+    }
+  };
+
+  const handleStartEdit = (messageId: string) => {
+    const msg = mensagens.find(m => m.id === messageId);
+    if (msg) {
+      setEditingMessageId(messageId);
+      setEditingText(msg.texto || "");
+    }
+  };
+
+  const canEditDeleteMessage = (msg: Mensagem): boolean => {
+    if (!isAtendente(msg.remetente)) return false;
+    if (msg.texto === "[Mensagem apagada]") return false;
+    // Próprio operador ou admin/supervisor
+    return (msg.enviado_por_id === user?.id) || isSupervisor;
+  };
+
+  // Copiar informações do serviço para enviar ao prestador
+  const handleCopyServiceInfo = async () => {
+    if (!fichaId) return;
+    try {
+      const { data: ficha, error } = await supabase
+        .from('fichas_de_servico')
+        .select('*, categorias(nome)')
+        .eq('id', fichaId)
+        .maybeSingle();
+
+      if (error || !ficha) {
+        toast.error("Erro ao buscar dados da ficha");
+        return;
+      }
+
+      const lines: string[] = [];
+      lines.push(`📋 *Ficha #${ficha.id}*`);
+      if (ficha.nome_cliente) lines.push(`👤 Cliente: ${ficha.nome_cliente}`);
+      if (ficha.endereco) {
+        let addr = ficha.endereco;
+        if (ficha.bairro) addr += ` - ${ficha.bairro}`;
+        if (ficha.cidade) addr += ` - ${ficha.cidade}`;
+        lines.push(`📍 Endereço: ${addr}`);
+      }
+      if (ficha.descricao) lines.push(`🔧 Serviço: ${ficha.descricao}`);
+      if ((ficha as any).categorias?.nome) lines.push(`📂 Categoria: ${(ficha as any).categorias.nome}`);
+      if (ficha.tempo_servico) lines.push(`⏱ Tempo estimado: ${ficha.tempo_servico}`);
+      if (ficha.horario_agendamento) {
+        const d = new Date(ficha.horario_agendamento);
+        lines.push(`📅 Agendamento: ${format(d, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
+      }
+      if (ficha.valor_total) lines.push(`💰 Valor total: R$ ${Number(ficha.valor_total).toFixed(2).replace('.', ',')}`);
+      if (ficha.notas) lines.push(`📝 Obs: ${ficha.notas}`);
+
+      const text = lines.join('\n');
+      await navigator.clipboard.writeText(text);
+      toast.success("Informações do serviço copiadas!");
+    } catch (error) {
+      console.error('Erro ao copiar info do serviço:', error);
+      toast.error("Erro ao copiar informações");
+    }
+  };
+
+
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -1898,6 +1992,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         <div className="flex items-center gap-1.5 shrink-0">
           {!fichaOpen && (
             <>
+              {/* Botão copiar info do serviço para prestador */}
+              {fichaId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopyServiceInfo}
+                  className="h-9 px-2 hover:bg-accent"
+                  title="Copiar informações do serviço para enviar ao prestador"
+                >
+                  <ClipboardList className="h-4 w-4" />
+                </Button>
+              )}
               {/* Botão de busca no chat */}
               <Button
                 variant="ghost"
@@ -2398,6 +2504,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   fichaId={fichaId || null}
                   messageData={msg}
                   onReply={() => setReplyingTo(msg)}
+                  onEdit={handleStartEdit}
+                  onDelete={handleDeleteMessage}
+                  canEditDelete={canEditDeleteMessage(msg)}
                 >
                   <div
                     className={cn(
@@ -2412,7 +2521,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                           ? "bg-primary text-primary-foreground rounded-br-sm"
                           : "bg-card border rounded-bl-sm",
                         highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]",
-                        searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30"
+                        searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30",
+                        msg.texto === "[Mensagem apagada]" && "opacity-60 italic"
                       )}
                     >
                       {msg.reply_to_message_id && msg.reply_to && (
@@ -2421,7 +2531,34 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                           onScrollToMessage={scrollToMessage}
                         />
                       )}
-                      {msg.texto && (
+                      {editingMessageId === msg.id ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="min-h-[60px] text-sm bg-background text-foreground rounded-lg"
+                            autoFocus
+                          />
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs"
+                              onClick={() => { setEditingMessageId(null); setEditingText(""); }}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => handleEditMessage(msg.id, editingText)}
+                              disabled={!editingText.trim() || editingText === msg.texto}
+                            >
+                              Salvar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : msg.texto && (
                         <p 
                           className="text-sm break-words leading-relaxed whitespace-pre-wrap select-text"
                           dangerouslySetInnerHTML={
