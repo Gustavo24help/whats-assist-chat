@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus, ScrollText } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus, ScrollText, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
@@ -60,6 +60,7 @@ interface Mensagem {
   reply_to_message_id?: string | null;
   reply_to?: Mensagem | null;
   enviado_por?: { full_name: string } | null;
+  enviado_por_id?: string | null;
 }
 
 const QuotedMessage = React.memo(({ 
