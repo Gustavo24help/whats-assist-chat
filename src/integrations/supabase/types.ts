@@ -2224,6 +2224,7 @@ export type Database = {
         }
         Returns: number
       }
+      can_manage_avisos: { Args: { _user_id: string }; Returns: boolean }
       check_and_close_orcamento_forms: { Args: never; Returns: undefined }
       has_role: {
         Args: {
