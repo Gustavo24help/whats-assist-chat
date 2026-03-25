@@ -143,6 +143,17 @@ serve(async (req) => {
       tinha_templateBody: !!templateBody
     });
 
+    // Fetch operator name if userId is provided
+    let operadorNome: string | null = null;
+    if (userId) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .maybeSingle();
+      operadorNome = profileData?.full_name || null;
+    }
+
     const { error: insertError } = await supabase.from('mensagens').insert({
       cliente_id: whatsappNumber,
       remetente: 'atendente',
@@ -154,6 +165,8 @@ serve(async (req) => {
       message_sid: data.sid,
       reply_to_message_id: null,
       enviado_por_id: userId || null,
+      tipo_remetente: userId ? 'atendente' : 'bot',
+      operador_nome: operadorNome,
     });
 
     if (insertError) {
