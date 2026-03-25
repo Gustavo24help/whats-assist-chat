@@ -2588,15 +2588,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     {(() => {
                       // Determine sender label
                       if (isAtendente(msg.remetente)) {
-                        // Bot messages
-                        if (msg.tipo_remetente === 'bot' || (msg.remetente === 'bot' && !msg.enviado_por_id)) {
-                          return (
-                            <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full ml-0.5 font-medium">
-                              🤖 Bot
-                            </span>
-                          );
-                        }
-                        // Operator messages (with name)
+                        // Operator messages (with profile name)
                         if (msg.enviado_por?.full_name) {
                           return (
                             <TooltipProvider>
@@ -2613,7 +2605,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                             </TooltipProvider>
                           );
                         }
-                        // Operator without profile (e.g. template) but has operador_nome
+                        // Operator without profile but has operador_nome
                         if (msg.operador_nome) {
                           return (
                             <TooltipProvider>
@@ -2628,6 +2620,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
+                          );
+                        }
+                        // Bot explicit OR fallback: atendente without any human attribution = bot
+                        if (msg.tipo_remetente === 'bot' || msg.remetente === 'bot' || (!msg.enviado_por_id && !msg.operador_nome)) {
+                          return (
+                            <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full ml-0.5 font-medium">
+                              🤖 Bot
+                            </span>
                           );
                         }
                         return null;
