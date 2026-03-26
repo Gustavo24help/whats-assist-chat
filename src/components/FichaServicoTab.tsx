@@ -706,6 +706,21 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (updates.status && updates.status !== ficha.status) {
       console.log('📊 Status mudou, salvando automaticamente:', updates.status);
       autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      
+      // Disparar NPS automaticamente quando status muda para "Finalizado"
+      if (updates.status === 'Finalizado' && ficha.telefone_cliente) {
+        console.log('📨 Disparando NPS para ficha:', fichaId);
+        void supabase.functions.invoke("send-nps", {
+          body: {
+            ficha_id: fichaId,
+            telefone_cliente: ficha.telefone_cliente,
+          },
+        }).then(res => {
+          console.log('[NPS] Resultado:', res);
+        }).catch(err => {
+          console.warn('[NPS] Erro (não bloqueante):', err);
+        });
+      }
     }
     
     // Auto-save quando pagamento_gerar_link mudar (dispara webhook para Make.com criar link)
