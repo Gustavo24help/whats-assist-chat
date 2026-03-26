@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { getLabelTipo, getCorTipo } from "@/lib/calcularEstadoAgendamento";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Copy } from "lucide-react";
 
 const ALL_STATUS = [
   'Ficha Criada', 'Contato Inicial', 'Dúvida Prestador', 'Orçamento Enviado',
@@ -74,6 +75,34 @@ export function AgendamentoDetalhesModal({ ficha, open, onClose, onSaved }: Prop
             <Badge style={{ backgroundColor: getCorTipo(ficha.tipo_agendamento) }} className="text-white text-xs">
               {getLabelTipo(ficha.tipo_agendamento)}
             </Badge>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 ml-auto"
+              title="Copiar info para prestador"
+              onClick={async () => {
+                const agendamentoStr = dataAgendamento
+                  ? format(new Date(dataAgendamento), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                  : '—';
+                const lines = [
+                  `📋 *Ficha #${ficha.id}*`,
+                  `👤 Cliente: ${ficha.nome_cliente || ficha.clientes?.nome || '—'}`,
+                  ficha.endereco ? `📍 Endereço: ${ficha.endereco}${ficha.bairro ? ` - ${ficha.bairro}` : ''}${ficha.cidade ? ` - ${ficha.cidade}` : ''}` : null,
+                  ficha.descricao ? `🔧 Serviço: ${ficha.descricao}` : null,
+                  ficha.categorias?.nome ? `📂 Categoria: ${ficha.categorias.nome}` : null,
+                  ficha.prestadores?.nome ? `👷 Prestador: ${ficha.prestadores.nome}` : null,
+                  `📅 Agendamento: ${agendamentoStr}`,
+                  ficha.tempo_servico ? `⏱ Tempo estimado: ${ficha.tempo_servico}` : null,
+                  ficha.valor_total ? `💰 Valor total: R$ ${Number(ficha.valor_total).toFixed(2).replace('.', ',')}` : null,
+                  ficha.notas ? `📝 Obs: ${ficha.notas}` : null,
+                ].filter(Boolean).join('\n');
+                await navigator.clipboard.writeText(lines);
+                toast.success("Informações copiadas!");
+              }}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
