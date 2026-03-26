@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
     // Verificar se a ficha existe e se já está paga
     const { data: ficha, error: fichaError } = await supabase
       .from("fichas_de_servico")
-      .select("id, pagamento_realizado, notas, nome_cliente, valor_total")
+      .select("id, pagamento_realizado, notas, nome_cliente, valor_total, telefone_cliente")
       .eq("id", fichaId)
       .maybeSingle();
 
