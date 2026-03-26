@@ -171,6 +171,23 @@ Deno.serve(async (req) => {
 
     console.log(`[asaas-webhook] ✅ Ficha ${fichaId} marcada como paga automaticamente`);
 
+    // Disparar envio de recibo via WhatsApp (fire-and-forget)
+    try {
+      const reciboRes = await fetch(`${supabaseUrl}/functions/v1/send-recibo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ficha_id: fichaId,
+          telefone_cliente: `whatsapp:${ficha.nome_cliente ? '' : ''}${payment.customer || ''}`.includes('whatsapp:')
+            ? payment.customer
+            : fichaId, // fallback - será resolvido abaixo
+        }),
+      });
+      console.log(`[asaas-webhook] 📨 send-recibo status: ${reciboRes.status}`);
+    } catch (reciboErr) {
+      console.warn("[asaas-webhook] ⚠️ Erro ao disparar send-recibo:", reciboErr);
+    }
+
     // Atualizar transação financeira (se existir)
     const { error: transError } = await supabase
       .from("transacoes_financeiras")
