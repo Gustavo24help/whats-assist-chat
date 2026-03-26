@@ -780,6 +780,8 @@ export type Database = {
           preferencia_horario_cliente: string | null
           prestador_anterior_id: string | null
           prestador_id: string | null
+          recibo_enviado: boolean | null
+          recibo_enviado_em: string | null
           recibo_url: string | null
           status: Database["public"]["Enums"]["status_ficha_enum"] | null
           subtotal: number | null
@@ -842,6 +844,8 @@ export type Database = {
           preferencia_horario_cliente?: string | null
           prestador_anterior_id?: string | null
           prestador_id?: string | null
+          recibo_enviado?: boolean | null
+          recibo_enviado_em?: string | null
           recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           subtotal?: number | null
@@ -904,6 +908,8 @@ export type Database = {
           preferencia_horario_cliente?: string | null
           prestador_anterior_id?: string | null
           prestador_id?: string | null
+          recibo_enviado?: boolean | null
+          recibo_enviado_em?: string | null
           recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           subtotal?: number | null

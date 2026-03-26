@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
     // Verificar se a ficha existe e se já está paga
     const { data: ficha, error: fichaError } = await supabase
       .from("fichas_de_servico")
-      .select("id, pagamento_realizado, notas, nome_cliente, valor_total")
+      .select("id, pagamento_realizado, notas, nome_cliente, valor_total, telefone_cliente")
       .eq("id", fichaId)
       .maybeSingle();
 
@@ -170,6 +170,21 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[asaas-webhook] ✅ Ficha ${fichaId} marcada como paga automaticamente`);
+
+    // Disparar envio de recibo via WhatsApp (fire-and-forget)
+    try {
+      const reciboRes = await fetch(`${supabaseUrl}/functions/v1/send-recibo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ficha_id: fichaId,
+          telefone_cliente: ficha.telefone_cliente,
+        }),
+      });
+      console.log(`[asaas-webhook] 📨 send-recibo status: ${reciboRes.status}`);
+    } catch (reciboErr) {
+      console.warn("[asaas-webhook] ⚠️ Erro ao disparar send-recibo:", reciboErr);
+    }
 
     // Atualizar transação financeira (se existir)
     const { error: transError } = await supabase
