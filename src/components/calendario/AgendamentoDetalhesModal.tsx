@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { getLabelTipo, getCorTipo } from "@/lib/calcularEstadoAgendamento";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Copy } from "lucide-react";
 
 const ALL_STATUS = [
   'Ficha Criada', 'Contato Inicial', 'Dúvida Prestador', 'Orçamento Enviado',

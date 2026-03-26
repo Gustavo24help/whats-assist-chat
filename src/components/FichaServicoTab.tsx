@@ -1067,9 +1067,51 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         <AccordionItem value="agendamento" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
           <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-primary" />
+           <Calendar className="h-4 w-4 text-primary" />
               <span className="font-medium text-sm text-gray-700">Agendamento</span>
             </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 ml-auto mr-2"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!ficha) return;
+                      const prestadorNome = prestadores.find(p => p.cpf === ficha.prestador_id)?.nome || '—';
+                      let categoriaNome = '—';
+                      if (ficha.categoria_id) {
+                        const { data: cat } = await supabase.from('categorias').select('nome').eq('id', ficha.categoria_id).single();
+                        if (cat) categoriaNome = cat.nome;
+                      }
+                      const agendamentoStr = dataAgendamento
+                        ? `${dataAgendamento.split('-').reverse().join('/')}${horaAgendamento ? ` às ${horaAgendamento}` : ''}`
+                        : '—';
+                      const lines = [
+                        `📋 *Ficha #${ficha.id}*`,
+                        `👤 Cliente: ${nomeCliente || ficha.nome_cliente || '—'}`,
+                        ficha.endereco ? `📍 Endereço: ${ficha.endereco}${ficha.bairro ? ` - ${ficha.bairro}` : ''}${ficha.cidade ? ` - ${ficha.cidade}` : ''}` : null,
+                        ficha.descricao ? `🔧 Serviço: ${ficha.descricao}` : null,
+                        categoriaNome !== '—' ? `📂 Categoria: ${categoriaNome}` : null,
+                        `👷 Prestador: ${prestadorNome}`,
+                        `📅 Agendamento: ${agendamentoStr}`,
+                        ficha.tempo_servico ? `⏱ Tempo estimado: ${ficha.tempo_servico}` : null,
+                        ficha.valor_total ? `💰 Valor total: ${formatMoeda(ficha.valor_total)}` : null,
+                        ficha.notas ? `📝 Obs: ${ficha.notas}` : null,
+                      ].filter(Boolean).join('\n');
+                      await navigator.clipboard.writeText(lines);
+                      toast.success("Informações copiadas para o clipboard!");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copiar info do serviço para prestador</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </AccordionTrigger>
           <AccordionContent className="px-2.5 pb-2.5">
             <div className="space-y-2 w-full">
