@@ -15,14 +15,20 @@ type AvisoPopup = {
 export const AvisoPopupOverlay = () => {
   const { user } = useAuth();
   const [popupAviso, setPopupAviso] = useState<AvisoPopup | null>(null);
+  const [canClose, setCanClose] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
   const shownIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!popupAviso) return;
+    if (!popupAviso) {
+      setCanClose(false);
+      return;
+    }
+
+    const timer = setTimeout(() => setCanClose(true), 2000);
 
     const handleOutsideClick = (event: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
+      if (canClose && popupRef.current && !popupRef.current.contains(event.target as Node)) {
         setPopupAviso(null);
       }
     };
@@ -30,9 +36,10 @@ export const AvisoPopupOverlay = () => {
     document.addEventListener("mousedown", handleOutsideClick);
 
     return () => {
+      clearTimeout(timer);
       document.removeEventListener("mousedown", handleOutsideClick);
     };
-  }, [popupAviso]);
+  }, [popupAviso, canClose]);
 
   useEffect(() => {
     if (!user) return;
@@ -80,21 +87,33 @@ export const AvisoPopupOverlay = () => {
   if (!popupAviso) return null;
 
   return (
-    <div className="fixed right-6 bottom-6 z-[80] pointer-events-none">
-      <div ref={popupRef} className="pointer-events-auto w-[360px] rounded-lg border bg-background shadow-xl p-4 space-y-3">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
+      <div
+        ref={popupRef}
+        className="w-[90vw] max-w-lg rounded-xl border-2 border-primary bg-background shadow-2xl p-6 space-y-4 animate-in zoom-in-95 fade-in duration-300"
+      >
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Bell className="h-4 w-4 text-brand-yellow" />
-            Novo aviso
+          <div className="flex items-center gap-2 text-base font-bold">
+            <Bell className="h-5 w-5 text-brand-yellow" />
+            Novo Aviso
           </div>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setPopupAviso(null)}>
-            <X className="h-4 w-4" />
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            disabled={!canClose}
+            onClick={() => setPopupAviso(null)}
+          >
+            <X className="h-5 w-5" />
           </Button>
         </div>
         <div>
-          <p className="font-medium leading-tight">{popupAviso.titulo}</p>
-          <p className="text-sm text-muted-foreground mt-1 line-clamp-4 whitespace-pre-wrap">{popupAviso.conteudo}</p>
+          <p className="font-semibold text-lg leading-tight">{popupAviso.titulo}</p>
+          <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{popupAviso.conteudo}</p>
         </div>
+        {!canClose && (
+          <p className="text-xs text-muted-foreground text-center animate-pulse">Aguarde para fechar...</p>
+        )}
       </div>
     </div>
   );
