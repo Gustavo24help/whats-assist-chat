@@ -178,9 +178,7 @@ Deno.serve(async (req) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ficha_id: fichaId,
-          telefone_cliente: `whatsapp:${ficha.nome_cliente ? '' : ''}${payment.customer || ''}`.includes('whatsapp:')
-            ? payment.customer
-            : fichaId, // fallback - será resolvido abaixo
+          telefone_cliente: ficha.telefone_cliente,
         }),
       });
       console.log(`[asaas-webhook] 📨 send-recibo status: ${reciboRes.status}`);
