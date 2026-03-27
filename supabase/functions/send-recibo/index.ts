@@ -336,7 +336,7 @@ Deno.serve(async (req) => {
         const contentVars = JSON.stringify({
           "1": nomeCliente,
           "2": nomeFicha,
-          "3": `R$ ${valorFormatado}`,
+          "3": valorFormatado,
         });
 
         const body = new URLSearchParams();
