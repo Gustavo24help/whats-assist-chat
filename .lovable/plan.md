@@ -1,47 +1,30 @@
 
 
-# Botão "Copiar Info para Prestador" na Seção de Agendamento
+# Registrar template `recibo_confirmado` e corrigir variáveis
 
-## Contexto
+## O que fazer
 
-Já existe a função `handleCopyServiceInfo` no `ChatWindow.tsx` que copia dados da ficha para o clipboard. A ideia é disponibilizar essa mesma funcionalidade diretamente na seção de Agendamento da ficha (dentro do `FichaServicoTab.tsx`), para que o operador possa copiar os dados do serviço no momento em que agenda, sem precisar ir ao chat.
+### 1. Inserir template na tabela `whatsapp_templates`
+Migration SQL para cadastrar o template com o Content SID fornecido:
+- `friendly_name`: `recibo_confirmado`
+- `content_sid`: `HX7cc2b987e2d793fb99d4d02cb1e5ebb7`
+- `body`: texto do template
+- `variables`: `{"1": "nome_cliente", "2": "nome_ficha", "3": "valor_total"}`
 
-## O que será feito
+### 2. Corrigir duplicação de "R$" no `send-recibo`
+O template já contém `R${{3}}`, mas o código envia `"3": "R$ 150.00"`. Resultado atual seria **"R$R$ 150.00"**.
 
-### 1. Botão na seção "Agendamento" do `FichaServicoTab.tsx`
+**Correção**: remover o prefixo `R$` da variável 3, enviando apenas o valor numérico formatado (ex: `"150.00"`).
 
-- Adicionar um botão com ícone de cópia (📋) ao lado do título "Agendamento" (linha ~1071)
-- Visível apenas quando há dados mínimos preenchidos (prestador, data de agendamento ou descrição)
-- Ao clicar, monta texto formatado com os dados da ficha atual e copia para o clipboard
-
-### 2. Dados copiados (formato WhatsApp-friendly)
-
-```text
-📋 *Ficha #ID*
-👤 Cliente: Nome
-📍 Endereço: Rua - Bairro - Cidade
-🔧 Serviço: Descrição
-📂 Categoria: Nome da categoria
-👷 Prestador: Nome do prestador
-📅 Agendamento: dd/MM/yyyy às HH:mm
-⏱ Tempo estimado: X horas
-💰 Valor total: R$ X,XX
-📝 Obs: Notas
+Linha 339 do `send-recibo/index.ts`:
+```
+// DE:
+"3": `R$ ${valorFormatado}`,
+// PARA:
+"3": valorFormatado,
 ```
 
-### 3. Implementação
-
-- Reutiliza os dados já carregados no estado do componente (`ficha`, `prestadores`, `categorias`)
-- Não faz nova query ao banco — usa o que já está em memória
-- Toast de confirmação ao copiar
-- Botão fica desabilitado se a ficha não tiver dados suficientes
-
-### Também no `AgendamentoDetalhesModal.tsx` (calendário)
-
-- Adicionar o mesmo botão de cópia no modal de detalhes do agendamento, para quem acessar pelo calendário
-
-## Arquivo(s) alterados
-
-- `src/components/FichaServicoTab.tsx` — botão + função de cópia na seção Agendamento
-- `src/components/calendario/AgendamentoDetalhesModal.tsx` — botão de cópia no modal
+## Arquivos alterados
+- Nova migration SQL — insert do template
+- `supabase/functions/send-recibo/index.ts` — corrigir variável 3
 
