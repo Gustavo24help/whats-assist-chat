@@ -111,7 +111,7 @@ const parseMoedaInput = (texto: string): number => {
   return parseFloat(comPonto) || 0;
 };
 
-
+const VALID_PAGAMENTO_TIPOS = [
   "pix",
   "cartao_credito",
   "cartao_debito",
