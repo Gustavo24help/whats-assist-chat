@@ -287,14 +287,16 @@ Deno.serve(async (req) => {
     let messageSid = "";
 
     if (dentroJanela) {
-      // Mensagem livre com PDF anexo
+      // Mensagem livre com PDF anexo (ou só texto se PDF falhou)
       const mensagem = `✅ *Pagamento confirmado!*\n\n📋 Serviço: ${nomeFicha}\n💰 Valor: R$ ${valorFormatado}\n\nObrigado pela confiança, ${nomeCliente}! 🙏`;
 
       const body = new URLSearchParams();
       body.append("To", whatsappTo);
       body.append("From", whatsappFrom);
       body.append("Body", mensagem);
-      body.append("MediaUrl", reciboUrl!);
+      if (reciboUrl && !pdfFalhou) {
+        body.append("MediaUrl", reciboUrl);
+      }
       body.append("StatusCallback", `${supabaseUrl}/functions/v1/update-message-status`);
 
       const res = await fetch(twilioUrl, {
@@ -317,8 +319,8 @@ Deno.serve(async (req) => {
         cliente_id: whatsappTo,
         remetente: whatsappFrom,
         texto: mensagem,
-        arquivo_url: reciboUrl,
-        tipo: "documento",
+        arquivo_url: reciboUrl && !pdfFalhou ? reciboUrl : null,
+        tipo: reciboUrl && !pdfFalhou ? "documento" : "texto",
         status: "enviado",
         data_hora: new Date().toISOString(),
         message_sid: messageSid,
@@ -327,7 +329,7 @@ Deno.serve(async (req) => {
         operador_nome: "Sistema",
       });
 
-      console.log(`[send-recibo] ✅ Mensagem livre + PDF enviada: ${messageSid}`);
+      console.log(`[send-recibo] ✅ Mensagem livre ${reciboUrl && !pdfFalhou ? '+ PDF ' : '(sem PDF) '}enviada: ${messageSid}`);
     } else {
       // Template — buscar content_sid
       const { data: template } = await supabase
