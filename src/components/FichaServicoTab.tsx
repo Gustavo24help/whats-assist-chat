@@ -1408,11 +1408,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <Label htmlFor="valor_pecas" className="text-xs font-medium text-muted-foreground">Valor Peças</Label>
                 <Input
                   id="valor_pecas"
-                  type="number"
-                  step="0.01"
-                  value={ficha?.valor_pecas || ""}
-                  onChange={(e) => updateFicha({ valor_pecas: parseFloat(e.target.value) || 0 })}
-                  placeholder="0.00"
+                  type="text"
+                  inputMode="decimal"
+                  value={ficha?.valor_pecas ? formatarInputMoeda(ficha.valor_pecas) : ""}
+                  onChange={(e) => updateFicha({ valor_pecas: parseMoedaInput(e.target.value) })}
+                  placeholder="0,00"
                   className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
                 <DescontoField
