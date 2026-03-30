@@ -97,6 +97,20 @@ const STATUS_OPTIONS = [
   "Perdido"
 ];
 
+const formatarInputMoeda = (valor: number): string => {
+  if (!valor && valor !== 0) return '';
+  return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const parseMoedaInput = (texto: string): number => {
+  if (!texto) return 0;
+  // Remove tudo que não é dígito ou vírgula
+  const limpo = texto.replace(/[^\d,]/g, '');
+  // Troca vírgula por ponto
+  const comPonto = limpo.replace(',', '.');
+  return parseFloat(comPonto) || 0;
+};
+
 const VALID_PAGAMENTO_TIPOS = [
   "pix",
   "cartao_credito",
@@ -163,7 +177,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   };
 
   const enviarLinkAutomatico = async (paymentUrl: string, clienteNome: string, valorTotal: number, telefone: string, fichaIdParam: string) => {
-    const mensagem = `Olá${clienteNome ? `, ${clienteNome}` : ''}! 😊\n\nSegue o link para pagamento do serviço ${fichaIdParam} no valor de ${formatMoeda(valorTotal)}:\n\n${paymentUrl}\n\nQualquer dúvida estou à disposição!`;
+    const mensagem = `${clienteNome ? `${clienteNome}, s` : 'S'}egue o link para pagamento do serviço ${fichaIdParam} no valor de ${formatMoeda(valorTotal)}:\n\n${paymentUrl}\n\nQualquer dúvida estamos à disposição! 😊`;
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -1361,11 +1375,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <Label htmlFor="valor_mao_obra" className="text-xs font-medium text-muted-foreground">Valor Mão de Obra</Label>
                 <Input
                   id="valor_mao_obra"
-                  type="number"
-                  step="0.01"
-                  value={ficha?.valor_mao_obra || ""}
-                  onChange={(e) => updateFicha({ valor_mao_obra: parseFloat(e.target.value) || 0 })}
-                  placeholder="0.00"
+                  type="text"
+                  inputMode="decimal"
+                  value={ficha?.valor_mao_obra ? formatarInputMoeda(ficha.valor_mao_obra) : ""}
+                  onChange={(e) => updateFicha({ valor_mao_obra: parseMoedaInput(e.target.value) })}
+                  placeholder="0,00"
                   className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
                 <DescontoField
@@ -1408,11 +1422,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <Label htmlFor="valor_pecas" className="text-xs font-medium text-muted-foreground">Valor Peças</Label>
                 <Input
                   id="valor_pecas"
-                  type="number"
-                  step="0.01"
-                  value={ficha?.valor_pecas || ""}
-                  onChange={(e) => updateFicha({ valor_pecas: parseFloat(e.target.value) || 0 })}
-                  placeholder="0.00"
+                  type="text"
+                  inputMode="decimal"
+                  value={ficha?.valor_pecas ? formatarInputMoeda(ficha.valor_pecas) : ""}
+                  onChange={(e) => updateFicha({ valor_pecas: parseMoedaInput(e.target.value) })}
+                  placeholder="0,00"
                   className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
                 <DescontoField
@@ -1509,11 +1523,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 )}
                 <Input
                   id="valor_total"
-                  type="number"
-                  step="0.01"
-                  value={ficha?.valor_total || ""}
+                  type="text"
+                  inputMode="decimal"
+                  value={ficha?.valor_total ? formatarInputMoeda(ficha.valor_total) : ""}
                   readOnly={!editarManualmente}
-                  onChange={editarManualmente ? (e) => updateFicha({ valor_total: Number(e.target.value) }) : undefined}
+                  onChange={editarManualmente ? (e) => updateFicha({ valor_total: parseMoedaInput(e.target.value) }) : undefined}
+                  placeholder="0,00"
                   className={`h-9 text-sm ${editarManualmente ? 'focus:ring-2 focus:ring-amber-400/40 border-amber-300' : 'bg-muted cursor-not-allowed'}`}
                 />
                 {ficha?.subtotal != null && (

@@ -31,7 +31,7 @@ export const EnviarLinkPagamentoDialog = ({
   valorTotal,
   onEnviado,
 }: EnviarLinkPagamentoDialogProps) => {
-  const defaultMsg = `Olá${nomeCliente ? `, ${nomeCliente}` : ''}! 😊\n\nSegue o link para pagamento do serviço ${fichaId} no valor de ${formatMoeda(valorTotal)}:\n\n${paymentUrl}\n\nQualquer dúvida estou à disposição!`;
+  const defaultMsg = `${nomeCliente ? `${nomeCliente}, s` : 'S'}egue o link para pagamento do serviço ${fichaId} no valor de ${formatMoeda(valorTotal)}:\n\n${paymentUrl}\n\nQualquer dúvida estamos à disposição! 😊`;
 
   const [mensagem, setMensagem] = useState(defaultMsg);
   const [enviando, setEnviando] = useState(false);
