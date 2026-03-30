@@ -1,74 +1,71 @@
 
 
-# Correções: Mensagem de pagamento, parcelamento Asaas, e formatação de valores
+# Envio inteligente com janela 24h: mensagem livre ou template automático
 
-## 1. Remover "Olá" da mensagem de link de pagamento
+## Situação atual
 
-A mensagem padrão atual em dois lugares começa com `Olá, {nome}! 😊`. Remover o "Olá" para ficar apenas `{nome}! 😊` ou similar.
+O sistema **já verifica** a janela de 24h em três fluxos:
+- **Recibo** (`send-recibo`): dentro → mensagem livre + PDF; fora → template `recibo_confirmado` (sem PDF)
+- **NPS** (`send-nps`): dentro → mensagem livre; fora → template `nps_avaliacao`
+- **Link de pagamento**: dentro → `send-whatsapp` (mensagem livre); fora → **falha e abre dialog manual**
 
-**Arquivos:**
-- `src/components/EnviarLinkPagamentoDialog.tsx` (linha 34) — mensagem do dialog
-- `src/components/FichaServicoTab.tsx` (linha 166) — mensagem do envio automático
+O recibo e NPS já funcionam corretamente com o fallback automático para template.
 
-**De:**
+**O único gap real é o link de pagamento**: quando fora da janela 24h, ele falha e pede envio manual, em vez de enviar automaticamente via template.
+
+## O que implementar
+
+### 1. Criar template para link de pagamento (necessário na Twilio)
+
+Você precisa criar um Content Template na Twilio com o texto do link de pagamento, por exemplo:
+
 ```
-Olá${nomeCliente ? `, ${nomeCliente}` : ''}! 😊\n\nSegue o link para pagamento...
-```
-**Para:**
-```
-${nomeCliente ? `${nomeCliente}, s` : 'S'}egue o link para pagamento...
-```
+{{1}}, segue o link para pagamento do serviço {{2}} no valor de {{3}}:
 
----
+{{4}}
 
-## 2. Parcelamento não funciona no Asaas
-
-O `create-payment-link` só envia `maxInstallmentCount` quando `billingType === 'CREDIT_CARD'`. Porém, a API de Payment Links do Asaas aceita parcelamento via `maxInstallmentCount` independente do `billingType`. O campo só se aplica ao checkout quando o cliente escolhe cartão de crédito, mas deve ser enviado sempre que `parcelas > 1`.
-
-**Arquivo:** `supabase/functions/create-payment-link/index.ts` (linhas 88-90)
-
-**De:**
-```js
-...(parcelas && parcelas > 1 && billingType === 'CREDIT_CARD' ? {
-  maxInstallmentCount: parcelas,
-} : {}),
-```
-**Para:**
-```js
-...(parcelas && parcelas > 1 ? {
-  maxInstallmentCount: parcelas,
-} : {}),
+Qualquer dúvida estamos à disposição! 😊
 ```
 
-Isso permite que o link de pagamento ofereça parcelamento ao cliente quando ele escolher cartão de crédito no checkout, independente da forma de pagamento pré-selecionada na ficha.
+Variáveis: `1=nome_cliente`, `2=nome_ficha`, `3=valor_total`, `4=payment_url`
 
----
+Após criar, me informe o **Content SID** para registrar no banco.
 
-## 3. Formatação de valores: de `1000.00` para `1.000,00`
+### 2. Alterar `enviarLinkAutomatico` no `FichaServicoTab.tsx`
 
-Os campos de valor (Mão de Obra, Peças, Valor Total) usam `<Input type="number">`, que exibe no formato americano (`1000.00`). Para mostrar no formato brasileiro (`1.000,00`), trocar para `type="text"` com máscara de formatação.
+Quando `send-whatsapp` retornar `FORA_JANELA_24H`:
+- Em vez de abrir o dialog manual, chamar `send-template` automaticamente com o template de pagamento
+- Só abrir dialog manual se o template também falhar
 
-### Abordagem segura (sem afetar dados existentes)
-- Trocar `type="number"` para `type="text"` nos inputs de valor
-- Exibir o valor formatado em pt-BR (`1.000,00`)
-- No `onChange`, fazer parse reverso (remover pontos, trocar vírgula por ponto) para manter o número real no state
-- O valor numérico real que vai para o banco **não muda** — apenas a exibição muda
-- Função utilitária:
-  - `formatarInputMoeda(valor: number): string` → formata para exibição
-  - `parseMoedaInput(texto: string): number` → converte de volta para número
+```
+enviarLinkAutomatico()
+  ├─ Tenta send-whatsapp (mensagem livre)
+  │   ├─ ✅ Sucesso → done
+  │   └─ ❌ FORA_JANELA_24H → tenta send-template
+  │       ├─ ✅ Sucesso → done
+  │       └─ ❌ Falha → abre dialog manual (fallback final)
+  └─ ❌ Outro erro → abre dialog manual
+```
 
-**Arquivo:** `src/components/FichaServicoTab.tsx`
-- Linhas 1362-1369 (valor_mao_obra)
-- Linhas 1409-1416 (valor_pecas)
-- Linhas 1510-1517 (valor_total)
+### 3. Fallbacks robustos em todos os fluxos
 
-### Salvaguarda
-- O `parseFloat` ou parser customizado só é chamado no `onChange`
-- O valor salvo no banco continua sendo um `number` puro (ex: `1000`, não `"1.000,00"`)
-- Nenhum cálculo existente (margem, arredondamento, subtotal) é alterado — todos continuam recebendo o mesmo número
+Adicionar `try/catch` com logging em `send-recibo` e `send-nps` para cenários de exceção:
+- Twilio fora do ar → log do erro + marcar para retry manual
+- Template não encontrado no banco → log + notificação ao operador
+- Upload de PDF falhou → enviar mensagem de texto sem PDF como fallback
+
+### 4. Registrar template no banco
+
+Migration SQL para inserir o template `link_pagamento` na tabela `whatsapp_templates` (após você criar na Twilio).
 
 ## Arquivos alterados
-- `src/components/EnviarLinkPagamentoDialog.tsx` — remover "Olá"
-- `src/components/FichaServicoTab.tsx` — remover "Olá" + formatação pt-BR nos inputs de valor
-- `supabase/functions/create-payment-link/index.ts` — parcelamento sem restrição de billingType
+
+- `src/components/FichaServicoTab.tsx` — lógica de fallback automático para template no envio de link
+- `supabase/functions/send-recibo/index.ts` — fallbacks adicionais (PDF falhou → texto puro)
+- `supabase/functions/send-nps/index.ts` — fallbacks adicionais
+- Nova migration SQL — registro do template `link_pagamento`
+
+## Próximo passo necessário
+
+**Você precisa criar o Content Template na Twilio primeiro** para o link de pagamento, e me informar o Content SID. Sem isso, não há como enviar via template fora da janela.
 
