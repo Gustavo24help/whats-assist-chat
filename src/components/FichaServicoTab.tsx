@@ -1509,11 +1509,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 )}
                 <Input
                   id="valor_total"
-                  type="number"
-                  step="0.01"
-                  value={ficha?.valor_total || ""}
+                  type="text"
+                  inputMode="decimal"
+                  value={ficha?.valor_total ? formatarInputMoeda(ficha.valor_total) : ""}
                   readOnly={!editarManualmente}
-                  onChange={editarManualmente ? (e) => updateFicha({ valor_total: Number(e.target.value) }) : undefined}
+                  onChange={editarManualmente ? (e) => updateFicha({ valor_total: parseMoedaInput(e.target.value) }) : undefined}
+                  placeholder="0,00"
                   className={`h-9 text-sm ${editarManualmente ? 'focus:ring-2 focus:ring-amber-400/40 border-amber-300' : 'bg-muted cursor-not-allowed'}`}
                 />
                 {ficha?.subtotal != null && (

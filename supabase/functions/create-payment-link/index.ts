@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       chargeType: 'DETACHED', // link avulso
       dueDateLimitDays: 30,
       externalReference: ficha_id, // Para matching no webhook Asaas
-      ...(parcelas && parcelas > 1 && billingType === 'CREDIT_CARD' ? {
+      ...(parcelas && parcelas > 1 ? {
         maxInstallmentCount: parcelas,
       } : {}),
     };
