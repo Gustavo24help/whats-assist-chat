@@ -28,7 +28,19 @@ export function getAgendamentoDates(ag: AgendamentoData): { inicio: Date | null;
   let inicio: Date | null = null;
   let fim: Date | null = null;
 
-  if (ag.tipo_agendamento === 'retorno') {
+  // Inferir tipo real quando tipo_agendamento é null
+  let tipo = ag.tipo_agendamento;
+  if (!tipo) {
+    if (ag.data_retorno) {
+      tipo = 'retorno';
+    } else if (ag.data_visita_tecnica || ag.horario_visita_tecnica) {
+      tipo = 'visita_tecnica';
+    } else {
+      tipo = 'servico';
+    }
+  }
+
+  if (tipo === 'retorno') {
     if (!ag.data_retorno) return { inicio: null, fim: null };
     const dataBase = ag.data_retorno.split('T')[0];
     if (ag.hora_inicio_retorno) {
@@ -39,7 +51,7 @@ export function getAgendamentoDates(ag: AgendamentoData): { inicio: Date | null;
     if (ag.hora_fim_retorno) {
       fim = new Date(`${dataBase}T${ag.hora_fim_retorno}`);
     }
-  } else if (ag.tipo_agendamento === 'visita_tecnica') {
+  } else if (tipo === 'visita_tecnica') {
     if (ag.horario_visita_tecnica) {
       inicio = new Date(ag.horario_visita_tecnica);
     } else if (ag.data_visita_tecnica) {
