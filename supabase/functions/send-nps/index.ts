@@ -88,66 +88,14 @@ Deno.serve(async (req) => {
 
     let messageSid = "";
 
-    if (dentroJanela) {
-      const mensagem = `Como foi seu serviço com a 24Help? 😊\n\n📋 Serviço: ${nomeFicha}\n\nResponda com uma nota de *0 a 10*. Sua opinião é muito importante para nós!`;
-
-      const body = new URLSearchParams();
-      body.append("To", whatsappTo);
-      body.append("From", whatsappFrom);
-      body.append("Body", mensagem);
-      body.append("StatusCallback", `${supabaseUrl}/functions/v1/update-message-status`);
-
-      const res = await fetch(twilioUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${auth}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-      });
-
-      const resData = await res.json();
-      if (!res.ok) {
-        console.error("[send-nps] Erro Twilio (livre):", resData);
-        throw new Error(resData.message || "Erro Twilio");
-      }
-      messageSid = resData.sid;
-
-      await supabase.from("mensagens").insert({
-        cliente_id: whatsappTo,
-        remetente: whatsappFrom,
-        texto: mensagem,
-        tipo: "texto",
-        status: "enviado",
-        data_hora: new Date().toISOString(),
-        message_sid: messageSid,
-        ficha_id,
-        tipo_remetente: "sistema",
-        operador_nome: "Sistema",
-      });
-
-      console.log(`[send-nps] ✅ Mensagem livre enviada: ${messageSid}`);
-    } else {
-      // Template
-      const { data: template } = await supabase
-        .from("whatsapp_templates")
-        .select("content_sid")
-        .eq("friendly_name", "nps_avaliacao")
-        .maybeSingle();
-
-      if (!template?.content_sid) {
-        console.warn("[send-nps] ⚠️ Template 'nps_avaliacao' não encontrado. NPS não enviado fora da janela 24h.");
-      } else {
-        const contentVars = JSON.stringify({
-          "1": nomeCliente,
-          "2": nomeFicha,
-        });
+    try {
+      if (dentroJanela) {
+        const mensagem = `Como foi seu serviço com a 24Help? 😊\n\n📋 Serviço: ${nomeFicha}\n\nResponda com uma nota de *0 a 10*. Sua opinião é muito importante para nós!`;
 
         const body = new URLSearchParams();
         body.append("To", whatsappTo);
         body.append("From", whatsappFrom);
-        body.append("ContentSid", template.content_sid);
-        body.append("ContentVariables", contentVars);
+        body.append("Body", mensagem);
         body.append("StatusCallback", `${supabaseUrl}/functions/v1/update-message-status`);
 
         const res = await fetch(twilioUrl, {
@@ -161,15 +109,17 @@ Deno.serve(async (req) => {
 
         const resData = await res.json();
         if (!res.ok) {
-          console.error("[send-nps] Erro Twilio (template):", resData);
-          throw new Error(resData.message || "Erro Twilio template");
+          console.error("[send-nps] Erro Twilio (livre):", resData);
+          // Fallback: tentar via template mesmo dentro da janela
+          console.log("[send-nps] Tentando fallback via template...");
+          throw new Error("FALLBACK_TEMPLATE");
         }
         messageSid = resData.sid;
 
         await supabase.from("mensagens").insert({
           cliente_id: whatsappTo,
           remetente: whatsappFrom,
-          texto: `Como foi seu serviço com a 24Help? Serviço: ${nomeFicha} — Responda com uma nota de 0 a 10.`,
+          texto: mensagem,
           tipo: "texto",
           status: "enviado",
           data_hora: new Date().toISOString(),
@@ -179,7 +129,71 @@ Deno.serve(async (req) => {
           operador_nome: "Sistema",
         });
 
-        console.log(`[send-nps] ✅ Template enviado: ${messageSid}`);
+        console.log(`[send-nps] ✅ Mensagem livre enviada: ${messageSid}`);
+      } else {
+        throw new Error("FALLBACK_TEMPLATE");
+      }
+    } catch (livreErr: any) {
+      if (livreErr?.message === "FALLBACK_TEMPLATE" || !dentroJanela) {
+        // Template
+        try {
+          const { data: template } = await supabase
+            .from("whatsapp_templates")
+            .select("content_sid")
+            .eq("friendly_name", "nps_avaliacao")
+            .maybeSingle();
+
+          if (!template?.content_sid) {
+            console.warn("[send-nps] ⚠️ Template 'nps_avaliacao' não encontrado. NPS não enviado.");
+          } else {
+            const contentVars = JSON.stringify({
+              "1": nomeCliente,
+              "2": nomeFicha,
+            });
+
+            const body = new URLSearchParams();
+            body.append("To", whatsappTo);
+            body.append("From", whatsappFrom);
+            body.append("ContentSid", template.content_sid);
+            body.append("ContentVariables", contentVars);
+            body.append("StatusCallback", `${supabaseUrl}/functions/v1/update-message-status`);
+
+            const res = await fetch(twilioUrl, {
+              method: "POST",
+              headers: {
+                Authorization: `Basic ${auth}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: body.toString(),
+            });
+
+            const resData = await res.json();
+            if (!res.ok) {
+              console.error("[send-nps] Erro Twilio (template):", resData);
+            } else {
+              messageSid = resData.sid;
+
+              await supabase.from("mensagens").insert({
+                cliente_id: whatsappTo,
+                remetente: whatsappFrom,
+                texto: `Como foi seu serviço com a 24Help? Serviço: ${nomeFicha} — Responda com uma nota de 0 a 10.`,
+                tipo: "texto",
+                status: "enviado",
+                data_hora: new Date().toISOString(),
+                message_sid: messageSid,
+                ficha_id,
+                tipo_remetente: "sistema",
+                operador_nome: "Sistema",
+              });
+
+              console.log(`[send-nps] ✅ Template enviado: ${messageSid}`);
+            }
+          }
+        } catch (tplErr) {
+          console.error("[send-nps] ⚠️ Falha total no envio NPS (livre + template):", tplErr);
+        }
+      } else {
+        console.error("[send-nps] Erro inesperado no envio livre:", livreErr);
       }
     }
 

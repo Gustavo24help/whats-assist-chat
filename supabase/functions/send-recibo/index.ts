@@ -208,44 +208,50 @@ Deno.serve(async (req) => {
 
     // === GERAR/REUTILIZAR PDF ===
     let reciboUrl = ficha.recibo_url;
+    let pdfFalhou = false;
 
     if (!reciboUrl) {
-      console.log("[send-recibo] Gerando PDF do recibo...");
-      const pdfBytes = await gerarReciboPDF(
-        ficha_id,
-        ficha.nome_cliente || "Cliente",
-        ficha.cpf,
-        ficha.nome_ficha || ficha_id,
-        Number(ficha.valor_total || 0),
-        ficha.descricao,
-        ficha.pagamento_realizado === true
-      );
+      try {
+        console.log("[send-recibo] Gerando PDF do recibo...");
+        const pdfBytes = await gerarReciboPDF(
+          ficha_id,
+          ficha.nome_cliente || "Cliente",
+          ficha.cpf,
+          ficha.nome_ficha || ficha_id,
+          Number(ficha.valor_total || 0),
+          ficha.descricao,
+          ficha.pagamento_realizado === true
+        );
 
-      const fileName = `recibo_${ficha_id}_${Date.now()}.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from("chat-files")
-        .upload(`recibos/${fileName}`, pdfBytes, {
-          contentType: "application/pdf",
-          upsert: true,
-        });
+        const fileName = `recibo_${ficha_id}_${Date.now()}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from("chat-files")
+          .upload(`recibos/${fileName}`, pdfBytes, {
+            contentType: "application/pdf",
+            upsert: true,
+          });
 
-      if (uploadError) {
-        console.error("[send-recibo] Erro upload PDF:", uploadError);
-        throw new Error("Erro ao salvar PDF do recibo");
+        if (uploadError) {
+          console.error("[send-recibo] Erro upload PDF:", uploadError);
+          pdfFalhou = true;
+        } else {
+          const { data: urlData } = supabase.storage
+            .from("chat-files")
+            .getPublicUrl(`recibos/${fileName}`);
+
+          reciboUrl = urlData.publicUrl;
+          console.log(`[send-recibo] PDF gerado: ${reciboUrl}`);
+
+          // Salvar URL na ficha
+          await supabase
+            .from("fichas_de_servico")
+            .update({ recibo_url: reciboUrl })
+            .eq("id", ficha_id);
+        }
+      } catch (pdfErr) {
+        console.error("[send-recibo] ⚠️ Falha ao gerar/upload PDF, enviando só texto:", pdfErr);
+        pdfFalhou = true;
       }
-
-      const { data: urlData } = supabase.storage
-        .from("chat-files")
-        .getPublicUrl(`recibos/${fileName}`);
-
-      reciboUrl = urlData.publicUrl;
-      console.log(`[send-recibo] PDF gerado: ${reciboUrl}`);
-
-      // Salvar URL na ficha
-      await supabase
-        .from("fichas_de_servico")
-        .update({ recibo_url: reciboUrl })
-        .eq("id", ficha_id);
     } else {
       console.log(`[send-recibo] Usando recibo existente: ${reciboUrl}`);
     }
@@ -281,14 +287,16 @@ Deno.serve(async (req) => {
     let messageSid = "";
 
     if (dentroJanela) {
-      // Mensagem livre com PDF anexo
+      // Mensagem livre com PDF anexo (ou só texto se PDF falhou)
       const mensagem = `✅ *Pagamento confirmado!*\n\n📋 Serviço: ${nomeFicha}\n💰 Valor: R$ ${valorFormatado}\n\nObrigado pela confiança, ${nomeCliente}! 🙏`;
 
       const body = new URLSearchParams();
       body.append("To", whatsappTo);
       body.append("From", whatsappFrom);
       body.append("Body", mensagem);
-      body.append("MediaUrl", reciboUrl!);
+      if (reciboUrl && !pdfFalhou) {
+        body.append("MediaUrl", reciboUrl);
+      }
       body.append("StatusCallback", `${supabaseUrl}/functions/v1/update-message-status`);
 
       const res = await fetch(twilioUrl, {
@@ -311,8 +319,8 @@ Deno.serve(async (req) => {
         cliente_id: whatsappTo,
         remetente: whatsappFrom,
         texto: mensagem,
-        arquivo_url: reciboUrl,
-        tipo: "documento",
+        arquivo_url: reciboUrl && !pdfFalhou ? reciboUrl : null,
+        tipo: reciboUrl && !pdfFalhou ? "documento" : "texto",
         status: "enviado",
         data_hora: new Date().toISOString(),
         message_sid: messageSid,
@@ -321,7 +329,7 @@ Deno.serve(async (req) => {
         operador_nome: "Sistema",
       });
 
-      console.log(`[send-recibo] ✅ Mensagem livre + PDF enviada: ${messageSid}`);
+      console.log(`[send-recibo] ✅ Mensagem livre ${reciboUrl && !pdfFalhou ? '+ PDF ' : '(sem PDF) '}enviada: ${messageSid}`);
     } else {
       // Template — buscar content_sid
       const { data: template } = await supabase
