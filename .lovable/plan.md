@@ -1,38 +1,52 @@
 
 
-# Limpeza e verificação do fluxo de mensagens automáticas
+# Correções do Calendário: painel lateral de dia + fichas não exibidas
 
-## O que está desnecessário (remover)
+## Problema 1: Fichas não aparecem no calendário
 
-### Fallback de template `link_pagamento` no `FichaServicoTab.tsx` (linhas 191-233)
-O link de pagamento é enviado logo após criar a cobrança — o operador está em conversa ativa com o cliente, sempre dentro da janela 24h. O fallback para template `link_pagamento` **não tem utilidade real** e referencia um template que nem existe na Twilio. Deve ser removido, voltando ao comportamento original: se falhar por `FORA_JANELA_24H`, abre o dialog manual.
+**Causa raiz**: `getAgendamentoDates()` em `calcularEstadoAgendamento.ts` usa `tipo_agendamento` para decidir qual campo de data ler. Porém, 93 fichas (incluindo FS5-260327) têm `tipo_agendamento = null` com `data_visita_tecnica`/`horario_visita_tecnica` preenchidos. A função cai no branch `else` (serviço), que exige `horario_agendamento` — retorna `null` e a ficha some.
 
-## O que já está correto e funcionando
+**Correção em `src/lib/calcularEstadoAgendamento.ts`**: Antes do branch de serviço (else), adicionar detecção automática do tipo real baseado nos campos preenchidos:
+```
+// Se tipo_agendamento é null, inferir pelo que está preenchido:
+// - data_retorno preenchido → tratar como retorno
+// - data_visita_tecnica/horario_visita_tecnica preenchido → tratar como visita_tecnica
+// - horario_agendamento preenchido → tratar como servico
+```
 
-### `send-recibo` (recibo pós-pagamento) ✅
-- Gera PDF automaticamente → salva no storage → obtém URL pública
-- **Dentro da janela 24h**: envia mensagem livre + PDF anexo
-- **Fora da janela 24h**: envia template `recibo_confirmado` (`HX7cc2b987e2d793fb99d4d02cb1e5ebb7`) com variáveis `{{1}}=nome`, `{{2}}=ficha`, `{{3}}=valor` (sem prefixo R$)
-- Fallback se PDF falhar: envia só texto
-- Idempotência via `recibo_enviado`
+Isso corrige a exibição sem alterar nenhum dado existente no banco.
 
-### `send-nps` (pesquisa de satisfação) ✅
-- **Dentro da janela 24h**: mensagem livre
-- **Fora da janela 24h**: template `nps_avaliacao` (`HXc80ca7e035535fbbf35958ff55ca996d`) com `{{1}}=nome`, `{{2}}=ficha`
-- Fallback: se mensagem livre falhar, tenta template automaticamente
-- Idempotência via `nps_respostas`
+## Problema 2: "+X mais" não é clicável / sem painel lateral
 
-## Alteração
+**Solução**: Na visualização mensal, adicionar:
 
-**Arquivo:** `src/components/FichaServicoTab.tsx`
-- Remover o bloco de fallback para template `link_pagamento` (linhas 191-233)
-- Manter apenas: se `FORA_JANELA_24H`, retorna `{ success: false, reason: 'FORA_JANELA_24H' }` → abre dialog manual como antes
+1. **"+X mais" clicável** — ao clicar, expande inline mostrando todas as fichas do dia (ou abre o painel lateral)
+2. **Clique no número do dia** — abre painel lateral à direita com lista completa das fichas daquele dia
+3. **Painel lateral (drawer/panel)** — lista todas as fichas do dia selecionado, cada uma clicável para abrir o modal de detalhes existente. Botão X para fechar.
 
-## Resultado final
+### Alterações
 
-| Fluxo | Dentro 24h | Fora 24h | Status |
-|-------|-----------|----------|--------|
-| Recibo | Msg livre + PDF | Template `recibo_confirmado` | ✅ Funcional |
-| NPS | Msg livre | Template `nps_avaliacao` | ✅ Funcional |
-| Link pagamento | Msg livre | Dialog manual | ✅ Suficiente |
+**`src/lib/calcularEstadoAgendamento.ts`**
+- No início de `getAgendamentoDates`, inferir `tipo_agendamento` quando `null`:
+  - Se `data_retorno` preenchido → usar lógica de retorno
+  - Se `data_visita_tecnica` ou `horario_visita_tecnica` preenchido → usar lógica de visita técnica
+  - Senão → manter lógica de serviço
+
+**`src/components/calendario/CalendarioMensal.tsx`**
+- Adicionar state `selectedDay: string | null`
+- Tornar o "+X mais" clicável → `setSelectedDay(key)`
+- Tornar o número do dia clicável → `setSelectedDay(key)`
+- Renderizar painel lateral condicional quando `selectedDay` está definido:
+  - Posição fixa à direita do calendário
+  - Header com data formatada + botão X
+  - Lista scrollável de `AgendamentoCard` (não compact) para cada ficha do dia
+  - Clique em cada card → `onSelectFicha(f)` (abre modal de detalhes)
+
+**`src/pages/Calendario.tsx`**
+- Ajustar layout para acomodar o painel lateral (flex row com calendário + painel)
+
+## Arquivos alterados
+- `src/lib/calcularEstadoAgendamento.ts` — inferir tipo quando null
+- `src/components/calendario/CalendarioMensal.tsx` — painel lateral + "+X mais" clicável
+- `src/pages/Calendario.tsx` — layout flex para acomodar painel
 
