@@ -163,7 +163,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   };
 
   const enviarLinkAutomatico = async (paymentUrl: string, clienteNome: string, valorTotal: number, telefone: string, fichaIdParam: string) => {
-    const mensagem = `Olá${clienteNome ? `, ${clienteNome}` : ''}! 😊\n\nSegue o link para pagamento do serviço ${fichaIdParam} no valor de ${formatMoeda(valorTotal)}:\n\n${paymentUrl}\n\nQualquer dúvida estou à disposição!`;
+    const mensagem = `${clienteNome ? `${clienteNome}, s` : 'S'}egue o link para pagamento do serviço ${fichaIdParam} no valor de ${formatMoeda(valorTotal)}:\n\n${paymentUrl}\n\nQualquer dúvida estamos à disposição! 😊`;
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
