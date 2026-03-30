@@ -97,7 +97,21 @@ const STATUS_OPTIONS = [
   "Perdido"
 ];
 
-const VALID_PAGAMENTO_TIPOS = [
+const formatarInputMoeda = (valor: number): string => {
+  if (!valor && valor !== 0) return '';
+  return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const parseMoedaInput = (texto: string): number => {
+  if (!texto) return 0;
+  // Remove tudo que não é dígito ou vírgula
+  const limpo = texto.replace(/[^\d,]/g, '');
+  // Troca vírgula por ponto
+  const comPonto = limpo.replace(',', '.');
+  return parseFloat(comPonto) || 0;
+};
+
+
   "pix",
   "cartao_credito",
   "cartao_debito",
