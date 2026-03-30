@@ -1361,11 +1361,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <Label htmlFor="valor_mao_obra" className="text-xs font-medium text-muted-foreground">Valor Mão de Obra</Label>
                 <Input
                   id="valor_mao_obra"
-                  type="number"
-                  step="0.01"
-                  value={ficha?.valor_mao_obra || ""}
-                  onChange={(e) => updateFicha({ valor_mao_obra: parseFloat(e.target.value) || 0 })}
-                  placeholder="0.00"
+                  type="text"
+                  inputMode="decimal"
+                  value={ficha?.valor_mao_obra ? formatarInputMoeda(ficha.valor_mao_obra) : ""}
+                  onChange={(e) => updateFicha({ valor_mao_obra: parseMoedaInput(e.target.value) })}
+                  placeholder="0,00"
                   className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
                 <DescontoField
