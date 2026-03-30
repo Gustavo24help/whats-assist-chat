@@ -1,71 +1,38 @@
 
 
-# Envio inteligente com janela 24h: mensagem livre ou template automático
+# Limpeza e verificação do fluxo de mensagens automáticas
 
-## Situação atual
+## O que está desnecessário (remover)
 
-O sistema **já verifica** a janela de 24h em três fluxos:
-- **Recibo** (`send-recibo`): dentro → mensagem livre + PDF; fora → template `recibo_confirmado` (sem PDF)
-- **NPS** (`send-nps`): dentro → mensagem livre; fora → template `nps_avaliacao`
-- **Link de pagamento**: dentro → `send-whatsapp` (mensagem livre); fora → **falha e abre dialog manual**
+### Fallback de template `link_pagamento` no `FichaServicoTab.tsx` (linhas 191-233)
+O link de pagamento é enviado logo após criar a cobrança — o operador está em conversa ativa com o cliente, sempre dentro da janela 24h. O fallback para template `link_pagamento` **não tem utilidade real** e referencia um template que nem existe na Twilio. Deve ser removido, voltando ao comportamento original: se falhar por `FORA_JANELA_24H`, abre o dialog manual.
 
-O recibo e NPS já funcionam corretamente com o fallback automático para template.
+## O que já está correto e funcionando
 
-**O único gap real é o link de pagamento**: quando fora da janela 24h, ele falha e pede envio manual, em vez de enviar automaticamente via template.
+### `send-recibo` (recibo pós-pagamento) ✅
+- Gera PDF automaticamente → salva no storage → obtém URL pública
+- **Dentro da janela 24h**: envia mensagem livre + PDF anexo
+- **Fora da janela 24h**: envia template `recibo_confirmado` (`HX7cc2b987e2d793fb99d4d02cb1e5ebb7`) com variáveis `{{1}}=nome`, `{{2}}=ficha`, `{{3}}=valor` (sem prefixo R$)
+- Fallback se PDF falhar: envia só texto
+- Idempotência via `recibo_enviado`
 
-## O que implementar
+### `send-nps` (pesquisa de satisfação) ✅
+- **Dentro da janela 24h**: mensagem livre
+- **Fora da janela 24h**: template `nps_avaliacao` (`HXc80ca7e035535fbbf35958ff55ca996d`) com `{{1}}=nome`, `{{2}}=ficha`
+- Fallback: se mensagem livre falhar, tenta template automaticamente
+- Idempotência via `nps_respostas`
 
-### 1. Criar template para link de pagamento (necessário na Twilio)
+## Alteração
 
-Você precisa criar um Content Template na Twilio com o texto do link de pagamento, por exemplo:
+**Arquivo:** `src/components/FichaServicoTab.tsx`
+- Remover o bloco de fallback para template `link_pagamento` (linhas 191-233)
+- Manter apenas: se `FORA_JANELA_24H`, retorna `{ success: false, reason: 'FORA_JANELA_24H' }` → abre dialog manual como antes
 
-```
-{{1}}, segue o link para pagamento do serviço {{2}} no valor de {{3}}:
+## Resultado final
 
-{{4}}
-
-Qualquer dúvida estamos à disposição! 😊
-```
-
-Variáveis: `1=nome_cliente`, `2=nome_ficha`, `3=valor_total`, `4=payment_url`
-
-Após criar, me informe o **Content SID** para registrar no banco.
-
-### 2. Alterar `enviarLinkAutomatico` no `FichaServicoTab.tsx`
-
-Quando `send-whatsapp` retornar `FORA_JANELA_24H`:
-- Em vez de abrir o dialog manual, chamar `send-template` automaticamente com o template de pagamento
-- Só abrir dialog manual se o template também falhar
-
-```
-enviarLinkAutomatico()
-  ├─ Tenta send-whatsapp (mensagem livre)
-  │   ├─ ✅ Sucesso → done
-  │   └─ ❌ FORA_JANELA_24H → tenta send-template
-  │       ├─ ✅ Sucesso → done
-  │       └─ ❌ Falha → abre dialog manual (fallback final)
-  └─ ❌ Outro erro → abre dialog manual
-```
-
-### 3. Fallbacks robustos em todos os fluxos
-
-Adicionar `try/catch` com logging em `send-recibo` e `send-nps` para cenários de exceção:
-- Twilio fora do ar → log do erro + marcar para retry manual
-- Template não encontrado no banco → log + notificação ao operador
-- Upload de PDF falhou → enviar mensagem de texto sem PDF como fallback
-
-### 4. Registrar template no banco
-
-Migration SQL para inserir o template `link_pagamento` na tabela `whatsapp_templates` (após você criar na Twilio).
-
-## Arquivos alterados
-
-- `src/components/FichaServicoTab.tsx` — lógica de fallback automático para template no envio de link
-- `supabase/functions/send-recibo/index.ts` — fallbacks adicionais (PDF falhou → texto puro)
-- `supabase/functions/send-nps/index.ts` — fallbacks adicionais
-- Nova migration SQL — registro do template `link_pagamento`
-
-## Próximo passo necessário
-
-**Você precisa criar o Content Template na Twilio primeiro** para o link de pagamento, e me informar o Content SID. Sem isso, não há como enviar via template fora da janela.
+| Fluxo | Dentro 24h | Fora 24h | Status |
+|-------|-----------|----------|--------|
+| Recibo | Msg livre + PDF | Template `recibo_confirmado` | ✅ Funcional |
+| NPS | Msg livre | Template `nps_avaliacao` | ✅ Funcional |
+| Link pagamento | Msg livre | Dialog manual | ✅ Suficiente |
 
