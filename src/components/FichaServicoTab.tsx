@@ -189,47 +189,6 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       
       if (!data.success) {
         if (data.error === "FORA_JANELA_24H") {
-          // Tentar envio via template automaticamente
-          console.log('[enviarLinkAutomatico] Fora da janela 24h, tentando template...');
-          try {
-            const { data: templateData } = await supabase
-              .from('whatsapp_templates')
-              .select('content_sid')
-              .eq('friendly_name', 'link_pagamento')
-              .maybeSingle();
-
-            if (templateData?.content_sid) {
-              const valorFormatado = formatMoeda(valorTotal);
-              const templateBody = `${clienteNome || 'Cliente'}, segue o link para pagamento do serviço ${fichaIdParam} no valor de ${valorFormatado}:\n\n${paymentUrl}\n\nQualquer dúvida estamos à disposição! 😊`;
-              
-              const { data: tplResult, error: tplError } = await supabase.functions.invoke("send-template", {
-                body: {
-                  to: telefone,
-                  contentSid: templateData.content_sid,
-                  contentVariables: {
-                    "1": clienteNome || "Cliente",
-                    "2": fichaIdParam,
-                    "3": valorFormatado,
-                    "4": paymentUrl,
-                  },
-                  templateBody,
-                  userId: user?.id,
-                },
-              });
-
-              if (!tplError && tplResult?.success) {
-                console.log('[enviarLinkAutomatico] ✅ Template enviado com sucesso');
-                await registrarEnvioNaFicha(fichaIdParam, paymentUrl, 'envio automático via template (fora janela 24h)');
-                return { success: true };
-              }
-              console.warn('[enviarLinkAutomatico] Template falhou:', tplError || tplResult?.error);
-            } else {
-              console.warn('[enviarLinkAutomatico] Template link_pagamento não encontrado no banco');
-            }
-          } catch (tplErr) {
-            console.error('[enviarLinkAutomatico] Erro ao tentar template:', tplErr);
-          }
-          // Se template também falhou, retorna para fallback manual
           return { success: false, reason: 'FORA_JANELA_24H' };
         }
         throw new Error(data.error || "Erro ao enviar");
