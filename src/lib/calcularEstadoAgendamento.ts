@@ -51,7 +51,7 @@ export function getAgendamentoDates(ag: AgendamentoData): { inicio: Date | null;
     if (ag.hora_fim_retorno) {
       fim = new Date(`${dataBase}T${ag.hora_fim_retorno}`);
     }
-  } else if (ag.tipo_agendamento === 'visita_tecnica') {
+  } else if (tipo === 'visita_tecnica') {
     if (ag.horario_visita_tecnica) {
       inicio = new Date(ag.horario_visita_tecnica);
     } else if (ag.data_visita_tecnica) {
