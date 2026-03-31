@@ -16,14 +16,9 @@ const Manutencao = () => {
   return (
     <PageLayout>
       <header className="border-b border-border bg-card px-6 py-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Manutenção</h1>
-            <p className="text-sm text-muted-foreground">Gerencie conta, usuários e ferramentas administrativas.</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Manutenção</h1>
+          <p className="text-sm text-muted-foreground">Gerencie conta, usuários e ferramentas administrativas.</p>
         </div>
       </header>
 
