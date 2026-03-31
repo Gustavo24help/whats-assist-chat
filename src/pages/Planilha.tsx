@@ -20,7 +20,7 @@ const Planilha = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-6 md:p-8">
+    <PageLayout>
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <Button variant="outline" onClick={() => navigate("/")}>
