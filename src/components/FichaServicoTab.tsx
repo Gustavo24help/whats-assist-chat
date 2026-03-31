@@ -794,7 +794,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   const updateHoraVisitaTecnica = (hora: string) => {
     setHoraVisitaTecnica(hora);
-    // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
+  };
+
+  const updateDataRetorno = (data: string) => {
+    setDataRetorno(data);
+  };
+
+  const updateHoraRetorno = (hora: string) => {
+    setHoraRetorno(hora);
   };
 
   // Debounced update para nome do cliente
