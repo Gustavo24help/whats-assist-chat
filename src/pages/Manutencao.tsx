@@ -56,7 +56,7 @@ const Manutencao = () => {
           </Tabs>
         )}
       </main>
-    </div>
+    </PageLayout>
   );
 };
 

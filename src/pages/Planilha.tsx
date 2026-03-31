@@ -1,7 +1,7 @@
-import { ArrowLeft, ArrowRight, FileSpreadsheet } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, FileSpreadsheet } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
+import { PageLayout } from "@/components/PageLayout";
 
 const spreadsheetCards = [
   {
