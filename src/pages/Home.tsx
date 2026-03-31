@@ -281,14 +281,14 @@ const Home = () => {
       {/* Sidebar */}
       <aside
         className={cn(
-          "h-screen sticky top-0 flex flex-col border-r bg-sidebar-background transition-all duration-200",
+          "h-screen sticky top-0 flex flex-col border-r border-primary/20 bg-primary text-primary-foreground transition-all duration-200",
           collapsed ? "w-16" : "w-60"
         )}
       >
         {/* Logo + collapse */}
-        <div className="h-14 flex items-center justify-between px-3 border-b shrink-0">
-          {!collapsed && <Logo />}
-          <Button variant="ghost" size="icon" onClick={toggleCollapsed} className="h-8 w-8 shrink-0">
+        <div className="h-14 flex items-center justify-between px-3 border-b border-white/15 shrink-0">
+          {!collapsed && <div className="text-lg font-bold tracking-tight">24Help</div>}
+          <Button variant="ghost" size="icon" onClick={toggleCollapsed} className="h-8 w-8 shrink-0 text-primary-foreground hover:bg-white/15">
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
@@ -302,7 +302,7 @@ const Home = () => {
                 onClick={() => openRoute(item.route)}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors",
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-primary-foreground/85 hover:bg-white/15 hover:text-primary-foreground transition-colors",
                   collapsed && "justify-center px-0"
                 )}
               >
@@ -314,11 +314,11 @@ const Home = () => {
         </ScrollArea>
 
         {/* Footer: user + logout */}
-        <div className="border-t p-3 shrink-0">
+        <div className="border-t border-white/15 p-3 shrink-0">
           {!collapsed && (
-            <p className="text-xs text-muted-foreground truncate mb-2">{userProfile?.fullName || "Usuário"}</p>
+            <p className="text-xs text-primary-foreground/60 truncate mb-2">{userProfile?.fullName || "Usuário"}</p>
           )}
-          <Button variant="ghost" size={collapsed ? "icon" : "sm"} onClick={handleLogout} className="w-full justify-start gap-2">
+          <Button variant="ghost" size={collapsed ? "icon" : "sm"} onClick={handleLogout} className="w-full justify-start gap-2 text-primary-foreground/85 hover:bg-white/15 hover:text-primary-foreground">
             <LogOut className="h-4 w-4 shrink-0" />
             {!collapsed && <span>Sair</span>}
           </Button>
