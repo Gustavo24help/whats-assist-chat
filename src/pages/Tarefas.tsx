@@ -1,21 +1,27 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useTaskAuth } from '@/hooks/useTaskAuth'
 import { useVisibleTasks } from '@/hooks/useVisibleTasks'
+import { useTaskAlert } from '@/hooks/useTaskAlert'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskFormDialog } from '@/components/tasks/TaskFormDialog'
+import { TaskAlertModal } from '@/components/tasks/TaskAlertModal'
 import { Button } from '@/components/ui/button'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Plus, Loader2 } from 'lucide-react'
+import { Plus, Loader2, Settings2 } from 'lucide-react'
 import { isOverdue, isForgotten, isDueToday, isDueInNextDays } from '@/lib/taskUtils'
 import type { Task, Status, Priority } from '@/types/tasks'
 
 export default function Tarefas() {
   const { currentMember, isManager, loading: authLoading } = useTaskAuth()
   const { tasks, team, loading: tasksLoading, refetch } = useVisibleTasks(currentMember)
+  const { showPopup, setShowPopup } = useTaskAlert(tasks, currentMember)
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<'todos' | Status>('todos')
