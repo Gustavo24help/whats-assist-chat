@@ -82,7 +82,8 @@ export default function Tarefas() {
     isManager || task.assignee_ids.includes(currentMember.id)
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] p-4 md:p-6">
+    <PageLayout>
+      <div className="p-4 md:p-6 overflow-auto flex-1">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
