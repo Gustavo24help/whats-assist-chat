@@ -94,7 +94,8 @@ const STATUS_OPTIONS = [
   "Em andamento",
   "Finalizado",
   "Garantia",
-  "Perdido"
+  "Perdido",
+  "Retorno"
 ];
 
 const formatarInputMoeda = (valor: number): string => {
