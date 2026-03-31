@@ -27,7 +27,7 @@ export default function Tarefas() {
   const [statusFilter, setStatusFilter] = useState<'todos' | Status>('todos')
   const [priorityFilter, setPriorityFilter] = useState<'todas' | Priority>('todas')
   const [projectFilter, setProjectFilter] = useState('todos')
-  const [periodFilter, setPeriodFilter] = useState('todas')
+  const [periodFilter, setPeriodFilter] = useState(() => searchParams.get('periodo') || 'todas')
   const [forgottenOnly, setForgottenOnly] = useState(false)
   const [assigneeFilter, setAssigneeFilter] = useState('todos')
 
