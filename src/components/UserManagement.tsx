@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Users, UserPlus, Trash2, KeyRound, ExternalLink } from "lucide-react";
+import { Users, UserPlus, Trash2, KeyRound, ExternalLink, Ban, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserProfile {
