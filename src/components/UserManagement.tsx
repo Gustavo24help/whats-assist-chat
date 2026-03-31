@@ -166,6 +166,24 @@ export const UserManagement = () => {
     setResetPasswordDialogOpen(true);
   };
 
+  const toggleUserStatus = async (user: UserProfile) => {
+    const action = user.disabled ? 'enable' : 'disable';
+    const label = user.disabled ? 'reativar' : 'desativar';
+    if (!confirm(`Tem certeza que deseja ${label} ${user.full_name || user.email}?`)) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: { action, userId: user.id }
+      });
+      if (error) throw error;
+      toast.success(`Usuário ${user.disabled ? 'reativado' : 'desativado'} com sucesso`);
+      fetchUsers();
+    } catch (error: unknown) {
+      console.error(`Erro ao ${label} usuário:`, error);
+      toast.error(error instanceof Error ? error.message : `Erro ao ${label} usuário`);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
