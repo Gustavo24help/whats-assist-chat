@@ -197,7 +197,8 @@ Deno.serve(async (req) => {
               id: user.id,
               email: user.email,
               full_name: profile?.full_name || user.user_metadata?.full_name,
-              role: roleData?.role || 'user'
+              role: roleData?.role || 'user',
+              disabled: !!user.banned_until && new Date(user.banned_until) > new Date()
             }
           })
         )
