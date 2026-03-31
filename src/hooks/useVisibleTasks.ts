@@ -78,7 +78,7 @@ export function useVisibleTasks(currentMember: TeamMember | null) {
       .in('task_id', taskIds)
 
     // Buscar nomes dos profiles
-    const userIds = [...new Set((assignees ?? []).map((a: any) => a.user_id))]
+    const userIds = [...new Set((assignees ?? []).map((a: any) => a.user_id as string))]
     const { data: profiles } = await (supabase as any)
       .from('profiles')
       .select('id, full_name')
