@@ -8,10 +8,29 @@ export function useVisibleTasks(currentMember: TeamMember | null) {
   const [loading, setLoading] = useState(true)
 
   const fetchTeam = async () => {
-    const { data } = await (supabase as any)
+    // Fetch all profiles as potential team members
+    const { data: profiles } = await (supabase as any)
+      .from('profiles')
+      .select('id, full_name')
+
+    if (!profiles) return
+
+    // Fetch roles from team_members
+    const { data: roles } = await (supabase as any)
       .from('team_members')
-      .select('id, name, role')
-    if (data) setTeam(data as TeamMember[])
+      .select('id, role')
+
+    const roleMap = new Map<string, string>((roles ?? []).map((r: any) => [r.id, r.role]))
+
+    const members: TeamMember[] = (profiles as any[])
+      .filter((p: any) => p.full_name)
+      .map((p: any) => ({
+        id: p.id,
+        name: p.full_name || 'Sem nome',
+        role: (roleMap.get(p.id) as any) ?? 'member',
+      }))
+
+    setTeam(members)
   }
 
   const fetchTasks = useCallback(async () => {

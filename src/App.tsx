@@ -36,6 +36,7 @@ import PlanilhaControlePagamentos from "./pages/PlanilhaControlePagamentos";
 import Calendario from "./pages/Calendario";
 import ChatPrestadores from "./pages/ChatPrestadores";
 import Tarefas from "./pages/Tarefas";
+import VisibilitySettings from "./pages/VisibilitySettings";
 
 const queryClient = new QueryClient();
 
@@ -248,6 +249,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Tarefas />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/visibility"
+                element={
+                  <ProtectedRoute>
+                    <VisibilitySettings />
                   </ProtectedRoute>
                 }
               />

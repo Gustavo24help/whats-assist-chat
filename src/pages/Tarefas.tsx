@@ -1,27 +1,33 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useTaskAuth } from '@/hooks/useTaskAuth'
 import { useVisibleTasks } from '@/hooks/useVisibleTasks'
+import { useTaskAlert } from '@/hooks/useTaskAlert'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskFormDialog } from '@/components/tasks/TaskFormDialog'
+import { TaskAlertModal } from '@/components/tasks/TaskAlertModal'
 import { Button } from '@/components/ui/button'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Plus, Loader2 } from 'lucide-react'
+import { Plus, Loader2, Settings2 } from 'lucide-react'
 import { isOverdue, isForgotten, isDueToday, isDueInNextDays } from '@/lib/taskUtils'
 import type { Task, Status, Priority } from '@/types/tasks'
 
 export default function Tarefas() {
   const { currentMember, isManager, loading: authLoading } = useTaskAuth()
   const { tasks, team, loading: tasksLoading, refetch } = useVisibleTasks(currentMember)
+  const { showPopup, setShowPopup } = useTaskAlert(tasks, currentMember)
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<'todos' | Status>('todos')
   const [priorityFilter, setPriorityFilter] = useState<'todas' | Priority>('todas')
   const [projectFilter, setProjectFilter] = useState('todos')
-  const [periodFilter, setPeriodFilter] = useState('todas')
+  const [periodFilter, setPeriodFilter] = useState(() => searchParams.get('periodo') || 'todas')
   const [forgottenOnly, setForgottenOnly] = useState(false)
   const [assigneeFilter, setAssigneeFilter] = useState('todos')
 
@@ -82,12 +88,24 @@ export default function Tarefas() {
           <h1 className="text-2xl font-bold text-[#004A30]">Tarefas</h1>
           <p className="text-sm text-[#2C2C2A]/60">{filtered.length} tarefa(s)</p>
         </div>
-        <Button
-          onClick={() => { setEditingTask(null); setFormOpen(true) }}
-          className="bg-[#004A30] hover:bg-[#004A30]/90 text-white"
-        >
-          <Plus className="h-4 w-4 mr-1" /> Nova tarefa
-        </Button>
+        <div className="flex items-center gap-2">
+          {!isManager && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/settings/visibility')}
+              className="text-[#004A30] border-[#004A30]/30"
+            >
+              <Settings2 className="h-4 w-4 mr-1" /> Visibilidade
+            </Button>
+          )}
+          <Button
+            onClick={() => { setEditingTask(null); setFormOpen(true) }}
+            className="bg-[#004A30] hover:bg-[#004A30]/90 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1" /> Nova tarefa
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -191,6 +209,15 @@ export default function Tarefas() {
         currentMember={currentMember}
         isManager={isManager}
         onSaved={refetch}
+      />
+
+      {/* Alert modal */}
+      <TaskAlertModal
+        open={showPopup}
+        onClose={() => setShowPopup(false)}
+        tasks={tasks}
+        currentUser={currentMember}
+        isManager={isManager}
       />
     </div>
   )
