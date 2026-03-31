@@ -35,6 +35,7 @@ import PlanilhaControleFinanceiro from "./pages/PlanilhaControleFinanceiro";
 import PlanilhaControlePagamentos from "./pages/PlanilhaControlePagamentos";
 import Calendario from "./pages/Calendario";
 import ChatPrestadores from "./pages/ChatPrestadores";
+import Tarefas from "./pages/Tarefas";
 
 const queryClient = new QueryClient();
 
