@@ -128,7 +128,7 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
   };
 
   const copiarLinkOrcamento = () => {
-    const link = `https://chat.24help.com.br/orcamento?ficha=${ficha.id}`;
+    const link = `https://chat.24help.com.br/orcamento?ficha=${encodeURIComponent(ficha.id)}`;
     navigator.clipboard.writeText(link);
     toast({
       title: "Link copiado!",
