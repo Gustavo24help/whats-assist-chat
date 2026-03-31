@@ -32,6 +32,7 @@ interface Mensagem {
   message_sid?: string | null;
   ficha_id?: string | null;
   enviado_por_id?: string | null;
+  transcricao_texto?: string | null;
 }
 
 interface FichaAtiva {
