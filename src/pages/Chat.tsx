@@ -11,6 +11,7 @@ import { LogOut, Settings, PanelLeftOpen, Home, MessageCircle, Users } from "luc
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { OrcamentoNotification } from "@/components/OrcamentoNotification";
+import { PageLayout } from "@/components/PageLayout";
 import { OrcamentosSemFichaNotification } from "@/components/OrcamentosSemFichaNotification";
 import { BotSemFichaNotification } from "@/components/BotSemFichaNotification";
 import { cn } from "@/lib/utils";
@@ -109,7 +110,7 @@ const Chat = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <PageLayout fullHeight>
       <NotificationSystem 
         onNewMessage={handleNewMessage}
         currentClienteId={selectedCliente?.telefone || null}
@@ -259,7 +260,7 @@ const Chat = () => {
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

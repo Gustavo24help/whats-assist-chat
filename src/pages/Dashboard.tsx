@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { 
-  Sidebar, 
   Header, 
   VisualModeSelector,
   DashboardBlockCustomizer,
@@ -8,6 +7,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayoutProvider } from "@/contexts/DashboardLayoutContext";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
+import { PageLayout } from "@/components/PageLayout";
 
 type PeriodOption = 'today' | '7days' | '30days' | 'month' | 'custom';
 
@@ -35,15 +35,8 @@ const Dashboard = () => {
 
   return (
     <DashboardLayoutProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <Sidebar 
-          user={{
-            name: userProfile?.fullName || 'Usuário',
-            email: userProfile?.email || 'usuario@24help.com.br'
-          }}
-        />
-
-        <div className="flex-1 flex flex-col min-h-screen ml-[72px] lg:ml-64">
+      <PageLayout>
+        <div className="flex-1 flex flex-col min-h-screen">
           <Header
             title="Visão Executiva"
             subtitle="Acompanhe os principais indicadores do seu negócio"
@@ -69,7 +62,7 @@ const Dashboard = () => {
             </p>
           </footer>
         </div>
-      </div>
+      </PageLayout>
     </DashboardLayoutProvider>
   );
 };

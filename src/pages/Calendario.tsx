@@ -13,6 +13,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getCorTipo, getLabelTipo } from "@/lib/calcularEstadoAgendamento";
+import { PageLayout } from "@/components/PageLayout";
 
 const tiposAgendamento = [
   { value: 'all', label: 'Todos' },
@@ -105,7 +106,7 @@ export default function Calendario() {
   }, [currentDate, viewMode]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <PageLayout>
       {/* Header */}
       <header className="h-14 border-b bg-background/80 backdrop-blur-sm flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">
@@ -205,6 +206,6 @@ export default function Calendario() {
         onClose={() => setSelectedFicha(null)}
         onSaved={fetchData}
       />
-    </div>
+    </PageLayout>
   );
 }

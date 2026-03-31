@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { PageLayout } from "@/components/PageLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, parseISO, subMonths } from "date-fns";
 
@@ -344,7 +345,7 @@ const UserDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <PageLayout>
       <header className="border-b border-border bg-card px-6 py-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
@@ -569,7 +570,7 @@ const UserDetails = () => {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
+    </PageLayout>
   );
 };
 

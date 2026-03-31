@@ -31,6 +31,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PageLayout } from "@/components/PageLayout";
 
 type Aviso = {
   id: string;
@@ -431,7 +432,7 @@ const Avisos = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex flex-col">
+    <PageLayout>
       <header className="h-16 border-b bg-background/80 backdrop-blur-sm flex items-center justify-between px-6 shadow-sm">
         <Logo />
         <Button variant="outline" size="sm" onClick={() => navigate("/")}>
@@ -749,7 +750,7 @@ const Avisos = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageLayout>
   );
 };
 

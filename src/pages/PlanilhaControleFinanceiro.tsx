@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
+import { PageLayout } from "@/components/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -249,7 +250,7 @@ const PlanilhaControleFinanceiro = () => {
   const pagosCount = filteredRows.filter(r => r.status_prestador === "Pago").length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-6 md:p-8">
+    <PageLayout>
       <div className="max-w-[100rem] mx-auto space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <Button variant="outline" onClick={() => navigate("/planilha")}>
@@ -358,7 +359,7 @@ const PlanilhaControleFinanceiro = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

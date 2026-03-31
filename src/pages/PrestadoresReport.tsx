@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, getDay, getHours, startOfMonth, endOfMonth, subMonths, startOfYear, startOfWeek, endOfWeek, startOfDay, endOfDay, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DateRange } from "react-day-picker";
-import { Sidebar } from "@/components/dashboard/Sidebar";
+import { PageLayout } from "@/components/PageLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   Users, 
@@ -495,15 +495,8 @@ const PrestadoresReportPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
-      <Sidebar 
-        user={{
-          name: userProfile?.fullName || 'Usuário',
-          email: userProfile?.email || 'usuario@24help.com.br'
-        }}
-      />
-
-      <div className="flex-1 flex flex-col min-h-screen ml-16 lg:ml-64">
+    <PageLayout>
+      <div className="flex-1 flex flex-col min-h-screen">
         <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
@@ -1077,7 +1070,7 @@ const PrestadoresReportPage = () => {
           </p>
         </footer>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

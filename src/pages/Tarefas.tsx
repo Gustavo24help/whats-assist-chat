@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Plus, Loader2, Settings2 } from 'lucide-react'
 import { isOverdue, isForgotten, isDueToday, isDueInNextDays } from '@/lib/taskUtils'
 import type { Task, Status, Priority } from '@/types/tasks'
+import { PageLayout } from '@/components/PageLayout'
 
 export default function Tarefas() {
   const { currentMember, isManager, loading: authLoading } = useTaskAuth()
@@ -81,7 +82,8 @@ export default function Tarefas() {
     isManager || task.assignee_ids.includes(currentMember.id)
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] p-4 md:p-6">
+    <PageLayout>
+      <div className="p-4 md:p-6 overflow-auto flex-1">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -219,6 +221,7 @@ export default function Tarefas() {
         currentUser={currentMember}
         isManager={isManager}
       />
-    </div>
+      </div>
+    </PageLayout>
   )
 }

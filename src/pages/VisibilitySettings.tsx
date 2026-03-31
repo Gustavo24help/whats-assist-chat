@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Loader2, ArrowLeft, Eye, Users } from 'lucide-react'
 import { toast } from 'sonner'
+import { PageLayout } from '@/components/PageLayout'
 
 interface ProfileInfo {
   id: string
@@ -95,26 +96,31 @@ export default function VisibilitySettings() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#F5F0E8]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#004A30]" />
-      </div>
+      <PageLayout>
+        <div className="flex items-center justify-center flex-1">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </PageLayout>
     )
   }
 
   if (!currentMember) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#F5F0E8]">
-        <p className="text-[#2C2C2A]">Sem permissão.</p>
-      </div>
+      <PageLayout>
+        <div className="flex items-center justify-center flex-1">
+          <p className="text-foreground">Sem permissão.</p>
+        </div>
+      </PageLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] p-4 md:p-6 max-w-2xl mx-auto">
+    <PageLayout>
+      <div className="p-4 md:p-6 max-w-2xl mx-auto overflow-auto flex-1">
       <Button
         variant="ghost"
         onClick={() => navigate('/tarefas')}
-        className="mb-4 text-[#004A30]"
+        className="mb-4 text-primary"
       >
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para Tarefas
       </Button>
@@ -181,6 +187,7 @@ export default function VisibilitySettings() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </PageLayout>
   )
 }

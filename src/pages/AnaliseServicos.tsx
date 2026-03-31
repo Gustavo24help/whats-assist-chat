@@ -1,25 +1,15 @@
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-
 import { FichasOverview } from "@/components/FichasOverview";
 import { RelatorioTempoStatus } from "@/components/RelatorioTempoStatus";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageLayout } from "@/components/PageLayout";
 
 const AnaliseServicos = () => {
-  const navigate = useNavigate();
-
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <PageLayout fullHeight>
       <header className="border-b border-border bg-card px-6 py-4 shrink-0">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Análise de Serviços</h1>
-            <p className="text-sm text-muted-foreground">Acompanhe indicadores e desempenho das fichas de atendimento.</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Análise de Serviços</h1>
+          <p className="text-sm text-muted-foreground">Acompanhe indicadores e desempenho das fichas de atendimento.</p>
         </div>
       </header>
 
@@ -37,7 +27,7 @@ const AnaliseServicos = () => {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
+    </PageLayout>
   );
 };
 

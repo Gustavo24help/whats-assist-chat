@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { PageLayout } from "@/components/PageLayout";
 
 type Prestador = {
   cpf: string;
@@ -288,7 +289,7 @@ const PrestadorDetalhes = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <PageLayout>
       <header className="border-b border-border bg-card px-6 py-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/gerenciamento-prestadores")}>
@@ -442,7 +443,7 @@ const PrestadorDetalhes = () => {
           </CardContent>
         </Card>
       </main>
-    </div>
+    </PageLayout>
   );
 };
 
