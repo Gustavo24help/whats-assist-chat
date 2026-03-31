@@ -286,9 +286,9 @@ const Home = () => {
         )}
       >
         {/* Logo + collapse */}
-        <div className="h-14 flex items-center justify-between px-3 border-b border-gray-200 shrink-0">
-          {!collapsed && <div className="text-lg font-bold tracking-tight text-black">24help</div>}
-          <Button variant="ghost" size="icon" onClick={toggleCollapsed} className="h-8 w-8 shrink-0 text-black hover:bg-black/10">
+        <div className="h-14 flex items-center justify-between px-3 border-b border-white/20 shrink-0">
+          {!collapsed && <div className="text-lg font-bold tracking-tight text-white">24help</div>}
+          <Button variant="ghost" size="icon" onClick={toggleCollapsed} className="h-8 w-8 shrink-0 text-white hover:bg-white/20">
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
@@ -302,11 +302,11 @@ const Home = () => {
                 onClick={() => openRoute(item.route)}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-black hover:bg-black/10 transition-colors group text-left",
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-white hover:bg-white/20 transition-colors group text-left",
                   collapsed && "justify-center px-0"
                 )}
               >
-                <item.icon className="h-4 w-4 shrink-0 text-black" />
+                <item.icon className="h-4 w-4 shrink-0 text-white" />
                 {!collapsed && (
                   <>
                     <span className="truncate flex-1">{item.label}</span>
@@ -319,11 +319,11 @@ const Home = () => {
         </ScrollArea>
 
         {/* Footer: user + logout */}
-        <div className="border-t border-gray-200 p-3 shrink-0">
+        <div className="border-t border-white/20 p-3 shrink-0">
           {!collapsed && (
-            <p className="text-xs text-black/70 truncate mb-2">{userProfile?.fullName || "Usuário"}</p>
+            <p className="text-xs text-white/70 truncate mb-2">{userProfile?.fullName || "Usuário"}</p>
           )}
-          <Button variant="ghost" size={collapsed ? "icon" : "sm"} onClick={handleLogout} className="w-full justify-start gap-2 text-black hover:bg-black/10">
+          <Button variant="ghost" size={collapsed ? "icon" : "sm"} onClick={handleLogout} className="w-full justify-start gap-2 text-white hover:bg-white/20">
             <LogOut className="h-4 w-4 shrink-0" />
             {!collapsed && <span>Sair</span>}
           </Button>
