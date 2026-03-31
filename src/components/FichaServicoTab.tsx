@@ -610,6 +610,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       setHoraAgendamento('');
       setDataVisitaTecnica('');
       setHoraVisitaTecnica('');
+      setDataRetorno('');
+      setHoraRetorno('');
       
       // ✅ SIMPLIFICADO: Carregar exatamente como está no banco, sem conversão de timezone
       // Função auxiliar para parsear horário com detecção de timezone
