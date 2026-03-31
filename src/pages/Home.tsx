@@ -67,6 +67,18 @@ const Home = () => {
   const navigate = useNavigate();
   const { user, userProfile, isAdmin } = useAuth();
 
+  // Avisos state
+  const [avisos, setAvisos] = useState<Aviso[]>([]);
+  const [lidos, setLidos] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [selectedAviso, setSelectedAviso] = useState<Aviso | null>(null);
+  const [deleteConfirmAviso, setDeleteConfirmAviso] = useState<Aviso | null>(null);
+  const [destinatariosPorAviso, setDestinatariosPorAviso] = useState<Record<string, Set<string>>>({});
+  const [usuariosSistema, setUsuariosSistema] = useState<SistemaUsuario[]>([]);
+  const [leiturasAviso, setLeiturasAviso] = useState<AvisoLeitura[]>([]);
+  const [loadingLeituras, setLoadingLeituras] = useState(false);
+  const [showLeituras, setShowLeituras] = useState(false);
+
   const firstName = userProfile?.fullName?.split(" ")[0] || "Usuário";
 
   // Load avisos
