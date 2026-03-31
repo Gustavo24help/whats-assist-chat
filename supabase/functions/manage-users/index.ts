@@ -117,6 +117,28 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
 
+      case 'disable':
+        if (!userId) throw new Error('userId is required');
+        const { error: disableError } = await supabase.auth.admin.updateUserById(userId, {
+          ban_duration: '876600h' // ~100 years
+        })
+        if (disableError) throw disableError
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+
+      case 'enable':
+        if (!userId) throw new Error('userId is required');
+        const { error: enableError } = await supabase.auth.admin.updateUserById(userId, {
+          ban_duration: 'none'
+        })
+        if (enableError) throw enableError
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+
       case 'delete':
         if (!userId) throw new Error('userId is required');
         const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
