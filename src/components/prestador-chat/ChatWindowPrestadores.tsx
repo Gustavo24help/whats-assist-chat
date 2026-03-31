@@ -349,7 +349,14 @@ export const ChatWindowPrestadores = ({
                 <img src={msg.arquivo_url} alt="Imagem" className="max-w-full rounded-lg mb-1" />
               )}
               {msg.tipo === "audio" && msg.arquivo_url && (
-                <AudioPlayer src={msg.arquivo_url} />
+                <div>
+                  <AudioPlayer src={msg.arquivo_url} />
+                  {msg.transcricao_texto && (
+                    <div className="mt-1.5 px-2 py-1 bg-muted/40 rounded-lg text-xs text-muted-foreground italic border-l-2 border-primary/30">
+                      📝 {msg.transcricao_texto}
+                    </div>
+                  )}
+                </div>
               )}
               {msg.tipo === "video" && msg.arquivo_url && (
                 <video src={msg.arquivo_url} controls className="max-w-full rounded-lg mb-1" />

@@ -1916,6 +1916,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       return (
         <div className="mt-2">
           <AudioPlayer src={msg.arquivo_url} />
+          {msg.transcricao_texto && (
+            <div className="mt-1.5 px-2 py-1 bg-muted/40 rounded-lg text-xs text-muted-foreground italic border-l-2 border-primary/30">
+              📝 {msg.transcricao_texto}
+            </div>
+          )}
         </div>
       );
     }
