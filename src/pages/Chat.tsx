@@ -110,7 +110,7 @@ const Chat = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <PageLayout fullHeight>
       <NotificationSystem 
         onNewMessage={handleNewMessage}
         currentClienteId={selectedCliente?.telefone || null}

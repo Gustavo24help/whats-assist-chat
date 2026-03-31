@@ -106,7 +106,7 @@ export default function Calendario() {
   }, [currentDate, viewMode]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <PageLayout>
       {/* Header */}
       <header className="h-14 border-b bg-background/80 backdrop-blur-sm flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">

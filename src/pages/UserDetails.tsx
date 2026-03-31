@@ -345,7 +345,7 @@ const UserDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <PageLayout>
       <header className="border-b border-border bg-card px-6 py-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>

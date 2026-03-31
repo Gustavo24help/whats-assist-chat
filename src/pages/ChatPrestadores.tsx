@@ -31,7 +31,7 @@ const ChatPrestadores = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <PageLayout fullHeight>
       <header className="h-14 border-b bg-background flex items-center justify-between px-4 md:px-6 shadow-sm shrink-0">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/")} title="Voltar ao início" className="mr-2">
