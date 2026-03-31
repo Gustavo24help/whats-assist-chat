@@ -287,8 +287,8 @@ const Home = () => {
       >
         {/* Logo + collapse */}
         <div className="h-14 flex items-center justify-between px-3 border-b border-gray-200 shrink-0">
-          {!collapsed && <div className="text-lg font-bold tracking-tight text-gray-800">24help</div>}
-          <Button variant="ghost" size="icon" onClick={toggleCollapsed} className="h-8 w-8 shrink-0 text-gray-700 hover:bg-black/10 hover:text-gray-900">
+          {!collapsed && <div className="text-lg font-bold tracking-tight text-black">24help</div>}
+          <Button variant="ghost" size="icon" onClick={toggleCollapsed} className="h-8 w-8 shrink-0 text-black hover:bg-black/10">
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
