@@ -115,11 +115,12 @@ export default function VisibilitySettings() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] p-4 md:p-6 max-w-2xl mx-auto">
+    <PageLayout>
+      <div className="p-4 md:p-6 max-w-2xl mx-auto overflow-auto flex-1">
       <Button
         variant="ghost"
         onClick={() => navigate('/tarefas')}
-        className="mb-4 text-[#004A30]"
+        className="mb-4 text-primary"
       >
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para Tarefas
       </Button>
