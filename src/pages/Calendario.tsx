@@ -13,6 +13,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getCorTipo, getLabelTipo } from "@/lib/calcularEstadoAgendamento";
+import { PageLayout } from "@/components/PageLayout";
 
 const tiposAgendamento = [
   { value: 'all', label: 'Todos' },
