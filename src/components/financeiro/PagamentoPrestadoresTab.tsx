@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
+import { isBusinessDay } from "@/lib/businessDays2026";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2,
@@ -29,6 +30,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+function calcularDataPagamento(dataBase: Date): string {
+  const data = new Date(dataBase);
+  let diasAdicionados = 0;
+  while (diasAdicionados < 2) {
+    data.setDate(data.getDate() + 1);
+    if (isBusinessDay(data)) {
+      diasAdicionados++;
+    }
+  }
+  return data.toISOString();
+}
 
 const formatMoeda = (valor: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
@@ -194,6 +207,19 @@ export const PagamentoPrestadoresTab = () => {
       setMarkingPaid(ficha.id);
       const agora = new Date().toISOString();
 
+      // Buscar data real de finalização do histórico
+      const { data: histFinalizado } = await supabase
+        .from("ficha_status_historico")
+        .select("data_inicio")
+        .eq("ficha_id", ficha.id)
+        .eq("status_novo", "Finalizado" as any)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const dataExecucaoReal = histFinalizado?.data_inicio || ficha.updated_at || agora;
+      const dataPagPrevista = calcularDataPagamento(new Date(dataExecucaoReal));
+
       const { data: existing } = await supabase
         .from("transacoes_financeiras")
         .select("id")
@@ -227,7 +253,7 @@ export const PagamentoPrestadoresTab = () => {
             pix_prestador: ficha.chave_pix,
             status_pagamento_prestador: "pago",
             status_pagamento_cliente: ficha.valor_total > 0 ? "pendente" : "pago",
-            data_pagamento_prevista: agora,
+            data_pagamento_prevista: dataPagPrevista,
             data_pagamento_realizada: agora,
           } as any);
       }
