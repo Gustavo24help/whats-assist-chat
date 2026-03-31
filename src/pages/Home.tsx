@@ -321,9 +321,9 @@ const Home = () => {
         {/* Footer: user + logout */}
         <div className="border-t border-gray-200 p-3 shrink-0">
           {!collapsed && (
-            <p className="text-xs text-gray-600 truncate mb-2">{userProfile?.fullName || "Usuário"}</p>
+            <p className="text-xs text-black/70 truncate mb-2">{userProfile?.fullName || "Usuário"}</p>
           )}
-          <Button variant="ghost" size={collapsed ? "icon" : "sm"} onClick={handleLogout} className="w-full justify-start gap-2 text-gray-700 hover:bg-black/10 hover:text-gray-900">
+          <Button variant="ghost" size={collapsed ? "icon" : "sm"} onClick={handleLogout} className="w-full justify-start gap-2 text-black hover:bg-black/10">
             <LogOut className="h-4 w-4 shrink-0" />
             {!collapsed && <span>Sair</span>}
           </Button>
