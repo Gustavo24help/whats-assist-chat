@@ -678,6 +678,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       } else {
         console.log(`✅ Ficha ${fichaId} não tem horário de visita técnica`);
       }
+
+      // Extrair data/hora do retorno
+      if ((fichaCompleta as any).data_retorno) {
+        const resultado = parsearHorarioComTimezone((fichaCompleta as any).data_retorno);
+        if (resultado) {
+          setDataRetorno(resultado.data);
+          setHoraRetorno(resultado.hora);
+        }
+      } else {
+        console.log(`✅ Ficha ${fichaId} não tem data de retorno`);
+      }
     }
   };
 
