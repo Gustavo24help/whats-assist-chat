@@ -284,7 +284,7 @@ const Home = () => {
           "h-screen sticky top-0 flex flex-col border-r border-white/10 transition-all duration-200",
           collapsed ? "w-16" : "w-60"
         )}
-        style={{ background: "linear-gradient(180deg, hsl(222 47% 16%) 0%, hsl(222 47% 12%) 100%)" }}
+        style={{ background: "hsl(0 85% 55%)" }}
       >
         {/* Logo + collapse */}
         <div className="h-14 flex items-center justify-between px-3 border-b border-white/10 shrink-0">
