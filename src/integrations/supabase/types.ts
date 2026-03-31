@@ -1763,6 +1763,151 @@ export type Database = {
         }
         Relationships: []
       }
+      task_assignees: {
+        Row: {
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_assignees_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_assignees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_visibility: {
+        Row: {
+          owner_id: string
+          viewer_id: string
+        }
+        Insert: {
+          owner_id: string
+          viewer_id: string
+        }
+        Update: {
+          owner_id?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_visibility_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_visibility_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string
+          id: string
+          last_comment: string | null
+          priority: string
+          progress: number
+          project: string | null
+          start_date: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date: string
+          id?: string
+          last_comment?: string | null
+          priority?: string
+          progress?: number
+          project?: string | null
+          start_date?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string
+          id?: string
+          last_comment?: string | null
+          priority?: string
+          progress?: number
+          project?: string | null
+          start_date?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          id: string
+          name: string
+          role: string
+        }
+        Insert: {
+          id: string
+          name: string
+          role?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transacoes_financeiras: {
         Row: {
           adiantamento_cliente: number
