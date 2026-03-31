@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PageLayout } from "@/components/PageLayout";
 import { cn } from "@/lib/utils";
 
 type Aviso = {
