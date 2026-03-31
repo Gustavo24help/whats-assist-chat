@@ -302,7 +302,7 @@ const Home = () => {
                 onClick={() => openRoute(item.route)}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-gray-800 hover:bg-black/10 hover:text-gray-900 transition-colors group text-left",
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-black hover:bg-black/10 transition-colors group text-left",
                   collapsed && "justify-center px-0"
                 )}
               >
