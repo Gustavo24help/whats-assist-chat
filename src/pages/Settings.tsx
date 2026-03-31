@@ -178,7 +178,7 @@ const Settings = () => {
   };
 
   const copiarLinkOrcamento = (fichaId: string) => {
-    const link = `https://chat.24help.com.br/orcamento?ficha=${fichaId}`;
+    const link = `https://chat.24help.com.br/orcamento?ficha=${encodeURIComponent(fichaId)}`;
     navigator.clipboard.writeText(link);
     toast({
       title: "Link copiado!",
