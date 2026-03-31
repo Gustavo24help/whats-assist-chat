@@ -354,7 +354,7 @@ const Home = () => {
         </header>
 
         {/* Avisos area */}
-        <div className="flex-1 p-6 max-w-4xl mx-auto w-full">
+        <div className="flex-1 p-6 w-full">
           <div className="flex items-center gap-2 mb-4">
             <Bell className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold text-foreground">Avisos</h2>
