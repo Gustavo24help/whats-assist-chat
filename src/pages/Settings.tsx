@@ -483,7 +483,7 @@ const Settings = () => {
           </Tabs>
         )}
       </main>
-    </div>
+    </PageLayout>
   );
 };
 
