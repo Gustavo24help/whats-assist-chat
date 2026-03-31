@@ -28,7 +28,15 @@ export function AgendamentoCard({ ficha, onClick, compact = false }: Agendamento
   const isCancelado = statusCancelados.includes(ficha.status || '');
 
   const horaStr = useMemo(() => {
-    if (ficha.tipo_agendamento === 'retorno' && ficha.hora_inicio_retorno) {
+    // Inferir tipo real
+    let tipo = ficha.tipo_agendamento;
+    if (!tipo) {
+      if (ficha.data_retorno) tipo = 'retorno';
+      else if (ficha.data_visita_tecnica || ficha.horario_visita_tecnica) tipo = 'visita_tecnica';
+      else tipo = 'servico';
+    }
+
+    if (tipo === 'retorno' && ficha.hora_inicio_retorno) {
       const fim = ficha.hora_fim_retorno ? ` - ${ficha.hora_fim_retorno.slice(0, 5)}` : '';
       return `${ficha.hora_inicio_retorno.slice(0, 5)}${fim}`;
     }
@@ -38,6 +46,9 @@ export function AgendamentoCard({ ficha, onClick, compact = false }: Agendamento
     }
     if (ficha.horario_agendamento) {
       return format(new Date(ficha.horario_agendamento), 'HH:mm');
+    }
+    if (tipo === 'visita_tecnica' && ficha.horario_visita_tecnica) {
+      return format(new Date(ficha.horario_visita_tecnica), 'HH:mm');
     }
     return '';
   }, [ficha]);
