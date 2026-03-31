@@ -15,6 +15,21 @@ export function useVisibleTasks(currentMember: TeamMember | null) {
 
     if (!profiles) return
 
+    // Fetch active users list from manage-users to exclude disabled
+    let disabledIds: string[] = []
+    try {
+      const { data: usersData } = await supabase.functions.invoke('manage-users', {
+        body: { action: 'list' }
+      })
+      if (usersData?.users) {
+        disabledIds = usersData.users
+          .filter((u: any) => u.disabled)
+          .map((u: any) => u.id)
+      }
+    } catch (e) {
+      console.warn('Could not fetch user status:', e)
+    }
+
     // Fetch roles from team_members
     const { data: roles } = await (supabase as any)
       .from('team_members')
@@ -23,7 +38,7 @@ export function useVisibleTasks(currentMember: TeamMember | null) {
     const roleMap = new Map<string, string>((roles ?? []).map((r: any) => [r.id, r.role]))
 
     const members: TeamMember[] = (profiles as any[])
-      .filter((p: any) => p.full_name)
+      .filter((p: any) => p.full_name && !disabledIds.includes(p.id))
       .map((p: any) => ({
         id: p.id,
         name: p.full_name || 'Sem nome',

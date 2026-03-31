@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Users, UserPlus, Trash2, KeyRound, ExternalLink } from "lucide-react";
+import { Users, UserPlus, Trash2, KeyRound, ExternalLink, Ban, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserProfile {
@@ -17,6 +17,7 @@ interface UserProfile {
   email: string;
   full_name: string | null;
   role: 'admin' | 'chefe' | 'supervisor' | 'user' | 'admin_ti';
+  disabled?: boolean;
 }
 
 export const UserManagement = () => {
@@ -165,6 +166,24 @@ export const UserManagement = () => {
     setResetPasswordDialogOpen(true);
   };
 
+  const toggleUserStatus = async (user: UserProfile) => {
+    const action = user.disabled ? 'enable' : 'disable';
+    const label = user.disabled ? 'reativar' : 'desativar';
+    if (!confirm(`Tem certeza que deseja ${label} ${user.full_name || user.email}?`)) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: { action, userId: user.id }
+      });
+      if (error) throw error;
+      toast.success(`Usuário ${user.disabled ? 'reativado' : 'desativado'} com sucesso`);
+      fetchUsers();
+    } catch (error: unknown) {
+      console.error(`Erro ao ${label} usuário:`, error);
+      toast.error(error instanceof Error ? error.message : `Erro ao ${label} usuário`);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -282,19 +301,28 @@ export const UserManagement = () => {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Permissão</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.map((user) => (
-              <TableRow key={user.id}>
+              <TableRow key={user.id} className={user.disabled ? 'opacity-50' : ''}>
                 <TableCell className="font-medium">{user.full_name || 'Sem nome'}</TableCell>
                 <TableCell>{user.email}</TableCell>
+                <TableCell>
+                  {user.disabled ? (
+                    <span className="text-xs font-medium text-destructive">Desativado</span>
+                  ) : (
+                    <span className="text-xs font-medium text-green-600">Ativo</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Select
                     value={user.role}
                     onValueChange={(v) => updateUserRole(user.id, v as typeof user.role)}
+                    disabled={user.disabled}
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue />
@@ -318,6 +346,18 @@ export const UserManagement = () => {
                   >
                     <ExternalLink className="h-4 w-4 mr-1" />
                     Detalhes
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleUserStatus(user)}
+                    title={user.disabled ? 'Reativar usuário' : 'Desativar usuário'}
+                  >
+                    {user.disabled ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Ban className="h-4 w-4 text-orange-500" />
+                    )}
                   </Button>
                   <Button
                     variant="ghost"
