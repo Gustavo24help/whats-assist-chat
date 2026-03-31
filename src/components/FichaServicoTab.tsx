@@ -538,6 +538,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     setHoraAgendamento('');
     setDataVisitaTecnica('');
     setHoraVisitaTecnica('');
+    setDataRetorno('');
+    setHoraRetorno('');
     
     fetchFicha();
     fetchPrestadores();
