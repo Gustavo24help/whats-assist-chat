@@ -206,6 +206,6 @@ export default function Calendario() {
         onClose={() => setSelectedFicha(null)}
         onSaved={fetchData}
       />
-    </div>
+    </PageLayout>
   );
 }

@@ -249,7 +249,7 @@ const PlanilhaControlePagamentos = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

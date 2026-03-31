@@ -269,7 +269,7 @@ const FichaDetalhes = () => {
           }}
         />
       )}
-    </div>
+    </PageLayout>
   );
 };
 

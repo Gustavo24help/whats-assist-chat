@@ -230,7 +230,7 @@ const Fichas = () => {
         prestadorId={ajustarFicha?.prestador_id}
         onAjustado={() => fetchFichas()}
       />
-    </div>
+    </PageLayout>
   );
 };
 

@@ -570,7 +570,7 @@ const UserDetails = () => {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
+    </PageLayout>
   );
 };
 

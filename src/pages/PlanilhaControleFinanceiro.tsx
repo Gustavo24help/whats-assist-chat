@@ -359,7 +359,7 @@ const PlanilhaControleFinanceiro = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

@@ -443,7 +443,7 @@ const PrestadorDetalhes = () => {
           </CardContent>
         </Card>
       </main>
-    </div>
+    </PageLayout>
   );
 };
 

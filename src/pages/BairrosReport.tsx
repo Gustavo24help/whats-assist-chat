@@ -603,7 +603,7 @@ const BairrosReport = () => {
           </Card>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

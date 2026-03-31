@@ -94,7 +94,7 @@ const ChatPrestadores = () => {
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

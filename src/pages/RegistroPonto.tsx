@@ -182,7 +182,7 @@ const RegistroPontoPage = () => {
           </CardContent>
         </Card>
       </main>
-    </div>
+    </PageLayout>
   );
 };
 
