@@ -94,7 +94,8 @@ const STATUS_OPTIONS = [
   "Em andamento",
   "Finalizado",
   "Garantia",
-  "Perdido"
+  "Perdido",
+  "Retorno"
 ];
 
 const formatarInputMoeda = (valor: number): string => {
@@ -137,6 +138,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
   const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
   const [horaVisitaTecnica, setHoraVisitaTecnica] = useState<string>('');
+  const [dataRetorno, setDataRetorno] = useState<string>('');
+  const [horaRetorno, setHoraRetorno] = useState<string>('');
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [ajustarDataOpen, setAjustarDataOpen] = useState(false);
@@ -411,7 +414,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         visitaTecnicaISO = `${dataVisita}T00:00:00-03:00`;
       }
 
-      console.log(`💾 Salvando ficha ${targetFichaId} - agendamento: ${agendamentoISO}, visita: ${visitaTecnicaISO}`);
+      let retornoISO: string | null = null;
+      if (dataRetorno && dataRetorno.trim() && horaRetorno && horaRetorno.trim()) {
+        retornoISO = `${dataRetorno}T${horaRetorno}:00-03:00`;
+      } else if (dataRetorno && dataRetorno.trim()) {
+        retornoISO = `${dataRetorno}T00:00:00-03:00`;
+      }
+
+      console.log(`💾 Salvando ficha ${targetFichaId} - agendamento: ${agendamentoISO}, visita: ${visitaTecnicaISO}, retorno: ${retornoISO}`);
 
       const updateData = {
         nome_ficha: fichaData.nome_ficha?.trim() || null,
@@ -438,6 +448,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         id_zoho: fichaData.id_zoho?.trim() || null,
         data_visita_tecnica: fichaData.data_visita_tecnica,
         horario_visita_tecnica: visitaTecnicaISO,
+        data_retorno: retornoISO,
         motivo_perda: fichaData.motivo_perda?.trim()?.substring(0, 500) || null,
         comparecimento_prestador: fichaData.comparecimento_prestador,
         // Discount fields
@@ -528,6 +539,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     setHoraAgendamento('');
     setDataVisitaTecnica('');
     setHoraVisitaTecnica('');
+    setDataRetorno('');
+    setHoraRetorno('');
     
     fetchFicha();
     fetchPrestadores();
@@ -598,6 +611,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       setHoraAgendamento('');
       setDataVisitaTecnica('');
       setHoraVisitaTecnica('');
+      setDataRetorno('');
+      setHoraRetorno('');
       
       // ✅ SIMPLIFICADO: Carregar exatamente como está no banco, sem conversão de timezone
       // Função auxiliar para parsear horário com detecção de timezone
@@ -663,6 +678,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         }
       } else {
         console.log(`✅ Ficha ${fichaId} não tem horário de visita técnica`);
+      }
+
+      // Extrair data/hora do retorno
+      if ((fichaCompleta as any).data_retorno) {
+        const resultado = parsearHorarioComTimezone((fichaCompleta as any).data_retorno);
+        if (resultado) {
+          setDataRetorno(resultado.data);
+          setHoraRetorno(resultado.hora);
+        }
+      } else {
+        console.log(`✅ Ficha ${fichaId} não tem data de retorno`);
       }
     }
   };
@@ -769,7 +795,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   const updateHoraVisitaTecnica = (hora: string) => {
     setHoraVisitaTecnica(hora);
-    // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
+  };
+
+  const updateDataRetorno = (data: string) => {
+    setDataRetorno(data);
+  };
+
+  const updateHoraRetorno = (hora: string) => {
+    setHoraRetorno(hora);
   };
 
   // Debounced update para nome do cliente
@@ -837,6 +870,20 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
     
     toast.success('Visita técnica limpa');
+  };
+
+  const limparRetorno = () => {
+    console.log('🧹 Limpando retorno manualmente');
+    setDataRetorno('');
+    setHoraRetorno('');
+    
+    if (ficha) {
+      const updatedFicha = { ...ficha };
+      setFicha(updatedFicha);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+    }
+    
+    toast.success('Retorno limpo');
   };
 
   const salvarManualmente = async () => {
@@ -1271,6 +1318,48 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       type="time"
                       value={horaVisitaTecnica}
                       onChange={(e) => updateHoraVisitaTecnica(e.target.value)}
+                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Retorno
+                  </Label>
+                  {(dataRetorno || horaRetorno) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={limparRetorno}
+                      className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                      title="Limpar retorno"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  <div>
+                    <Label htmlFor="data_retorno" className="text-[10px] text-muted-foreground">Data</Label>
+                    <Input
+                      id="data_retorno"
+                      type="date"
+                      value={dataRetorno}
+                      onChange={(e) => updateDataRetorno(e.target.value)}
+                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="hora_retorno" className="text-[10px] text-muted-foreground">Horário</Label>
+                    <Input
+                      id="hora_retorno"
+                      type="time"
+                      value={horaRetorno}
+                      onChange={(e) => updateHoraRetorno(e.target.value)}
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
