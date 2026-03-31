@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, getDay, getHours, startOfMonth, endOfMonth, subMonths, startOfYear, startOfWeek, endOfWeek, startOfDay, endOfDay, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DateRange } from "react-day-picker";
-import { Sidebar } from "@/components/dashboard/Sidebar";
+import { PageLayout } from "@/components/PageLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   Users, 
