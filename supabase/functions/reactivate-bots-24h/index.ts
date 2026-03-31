@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -6,45 +5,121 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-serve(async (req) => {
+interface ReactivationSchedule {
+  id: string;
+  telefone_cliente: string;
+  ficha_id: string;
+  scheduled_at: string;
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('🤖 [reactivate-bots-24h] Função desativada - reativação agora é controlada apenas pelo trigger de 10 dias após Finalizado');
-    
-    // Esta função foi desativada.
-    // A reativação do bot agora acontece apenas:
-    // 1. Quando uma ficha é marcada como "Finalizado" - um trigger agenda a reativação para 10 dias depois
-    // 2. A função process-bot-reactivation processa esses agendamentos
-    //
-    // A lógica de reativar bots após 24h de inatividade foi REMOVIDA
-    // conforme solicitado pelo usuário.
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Função desativada - reativação agora é controlada apenas pelo trigger de 10 dias após Finalizado',
-        processed: 0
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-  } catch (error) {
-    console.error('💥 Erro no reactivate-bots-24h:', error);
+    console.log('[reactivate-bots-24h] Processando agendamentos de reativação pendentes');
+
+    const { data: schedules, error: fetchError } = await supabase
+      .from('bot_reactivation_schedule')
+      .select('*')
+      .eq('executed', false)
+      .lte('scheduled_at', new Date().toISOString());
+
+    if (fetchError) {
+      console.error('[reactivate-bots-24h] Erro ao buscar agendamentos:', fetchError);
+      throw fetchError;
+    }
+
+    if (!schedules || schedules.length === 0) {
+      console.log('[reactivate-bots-24h] Nenhum agendamento pendente');
+      return new Response(
+        JSON.stringify({ success: true, message: 'Nenhum agendamento pendente', processed: 0 }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[reactivate-bots-24h] ${schedules.length} agendamento(s) para processar`);
+
+    let processedCount = 0;
+    let errorCount = 0;
+
+    for (const schedule of schedules as ReactivationSchedule[]) {
+      try {
+        console.log(`[reactivate-bots-24h] Reativando bot para ${schedule.telefone_cliente}`);
+
+        const { error: updateError } = await supabase
+          .from('clientes')
+          .update({
+            bot_habilitado: true,
+            data_bot_desabilitado: null
+          })
+          .eq('telefone', schedule.telefone_cliente);
+
+        if (updateError) {
+          console.error(`[reactivate-bots-24h] Erro ao reativar bot para ${schedule.telefone_cliente}:`, updateError);
+          errorCount++;
+          continue;
+        }
+
+        const { error: historicoError } = await supabase
+          .from('bot_historico')
+          .insert({
+            telefone_cliente: schedule.telefone_cliente,
+            acao: 'ligado',
+            origem: 'automatico',
+            ficha_id: schedule.ficha_id,
+            observacao: `Bot reativado automaticamente após agendamento (ficha ${schedule.ficha_id}, scheduled_at: ${schedule.scheduled_at})`
+          });
+
+        if (historicoError) {
+          console.error(`[reactivate-bots-24h] Erro ao registrar histórico:`, historicoError);
+        }
+
+        const { error: markError } = await supabase
+          .from('bot_reactivation_schedule')
+          .update({ executed: true })
+          .eq('id', schedule.id);
+
+        if (markError) {
+          console.error(`[reactivate-bots-24h] Erro ao marcar agendamento como executado:`, markError);
+          errorCount++;
+          continue;
+        }
+
+        console.log(`[reactivate-bots-24h] ✅ Bot reativado para ${schedule.telefone_cliente} (ficha: ${schedule.ficha_id})`);
+        processedCount++;
+      } catch (error) {
+        console.error(`[reactivate-bots-24h] Erro ao processar ${schedule.id}:`, error);
+        errorCount++;
+      }
+    }
+
+    console.log(`[reactivate-bots-24h] Concluído. Sucesso: ${processedCount}, Erros: ${errorCount}`);
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
+      JSON.stringify({
+        success: true,
+        message: 'Processamento concluído',
+        processed: processedCount,
+        errors: errorCount,
+        total: schedules.length
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('[reactivate-bots-24h] Erro crítico:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
         error: error instanceof Error ? error.message : 'Erro desconhecido'
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
