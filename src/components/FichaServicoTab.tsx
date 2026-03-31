@@ -413,7 +413,14 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         visitaTecnicaISO = `${dataVisita}T00:00:00-03:00`;
       }
 
-      console.log(`💾 Salvando ficha ${targetFichaId} - agendamento: ${agendamentoISO}, visita: ${visitaTecnicaISO}`);
+      let retornoISO: string | null = null;
+      if (dataRetorno && dataRetorno.trim() && horaRetorno && horaRetorno.trim()) {
+        retornoISO = `${dataRetorno}T${horaRetorno}:00-03:00`;
+      } else if (dataRetorno && dataRetorno.trim()) {
+        retornoISO = `${dataRetorno}T00:00:00-03:00`;
+      }
+
+      console.log(`💾 Salvando ficha ${targetFichaId} - agendamento: ${agendamentoISO}, visita: ${visitaTecnicaISO}, retorno: ${retornoISO}`);
 
       const updateData = {
         nome_ficha: fichaData.nome_ficha?.trim() || null,
