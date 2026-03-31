@@ -9,6 +9,7 @@ import { LogOut, Settings, Home, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
+import { PageLayout } from "@/components/PageLayout";
 
 const ChatPrestadores = () => {
   const navigate = useNavigate();
