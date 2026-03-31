@@ -92,6 +92,7 @@ const sidebarItems = [
   { label: "Planilha", icon: FileSpreadsheet, route: "/planilha" },
   { label: "Registro de Ponto", icon: Clock3, route: "/registro-ponto" },
   { label: "Mensagens Internas", icon: MessageSquare, route: "/mensagens" },
+  { label: "Tarefas", icon: ClipboardList, route: "/tarefas" },
   { label: "Manutenção", icon: Wrench, route: "/manutencao" },
   { label: "Configurações", icon: Settings, route: "/settings" },
 ];
