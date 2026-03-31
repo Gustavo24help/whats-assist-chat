@@ -17,6 +17,7 @@ interface UserProfile {
   email: string;
   full_name: string | null;
   role: 'admin' | 'chefe' | 'supervisor' | 'user' | 'admin_ti';
+  disabled?: boolean;
 }
 
 export const UserManagement = () => {
