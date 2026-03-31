@@ -32,6 +32,7 @@ interface Mensagem {
   message_sid?: string | null;
   ficha_id?: string | null;
   enviado_por_id?: string | null;
+  transcricao_texto?: string | null;
 }
 
 interface FichaAtiva {
@@ -136,6 +137,24 @@ export const ChatWindowPrestadores = ({
         (payload) => {
           setMensagens((prev) => [...prev, payload.new as Mensagem]);
           setTimeout(scrollToBottom, 100);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "mensagens_prestadores",
+          filter: `prestador_telefone=eq.${prestadorTelefone}`,
+        },
+        (payload) => {
+          setMensagens((prev) =>
+            prev.map((msg) =>
+              msg.id === payload.new.id
+                ? { ...msg, ...(payload.new as Partial<Mensagem>) }
+                : msg
+            )
+          );
         }
       )
       .subscribe();
@@ -348,7 +367,14 @@ export const ChatWindowPrestadores = ({
                 <img src={msg.arquivo_url} alt="Imagem" className="max-w-full rounded-lg mb-1" />
               )}
               {msg.tipo === "audio" && msg.arquivo_url && (
-                <AudioPlayer src={msg.arquivo_url} />
+                <div>
+                  <AudioPlayer src={msg.arquivo_url} />
+                  {msg.transcricao_texto && (
+                    <div className="mt-1.5 px-2 py-1 bg-muted/40 rounded-lg text-xs text-muted-foreground italic border-l-2 border-primary/30">
+                      📝 {msg.transcricao_texto}
+                    </div>
+                  )}
+                </div>
               )}
               {msg.tipo === "video" && msg.arquivo_url && (
                 <video src={msg.arquivo_url} controls className="max-w-full rounded-lg mb-1" />

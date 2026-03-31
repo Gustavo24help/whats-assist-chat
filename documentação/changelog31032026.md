@@ -17,4 +17,12 @@
 
 - **Data de pagamento ao prestador**: Sempre calculada como 2 dias úteis após a **data real de finalização** do serviço (campo `data_inicio` do registro "Finalizado" em `ficha_status_historico`), nunca a partir do momento da confirmação financeira.
 
+### Nova funcionalidade
+
+5. **Transcrição automática de áudios**: Áudios recebidos via WhatsApp (clientes e prestadores) são transcritos automaticamente usando Gemini (sem custo extra via Lovable AI). A transcrição aparece abaixo do player de áudio no chat.
+   - Migration: coluna `transcricao_texto` em `mensagens` e `mensagens_prestadores`
+   - Edge Function `transcribe-audio` — baixa áudio da URL Twilio, envia ao Gemini, salva transcrição
+   - Webhook `twilio-webhook` — dispara transcrição fire-and-forget após salvar mensagem de áudio
+   - UI: transcrição exibida em tempo real via Realtime (UPDATE) em ambos os chats
+
 ---

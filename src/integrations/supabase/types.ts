@@ -1109,6 +1109,7 @@ export type Database = {
           texto: string | null
           tipo: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
           tipo_remetente: string | null
+          transcricao_texto: string | null
         }
         Insert: {
           arquivo_url?: string | null
@@ -1128,6 +1129,7 @@ export type Database = {
           texto?: string | null
           tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
           tipo_remetente?: string | null
+          transcricao_texto?: string | null
         }
         Update: {
           arquivo_url?: string | null
@@ -1147,6 +1149,7 @@ export type Database = {
           texto?: string | null
           tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
           tipo_remetente?: string | null
+          transcricao_texto?: string | null
         }
         Relationships: [
           {
@@ -1368,6 +1371,7 @@ export type Database = {
           status: Database["public"]["Enums"]["status_mensagem_enum"] | null
           texto: string | null
           tipo: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+          transcricao_texto: string | null
         }
         Insert: {
           arquivo_url?: string | null
@@ -1383,6 +1387,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
           texto?: string | null
           tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+          transcricao_texto?: string | null
         }
         Update: {
           arquivo_url?: string | null
@@ -1398,6 +1403,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["status_mensagem_enum"] | null
           texto?: string | null
           tipo?: Database["public"]["Enums"]["tipo_mensagem_enum"] | null
+          transcricao_texto?: string | null
         }
         Relationships: [
           {
