@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Logo } from "@/components/Logo";
 import { ArrowLeft, Search, ChevronLeft, ChevronRight, FileText, Loader2, CalendarCog } from "lucide-react";
 import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
+import { PageLayout } from "@/components/PageLayout";
 
 const PAGE_SIZE = 25;
 
