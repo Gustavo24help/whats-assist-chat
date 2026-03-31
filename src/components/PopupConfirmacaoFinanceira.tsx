@@ -318,7 +318,7 @@ export function PopupConfirmacaoFinanceira({
         prestador_cnpj: prestador?.cnpj || null,
         cliente_nome: cliente?.nome || ficha?.nome_cliente || ficha?.telefone_cliente || "Cliente",
         data_contratacao: ficha?.horario_agendamento || null,
-        data_execucao: new Date().toISOString(),
+        data_execucao: dataExecucao.toISOString(),
         data_pagamento_prevista: dataPagPrevista,
         valor_mao_obra: parseFloat(valorMaoObra) || 0,
         valor_material: parseFloat(valorMaterial) || 0,
