@@ -308,13 +308,21 @@ export const UserManagement = () => {
           </TableHeader>
           <TableBody>
             {users.map((user) => (
-              <TableRow key={user.id}>
+              <TableRow key={user.id} className={user.disabled ? 'opacity-50' : ''}>
                 <TableCell className="font-medium">{user.full_name || 'Sem nome'}</TableCell>
                 <TableCell>{user.email}</TableCell>
+                <TableCell>
+                  {user.disabled ? (
+                    <span className="text-xs font-medium text-destructive">Desativado</span>
+                  ) : (
+                    <span className="text-xs font-medium text-green-600">Ativo</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Select
                     value={user.role}
                     onValueChange={(v) => updateUserRole(user.id, v as typeof user.role)}
+                    disabled={user.disabled}
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue />
@@ -338,6 +346,18 @@ export const UserManagement = () => {
                   >
                     <ExternalLink className="h-4 w-4 mr-1" />
                     Detalhes
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleUserStatus(user)}
+                    title={user.disabled ? 'Reativar usuário' : 'Desativar usuário'}
+                  >
+                    {user.disabled ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Ban className="h-4 w-4 text-orange-500" />
+                    )}
                   </Button>
                   <Button
                     variant="ghost"
