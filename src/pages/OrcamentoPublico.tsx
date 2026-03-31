@@ -164,30 +164,26 @@ const OrcamentoPublico = () => {
   const verificarFicha = async () => {
     console.log("OrcamentoPublico - verificando fichaId:", fichaId);
     try {
-      const { data, error } = await supabase
-        .from("fichas_de_servico")
-        .select(`
-          *,
-          categoria:categorias(nome),
-          prestador:prestadores(nome)
-        `)
-        .eq("id", fichaId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error("OrcamentoPublico - Erro ao buscar ficha:", error);
+      const { data: responseData, error: invokeError } = await supabase.functions.invoke("public-orcamento-data", {
+        body: { action: "verificar-ficha", ficha_id: fichaId },
+      });
+
+      if (invokeError || !responseData?.success) {
+        console.error("OrcamentoPublico - Erro ao buscar ficha:", invokeError || responseData?.error);
         setFichaExists(false);
         return;
       }
 
-      console.log("OrcamentoPublico - Ficha encontrada:", !!data);
-      setFichaExists(!!data);
-      setFormularioAtivo(data?.formulario_orcamento_ativo ?? true);
-      setFichaData(data);
+      const ficha = responseData.ficha;
+      console.log("OrcamentoPublico - Ficha encontrada:", !!ficha);
+      setFichaExists(!!ficha);
+      setFormularioAtivo(ficha?.formulario_orcamento_ativo ?? true);
+      setFichaData(ficha);
+      setCategorias(responseData.categorias || []);
       
       // Pré-selecionar a categoria da ficha
-      if (data?.categoria?.nome) {
-        setFormData(prev => ({ ...prev, categoria: data.categoria.nome }));
+      if (ficha?.categorias?.nome) {
+        setFormData(prev => ({ ...prev, categoria: ficha.categorias.nome }));
       }
     } catch (error) {
       console.error("OrcamentoPublico - Erro inesperado:", error);
@@ -196,12 +192,7 @@ const OrcamentoPublico = () => {
   };
 
   const fetchCategorias = async () => {
-    const { data } = await supabase
-      .from("categorias")
-      .select("*")
-      .order("nome");
-    
-    if (data) setCategorias(data);
+    // Categorias são carregadas junto com verificarFicha
   };
 
   const validarCpf = async (cpf: string) => {
@@ -216,15 +207,13 @@ const OrcamentoPublico = () => {
 
     setValidandoCpf(true);
     try {
-      const { data } = await supabase
-        .from("prestadores")
-        .select("cpf, nome")
-        .eq("cpf", cpfLimpo)
-        .single();
+      const { data: responseData } = await supabase.functions.invoke("public-orcamento-data", {
+        body: { action: "validar-cpf", cpf: cpfLimpo },
+      });
 
-      if (data) {
+      if (responseData?.valido) {
         setCpfValido(true);
-        setNomePrestador(data.nome);
+        setNomePrestador(responseData.nome || "");
       } else {
         setCpfValido(false);
         setNomePrestador("");
@@ -335,13 +324,13 @@ const OrcamentoPublico = () => {
       console.log("OrcamentoPublico - Dados a enviar:", orcamentoData);
 
       // Salvar no banco - usando insert simples sem .single() para maior resiliência em mobile
-      const { error } = await supabase
-        .from("orcamentos")
-        .insert([orcamentoData]);
+      const { data: insertResult, error } = await supabase.functions.invoke("public-orcamento-data", {
+        body: { action: "inserir-orcamento", orcamento: orcamentoData },
+      });
 
-      if (error) {
-        console.error("OrcamentoPublico - Erro ao inserir:", error);
-        throw error;
+      if (error || !insertResult?.success) {
+        console.error("OrcamentoPublico - Erro ao inserir:", error || insertResult?.error);
+        throw new Error(insertResult?.error || "Erro ao salvar orçamento");
       }
 
       // Orçamento salvo com sucesso - mostrar confirmação independente do webhook
