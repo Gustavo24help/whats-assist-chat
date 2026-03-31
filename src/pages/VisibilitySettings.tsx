@@ -96,17 +96,21 @@ export default function VisibilitySettings() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#F5F0E8]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#004A30]" />
-      </div>
+      <PageLayout>
+        <div className="flex items-center justify-center flex-1">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </PageLayout>
     )
   }
 
   if (!currentMember) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#F5F0E8]">
-        <p className="text-[#2C2C2A]">Sem permissão.</p>
-      </div>
+      <PageLayout>
+        <div className="flex items-center justify-center flex-1">
+          <p className="text-foreground">Sem permissão.</p>
+        </div>
+      </PageLayout>
     )
   }
 
