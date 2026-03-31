@@ -1,50 +1,43 @@
 
 
-# Redesign da Home: Sidebar + Avisos na tela principal
+## Diagnóstico do Bug
 
-## Visão geral
+### O que aconteceu com o telefone 4196580655
 
-Substituir os blocos enormes da página inicial por um layout com:
-- **Sidebar esquerda** colapsável com links para todos os módulos
-- **Área principal** mostrando avisos diretamente (com lido/não lido), sem precisar navegar para `/avisos`
+1. **17/03** — Bot desativado automaticamente (Twilio handoff)
+2. **23/03 13:35** — Bot desativado manualmente pelo operador
+3. **23/03 17:07** — Ficha `FGM5@260317` mudou para **"Perdido"**
+4. **23/03 17:07** — Trigger `schedule_bot_reactivation` criou agendamento para **24/03 17:07** (24h depois) — correto
+5. **24/03 a 31/03** — **Ninguém processou o agendamento** → bot ficou desativado por 8 dias
 
-## Alterações
+### Causa raiz
 
-### 1. `src/pages/Home.tsx` — Reescrita completa
+O cron job `reactivate-bots-every-5min` chama a função `reactivate-bots-24h`, mas essa função **foi desativada** (retorna sem fazer nada). A função correta que processa os agendamentos é `process-bot-reactivation`, porém **não existe nenhum cron job chamando ela**.
 
-**Layout**: Flex row com sidebar + main content
+Resumindo: a trigger cria o agendamento no banco, mas nenhum processo periódico executa os agendamentos pendentes.
 
-**Sidebar esquerda** (colapsável):
-- Logo 24Help no topo
-- Lista de módulos com ícones (mesmos que existem hoje nos blocos): Chat, Chat Prestadores, Dashboard, Dashboard TV, Gerenciamento Prestadores, Análise de Serviços, Financeiro, Manutenção, Calendário, Planilha, Fichas de Serviço, Registro de Ponto, Mensagens Internas, Avisos, Configurações
-- Cada item navega com `openRoute()` (abre em nova aba, comportamento atual)
-- Botão de colapsar/expandir (chevron)
-- Perfil do usuário + botão Sair no rodapé
-- Estado colapsado mostra apenas ícones (mini sidebar ~w-16), expandido ~w-64
-- Persistir estado no localStorage
+### Outros agendamentos pendentes
 
-**Área principal — Avisos**:
-- Header com saudação "Olá, {nome}!" e contador de não lidos
-- Lista de avisos carregados diretamente (reutilizando a mesma lógica de `loadAvisos` do `Avisos.tsx`)
-- Cada aviso mostrado como card com: título, conteúdo (truncado), data, badge Lido/Não lido
-- Ao clicar no aviso: expande inline ou abre dialog com conteúdo completo + imagem + marca como lido (mesma lógica do `openAviso`)
-- Admin vê "Quem leu" e botões de arquivar/excluir
-- Tabs: Avisos ativos | Arquivados (admin)
-- Botão "Escrever aviso" para admin (pode abrir dialog ou redirecionar para `/avisos`)
+O registro `scheduled_at: 2026-03-24` com `executed: false` confirma que há agendamentos acumulados sem processar.
 
-### 2. Arquivos alterados
-- `src/pages/Home.tsx` — reescrita com sidebar + avisos inline
+---
 
-### 3. O que NÃO muda
-- `/avisos` continua existindo como rota separada (para acesso direto)
-- Toda a lógica de criação de avisos, upload de imagens, destinatários etc. permanece na página `/avisos`
-- A sidebar é específica da Home (não afeta Dashboard ou outras páginas que já têm sua própria sidebar)
+## Plano de Correção
 
-## Detalhes técnicos
+### 1. Atualizar `reactivate-bots-24h` para chamar `process-bot-reactivation`
 
-- Sidebar própria da Home (componente inline ou extraído), não reutiliza `dashboard/Sidebar.tsx` pois tem navegação diferente
-- Estado colapsado via `useState` + `localStorage`
-- Avisos: copiar lógica essencial de carregamento (`loadAvisos`, `markAsRead`, `openAviso`) do `Avisos.tsx` para a Home
-- Na Home, admin pode criar avisos clicando em botão que redireciona para `/avisos?tab=novo`
-- Cards de aviso com visual compacto, não os blocos enormes atuais
+Em vez de criar um novo cron job (o que exigiria uma migration), a solução mais simples é fazer a função `reactivate-bots-24h` (que já tem cron a cada 5 min) chamar internamente a lógica de `process-bot-reactivation` — ou seja, mover o código de processamento dos agendamentos para dentro dela.
+
+A função passará a:
+- Buscar registros em `bot_reactivation_schedule` onde `executed = false` e `scheduled_at <= now()`
+- Reativar o bot de cada cliente
+- Registrar no `bot_historico`
+- Marcar o agendamento como `executed = true`
+
+### 2. Processar agendamentos pendentes agora
+
+Após o deploy, a próxima execução do cron (em até 5 min) vai processar automaticamente o agendamento pendente do telefone 4196580655 e qualquer outro acumulado.
+
+### Arquivos modificados
+- `supabase/functions/reactivate-bots-24h/index.ts` — reativar com a lógica de processamento de agendamentos
 
