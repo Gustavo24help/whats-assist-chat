@@ -1,64 +1,50 @@
 
 
-# Alterar lógica de reativação automática do bot
+# Redesign da Home: Sidebar + Avisos na tela principal
 
-## Regra atual
-- Status "Perdido" → reativa em 24h
-- Qualquer outro status → reativa em 10 dias
+## Visão geral
 
-## Nova regra desejada
-- **Qualquer mudança de status** → reativa em **24 horas**
-- **EXCETO** `Agendado` e `Visita Técnica` → reativa em **10 dias** (bot fica desligado enquanto o serviço está agendado/em visita, a menos que 10 dias passem)
-- Qualquer nova mudança de status cancela o agendamento anterior e reinicia o contador com a nova regra
+Substituir os blocos enormes da página inicial por um layout com:
+- **Sidebar esquerda** colapsável com links para todos os módulos
+- **Área principal** mostrando avisos diretamente (com lido/não lido), sem precisar navegar para `/avisos`
 
-## Alteração
+## Alterações
 
-**Uma migration SQL** para atualizar a função `schedule_bot_reactivation()`:
+### 1. `src/pages/Home.tsx` — Reescrita completa
 
-```sql
-CREATE OR REPLACE FUNCTION schedule_bot_reactivation()
-RETURNS TRIGGER AS $$
-DECLARE
-  bot_disabled boolean;
-BEGIN
-  IF NEW.status IS DISTINCT FROM OLD.status THEN
-    SELECT NOT COALESCE(bot_habilitado, true) INTO bot_disabled
-    FROM clientes
-    WHERE telefone = NEW.telefone_cliente;
-    
-    IF bot_disabled THEN
-      -- Cancelar agendamentos anteriores
-      DELETE FROM bot_reactivation_schedule 
-      WHERE telefone_cliente = NEW.telefone_cliente 
-        AND executed = false;
-      
-      IF NEW.status IN ('Agendado', 'Visita Técnica') THEN
-        -- Agendado/Visita Técnica: reativa em 10 dias
-        INSERT INTO bot_reactivation_schedule (telefone_cliente, ficha_id, scheduled_at)
-        VALUES (NEW.telefone_cliente, NEW.id, NOW() + INTERVAL '10 days');
-      ELSE
-        -- Todos os outros status: reativa em 24 horas
-        INSERT INTO bot_reactivation_schedule (telefone_cliente, ficha_id, scheduled_at)
-        VALUES (NEW.telefone_cliente, NEW.id, NOW() + INTERVAL '24 hours');
-      END IF;
-    END IF;
-  END IF;
-  
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-```
+**Layout**: Flex row com sidebar + main content
 
-## Resumo do comportamento
+**Sidebar esquerda** (colapsável):
+- Logo 24Help no topo
+- Lista de módulos com ícones (mesmos que existem hoje nos blocos): Chat, Chat Prestadores, Dashboard, Dashboard TV, Gerenciamento Prestadores, Análise de Serviços, Financeiro, Manutenção, Calendário, Planilha, Fichas de Serviço, Registro de Ponto, Mensagens Internas, Avisos, Configurações
+- Cada item navega com `openRoute()` (abre em nova aba, comportamento atual)
+- Botão de colapsar/expandir (chevron)
+- Perfil do usuário + botão Sair no rodapé
+- Estado colapsado mostra apenas ícones (mini sidebar ~w-16), expandido ~w-64
+- Persistir estado no localStorage
 
-| Status | Tempo de reativação |
-|--------|-------------------|
-| Agendado | 10 dias |
-| Visita Técnica | 10 dias |
-| Todos os outros | 24 horas |
+**Área principal — Avisos**:
+- Header com saudação "Olá, {nome}!" e contador de não lidos
+- Lista de avisos carregados diretamente (reutilizando a mesma lógica de `loadAvisos` do `Avisos.tsx`)
+- Cada aviso mostrado como card com: título, conteúdo (truncado), data, badge Lido/Não lido
+- Ao clicar no aviso: expande inline ou abre dialog com conteúdo completo + imagem + marca como lido (mesma lógica do `openAviso`)
+- Admin vê "Quem leu" e botões de arquivar/excluir
+- Tabs: Avisos ativos | Arquivados (admin)
+- Botão "Escrever aviso" para admin (pode abrir dialog ou redirecionar para `/avisos`)
 
-Qualquer mudança de status reinicia o contador. Reativação manual continua funcionando normalmente. Nenhum dado existente é alterado — apenas o comportamento futuro de agendamento.
+### 2. Arquivos alterados
+- `src/pages/Home.tsx` — reescrita com sidebar + avisos inline
 
-## Arquivos
-- Nova migration SQL (única alteração)
+### 3. O que NÃO muda
+- `/avisos` continua existindo como rota separada (para acesso direto)
+- Toda a lógica de criação de avisos, upload de imagens, destinatários etc. permanece na página `/avisos`
+- A sidebar é específica da Home (não afeta Dashboard ou outras páginas que já têm sua própria sidebar)
+
+## Detalhes técnicos
+
+- Sidebar própria da Home (componente inline ou extraído), não reutiliza `dashboard/Sidebar.tsx` pois tem navegação diferente
+- Estado colapsado via `useState` + `localStorage`
+- Avisos: copiar lógica essencial de carregamento (`loadAvisos`, `markAsRead`, `openAviso`) do `Avisos.tsx` para a Home
+- Na Home, admin pode criar avisos clicando em botão que redireciona para `/avisos?tab=novo`
+- Cards de aviso com visual compacto, não os blocos enormes atuais
 
