@@ -139,6 +139,24 @@ export const ChatWindowPrestadores = ({
           setTimeout(scrollToBottom, 100);
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "mensagens_prestadores",
+          filter: `prestador_telefone=eq.${prestadorTelefone}`,
+        },
+        (payload) => {
+          setMensagens((prev) =>
+            prev.map((msg) =>
+              msg.id === payload.new.id
+                ? { ...msg, ...(payload.new as Partial<Mensagem>) }
+                : msg
+            )
+          );
+        }
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
