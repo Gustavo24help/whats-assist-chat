@@ -31,6 +31,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+function calcularDataPagamento(dataBase: Date): string {
+  const data = new Date(dataBase);
+  let diasAdicionados = 0;
+  while (diasAdicionados < 2) {
+    data.setDate(data.getDate() + 1);
+    if (isBusinessDay(data)) {
+      diasAdicionados++;
+    }
+  }
+  return data.toISOString();
+}
+
 const formatMoeda = (valor: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
