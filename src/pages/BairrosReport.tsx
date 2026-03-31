@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
+import { PageLayout } from "@/components/PageLayout";
 
 type FilterType = "todos" | "fechados" | "nao_fechados";
 
