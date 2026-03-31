@@ -12,6 +12,7 @@ import { FichaServicoTab } from "@/components/FichaServicoTab";
 import { OrcamentosTab } from "@/components/OrcamentosTab";
 import { AcompanhamentoTab } from "@/components/AcompanhamentoTab";
 import { TrocarPrestadorDialog } from "@/components/TrocarPrestadorDialog";
+import { PageLayout } from "@/components/PageLayout";
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
