@@ -187,6 +187,7 @@ export default function VisibilitySettings() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </PageLayout>
   )
 }

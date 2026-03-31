@@ -221,6 +221,7 @@ export default function Tarefas() {
         currentUser={currentMember}
         isManager={isManager}
       />
-    </div>
+      </div>
+    </PageLayout>
   )
 }
