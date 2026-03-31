@@ -375,8 +375,8 @@ const Home = () => {
             <TabsContent value="ativos" className="space-y-2">
               {loading && <p className="text-sm text-muted-foreground">Carregando avisos...</p>}
               {!loading && avisosAtivos.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Bell className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <div className="py-12 text-muted-foreground">
+                  <Bell className="h-10 w-10 mb-3 opacity-30" />
                   <p className="text-sm">Nenhum aviso publicado.</p>
                 </div>
               )}
