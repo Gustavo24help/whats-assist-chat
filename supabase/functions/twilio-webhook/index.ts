@@ -368,7 +368,7 @@ serve(async (req) => {
 
       console.log(`[${requestId}] 💾 Salvando: cliente_id=${mensagem.cliente_id}, remetente=${mensagem.remetente}, status=${mensagem.status}`);
 
-      const { error: saveError } = await supabase.from("mensagens").insert(mensagem);
+      const { data: savedMsg, error: saveError } = await supabase.from("mensagens").insert(mensagem).select("id").single();
 
       if (saveError) {
         console.error(`[${requestId}] ❌ Erro ao salvar:`, saveError);
@@ -391,6 +391,23 @@ serve(async (req) => {
             .from("clientes")
             .update({ ultima_interacao: new Date().toISOString() })
             .eq("telefone", cliente.telefone);
+        }
+
+        // Fire-and-forget: transcribe audio messages
+        if (tipo === "audio" && arquivoUrl && savedMsg?.id) {
+          console.log(`[${requestId}] 🎙️ Disparando transcrição para msg cliente ${savedMsg.id}`);
+          fetch(`${supabaseUrl}/functions/v1/transcribe-audio`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              messageId: savedMsg.id,
+              audioUrl: arquivoUrl,
+              table: "mensagens",
+            }),
+          }).catch((e) => console.error(`[${requestId}] ⚠️ Erro ao chamar transcribe-audio:`, e));
         }
 
         await supabase.from("webhook_debug_logs").insert({
