@@ -288,7 +288,20 @@ export function PopupConfirmacaoFinanceira({
       }
 
       const subtotal = (parseFloat(valorMaoObra) || 0) + (parseFloat(valorMaterial) || 0) + (parseFloat(taxaVisita) || 0);
-      const dataExecucao = new Date();
+
+      // Buscar data real de finalização do histórico de status
+      const { data: histFinalizado } = await supabase
+        .from("ficha_status_historico")
+        .select("data_inicio")
+        .eq("ficha_id", fichaId)
+        .eq("status_novo", "Finalizado" as any)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      const dataExecucao = histFinalizado?.data_inicio
+        ? new Date(histFinalizado.data_inicio)
+        : new Date();
       const dataPagPrevista = calcularDataPagamento(dataExecucao);
 
       // Obter user autenticado
