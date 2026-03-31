@@ -147,18 +147,34 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ATUALIZAR: marcar pagamento como realizado
+    // ATUALIZAR: marcar pagamento como realizado e mudar status para Garantia
     const agora = new Date().toISOString();
     const valorPago = payment.value || ficha.valor_total || 0;
     const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] ✅ Pagamento confirmado automaticamente via Asaas (${event}) — Valor: R$ ${valorPago.toFixed(2)} — Payment ID: ${payment.id}`;
     const notasAtualizadas = ficha.notas ? `${ficha.notas}\n${logEntry}` : logEntry;
 
+    // Buscar status atual da ficha para decidir se muda para Garantia
+    const { data: fichaCompleta } = await supabase
+      .from("fichas_de_servico")
+      .select("status")
+      .eq("id", fichaId)
+      .single();
+
+    const updatePayload: Record<string, unknown> = {
+      pagamento_realizado: true,
+      notas: notasAtualizadas,
+    };
+
+    // Mudar para Garantia automaticamente se estiver em Finalizado ou Em andamento
+    const statusParaGarantia = ['Finalizado', 'Em andamento', 'Agendado'];
+    if (fichaCompleta && statusParaGarantia.includes(fichaCompleta.status as string)) {
+      updatePayload.status = 'Garantia';
+      console.log(`[asaas-webhook] 🔄 Status mudado para Garantia (era: ${fichaCompleta.status})`);
+    }
+
     const { error: updateError } = await supabase
       .from("fichas_de_servico")
-      .update({
-        pagamento_realizado: true,
-        notas: notasAtualizadas,
-      })
+      .update(updatePayload)
       .eq("id", fichaId);
 
     if (updateError) {
