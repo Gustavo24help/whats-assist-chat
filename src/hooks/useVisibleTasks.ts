@@ -84,16 +84,16 @@ export function useVisibleTasks(currentMember: TeamMember | null) {
       .select('id, full_name')
       .in('id', userIds)
 
-    const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p.full_name || 'Sem nome']))
+    const profileMap = new Map<string, string>((profiles ?? []).map((p: any) => [p.id, p.full_name || 'Sem nome']))
 
     const assigneeMap = new Map<string, { ids: string[]; names: string[] }>()
-    for (const a of (assignees ?? [])) {
+    for (const a of (assignees ?? []) as Array<{ task_id: string; user_id: string }>) {
       if (!assigneeMap.has(a.task_id)) {
         assigneeMap.set(a.task_id, { ids: [], names: [] })
       }
       const entry = assigneeMap.get(a.task_id)!
       entry.ids.push(a.user_id)
-      entry.names.push(profileMap.get(a.user_id as string) || 'Sem nome')
+      entry.names.push(profileMap.get(a.user_id) || 'Sem nome')
     }
 
     return rawTasks.map((t: any) => ({
