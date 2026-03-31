@@ -871,6 +871,20 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     toast.success('Visita técnica limpa');
   };
 
+  const limparRetorno = () => {
+    console.log('🧹 Limpando retorno manualmente');
+    setDataRetorno('');
+    setHoraRetorno('');
+    
+    if (ficha) {
+      const updatedFicha = { ...ficha };
+      setFicha(updatedFicha);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+    }
+    
+    toast.success('Retorno limpo');
+  };
+
   const salvarManualmente = async () => {
     if (!ficha || !fichaId) {
       console.error('❌ SalvarManualmente: ficha ou fichaId inválido');
