@@ -288,7 +288,7 @@ const Home = () => {
       >
         {/* Logo + collapse */}
         <div className="h-14 flex items-center justify-between px-3 border-b border-white/10 shrink-0">
-          {!collapsed && <div className="text-lg font-bold tracking-tight text-white">24<span className="text-brand-coral">Help</span></div>}
+          {!collapsed && <div className="text-lg font-bold tracking-tight text-brand-coral">24help</div>}
           <Button variant="ghost" size="icon" onClick={toggleCollapsed} className="h-8 w-8 shrink-0 text-white/70 hover:bg-white/10 hover:text-white">
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
@@ -354,7 +354,7 @@ const Home = () => {
         </header>
 
         {/* Avisos area */}
-        <div className="flex-1 p-6 max-w-4xl mx-auto w-full">
+        <div className="flex-1 p-6 w-full">
           <div className="flex items-center gap-2 mb-4">
             <Bell className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold text-foreground">Avisos</h2>
