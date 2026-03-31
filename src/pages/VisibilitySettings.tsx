@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Loader2, ArrowLeft, Eye, Users } from 'lucide-react'
 import { toast } from 'sonner'
+import { PageLayout } from '@/components/PageLayout'
 
 interface ProfileInfo {
   id: string

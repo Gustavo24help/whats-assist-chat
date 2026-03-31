@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Plus, Loader2, Settings2 } from 'lucide-react'
 import { isOverdue, isForgotten, isDueToday, isDueInNextDays } from '@/lib/taskUtils'
 import type { Task, Status, Priority } from '@/types/tasks'
+import { PageLayout } from '@/components/PageLayout'
 
 export default function Tarefas() {
   const { currentMember, isManager, loading: authLoading } = useTaskAuth()

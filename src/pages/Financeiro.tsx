@@ -49,7 +49,7 @@ const Financeiro = () => {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
+    </PageLayout>
   );
 };
 

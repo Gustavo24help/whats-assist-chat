@@ -19,6 +19,7 @@ import { FerramentasManutencao } from "@/components/FerramentasManutencao";
 import { DailyGoalsManager } from "@/components/DailyGoalsManager";
 import { StatusAlertSettings } from "@/components/StatusAlertSettings";
 import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
+import { PageLayout } from "@/components/PageLayout";
 
 const Settings = () => {
   const navigate = useNavigate();
