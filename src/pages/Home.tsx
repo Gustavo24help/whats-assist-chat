@@ -213,126 +213,71 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "h-screen sticky top-0 flex flex-col border-r border-gray-200 transition-all duration-200 bg-brand-coral",
-          collapsed ? "w-16" : "w-60"
-        )}
-      >
-        {/* Logo + collapse */}
-        <div className="h-14 flex items-center justify-between px-3 border-b border-white/20 shrink-0">
-          {!collapsed && <div className="text-lg font-bold tracking-tight text-white">24help</div>}
-          <Button variant="ghost" size="icon" onClick={toggleCollapsed} className="h-8 w-8 shrink-0 text-white hover:bg-white/20">
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </Button>
+    <PageLayout>
+      {/* Header */}
+      <header className="h-14 border-b bg-background/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Olá, {firstName}!</h1>
         </div>
-
-        {/* Nav items */}
-        <ScrollArea className="flex-1 py-2">
-          <nav className="flex flex-col gap-0.5 px-2">
-            {sidebarItems.map(item => (
-              <button
-                key={item.route}
-                onClick={() => openRoute(item.route)}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-white hover:bg-white/20 transition-colors group text-left",
-                  collapsed && "justify-center px-0"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0 text-white" />
-                {!collapsed && (
-                  <>
-                    <span className="truncate flex-1">{item.label}</span>
-                    <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 transition-opacity shrink-0" />
-                  </>
-                )}
-              </button>
-            ))}
-          </nav>
-        </ScrollArea>
-
-        {/* Footer: user + logout */}
-        <div className="border-t border-white/20 p-3 shrink-0">
-          {!collapsed && (
-            <p className="text-xs text-white/70 truncate mb-2">{userProfile?.fullName || "Usuário"}</p>
+        <div className="flex items-center gap-3">
+          {unreadCount > 0 && (
+            <Badge variant="default" className="text-xs">
+              {unreadCount} não lido{unreadCount > 1 ? "s" : ""}
+            </Badge>
           )}
-          <Button variant="ghost" size={collapsed ? "icon" : "sm"} onClick={handleLogout} className="w-full justify-start gap-2 text-white hover:bg-white/20">
-            <LogOut className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>Sair</span>}
-          </Button>
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={() => navigate("/avisos")}>
+              <PlusCircle className="h-4 w-4 mr-1" />
+              Escrever aviso
+            </Button>
+          )}
         </div>
-      </aside>
+      </header>
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col min-h-screen overflow-auto">
-        {/* Header */}
-        <header className="h-14 border-b bg-background/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Olá, {firstName}!</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            {unreadCount > 0 && (
-              <Badge variant="default" className="text-xs">
-                {unreadCount} não lido{unreadCount > 1 ? "s" : ""}
-              </Badge>
-            )}
+      {/* Avisos area */}
+      <div className="flex-1 p-6 w-full overflow-auto">
+        <div className="flex items-center gap-2 mb-4">
+          <Bell className="h-5 w-5 text-primary" />
+          <h2 className="text-base font-semibold text-foreground">Avisos</h2>
+        </div>
+
+        <Tabs defaultValue="ativos" className="w-full">
+          <TabsList className="mb-4 justify-start">
+            <TabsTrigger value="ativos">
+              Ativos {unreadCount > 0 && `(${unreadCount} novos)`}
+            </TabsTrigger>
             {isAdmin && (
-              <Button size="sm" variant="outline" onClick={() => navigate("/avisos")}>
-                <PlusCircle className="h-4 w-4 mr-1" />
-                Escrever aviso
-              </Button>
-            )}
-          </div>
-        </header>
-
-        {/* Avisos area */}
-        <div className="flex-1 p-6 w-full">
-          <div className="flex items-center gap-2 mb-4">
-            <Bell className="h-5 w-5 text-primary" />
-            <h2 className="text-base font-semibold text-foreground">Avisos</h2>
-          </div>
-
-          <Tabs defaultValue="ativos" className="w-full">
-            <TabsList className="mb-4 justify-start">
-              <TabsTrigger value="ativos">
-                Ativos {unreadCount > 0 && `(${unreadCount} novos)`}
+              <TabsTrigger value="arquivados">
+                Arquivados {avisosArquivados.length > 0 && `(${avisosArquivados.length})`}
               </TabsTrigger>
-              {isAdmin && (
-                <TabsTrigger value="arquivados">
-                  Arquivados {avisosArquivados.length > 0 && `(${avisosArquivados.length})`}
-                </TabsTrigger>
-              )}
-            </TabsList>
-
-            <TabsContent value="ativos" className="space-y-2">
-              {loading && <p className="text-sm text-muted-foreground">Carregando avisos...</p>}
-              {!loading && avisosAtivos.length === 0 && (
-                <div className="py-12 text-muted-foreground">
-                  <Bell className="h-10 w-10 mb-3 opacity-30" />
-                  <p className="text-sm">Nenhum aviso publicado.</p>
-                </div>
-              )}
-              {!loading && avisosAtivos.map(renderAvisoCard)}
-            </TabsContent>
-
-            {isAdmin && (
-              <TabsContent value="arquivados" className="space-y-2">
-                {!loading && avisosArquivados.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Nenhum aviso arquivado.</p>
-                )}
-                {!loading && avisosArquivados.map(renderAvisoCard)}
-              </TabsContent>
             )}
-          </Tabs>
-        </div>
+          </TabsList>
 
-        <footer className="py-3 text-center text-xs text-muted-foreground border-t">
-          24Help © {new Date().getFullYear()}
-        </footer>
-      </main>
+          <TabsContent value="ativos" className="space-y-2">
+            {loading && <p className="text-sm text-muted-foreground">Carregando avisos...</p>}
+            {!loading && avisosAtivos.length === 0 && (
+              <div className="py-12 text-muted-foreground">
+                <Bell className="h-10 w-10 mb-3 opacity-30" />
+                <p className="text-sm">Nenhum aviso publicado.</p>
+              </div>
+            )}
+            {!loading && avisosAtivos.map(renderAvisoCard)}
+          </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="arquivados" className="space-y-2">
+              {!loading && avisosArquivados.length === 0 && (
+                <p className="text-sm text-muted-foreground">Nenhum aviso arquivado.</p>
+              )}
+              {!loading && avisosArquivados.map(renderAvisoCard)}
+            </TabsContent>
+          )}
+        </Tabs>
+      </div>
+
+      <footer className="py-3 text-center text-xs text-muted-foreground border-t">
+        24Help © {new Date().getFullYear()}
+      </footer>
 
       {/* Aviso detail dialog */}
       <Dialog open={!!selectedAviso} onOpenChange={(open) => !open && setSelectedAviso(null)}>
