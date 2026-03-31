@@ -306,7 +306,7 @@ const Home = () => {
                   collapsed && "justify-center px-0"
                 )}
               >
-                <item.icon className="h-4 w-4 shrink-0 text-gray-700 group-hover:text-gray-900" />
+                <item.icon className="h-4 w-4 shrink-0 text-black" />
                 {!collapsed && (
                   <>
                     <span className="truncate flex-1">{item.label}</span>
