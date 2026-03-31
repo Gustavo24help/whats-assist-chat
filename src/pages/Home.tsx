@@ -63,60 +63,9 @@ type SistemaUsuario = {
   full_name: string | null;
 };
 
-const SIDEBAR_KEY = "home-sidebar-collapsed";
-
-const sidebarItems = [
-  { label: "Chat de Atendimento", icon: MessageCircle, route: "/chat" },
-  { label: "Chat Prestadores", icon: Wrench, route: "/chat-prestadores" },
-  { label: "Dashboard", icon: BarChart3, route: "/dashboard" },
-  { label: "Dashboard TV", icon: Tv, route: "/dashboard-tv" },
-  { label: "Gerenc. Prestadores", icon: Users, route: "/gerenciamento-prestadores" },
-  { label: "Análise de Serviços", icon: ClipboardList, route: "/analise-servicos" },
-  { label: "Financeiro", icon: DollarSign, route: "/financeiro" },
-  { label: "Calendário", icon: CalendarDays, route: "/calendario" },
-  { label: "Fichas de Serviço", icon: FileText, route: "/fichas" },
-  { label: "Planilha", icon: FileSpreadsheet, route: "/planilha" },
-  { label: "Registro de Ponto", icon: Clock3, route: "/registro-ponto" },
-  { label: "Mensagens Internas", icon: MessageSquare, route: "/mensagens" },
-  { label: "Tarefas", icon: ClipboardList, route: "/tarefas" },
-  { label: "Manutenção", icon: Wrench, route: "/manutencao" },
-  { label: "Configurações", icon: Settings, route: "/settings" },
-];
-
 const Home = () => {
   const navigate = useNavigate();
   const { user, userProfile, isAdmin } = useAuth();
-  const { openRoute } = useOpenInNewTab();
-
-  const [collapsed, setCollapsed] = useState(() => {
-    try { return localStorage.getItem(SIDEBAR_KEY) === "true"; } catch { return false; }
-  });
-
-  // Avisos state
-  const [avisos, setAvisos] = useState<Aviso[]>([]);
-  const [lidos, setLidos] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [selectedAviso, setSelectedAviso] = useState<Aviso | null>(null);
-  const [deleteConfirmAviso, setDeleteConfirmAviso] = useState<Aviso | null>(null);
-  const [destinatariosPorAviso, setDestinatariosPorAviso] = useState<Record<string, Set<string>>>({});
-  const [usuariosSistema, setUsuariosSistema] = useState<SistemaUsuario[]>([]);
-  const [leiturasAviso, setLeiturasAviso] = useState<AvisoLeitura[]>([]);
-  const [loadingLeituras, setLoadingLeituras] = useState(false);
-  const [showLeituras, setShowLeituras] = useState(false);
-
-  const toggleCollapsed = () => {
-    setCollapsed(prev => {
-      const next = !prev;
-      try { localStorage.setItem(SIDEBAR_KEY, String(next)); } catch {}
-      return next;
-    });
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.success("Logout realizado com sucesso!");
-    navigate("/auth");
-  };
 
   const firstName = userProfile?.fullName?.split(" ")[0] || "Usuário";
 
