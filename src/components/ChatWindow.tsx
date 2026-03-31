@@ -63,6 +63,7 @@ interface Mensagem {
   enviado_por_id?: string | null;
   tipo_remetente?: string | null;
   operador_nome?: string | null;
+  transcricao_texto?: string | null;
 }
 
 const QuotedMessage = React.memo(({ 
