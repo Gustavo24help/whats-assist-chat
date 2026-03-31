@@ -210,6 +210,15 @@ export default function Tarefas() {
         isManager={isManager}
         onSaved={refetch}
       />
+
+      {/* Alert modal */}
+      <TaskAlertModal
+        open={showPopup}
+        onClose={() => setShowPopup(false)}
+        tasks={tasks}
+        currentUser={currentMember}
+        isManager={isManager}
+      />
     </div>
   )
 }
