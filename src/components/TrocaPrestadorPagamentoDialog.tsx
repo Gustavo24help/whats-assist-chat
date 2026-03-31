@@ -78,7 +78,19 @@ export const TrocaPrestadorPagamentoDialog = ({
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       const now = new Date().toISOString();
-      const dataPagPrevista = addBusinessDays(new Date(), 2).toISOString();
+
+      // Buscar data real de finalização do histórico
+      const { data: histFinalizado } = await supabase
+        .from("ficha_status_historico")
+        .select("data_inicio")
+        .eq("ficha_id", fichaId)
+        .eq("status_novo", "Finalizado" as any)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const dataExecucaoReal = histFinalizado?.data_inicio ? new Date(histFinalizado.data_inicio) : new Date();
+      const dataPagPrevista = addBusinessDays(dataExecucaoReal, 2).toISOString();
 
       // Fetch prestador details
       const { data: prestAnterior } = await supabase
