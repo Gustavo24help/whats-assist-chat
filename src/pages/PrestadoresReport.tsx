@@ -1070,7 +1070,7 @@ const PrestadoresReportPage = () => {
           </p>
         </footer>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 
