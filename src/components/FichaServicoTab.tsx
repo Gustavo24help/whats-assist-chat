@@ -447,6 +447,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         id_zoho: fichaData.id_zoho?.trim() || null,
         data_visita_tecnica: fichaData.data_visita_tecnica,
         horario_visita_tecnica: visitaTecnicaISO,
+        data_retorno: retornoISO,
         motivo_perda: fichaData.motivo_perda?.trim()?.substring(0, 500) || null,
         comparecimento_prestador: fichaData.comparecimento_prestador,
         // Discount fields
