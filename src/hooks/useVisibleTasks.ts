@@ -93,7 +93,7 @@ export function useVisibleTasks(currentMember: TeamMember | null) {
       }
       const entry = assigneeMap.get(a.task_id)!
       entry.ids.push(a.user_id)
-      entry.names.push(profileMap.get(a.user_id) || 'Sem nome')
+      entry.names.push(profileMap.get(a.user_id as string) || 'Sem nome')
     }
 
     return rawTasks.map((t: any) => ({
