@@ -361,7 +361,7 @@ const Home = () => {
           </div>
 
           <Tabs defaultValue="ativos" className="w-full">
-            <TabsList className="mb-4">
+            <TabsList className="mb-4 justify-start">
               <TabsTrigger value="ativos">
                 Ativos {unreadCount > 0 && `(${unreadCount} novos)`}
               </TabsTrigger>
