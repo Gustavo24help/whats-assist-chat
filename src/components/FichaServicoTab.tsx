@@ -137,6 +137,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
   const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
   const [horaVisitaTecnica, setHoraVisitaTecnica] = useState<string>('');
+  const [dataRetorno, setDataRetorno] = useState<string>('');
+  const [horaRetorno, setHoraRetorno] = useState<string>('');
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [ajustarDataOpen, setAjustarDataOpen] = useState(false);
