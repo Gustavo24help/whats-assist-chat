@@ -88,12 +88,24 @@ export default function Tarefas() {
           <h1 className="text-2xl font-bold text-[#004A30]">Tarefas</h1>
           <p className="text-sm text-[#2C2C2A]/60">{filtered.length} tarefa(s)</p>
         </div>
-        <Button
-          onClick={() => { setEditingTask(null); setFormOpen(true) }}
-          className="bg-[#004A30] hover:bg-[#004A30]/90 text-white"
-        >
-          <Plus className="h-4 w-4 mr-1" /> Nova tarefa
-        </Button>
+        <div className="flex items-center gap-2">
+          {!isManager && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/settings/visibility')}
+              className="text-[#004A30] border-[#004A30]/30"
+            >
+              <Settings2 className="h-4 w-4 mr-1" /> Visibilidade
+            </Button>
+          )}
+          <Button
+            onClick={() => { setEditingTask(null); setFormOpen(true) }}
+            className="bg-[#004A30] hover:bg-[#004A30]/90 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1" /> Nova tarefa
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
