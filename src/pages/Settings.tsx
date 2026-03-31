@@ -187,22 +187,13 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <PageLayout>
       <header className="border-b border-border bg-card px-6 py-4">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/")}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
-            <p className="text-sm text-muted-foreground">
-              Gerencie as configurações do sistema
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
+          <p className="text-sm text-muted-foreground">
+            Gerencie as configurações do sistema
+          </p>
         </div>
       </header>
 
