@@ -163,9 +163,9 @@ export const PagamentoPrestadoresTabV2 = () => {
       .select("ficha_id, data_inicio")
       .in("ficha_id", fichaIds)
       .eq("status_novo", "Finalizado" as any)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true });
     
-    // Map: ficha_id → most recent finalization date
+    // Map: ficha_id → first (earliest) finalization date
     const finalizacaoMap = new Map<string, string>();
     for (const h of (finalizacaoRes.data || [])) {
       if (!finalizacaoMap.has(h.ficha_id)) {

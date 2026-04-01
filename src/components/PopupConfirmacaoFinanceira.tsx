@@ -295,7 +295,7 @@ export function PopupConfirmacaoFinanceira({
         .select("data_inicio")
         .eq("ficha_id", fichaId)
         .eq("status_novo", "Finalizado" as any)
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: true })
         .limit(1)
         .single();
 
