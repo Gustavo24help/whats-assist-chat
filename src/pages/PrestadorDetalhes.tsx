@@ -481,6 +481,89 @@ const PrestadorDetalhes = () => {
         </Card>
 
         <Card>
+          <CardHeader
+            className="cursor-pointer"
+            onClick={() => setServicosExpanded(!servicosExpanded)}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Serviços Prestados</CardTitle>
+                <CardDescription>
+                  Detalhamento das fichas de serviço atribuídas a este prestador ({servicos.length} registros)
+                </CardDescription>
+              </div>
+              {servicosExpanded ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+            </div>
+          </CardHeader>
+          {servicosExpanded && (
+            <CardContent>
+              {loadingServicos ? (
+                <p className="text-sm text-muted-foreground">Carregando serviços...</p>
+              ) : servicos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum serviço encontrado para este prestador.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ficha</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Mão de Obra</TableHead>
+                        <TableHead className="text-right">Material</TableHead>
+                        <TableHead>Bairro</TableHead>
+                        <TableHead>Data Agendamento</TableHead>
+                        <TableHead>Data Finalização</TableHead>
+                        <TableHead>Data Pgto Prestador</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {servicos.map((s) => (
+                        <TableRow key={s.ficha_id}>
+                          <TableCell className="font-medium">
+                            {s.nome_ficha || s.ficha_id}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              s.status === "Finalizado" ? "default" :
+                              s.status === "Perdido" ? "destructive" :
+                              "secondary"
+                            }>
+                              {s.status || "-"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {s.valor_mao_obra != null ? `R$ ${Number(s.valor_mao_obra).toFixed(2)}` : "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {s.valor_pecas != null ? `R$ ${Number(s.valor_pecas).toFixed(2)}` : "-"}
+                          </TableCell>
+                          <TableCell>{s.bairro || "-"}</TableCell>
+                          <TableCell>
+                            {s.horario_agendamento
+                              ? new Date(s.horario_agendamento).toLocaleDateString("pt-BR")
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {s.data_finalizacao
+                              ? new Date(s.data_finalizacao).toLocaleDateString("pt-BR")
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {s.data_pagamento_prestador
+                              ? new Date(s.data_pagamento_prestador).toLocaleDateString("pt-BR")
+                              : <span className="text-muted-foreground">Pendente</span>}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+
+        <Card>
           <CardHeader>
             <CardTitle>Histórico</CardTitle>
             <CardDescription>
