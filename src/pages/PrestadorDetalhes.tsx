@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Download, PlusCircle } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Download, PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { PageLayout } from "@/components/PageLayout";
 
@@ -31,6 +33,18 @@ type PrestadorHistoricoItem = {
   tipo_evento: string;
   descricao: string;
   created_at: string;
+};
+
+type ServicoDetalhado = {
+  ficha_id: string;
+  nome_ficha: string | null;
+  valor_mao_obra: number | null;
+  valor_pecas: number | null;
+  bairro: string | null;
+  horario_agendamento: string | null;
+  data_finalizacao: string | null;
+  data_pagamento_prestador: string | null;
+  status: string | null;
 };
 
 const sanitizeNumericField = (value: string | null): string | null => {
@@ -70,6 +84,9 @@ const PrestadorDetalhes = () => {
   const [formData, setFormData] = useState<Omit<Prestador, "created_at"> | null>(null);
   const [historico, setHistorico] = useState<PrestadorHistoricoItem[]>([]);
   const [ocorrenciaText, setOcorrenciaText] = useState("");
+  const [servicos, setServicos] = useState<ServicoDetalhado[]>([]);
+  const [loadingServicos, setLoadingServicos] = useState(false);
+  const [servicosExpanded, setServicosExpanded] = useState(true);
 
   useEffect(() => {
     const loadPrestador = async () => {
@@ -127,10 +144,73 @@ const PrestadorDetalhes = () => {
     setHistorico((data || []) as PrestadorHistoricoItem[]);
   }, [toast]);
 
+  const fetchServicos = useCallback(async (prestadorCpf: string) => {
+    setLoadingServicos(true);
+
+    // Buscar fichas do prestador
+    const { data: fichas, error: fichasError } = await supabase
+      .from("fichas_de_servico")
+      .select("id, nome_ficha, valor_mao_obra, valor_pecas, bairro, horario_agendamento, status")
+      .eq("prestador_id", prestadorCpf)
+      .order("created_at", { ascending: false });
+
+    if (fichasError || !fichas) {
+      setLoadingServicos(false);
+      return;
+    }
+
+    const fichaIds = fichas.map((f) => f.id);
+
+    // Buscar datas de finalização do histórico de status
+    const { data: finalizacoes } = fichaIds.length > 0
+      ? await supabase
+          .from("ficha_status_historico")
+          .select("ficha_id, data_inicio")
+          .in("ficha_id", fichaIds)
+          .eq("status_novo", "Finalizado")
+      : { data: [] };
+
+    const finalizacaoMap = new Map<string, string>();
+    (finalizacoes || []).forEach((f: any) => {
+      if (!finalizacaoMap.has(f.ficha_id) || f.data_inicio > finalizacaoMap.get(f.ficha_id)!) {
+        finalizacaoMap.set(f.ficha_id, f.data_inicio);
+      }
+    });
+
+    // Buscar datas de pagamento ao prestador
+    const { data: transacoes } = fichaIds.length > 0
+      ? await supabase
+          .from("transacoes_financeiras")
+          .select("ficha_id, data_pagamento_realizada, status_pagamento_prestador")
+          .in("ficha_id", fichaIds)
+      : { data: [] };
+
+    const pagamentoMap = new Map<string, string | null>();
+    (transacoes || []).forEach((t: any) => {
+      pagamentoMap.set(t.ficha_id, t.data_pagamento_realizada);
+    });
+
+    const result: ServicoDetalhado[] = fichas.map((f) => ({
+      ficha_id: f.id,
+      nome_ficha: f.nome_ficha,
+      valor_mao_obra: f.valor_mao_obra,
+      valor_pecas: f.valor_pecas,
+      bairro: f.bairro,
+      horario_agendamento: f.horario_agendamento,
+      data_finalizacao: finalizacaoMap.get(f.id) || null,
+      data_pagamento_prestador: pagamentoMap.get(f.id) || null,
+      status: f.status,
+    }));
+
+    setServicos(result);
+    setLoadingServicos(false);
+  }, []);
+
   useEffect(() => {
     if (!cpf) return;
     fetchHistorico(cpf);
-  }, [cpf, fetchHistorico]);
+    fetchServicos(cpf);
+  }, [cpf, fetchHistorico, fetchServicos]);
 
   const createdAtLabel = useMemo(() => {
     if (!prestador?.created_at) return "-";
@@ -398,6 +478,89 @@ const PrestadorDetalhes = () => {
               </Button>
             </div>
           </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader
+            className="cursor-pointer"
+            onClick={() => setServicosExpanded(!servicosExpanded)}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Serviços Prestados</CardTitle>
+                <CardDescription>
+                  Detalhamento das fichas de serviço atribuídas a este prestador ({servicos.length} registros)
+                </CardDescription>
+              </div>
+              {servicosExpanded ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+            </div>
+          </CardHeader>
+          {servicosExpanded && (
+            <CardContent>
+              {loadingServicos ? (
+                <p className="text-sm text-muted-foreground">Carregando serviços...</p>
+              ) : servicos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum serviço encontrado para este prestador.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ficha</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Mão de Obra</TableHead>
+                        <TableHead className="text-right">Material</TableHead>
+                        <TableHead>Bairro</TableHead>
+                        <TableHead>Data Agendamento</TableHead>
+                        <TableHead>Data Finalização</TableHead>
+                        <TableHead>Data Pgto Prestador</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {servicos.map((s) => (
+                        <TableRow key={s.ficha_id}>
+                          <TableCell className="font-medium">
+                            {s.nome_ficha || s.ficha_id}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              s.status === "Finalizado" ? "default" :
+                              s.status === "Perdido" ? "destructive" :
+                              "secondary"
+                            }>
+                              {s.status || "-"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {s.valor_mao_obra != null ? `R$ ${Number(s.valor_mao_obra).toFixed(2)}` : "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {s.valor_pecas != null ? `R$ ${Number(s.valor_pecas).toFixed(2)}` : "-"}
+                          </TableCell>
+                          <TableCell>{s.bairro || "-"}</TableCell>
+                          <TableCell>
+                            {s.horario_agendamento
+                              ? new Date(s.horario_agendamento).toLocaleDateString("pt-BR")
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {s.data_finalizacao
+                              ? new Date(s.data_finalizacao).toLocaleDateString("pt-BR")
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {s.data_pagamento_prestador
+                              ? new Date(s.data_pagamento_prestador).toLocaleDateString("pt-BR")
+                              : <span className="text-muted-foreground">Pendente</span>}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          )}
         </Card>
 
         <Card>
