@@ -55,11 +55,17 @@ interface Servico {
   horario_agendamento: string | null;
   horario_visita_tecnica: string | null;
   endereco: string | null;
+  bairro: string | null;
   valor_total: number;
   valor_mao_obra: number | null;
   valor_pecas: number | null;
   tempo_servico: string | null;
   updated_at: string;
+}
+
+interface ServicoDetalhado extends Servico {
+  data_finalizacao: string | null;
+  data_pagamento_prestador: string | null;
 }
 
 type PeriodoFiltro = "mes_atual" | "ultimos_3_meses" | "este_ano" | "todo_periodo";
