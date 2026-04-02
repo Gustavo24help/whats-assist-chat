@@ -49,6 +49,7 @@ const App = () => (
           <AuthProvider>
             <NotificationProvider>
               <AvisoPopupOverlay />
+              <TarefaPopupOverlay />
               <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/orcamento" element={<OrcamentoPublico />} />
