@@ -144,10 +144,73 @@ const PrestadorDetalhes = () => {
     setHistorico((data || []) as PrestadorHistoricoItem[]);
   }, [toast]);
 
+  const fetchServicos = useCallback(async (prestadorCpf: string) => {
+    setLoadingServicos(true);
+
+    // Buscar fichas do prestador
+    const { data: fichas, error: fichasError } = await supabase
+      .from("fichas_de_servico")
+      .select("id, nome_ficha, valor_mao_obra, valor_pecas, bairro, horario_agendamento, status")
+      .eq("prestador_id", prestadorCpf)
+      .order("created_at", { ascending: false });
+
+    if (fichasError || !fichas) {
+      setLoadingServicos(false);
+      return;
+    }
+
+    const fichaIds = fichas.map((f) => f.id);
+
+    // Buscar datas de finalização do histórico de status
+    const { data: finalizacoes } = fichaIds.length > 0
+      ? await supabase
+          .from("ficha_status_historico")
+          .select("ficha_id, data_inicio")
+          .in("ficha_id", fichaIds)
+          .eq("status_novo", "Finalizado")
+      : { data: [] };
+
+    const finalizacaoMap = new Map<string, string>();
+    (finalizacoes || []).forEach((f: any) => {
+      if (!finalizacaoMap.has(f.ficha_id) || f.data_inicio > finalizacaoMap.get(f.ficha_id)!) {
+        finalizacaoMap.set(f.ficha_id, f.data_inicio);
+      }
+    });
+
+    // Buscar datas de pagamento ao prestador
+    const { data: transacoes } = fichaIds.length > 0
+      ? await supabase
+          .from("transacoes_financeiras")
+          .select("ficha_id, data_pagamento_realizada, status_pagamento_prestador")
+          .in("ficha_id", fichaIds)
+      : { data: [] };
+
+    const pagamentoMap = new Map<string, string | null>();
+    (transacoes || []).forEach((t: any) => {
+      pagamentoMap.set(t.ficha_id, t.data_pagamento_realizada);
+    });
+
+    const result: ServicoDetalhado[] = fichas.map((f) => ({
+      ficha_id: f.id,
+      nome_ficha: f.nome_ficha,
+      valor_mao_obra: f.valor_mao_obra,
+      valor_pecas: f.valor_pecas,
+      bairro: f.bairro,
+      horario_agendamento: f.horario_agendamento,
+      data_finalizacao: finalizacaoMap.get(f.id) || null,
+      data_pagamento_prestador: pagamentoMap.get(f.id) || null,
+      status: f.status,
+    }));
+
+    setServicos(result);
+    setLoadingServicos(false);
+  }, []);
+
   useEffect(() => {
     if (!cpf) return;
     fetchHistorico(cpf);
-  }, [cpf, fetchHistorico]);
+    fetchServicos(cpf);
+  }, [cpf, fetchHistorico, fetchServicos]);
 
   const createdAtLabel = useMemo(() => {
     if (!prestador?.created_at) return "-";
