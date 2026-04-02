@@ -458,7 +458,9 @@ export default function PrestadorPortal({ initialCpf, adminMode, onBack }: Prest
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-2xl">🔧 Portal do Prestador</CardTitle>
+                <CardTitle className="text-2xl">
+                  {adminMode ? "👁️ Visualização Admin" : "🔧 Portal do Prestador"}
+                </CardTitle>
                 <CardDescription className="mt-2 flex flex-wrap gap-3">
                   <span>👤 {prestador.nome}</span>
                   {prestador.categoria && <span>📋 {prestador.categoria}</span>}
@@ -466,10 +468,16 @@ export default function PrestadorPortal({ initialCpf, adminMode, onBack }: Prest
                   <span>📞 {prestador.telefone}</span>
                 </CardDescription>
               </div>
-              <Button variant="outline" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
-              </Button>
+              {adminMode && onBack ? (
+                <Button variant="outline" onClick={onBack}>
+                  ← Voltar
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={handleLogout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </Button>
+              )}
             </div>
           </CardHeader>
         </Card>
