@@ -84,6 +84,9 @@ const PrestadorDetalhes = () => {
   const [formData, setFormData] = useState<Omit<Prestador, "created_at"> | null>(null);
   const [historico, setHistorico] = useState<PrestadorHistoricoItem[]>([]);
   const [ocorrenciaText, setOcorrenciaText] = useState("");
+  const [servicos, setServicos] = useState<ServicoDetalhado[]>([]);
+  const [loadingServicos, setLoadingServicos] = useState(false);
+  const [servicosExpanded, setServicosExpanded] = useState(true);
 
   useEffect(() => {
     const loadPrestador = async () => {
