@@ -92,6 +92,47 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [servicos, setServicos] = useState<ServicoDetalhado[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const enrichServicosWithDates = async (servicosData: any[], cpfPrestador: string): Promise<ServicoDetalhado[]> => {
+    if (!servicosData || servicosData.length === 0) return [];
+    const fichaIds = servicosData.map(s => s.id);
+    
+    // Fetch finalization dates
+    const { data: historicoData } = await supabase
+      .from("ficha_status_historico")
+      .select("ficha_id, data_inicio")
+      .in("ficha_id", fichaIds)
+      .eq("status_novo", "Finalizado");
+    
+    // Fetch payment dates from transacoes_financeiras
+    const { data: transacoesData } = await supabase
+      .from("transacoes_financeiras")
+      .select("ficha_id, data_pagamento_realizada, status_pagamento_prestador")
+      .in("ficha_id", fichaIds)
+      .eq("prestador_cpf", cpfPrestador);
+    
+    const finalizacaoMap = new Map<string, string>();
+    (historicoData || []).forEach(h => {
+      if (!finalizacaoMap.has(h.ficha_id) || h.data_inicio > finalizacaoMap.get(h.ficha_id)!) {
+        finalizacaoMap.set(h.ficha_id, h.data_inicio);
+      }
+    });
+    
+    const pagamentoMap = new Map<string, string | null>();
+    (transacoesData || []).forEach((t: any) => {
+      if (t.status_pagamento_prestador === 'pago' && t.data_pagamento_realizada) {
+        pagamentoMap.set(t.ficha_id, t.data_pagamento_realizada);
+      } else if (!pagamentoMap.has(t.ficha_id)) {
+        pagamentoMap.set(t.ficha_id, null);
+      }
+    });
+    
+    return servicosData.map(s => ({
+      ...s,
+      data_finalizacao: finalizacaoMap.get(s.id) || null,
+      data_pagamento_prestador: pagamentoMap.get(s.id) || null,
+    }));
+  };
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>("todo_periodo");
 
