@@ -141,6 +141,7 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
     }
   }, [initialCpf]);
 
+  const formatCPF = (value: string) => {
     const numbers = value.replace(/\D/g, "");
     if (numbers.length <= 11) {
       return numbers
@@ -1052,3 +1053,4 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
     </div>
   );
 }
+
