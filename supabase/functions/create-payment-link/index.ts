@@ -76,6 +76,12 @@ Deno.serve(async (req) => {
     else if (forma_pagamento === 'cartao_credito') billingType = 'CREDIT_CARD';
     else if (forma_pagamento === 'boleto') billingType = 'BOLETO';
 
+    // Se parcelas > 1, garantir que cartão esteja disponível (parcelamento só funciona com cartão)
+    if (parcelas && parcelas > 1 && billingType !== 'CREDIT_CARD') {
+      console.log(`[create-payment-link] Parcelas=${parcelas}, forçando billingType UNDEFINED para incluir cartão`);
+      billingType = 'UNDEFINED';
+    }
+
     // Criar link de pagamento no Asaas
     const asaasPayload: Record<string, unknown> = {
       name: `${ficha_id} - ${nome_cliente || 'Cliente'}`,
@@ -85,9 +91,7 @@ Deno.serve(async (req) => {
       chargeType: 'DETACHED', // link avulso
       dueDateLimitDays: 30,
       externalReference: ficha_id, // Para matching no webhook Asaas
-      ...(parcelas && parcelas > 1 ? {
-        maxInstallmentCount: parcelas,
-      } : {}),
+      maxInstallmentCount: parcelas && parcelas > 1 ? parcelas : 1,
     };
 
     console.log('[create-payment-link] 📤 Payload Asaas:', JSON.stringify(asaasPayload));
