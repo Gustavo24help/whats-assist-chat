@@ -35,6 +35,18 @@ type PrestadorHistoricoItem = {
   created_at: string;
 };
 
+type ServicoDetalhado = {
+  ficha_id: string;
+  nome_ficha: string | null;
+  valor_mao_obra: number | null;
+  valor_pecas: number | null;
+  bairro: string | null;
+  horario_agendamento: string | null;
+  data_finalizacao: string | null;
+  data_pagamento_prestador: string | null;
+  status: string | null;
+};
+
 const sanitizeNumericField = (value: string | null): string | null => {
   if (!value) return null;
   const cleaned = value.replace(/\D/g, "");
