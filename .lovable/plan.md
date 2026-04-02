@@ -1,63 +1,53 @@
 
 
-## Plano: Melhorias no Sistema de Tarefas
+## Diagnóstico: Parcelas sempre 1x no Asaas
 
-### Resumo
-Adicionar categoria de tarefa (App/Sistema vs Outros), upload de imagens, e sistema de devolutiva com notificação ao solicitante quando a tarefa é finalizada.
+### O que está acontecendo
 
-### 1. Migração de Banco de Dados
+O código frontend envia corretamente `parcelas: ficha.pagamento_parcelas` para a edge function, e a edge function inclui `maxInstallmentCount` no payload do Asaas. **O problema não é no código — é na interação com a API do Asaas.**
 
-Adicionar 3 novas colunas na tabela `tasks`:
+A API de Payment Links do Asaas trata `maxInstallmentCount` como o **máximo** de parcelas que o cliente pode escolher no checkout. Porém:
 
-```sql
-ALTER TABLE tasks ADD COLUMN category text DEFAULT 'outros';        -- 'app_sistema' ou 'outros'
-ALTER TABLE tasks ADD COLUMN attachments text[] DEFAULT '{}';       -- URLs das imagens
-ALTER TABLE tasks ADD COLUMN resolution_note text;                  -- Devolutiva escrita por quem finaliza
+1. **Se `billingType` = `PIX` ou `BOLETO`**: o Asaas ignora `maxInstallmentCount` porque parcelamento só funciona em cartão de crédito
+2. **Se `billingType` = `UNDEFINED`**: o Asaas permite todas as formas, mas o cliente pode escolher PIX (1x) no checkout e nunca ver a opção de parcelas
+3. O campo "Número de Parcelas" na ficha dá a impressão de que o pagamento **será** parcelado, quando na verdade apenas **permite** parcelamento
+
+### Solução proposta
+
+1. **Edge function `create-payment-link`**: Quando `parcelas > 1`, forçar `billingType = 'CREDIT_CARD'` (pois parcelamento só funciona com cartão). Adicionar log claro do billingType final.
+
+2. **Frontend `FichaServicoTab.tsx`**: 
+   - Quando o operador define parcelas > 1, mostrar aviso visual: "Parcelamento disponível apenas em cartão de crédito"
+   - Se `pagamento_tipo` não for `cartao_credito` e parcelas > 1, sugerir automaticamente a troca para cartão de crédito ou manter `UNDEFINED` mas garantir que `maxInstallmentCount` está presente (o Asaas mostra a opção de cartão parcelado no checkout)
+
+3. **Alternativa mais flexível**: Quando parcelas > 1 e billingType não é CREDIT_CARD, manter billingType como `UNDEFINED` mas **sempre** enviar `maxInstallmentCount` (o Asaas mostrará PIX, boleto e cartão parcelado como opções no checkout — o cliente escolhe). A diferença é remover a condição `parcelas > 1` e **sempre** enviar `maxInstallmentCount` baseado no valor do campo.
+
+### Mudança recomendada (opção 3 — mais simples e flexível)
+
+**`supabase/functions/create-payment-link/index.ts`** — Sempre enviar `maxInstallmentCount` quando parcelas >= 1:
+
+```typescript
+// ANTES (condicional):
+...(parcelas && parcelas > 1 ? { maxInstallmentCount: parcelas } : {})
+
+// DEPOIS (sempre enviar):
+maxInstallmentCount: parcelas && parcelas > 1 ? parcelas : 1,
 ```
 
-Criar bucket de storage `task-attachments` (público) para os uploads de imagens.
+E quando parcelas > 1, forçar que `billingType` inclua cartão:
+```typescript
+if (parcelas > 1 && billingType !== 'CREDIT_CARD') {
+  billingType = 'UNDEFINED'; // Garante que cartão esteja disponível
+}
+```
 
-### 2. Atualizar Tipo `Task` (`src/types/tasks.ts`)
+**`src/components/FichaServicoTab.tsx`** — Adicionar mensagem informativa abaixo do campo de parcelas quando > 1:
 
-Adicionar os campos `category`, `attachments` e `resolution_note` à interface.
-
-### 3. Modificar `TaskFormDialog` (`src/components/tasks/TaskFormDialog.tsx`)
-
-- **Campo Categoria**: Select com opções "App/Sistema" e "Outros"
-  - Ao selecionar "App/Sistema", auto-selecionar Gustavo (`ba755a07...`) como responsável. Daniel (`7a782c7e...`) fica disponível para inclusão manual.
-- **Upload de imagens**: Botao de upload abaixo da descrição, usando o bucket `task-attachments` no storage. Mostrar previews das imagens anexadas.
-- **Devolutiva (ao finalizar)**: Quando o status mudar para "feito", exibir campo obrigatório "Devolutiva" para que o responsável escreva a mensagem de retorno.
-- No save, ao mudar status para "feito" com `resolution_note`, inserir uma notificação na tabela `notificacoes` direcionada ao `created_by` da tarefa.
-
-### 4. Modificar `TaskCard` (`src/components/tasks/TaskCard.tsx`)
-
-- Mostrar badge da categoria ("App/Sistema" ou outro)
-- Indicador visual se tem imagens anexadas (icone de clip/imagem)
-- Se a tarefa estiver "feito" e tiver `resolution_note`, mostrar a devolutiva no card
-
-### 5. Atualizar `useVisibleTasks` e filtros em `Tarefas.tsx`
-
-- Incluir os novos campos nas queries
-- Adicionar filtro de categoria na página de tarefas
-
-### 6. Sistema de Notificação (Devolutiva)
-
-Quando alguém (Gustavo ou Daniel) marca uma tarefa como "feito":
-1. O campo `resolution_note` é obrigatório
-2. Uma notificação é inserida em `notificacoes` com:
-   - `usuario_destino` = `created_by` da tarefa (quem solicitou)
-   - `tipo` = `'tarefa_concluida'`
-   - `titulo` = `'Tarefa concluída: [título]'`
-   - `descricao` = a devolutiva escrita (ex: "Pode testar, corrigi o bug X")
-   - `referencia_id` = ID da tarefa
-
-Isso usa o sistema de notificações já existente no app.
+```
+"O cliente poderá parcelar em até X vezes no cartão de crédito. Para PIX/boleto o pagamento será à vista."
+```
 
 ### Arquivos modificados
-- `src/types/tasks.ts` — novos campos
-- `src/components/tasks/TaskFormDialog.tsx` — categoria, upload, devolutiva
-- `src/components/tasks/TaskCard.tsx` — exibir categoria, anexos, devolutiva
-- `src/pages/Tarefas.tsx` — filtro de categoria
-- `src/hooks/useVisibleTasks.ts` — incluir novos campos
-- Migration SQL — colunas + storage bucket
+- `supabase/functions/create-payment-link/index.ts` — garantir `maxInstallmentCount` e `billingType` corretos
+- `src/components/FichaServicoTab.tsx` — aviso visual sobre parcelamento
 
