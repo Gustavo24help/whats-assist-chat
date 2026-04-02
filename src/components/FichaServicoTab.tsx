@@ -1905,6 +1905,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   onChange={(e) => updateFicha({ pagamento_parcelas: parseInt(e.target.value) || 1 })}
                   className="mt-1 h-9 text-sm focus:ring-2 focus:ring-primary/20"
                 />
+                {(ficha?.pagamento_parcelas || 1) > 1 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠️ O cliente poderá parcelar em até {ficha?.pagamento_parcelas}x no cartão de crédito. Para PIX/boleto o pagamento será à vista.
+                  </p>
+                )}
               </div>
             </div>
           </AccordionContent>
