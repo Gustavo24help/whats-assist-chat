@@ -164,6 +164,18 @@ export default function Tarefas() {
           </Select>
         </div>
 
+        <div className="min-w-[140px]">
+          <Label className="text-xs text-[#2C2C2A]/60 mb-1 block">Categoria</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas</SelectItem>
+              <SelectItem value="app_sistema">App/Sistema</SelectItem>
+              <SelectItem value="outros">Outros</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex items-end gap-2">
           <div className="flex items-center gap-2">
             <Switch checked={forgottenOnly} onCheckedChange={setForgottenOnly} />
