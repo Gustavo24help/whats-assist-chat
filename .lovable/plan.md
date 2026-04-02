@@ -1,58 +1,63 @@
 
 
-## Diagnóstico: "Link inválido" no formulário de orçamento
+## Plano: Melhorias no Sistema de Tarefas
 
-### Causa raiz identificada
+### Resumo
+Adicionar categoria de tarefa (App/Sistema vs Outros), upload de imagens, e sistema de devolutiva com notificação ao solicitante quando a tarefa é finalizada.
 
-Os IDs de fichas contêm o caractere `@` (ex: `FGM1@20251030`). O `@` é um caractere especial em URLs (usado na sintaxe `user@host`). Quando o link é enviado via WhatsApp e o prestador clica nele, o navegador embutido do WhatsApp ou o próprio WhatsApp pode:
+### 1. Migração de Banco de Dados
 
-1. Interpretar tudo antes do `@` como "userinfo" da URL, truncando ou removendo o parâmetro `?ficha=`
-2. Quebrar a URL no `@`, fazendo com que o parâmetro nunca chegue ao React Router
+Adicionar 3 novas colunas na tabela `tasks`:
 
-Resultado: `fichaId` chega como `null` → exibe "Link inválido".
-
-### Solução
-
-Duas correções complementares:
-
-**1. Codificar o ficha ID nos links gerados**
-
-Em 3 arquivos onde o link é montado, aplicar `encodeURIComponent()` no ID da ficha:
-
-- `src/components/FichaCard.tsx` (linha 131)
-- `src/components/OrcamentosTab.tsx` (linha 125)  
-- `src/pages/Settings.tsx` (linha 181)
-
-Antes: 
-```
-`https://chat.24help.com.br/orcamento?ficha=${ficha.id}`
-```
-Depois:
-```
-`https://chat.24help.com.br/orcamento?ficha=${encodeURIComponent(ficha.id)}`
+```sql
+ALTER TABLE tasks ADD COLUMN category text DEFAULT 'outros';        -- 'app_sistema' ou 'outros'
+ALTER TABLE tasks ADD COLUMN attachments text[] DEFAULT '{}';       -- URLs das imagens
+ALTER TABLE tasks ADD COLUMN resolution_note text;                  -- Devolutiva escrita por quem finaliza
 ```
 
-**2. Decodificar no componente público**
+Criar bucket de storage `task-attachments` (público) para os uploads de imagens.
 
-Em `src/pages/OrcamentoPublico.tsx`, garantir que o `fichaId` lido da URL seja decodificado:
+### 2. Atualizar Tipo `Task` (`src/types/tasks.ts`)
 
-```ts
-const fromRouter = searchParams.get("ficha");
-// searchParams.get() já decodifica automaticamente, mas adicionar fallback:
-```
+Adicionar os campos `category`, `attachments` e `resolution_note` à interface.
 
-O `URLSearchParams.get()` já decodifica automaticamente, então a leitura funciona sem mudança. A correção principal está na **geração** do link.
+### 3. Modificar `TaskFormDialog` (`src/components/tasks/TaskFormDialog.tsx`)
 
-**3. Adicionar `public-orcamento-data` ao config.toml**
+- **Campo Categoria**: Select com opções "App/Sistema" e "Outros"
+  - Ao selecionar "App/Sistema", auto-selecionar Gustavo (`ba755a07...`) como responsável. Daniel (`7a782c7e...`) fica disponível para inclusão manual.
+- **Upload de imagens**: Botao de upload abaixo da descrição, usando o bucket `task-attachments` no storage. Mostrar previews das imagens anexadas.
+- **Devolutiva (ao finalizar)**: Quando o status mudar para "feito", exibir campo obrigatório "Devolutiva" para que o responsável escreva a mensagem de retorno.
+- No save, ao mudar status para "feito" com `resolution_note`, inserir uma notificação na tabela `notificacoes` direcionada ao `created_by` da tarefa.
 
-A função não está listada com `verify_jwt = false`. Embora funcione agora, é prudente adicioná-la para evitar problemas futuros com atualizações de deploy.
+### 4. Modificar `TaskCard` (`src/components/tasks/TaskCard.tsx`)
+
+- Mostrar badge da categoria ("App/Sistema" ou outro)
+- Indicador visual se tem imagens anexadas (icone de clip/imagem)
+- Se a tarefa estiver "feito" e tiver `resolution_note`, mostrar a devolutiva no card
+
+### 5. Atualizar `useVisibleTasks` e filtros em `Tarefas.tsx`
+
+- Incluir os novos campos nas queries
+- Adicionar filtro de categoria na página de tarefas
+
+### 6. Sistema de Notificação (Devolutiva)
+
+Quando alguém (Gustavo ou Daniel) marca uma tarefa como "feito":
+1. O campo `resolution_note` é obrigatório
+2. Uma notificação é inserida em `notificacoes` com:
+   - `usuario_destino` = `created_by` da tarefa (quem solicitou)
+   - `tipo` = `'tarefa_concluida'`
+   - `titulo` = `'Tarefa concluída: [título]'`
+   - `descricao` = a devolutiva escrita (ex: "Pode testar, corrigi o bug X")
+   - `referencia_id` = ID da tarefa
+
+Isso usa o sistema de notificações já existente no app.
 
 ### Arquivos modificados
-- `src/components/FichaCard.tsx` — encodeURIComponent no link
-- `src/components/OrcamentosTab.tsx` — encodeURIComponent no link
-- `src/pages/Settings.tsx` — encodeURIComponent no link
-- `supabase/config.toml` — adicionar `[functions.public-orcamento-data] verify_jwt = false`
-
-### Impacto em dados existentes
-Nenhum. A mudança afeta apenas links **gerados a partir de agora**. Links antigos sem encoding continuarão funcionando para fichas sem `@` no ID (como `FS1-260319`).
+- `src/types/tasks.ts` — novos campos
+- `src/components/tasks/TaskFormDialog.tsx` — categoria, upload, devolutiva
+- `src/components/tasks/TaskCard.tsx` — exibir categoria, anexos, devolutiva
+- `src/pages/Tarefas.tsx` — filtro de categoria
+- `src/hooks/useVisibleTasks.ts` — incluir novos campos
+- Migration SQL — colunas + storage bucket
 
