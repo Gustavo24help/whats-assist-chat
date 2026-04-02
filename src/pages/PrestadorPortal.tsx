@@ -79,7 +79,8 @@ interface PrestadorPortalProps {
   onBack?: () => void;
 }
 
-export default function PrestadorPortal({ initialCpf, adminMode, onBack }: PrestadorPortalProps = {}) {
+export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
+  const { initialCpf, adminMode, onBack } = props;
   const [cpf, setCpf] = useState(initialCpf || "");
   const [prestador, setPrestador] = useState<Prestador | null>(null);
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
