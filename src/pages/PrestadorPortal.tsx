@@ -271,7 +271,7 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
         .order("horario_agendamento", { ascending: true });
 
       if (servicosError) throw servicosError;
-      setServicos(servicosData || []);
+      setServicos(await enrichServicosWithDates(servicosData || [], cpfLimpo));
 
       toast.success("Bem-vindo!", {
         description: `Olá, ${prestadorData.nome}`,
