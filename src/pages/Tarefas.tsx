@@ -31,6 +31,7 @@ export default function Tarefas() {
   const [periodFilter, setPeriodFilter] = useState(() => searchParams.get('periodo') || 'todas')
   const [forgottenOnly, setForgottenOnly] = useState(false)
   const [assigneeFilter, setAssigneeFilter] = useState('todos')
+  const [categoryFilter, setCategoryFilter] = useState('todos')
 
   // Dialog
   const [formOpen, setFormOpen] = useState(false)
