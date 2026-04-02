@@ -73,14 +73,23 @@ interface DadosMensal {
   quantidade: number;
 }
 
-export default function PrestadorPortal() {
-  const [cpf, setCpf] = useState("");
+interface PrestadorPortalProps {
+  initialCpf?: string;
+  adminMode?: boolean;
+  onBack?: () => void;
+}
+
+export default function PrestadorPortal({ initialCpf, adminMode, onBack }: PrestadorPortalProps = {}) {
+  const [cpf, setCpf] = useState(initialCpf || "");
   const [prestador, setPrestador] = useState<Prestador | null>(null);
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>("todo_periodo");
+
+  // Auto-login when initialCpf is provided (admin mode)
+  const [autoLogged, setAutoLogged] = useState(false);
 
   const formatCPF = (value: string) => {
     const numbers = value.replace(/\D/g, "");
