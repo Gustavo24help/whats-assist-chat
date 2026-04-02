@@ -57,9 +57,10 @@ export default function Tarefas() {
     if (isManager && assigneeFilter !== 'todos') {
       result = result.filter(t => t.assignee_ids.includes(assigneeFilter))
     }
+    if (categoryFilter !== 'todos') result = result.filter(t => t.category === categoryFilter)
 
     return result
-  }, [tasks, statusFilter, priorityFilter, projectFilter, periodFilter, forgottenOnly, assigneeFilter, isManager])
+  }, [tasks, statusFilter, priorityFilter, projectFilter, periodFilter, forgottenOnly, assigneeFilter, isManager, categoryFilter])
 
   const loading = authLoading || tasksLoading
 
