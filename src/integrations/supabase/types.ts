@@ -1831,6 +1831,8 @@ export type Database = {
       }
       tasks: {
         Row: {
+          attachments: string[]
+          category: string
           completed_at: string | null
           created_at: string
           created_by: string
@@ -1841,12 +1843,15 @@ export type Database = {
           priority: string
           progress: number
           project: string | null
+          resolution_note: string | null
           start_date: string | null
           status: string
           title: string
           updated_at: string
         }
         Insert: {
+          attachments?: string[]
+          category?: string
           completed_at?: string | null
           created_at?: string
           created_by: string
@@ -1857,12 +1862,15 @@ export type Database = {
           priority?: string
           progress?: number
           project?: string | null
+          resolution_note?: string | null
           start_date?: string | null
           status?: string
           title: string
           updated_at?: string
         }
         Update: {
+          attachments?: string[]
+          category?: string
           completed_at?: string | null
           created_at?: string
           created_by?: string
@@ -1873,6 +1881,7 @@ export type Database = {
           priority?: string
           progress?: number
           project?: string | null
+          resolution_note?: string | null
           start_date?: string | null
           status?: string
           title?: string
