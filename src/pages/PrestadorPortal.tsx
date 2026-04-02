@@ -179,7 +179,7 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
             .eq("prestador_id", initialCpf)
             .in("status", ["Agendado", "Finalizado", "Em andamento", "Visita Técnica"])
             .order("horario_agendamento", { ascending: true });
-          setServicos(servicosData || []);
+          setServicos(await enrichServicosWithDates(servicosData || [], initialCpf));
         } finally {
           setLoading(false);
         }
