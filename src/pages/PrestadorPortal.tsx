@@ -55,11 +55,17 @@ interface Servico {
   horario_agendamento: string | null;
   horario_visita_tecnica: string | null;
   endereco: string | null;
+  bairro: string | null;
   valor_total: number;
   valor_mao_obra: number | null;
   valor_pecas: number | null;
   tempo_servico: string | null;
   updated_at: string;
+}
+
+interface ServicoDetalhado extends Servico {
+  data_finalizacao: string | null;
+  data_pagamento_prestador: string | null;
 }
 
 type PeriodoFiltro = "mes_atual" | "ultimos_3_meses" | "este_ano" | "todo_periodo";
@@ -84,8 +90,49 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
   const [cpf, setCpf] = useState(initialCpf || "");
   const [prestador, setPrestador] = useState<Prestador | null>(null);
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
-  const [servicos, setServicos] = useState<Servico[]>([]);
+  const [servicos, setServicos] = useState<ServicoDetalhado[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const enrichServicosWithDates = async (servicosData: any[], cpfPrestador: string): Promise<ServicoDetalhado[]> => {
+    if (!servicosData || servicosData.length === 0) return [];
+    const fichaIds = servicosData.map(s => s.id);
+    
+    // Fetch finalization dates
+    const { data: historicoData } = await supabase
+      .from("ficha_status_historico")
+      .select("ficha_id, data_inicio")
+      .in("ficha_id", fichaIds)
+      .eq("status_novo", "Finalizado");
+    
+    // Fetch payment dates from transacoes_financeiras
+    const { data: transacoesData } = await supabase
+      .from("transacoes_financeiras")
+      .select("ficha_id, data_pagamento_realizada, status_pagamento_prestador")
+      .in("ficha_id", fichaIds)
+      .eq("prestador_cpf", cpfPrestador);
+    
+    const finalizacaoMap = new Map<string, string>();
+    (historicoData || []).forEach(h => {
+      if (!finalizacaoMap.has(h.ficha_id) || h.data_inicio > finalizacaoMap.get(h.ficha_id)!) {
+        finalizacaoMap.set(h.ficha_id, h.data_inicio);
+      }
+    });
+    
+    const pagamentoMap = new Map<string, string | null>();
+    (transacoesData || []).forEach((t: any) => {
+      if (t.status_pagamento_prestador === 'pago' && t.data_pagamento_realizada) {
+        pagamentoMap.set(t.ficha_id, t.data_pagamento_realizada);
+      } else if (!pagamentoMap.has(t.ficha_id)) {
+        pagamentoMap.set(t.ficha_id, null);
+      }
+    });
+    
+    return servicosData.map(s => ({
+      ...s,
+      data_finalizacao: finalizacaoMap.get(s.id) || null,
+      data_pagamento_prestador: pagamentoMap.get(s.id) || null,
+    }));
+  };
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>("todo_periodo");
 
@@ -132,7 +179,7 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
             .eq("prestador_id", initialCpf)
             .in("status", ["Agendado", "Finalizado", "Em andamento", "Visita Técnica"])
             .order("horario_agendamento", { ascending: true });
-          setServicos(servicosData || []);
+          setServicos(await enrichServicosWithDates(servicosData || [], initialCpf));
         } finally {
           setLoading(false);
         }
@@ -224,7 +271,7 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
         .order("horario_agendamento", { ascending: true });
 
       if (servicosError) throw servicosError;
-      setServicos(servicosData || []);
+      setServicos(await enrichServicosWithDates(servicosData || [], cpfLimpo));
 
       toast.success("Bem-vindo!", {
         description: `Olá, ${prestadorData.nome}`,
@@ -671,6 +718,65 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
                         </TableRow>
                       </TableBody>
                     </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Detalhamento de Serviços */}
+              {servicosFiltrados.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>🔍 Detalhamento de Serviços</CardTitle>
+                    <CardDescription>Informações detalhadas de cada serviço no período</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Ficha</TableHead>
+                            <TableHead className="text-right">Mão de Obra</TableHead>
+                            <TableHead className="text-right">Material</TableHead>
+                            <TableHead>Bairro</TableHead>
+                            <TableHead>Agendamento</TableHead>
+                            <TableHead>Finalização</TableHead>
+                            <TableHead>Pgto Prestador</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {servicosFiltrados.map((servico) => (
+                            <TableRow key={servico.id}>
+                              <TableCell className="font-medium">
+                                <div>
+                                  <span className="font-mono text-xs">{servico.id}</span>
+                                  {servico.nome_ficha && (
+                                    <p className="text-xs text-muted-foreground truncate max-w-[200px]">{servico.nome_ficha}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">{formatCurrency(servico.valor_mao_obra || 0)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(servico.valor_pecas || 0)}</TableCell>
+                              <TableCell className="text-sm">{servico.bairro || "—"}</TableCell>
+                              <TableCell className="text-sm">
+                                {servico.horario_agendamento 
+                                  ? format(new Date(servico.horario_agendamento), "dd/MM/yyyy", { locale: ptBR })
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {servico.data_finalizacao
+                                  ? format(new Date(servico.data_finalizacao), "dd/MM/yyyy", { locale: ptBR })
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {servico.data_pagamento_prestador
+                                  ? <span className="text-green-600 dark:text-green-400">{format(new Date(servico.data_pagamento_prestador), "dd/MM/yyyy", { locale: ptBR })}</span>
+                                  : <span className="text-muted-foreground">Pendente</span>}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
               )}
