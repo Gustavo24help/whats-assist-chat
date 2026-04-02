@@ -79,7 +79,7 @@ const sidebarEntries: SidebarEntry[] = [
     icon: Users,
     items: [
       { label: "Prestadores", icon: Users, route: "/prestadores" },
-      { label: "App Prestadores", icon: Smartphone, externalUrl: "https://chat.24help.com.br/prestador" },
+      { label: "App Prestadores", icon: Smartphone, route: "/admin-prestador" },
       { label: "Gerenc. Prestadores", icon: Wrench, route: "/gerenciamento-prestadores" },
     ],
   },
