@@ -722,6 +722,65 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
                 </Card>
               )}
 
+              {/* Detalhamento de Serviços */}
+              {servicosFiltrados.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>🔍 Detalhamento de Serviços</CardTitle>
+                    <CardDescription>Informações detalhadas de cada serviço no período</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Ficha</TableHead>
+                            <TableHead className="text-right">Mão de Obra</TableHead>
+                            <TableHead className="text-right">Material</TableHead>
+                            <TableHead>Bairro</TableHead>
+                            <TableHead>Agendamento</TableHead>
+                            <TableHead>Finalização</TableHead>
+                            <TableHead>Pgto Prestador</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {servicosFiltrados.map((servico) => (
+                            <TableRow key={servico.id}>
+                              <TableCell className="font-medium">
+                                <div>
+                                  <span className="font-mono text-xs">{servico.id}</span>
+                                  {servico.nome_ficha && (
+                                    <p className="text-xs text-muted-foreground truncate max-w-[200px]">{servico.nome_ficha}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">{formatCurrency(servico.valor_mao_obra || 0)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(servico.valor_pecas || 0)}</TableCell>
+                              <TableCell className="text-sm">{servico.bairro || "—"}</TableCell>
+                              <TableCell className="text-sm">
+                                {servico.horario_agendamento 
+                                  ? format(new Date(servico.horario_agendamento), "dd/MM/yyyy", { locale: ptBR })
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {servico.data_finalizacao
+                                  ? format(new Date(servico.data_finalizacao), "dd/MM/yyyy", { locale: ptBR })
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {servico.data_pagamento_prestador
+                                  ? <span className="text-green-600 dark:text-green-400">{format(new Date(servico.data_pagamento_prestador), "dd/MM/yyyy", { locale: ptBR })}</span>
+                                  : <span className="text-muted-foreground">Pendente</span>}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Estado vazio */}
               {dadosPorMes.length === 0 && (
                 <Card>
