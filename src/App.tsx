@@ -37,6 +37,7 @@ import PlanilhaControlePagamentos from "./pages/PlanilhaControlePagamentos";
 import Calendario from "./pages/Calendario";
 import ChatPrestadores from "./pages/ChatPrestadores";
 import Tarefas from "./pages/Tarefas";
+import AdminPrestadorPortal from "./pages/AdminPrestadorPortal";
 import VisibilitySettings from "./pages/VisibilitySettings";
 
 const queryClient = new QueryClient();
@@ -259,6 +260,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <VisibilitySettings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin-prestador"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <AdminPrestadorPortal />
                   </ProtectedRoute>
                 }
               />

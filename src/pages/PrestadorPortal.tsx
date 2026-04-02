@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -73,8 +73,15 @@ interface DadosMensal {
   quantidade: number;
 }
 
-export default function PrestadorPortal() {
-  const [cpf, setCpf] = useState("");
+interface PrestadorPortalProps {
+  initialCpf?: string;
+  adminMode?: boolean;
+  onBack?: () => void;
+}
+
+export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
+  const { initialCpf, adminMode, onBack } = props;
+  const [cpf, setCpf] = useState(initialCpf || "");
   const [prestador, setPrestador] = useState<Prestador | null>(null);
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [servicos, setServicos] = useState<Servico[]>([]);
@@ -82,7 +89,58 @@ export default function PrestadorPortal() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>("todo_periodo");
 
-  const formatCPF = (value: string) => {
+  // Auto-login when initialCpf is provided (admin mode)
+  const [autoLogged, setAutoLogged] = useState(false);
+
+  // Auto-login for admin mode
+  React.useEffect(() => {
+    if (initialCpf && !autoLogged) {
+      setAutoLogged(true);
+      setCpf(initialCpf);
+      // Trigger login automatically
+      const doAutoLogin = async () => {
+        setLoading(true);
+        try {
+          const { data: prestadorData } = await supabase
+            .from("prestadores")
+            .select("*")
+            .eq("cpf", initialCpf)
+            .maybeSingle();
+          if (!prestadorData) { setLoading(false); return; }
+          setPrestador(prestadorData);
+
+          const { data: orcamentosData } = await supabase
+            .from("orcamentos")
+            .select("*")
+            .eq("prestador_cpf", initialCpf)
+            .order("data_criacao", { ascending: false });
+          const orcamentosComFicha = await Promise.all(
+            (orcamentosData || []).map(async (orc) => {
+              const { data: fichaData } = await supabase
+                .from("fichas_de_servico")
+                .select("id, descricao, prestador_id, status, horario_agendamento, endereco, nome_ficha, created_at")
+                .eq("id", orc.ficha_nome)
+                .maybeSingle();
+              return { ...orc, ficha: fichaData || undefined };
+            })
+          );
+          setOrcamentos(orcamentosComFicha);
+
+          const { data: servicosData } = await supabase
+            .from("fichas_de_servico")
+            .select("*")
+            .eq("prestador_id", initialCpf)
+            .in("status", ["Agendado", "Finalizado", "Em andamento", "Visita Técnica"])
+            .order("horario_agendamento", { ascending: true });
+          setServicos(servicosData || []);
+        } finally {
+          setLoading(false);
+        }
+      };
+      doAutoLogin();
+    }
+  }, [initialCpf]);
+
     const numbers = value.replace(/\D/g, "");
     if (numbers.length <= 11) {
       return numbers
@@ -401,7 +459,9 @@ export default function PrestadorPortal() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-2xl">🔧 Portal do Prestador</CardTitle>
+                <CardTitle className="text-2xl">
+                  {adminMode ? "👁️ Visualização Admin" : "🔧 Portal do Prestador"}
+                </CardTitle>
                 <CardDescription className="mt-2 flex flex-wrap gap-3">
                   <span>👤 {prestador.nome}</span>
                   {prestador.categoria && <span>📋 {prestador.categoria}</span>}
@@ -409,10 +469,16 @@ export default function PrestadorPortal() {
                   <span>📞 {prestador.telefone}</span>
                 </CardDescription>
               </div>
-              <Button variant="outline" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
-              </Button>
+              {adminMode && onBack ? (
+                <Button variant="outline" onClick={onBack}>
+                  ← Voltar
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={handleLogout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </Button>
+              )}
             </div>
           </CardHeader>
         </Card>
