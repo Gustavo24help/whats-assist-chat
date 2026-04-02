@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { VisualModeProvider } from "@/contexts/VisualModeContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { AvisoPopupOverlay } from "@/components/AvisoPopupOverlay";
+import { TarefaPopupOverlay } from "@/components/TarefaPopupOverlay";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
