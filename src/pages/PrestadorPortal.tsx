@@ -91,7 +91,55 @@ export default function PrestadorPortal({ initialCpf, adminMode, onBack }: Prest
   // Auto-login when initialCpf is provided (admin mode)
   const [autoLogged, setAutoLogged] = useState(false);
 
-  const formatCPF = (value: string) => {
+  // Auto-login for admin mode
+  React.useEffect(() => {
+    if (initialCpf && !autoLogged) {
+      setAutoLogged(true);
+      setCpf(initialCpf);
+      // Trigger login automatically
+      const doAutoLogin = async () => {
+        setLoading(true);
+        try {
+          const { data: prestadorData } = await supabase
+            .from("prestadores")
+            .select("*")
+            .eq("cpf", initialCpf)
+            .maybeSingle();
+          if (!prestadorData) { setLoading(false); return; }
+          setPrestador(prestadorData);
+
+          const { data: orcamentosData } = await supabase
+            .from("orcamentos")
+            .select("*")
+            .eq("prestador_cpf", initialCpf)
+            .order("data_criacao", { ascending: false });
+          const orcamentosComFicha = await Promise.all(
+            (orcamentosData || []).map(async (orc) => {
+              const { data: fichaData } = await supabase
+                .from("fichas_de_servico")
+                .select("id, descricao, prestador_id, status, horario_agendamento, endereco, nome_ficha, created_at")
+                .eq("id", orc.ficha_nome)
+                .maybeSingle();
+              return { ...orc, ficha: fichaData || undefined };
+            })
+          );
+          setOrcamentos(orcamentosComFicha);
+
+          const { data: servicosData } = await supabase
+            .from("fichas_de_servico")
+            .select("*")
+            .eq("prestador_id", initialCpf)
+            .in("status", ["Agendado", "Finalizado", "Em andamento", "Visita Técnica"])
+            .order("horario_agendamento", { ascending: true });
+          setServicos(servicosData || []);
+        } finally {
+          setLoading(false);
+        }
+      };
+      doAutoLogin();
+    }
+  }, [initialCpf]);
+
     const numbers = value.replace(/\D/g, "");
     if (numbers.length <= 11) {
       return numbers
