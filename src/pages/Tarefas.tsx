@@ -14,7 +14,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Plus, Loader2, Settings2 } from 'lucide-react'
 import { isOverdue, isForgotten, isDueToday, isDueInNextDays } from '@/lib/taskUtils'
-import type { Task, Status, Priority } from '@/types/tasks'
+import type { Task, Status, Priority, TaskCategory } from '@/types/tasks'
 import { PageLayout } from '@/components/PageLayout'
 
 export default function Tarefas() {
@@ -31,6 +31,7 @@ export default function Tarefas() {
   const [periodFilter, setPeriodFilter] = useState(() => searchParams.get('periodo') || 'todas')
   const [forgottenOnly, setForgottenOnly] = useState(false)
   const [assigneeFilter, setAssigneeFilter] = useState('todos')
+  const [categoryFilter, setCategoryFilter] = useState('todos')
 
   // Dialog
   const [formOpen, setFormOpen] = useState(false)
@@ -56,9 +57,10 @@ export default function Tarefas() {
     if (isManager && assigneeFilter !== 'todos') {
       result = result.filter(t => t.assignee_ids.includes(assigneeFilter))
     }
+    if (categoryFilter !== 'todos') result = result.filter(t => t.category === categoryFilter)
 
     return result
-  }, [tasks, statusFilter, priorityFilter, projectFilter, periodFilter, forgottenOnly, assigneeFilter, isManager])
+  }, [tasks, statusFilter, priorityFilter, projectFilter, periodFilter, forgottenOnly, assigneeFilter, isManager, categoryFilter])
 
   const loading = authLoading || tasksLoading
 
@@ -158,6 +160,18 @@ export default function Tarefas() {
               <SelectItem value="vencidas">Vencidas</SelectItem>
               <SelectItem value="hoje">Hoje</SelectItem>
               <SelectItem value="7dias">Próximos 7 dias</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="min-w-[140px]">
+          <Label className="text-xs text-[#2C2C2A]/60 mb-1 block">Categoria</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas</SelectItem>
+              <SelectItem value="app_sistema">App/Sistema</SelectItem>
+              <SelectItem value="outros">Outros</SelectItem>
             </SelectContent>
           </Select>
         </div>

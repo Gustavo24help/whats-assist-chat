@@ -1,11 +1,11 @@
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import type { Task } from '@/types/tasks'
 import { isOverdue, isForgotten, progressColor } from '@/lib/taskUtils'
 import { cn } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { Monitor, Paperclip, CheckCircle2 } from 'lucide-react'
 
 interface TaskCardProps {
   task: Task
@@ -54,13 +54,18 @@ export function TaskCard({ task, onClick, canEdit }: TaskCardProps) {
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <h3 className="font-semibold text-[#2C2C2A] text-sm leading-tight flex-1">{task.title}</h3>
-        <div className="flex gap-1 shrink-0">
+        <div className="flex gap-1 shrink-0 flex-wrap justify-end">
+          {task.category === 'app_sistema' && (
+            <Badge className="text-[10px] px-1.5 py-0.5 bg-purple-600 text-white">
+              <Monitor className="h-3 w-3 mr-0.5" /> App
+            </Badge>
+          )}
           <Badge className={cn('text-[10px] px-1.5 py-0.5', pCfg.bg, pCfg.text)}>{pCfg.label}</Badge>
           <Badge className={cn('text-[10px] px-1.5 py-0.5', sCfg.bg, sCfg.text)}>{sCfg.label}</Badge>
         </div>
       </div>
 
-      {/* Assignees */}
+      {/* Assignees + attachment indicator */}
       <div className="flex items-center gap-1 mb-2">
         {task.assignee_names.map((name, i) => (
           <div
@@ -71,6 +76,12 @@ export function TaskCard({ task, onClick, canEdit }: TaskCardProps) {
             {getInitials(name)}
           </div>
         ))}
+        {task.attachments && task.attachments.length > 0 && (
+          <div className="flex items-center gap-0.5 ml-auto text-gray-400" title={`${task.attachments.length} anexo(s)`}>
+            <Paperclip className="h-3.5 w-3.5" />
+            <span className="text-[10px]">{task.attachments.length}</span>
+          </div>
+        )}
       </div>
 
       {/* Progress */}
@@ -104,8 +115,16 @@ export function TaskCard({ task, onClick, canEdit }: TaskCardProps) {
         )}
       </div>
 
+      {/* Resolution note (devolutiva) */}
+      {task.status === 'feito' && task.resolution_note && (
+        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-[#004A30] flex items-start gap-1">
+          <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span className="line-clamp-2">{task.resolution_note}</span>
+        </div>
+      )}
+
       {/* Last comment */}
-      {task.last_comment && (
+      {task.last_comment && !task.resolution_note && (
         <p className="text-xs italic text-gray-400 mt-2 line-clamp-1">
           "{task.last_comment}"
         </p>

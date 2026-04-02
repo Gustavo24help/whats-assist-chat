@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -14,13 +14,15 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { CalendarIcon } from 'lucide-react'
+import { CalendarIcon, ImagePlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
-import type { Task, TeamMember, Status, Priority } from '@/types/tasks'
+import type { Task, TeamMember, Status, Priority, TaskCategory } from '@/types/tasks'
+
+const GUSTAVO_ID = 'ba755a07-67f2-49b5-a411-2bfa9826cad3'
 
 interface Props {
   open: boolean
@@ -43,7 +45,14 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
   const [status, setStatus] = useState<Status>('pendente')
   const [progress, setProgress] = useState(0)
   const [lastComment, setLastComment] = useState('')
+  const [category, setCategory] = useState<TaskCategory>('outros')
+  const [attachments, setAttachments] = useState<string[]>([])
+  const [resolutionNote, setResolutionNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const previousStatus = task?.status
 
   useEffect(() => {
     if (open) {
@@ -58,6 +67,9 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
         setStatus(task.status)
         setProgress(task.progress)
         setLastComment(task.last_comment || '')
+        setCategory(task.category || 'outros')
+        setAttachments(task.attachments || [])
+        setResolutionNote(task.resolution_note || '')
       } else {
         setTitle('')
         setDescription('')
@@ -69,9 +81,20 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
         setStatus('pendente')
         setProgress(0)
         setLastComment('')
+        setCategory('outros')
+        setAttachments([])
+        setResolutionNote('')
       }
     }
   }, [open, task, currentMember.id, isManager])
+
+  const handleCategoryChange = (val: TaskCategory) => {
+    setCategory(val)
+    if (val === 'app_sistema') {
+      // Auto-select Gustavo if not already selected
+      setAssigneeIds(prev => prev.includes(GUSTAVO_ID) ? prev : [...prev, GUSTAVO_ID])
+    }
+  }
 
   const toggleAssignee = (id: string) => {
     if (!isManager && id === currentMember.id) return
@@ -80,14 +103,54 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
     )
   }
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files?.length) return
+
+    setUploading(true)
+    try {
+      const newUrls: string[] = []
+      for (const file of Array.from(files)) {
+        const ext = file.name.split('.').pop()
+        const path = `${crypto.randomUUID()}.${ext}`
+        const { error } = await supabase.storage
+          .from('task-attachments')
+          .upload(path, file)
+        if (error) throw error
+
+        const { data: urlData } = supabase.storage
+          .from('task-attachments')
+          .getPublicUrl(path)
+        newUrls.push(urlData.publicUrl)
+      }
+      setAttachments(prev => [...prev, ...newUrls])
+    } catch (err: any) {
+      toast.error('Erro no upload: ' + (err.message || err))
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const removeAttachment = (url: string) => {
+    setAttachments(prev => prev.filter(a => a !== url))
+  }
+
   const handleSave = async () => {
     if (!title.trim()) { toast.error('Título é obrigatório'); return }
     if (!dueDate) { toast.error('Data de entrega é obrigatória'); return }
     if (!assigneeIds.length) { toast.error('Selecione ao menos um responsável'); return }
 
+    // Devolutiva obrigatória ao finalizar
+    const isFinishing = status === 'feito' && previousStatus !== 'feito'
+    if (isFinishing && !resolutionNote.trim()) {
+      toast.error('A devolutiva é obrigatória ao finalizar a tarefa')
+      return
+    }
+
     setSaving(true)
     try {
-      const payload = {
+      const payload: any = {
         title: title.trim(),
         description: description.trim() || null,
         project: project.trim() || null,
@@ -95,11 +158,18 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
         due_date: format(dueDate, 'yyyy-MM-dd'),
         priority,
         status,
-        progress,
+        progress: status === 'feito' ? 100 : progress,
         last_comment: lastComment.trim() || null,
+        category,
+        attachments,
+      }
+
+      if (resolutionNote.trim()) {
+        payload.resolution_note = resolutionNote.trim()
       }
 
       let taskId = task?.id
+      let createdBy = task?.created_by
 
       if (task) {
         const { error } = await (supabase as any)
@@ -108,6 +178,7 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
           .eq('id', task.id)
         if (error) throw error
       } else {
+        createdBy = currentMember.id
         const { data, error } = await (supabase as any)
           .from('tasks')
           .insert({ ...payload, created_by: currentMember.id })
@@ -129,6 +200,19 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
         .insert(assigneeRows)
       if (aErr) throw aErr
 
+      // Send notification on completion
+      if (isFinishing && createdBy && resolutionNote.trim()) {
+        await (supabase as any)
+          .from('notificacoes')
+          .insert({
+            usuario_destino: createdBy,
+            tipo: 'tarefa_concluida',
+            referencia_id: taskId,
+            titulo: `Tarefa concluída: ${title.trim()}`,
+            descricao: resolutionNote.trim(),
+          })
+      }
+
       toast.success(task ? 'Tarefa atualizada!' : 'Tarefa criada!')
       onOpenChange(false)
       onSaved()
@@ -138,6 +222,8 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
       setSaving(false)
     }
   }
+
+  const showResolutionField = status === 'feito'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -149,6 +235,18 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Category */}
+          <div>
+            <Label className="text-[#2C2C2A]">Categoria *</Label>
+            <Select value={category} onValueChange={v => handleCategoryChange(v as TaskCategory)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="app_sistema">App/Sistema</SelectItem>
+                <SelectItem value="outros">Outros</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Title */}
           <div>
             <Label className="text-[#2C2C2A]">Título *</Label>
@@ -159,6 +257,46 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
           <div>
             <Label className="text-[#2C2C2A]">Descrição</Label>
             <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes..." rows={3} />
+          </div>
+
+          {/* Attachments */}
+          <div>
+            <Label className="text-[#2C2C2A]">Imagens / Anexos</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-1"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              <ImagePlus className="h-4 w-4 mr-1" />
+              {uploading ? 'Enviando...' : 'Adicionar imagem'}
+            </Button>
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {attachments.map((url, i) => (
+                  <div key={i} className="relative group w-20 h-20">
+                    <img src={url} alt={`Anexo ${i + 1}`} className="w-20 h-20 object-cover rounded border" />
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(url)}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Project */}
@@ -255,13 +393,14 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
 
           {/* Progress */}
           <div>
-            <Label className="text-[#2C2C2A]">% Concluído: {progress}%</Label>
+            <Label className="text-[#2C2C2A]">% Concluído: {status === 'feito' ? 100 : progress}%</Label>
             <Slider
-              value={[progress]}
+              value={[status === 'feito' ? 100 : progress]}
               onValueChange={v => setProgress(v[0])}
               max={100}
               step={5}
               className="mt-2"
+              disabled={status === 'feito'}
             />
           </div>
 
@@ -270,6 +409,23 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
             <Label className="text-[#2C2C2A]">Último comentário</Label>
             <Textarea value={lastComment} onChange={e => setLastComment(e.target.value)} placeholder="Observação..." rows={2} />
           </div>
+
+          {/* Resolution note (devolutiva) */}
+          {showResolutionField && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <Label className="text-[#004A30] font-semibold">Devolutiva *</Label>
+              <p className="text-xs text-[#2C2C2A]/60 mb-1">
+                Escreva uma mensagem para quem solicitou a tarefa (ex: "Pode testar", "Corrigido no sistema")
+              </p>
+              <Textarea
+                value={resolutionNote}
+                onChange={e => setResolutionNote(e.target.value)}
+                placeholder="Descreva o que foi feito..."
+                rows={3}
+                className="border-green-300"
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter className="mt-4">

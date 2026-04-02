@@ -1,6 +1,7 @@
 export type Status = 'pendente' | 'em_andamento' | 'bloqueado' | 'feito'
 export type Priority = 'alta' | 'media' | 'baixa'
 export type Role = 'manager' | 'member'
+export type TaskCategory = 'app_sistema' | 'outros'
 
 export interface Task {
   id: string
@@ -19,6 +20,9 @@ export interface Task {
   last_comment?: string
   assignee_ids: string[]
   assignee_names: string[]
+  category: TaskCategory
+  attachments: string[]
+  resolution_note?: string
 }
 
 export interface TeamMember {
