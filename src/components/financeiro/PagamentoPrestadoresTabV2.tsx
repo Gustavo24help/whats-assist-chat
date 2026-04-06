@@ -138,7 +138,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     toast({ title: `✅ ${selected.length} pagamento${selected.length > 1 ? "s" : ""} confirmado${selected.length > 1 ? "s" : ""}!` });
   };
 
-  const buildList = useCallback(async (pagoFilter: boolean, page?: number) => {
+  const buildList = useCallback(async (pagoFilter: boolean) => {
     // Query all Finalizado fichas with valor > 0 and a prestador assigned
     let query = supabase
       .from("fichas_de_servico")
@@ -147,10 +147,6 @@ export const PagamentoPrestadoresTabV2 = () => {
       .gt("valor_total", 0)
       .not("prestador_id", "is", null)
       .order("created_at", { ascending: false });
-
-    if (page !== undefined) {
-      query = query.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-    }
 
     const { data: fichasData, error, count } = await query;
     if (error) throw error;
@@ -232,7 +228,7 @@ export const PagamentoPrestadoresTabV2 = () => {
 
     // Separate by pago_prestador status
     const filtered = items.filter((i) => i.pago_prestador === pagoFilter);
-    return { items: filtered, total: count || 0 };
+    return { items: filtered, total: filtered.length || count || 0 };
   }, []);
 
   const fetchPendentes = useCallback(async () => {
@@ -247,15 +243,18 @@ export const PagamentoPrestadoresTabV2 = () => {
   const fetchHistorico = useCallback(async () => {
     setHistoricoLoading(true);
     try {
-      const { items, total } = await buildList(true, historicoPage);
+      const { items, total } = await buildList(true);
       setHistorico(items);
       setHistoricoTotal(total);
     } catch (e) { console.error(e); }
     finally { setHistoricoLoading(false); }
-  }, [buildList, historicoPage]);
+  }, [buildList]);
 
   useEffect(() => { fetchPendentes(); }, [fetchPendentes]);
   useEffect(() => { if (subTab === "historico") fetchHistorico(); }, [subTab, fetchHistorico]);
+  useEffect(() => {
+    setHistoricoPage(0);
+  }, [search, showAllDates, filterMode, filterDate, filterDateFim]);
 
   const marcarPago = async (ficha: FichaFinanceira) => {
     try {
@@ -419,10 +418,11 @@ export const PagamentoPrestadoresTabV2 = () => {
       f.id.toLowerCase().includes(search.toLowerCase())
     )
     : dateFilteredHistorico;
+  const paginatedHistorico = filteredHistorico.slice(historicoPage * PAGE_SIZE, (historicoPage + 1) * PAGE_SIZE);
 
   const totalAPagar = filteredPendentes.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
   const totalPago = filteredHistorico.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
-  const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
+  const historicoTotalPages = Math.ceil(filteredHistorico.length / PAGE_SIZE);
 
   const getInitials = (name: string) => {
     const parts = name.split(" ").filter(Boolean);
@@ -652,7 +652,7 @@ export const PagamentoPrestadoresTabV2 = () => {
               <div className="text-center py-12 text-muted-foreground">Nenhum pagamento realizado</div>
             ) : (
               <>
-                {filteredHistorico.map(f => (
+                {paginatedHistorico.map(f => (
                   <div key={f.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
                     <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
                       {getInitials(f.prestador_nome)}
@@ -708,7 +708,7 @@ export const PagamentoPrestadoresTabV2 = () => {
                 ))}
                 {historicoTotalPages > 1 && (
                   <div className="flex items-center justify-between pt-2">
-                    <span className="text-xs text-muted-foreground">{historicoTotal} registros</span>
+                    <span className="text-xs text-muted-foreground">{filteredHistorico.length} registros</span>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" disabled={historicoPage === 0} onClick={() => setHistoricoPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
                       <span className="text-sm">{historicoPage + 1} / {historicoTotalPages}</span>
