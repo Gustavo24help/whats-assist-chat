@@ -1,53 +1,48 @@
 
 
-## Diagnóstico: Parcelas sempre 1x no Asaas
+## Plan
 
-### O que está acontecendo
+### Problem 1: Total no Detalhamento por Mês está errado
 
-O código frontend envia corretamente `parcelas: ficha.pagamento_parcelas` para a edge function, e a edge function inclui `maxInstallmentCount` no payload do Asaas. **O problema não é no código — é na interação com a API do Asaas.**
+O campo `total` está usando `valor_total` da ficha (que inclui margem/markup da 24help), quando deveria ser simplesmente `maoObra + pecas` (o valor relevante para o prestador).
 
-A API de Payment Links do Asaas trata `maxInstallmentCount` como o **máximo** de parcelas que o cliente pode escolher no checkout. Porém:
+**Correção em `src/pages/PrestadorPortal.tsx`:**
+- Linha 365: mudar `metricas.total` de `s.valor_total` para `(s.valor_mao_obra || 0) + (s.valor_pecas || 0)`
+- Linha 389: mudar `dadosPorMes[].total` de `servico.valor_total` para `(servico.valor_mao_obra || 0) + (servico.valor_pecas || 0)`
+- Linha 369: ajustar `ticketMedio` para usar o novo total recalculado
 
-1. **Se `billingType` = `PIX` ou `BOLETO`**: o Asaas ignora `maxInstallmentCount` porque parcelamento só funciona em cartão de crédito
-2. **Se `billingType` = `UNDEFINED`**: o Asaas permite todas as formas, mas o cliente pode escolher PIX (1x) no checkout e nunca ver a opção de parcelas
-3. O campo "Número de Parcelas" na ficha dá a impressão de que o pagamento **será** parcelado, quando na verdade apenas **permite** parcelamento
+Isso garante que o prestador veja apenas mão de obra + peças, sem a margem da empresa.
 
-### Solução proposta
+---
 
-1. **Edge function `create-payment-link`**: Quando `parcelas > 1`, forçar `billingType = 'CREDIT_CARD'` (pois parcelamento só funciona com cartão). Adicionar log claro do billingType final.
+### Problem 2: Inserir histórico de serviços anteriores ao sistema
 
-2. **Frontend `FichaServicoTab.tsx`**: 
-   - Quando o operador define parcelas > 1, mostrar aviso visual: "Parcelamento disponível apenas em cartão de crédito"
-   - Se `pagamento_tipo` não for `cartao_credito` e parcelas > 1, sugerir automaticamente a troca para cartão de crédito ou manter `UNDEFINED` mas garantir que `maxInstallmentCount` está presente (o Asaas mostra a opção de cartão parcelado no checkout)
+Não precisa criar uma tabela nova. A tabela `fichas_de_servico` já é a fonte de dados do portal do prestador. Para inserir histórico, basta fazer INSERTs diretamente nela.
 
-3. **Alternativa mais flexível**: Quando parcelas > 1 e billingType não é CREDIT_CARD, manter billingType como `UNDEFINED` mas **sempre** enviar `maxInstallmentCount` (o Asaas mostrará PIX, boleto e cartão parcelado como opções no checkout — o cliente escolhe). A diferença é remover a condição `parcelas > 1` e **sempre** enviar `maxInstallmentCount` baseado no valor do campo.
-
-### Mudança recomendada (opção 3 — mais simples e flexível)
-
-**`supabase/functions/create-payment-link/index.ts`** — Sempre enviar `maxInstallmentCount` quando parcelas >= 1:
-
-```typescript
-// ANTES (condicional):
-...(parcelas && parcelas > 1 ? { maxInstallmentCount: parcelas } : {})
-
-// DEPOIS (sempre enviar):
-maxInstallmentCount: parcelas && parcelas > 1 ? parcelas : 1,
+**Campos necessários por registro histórico:**
+```sql
+INSERT INTO fichas_de_servico (
+  id,                    -- ex: 'HIST-001' (ID único)
+  nome_ficha,            -- descrição do serviço
+  telefone_cliente,      -- telefone do cliente (obrigatório, pode ser placeholder)
+  prestador_id,          -- CPF do prestador (vincula ao prestador)
+  valor_mao_obra,        -- valor pago de mão de obra
+  valor_pecas,           -- valor de material/peças
+  valor_total,           -- valor total cobrado do cliente
+  bairro,                -- bairro do serviço
+  horario_agendamento,   -- data do serviço (usado para agrupar por mês)
+  status,                -- 'Finalizado'
+  created_at             -- data de criação original
+) VALUES (...);
 ```
 
-E quando parcelas > 1, forçar que `billingType` inclua cartão:
-```typescript
-if (parcelas > 1 && billingType !== 'CREDIT_CARD') {
-  billingType = 'UNDEFINED'; // Garante que cartão esteja disponível
-}
-```
+**Observações importantes:**
+- O portal filtra por `prestador_id = cpf` e status `IN ('Agendado', 'Finalizado', 'Em andamento', 'Visita Técnica')`, então o status deve ser `'Finalizado'` para histórico.
+- O campo `horario_agendamento` é usado para agrupar por mês no gráfico/tabela.
+- Para datas de finalização, inserir também em `ficha_status_historico` com `status_novo = 'Finalizado'` e `data_inicio` = data real da finalização.
+- Para datas de pagamento, inserir em `transacoes_financeiras` com `data_pagamento_realizada` preenchida.
+- Use IDs com prefixo (ex: `HIST-001`) para não conflitar com fichas reais.
+- O campo `telefone_cliente` é NOT NULL; para histórico sem cliente real, usar um placeholder como `'0000000000'`.
 
-**`src/components/FichaServicoTab.tsx`** — Adicionar mensagem informativa abaixo do campo de parcelas quando > 1:
-
-```
-"O cliente poderá parcelar em até X vezes no cartão de crédito. Para PIX/boleto o pagamento será à vista."
-```
-
-### Arquivos modificados
-- `supabase/functions/create-payment-link/index.ts` — garantir `maxInstallmentCount` e `billingType` corretos
-- `src/components/FichaServicoTab.tsx` — aviso visual sobre parcelamento
+Posso executar os INSERTs via ferramenta de inserção de dados quando tiver a planilha/dados prontos.
 
