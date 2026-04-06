@@ -648,24 +648,61 @@ export const PagamentoPrestadoresTabV2 = () => {
           <div className="space-y-2">
             {historicoLoading ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
-            ) : historico.length === 0 ? (
+            ) : filteredHistorico.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">Nenhum pagamento realizado</div>
             ) : (
               <>
-                {historico.map(f => (
-                  <div key={f.id} className="rounded-lg border bg-card p-3 flex items-center justify-between opacity-80">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">
-                        {getInitials(f.prestador_nome)}
+                {filteredHistorico.map(f => (
+                  <div key={f.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
+                      {getInitials(f.prestador_nome)}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm truncate">{f.prestador_nome}</h3>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <Badge variant="secondary" className="text-[10px]">{f.id}</Badge>
+                        <span className="text-xs text-muted-foreground truncate">Cliente: {f.nome_cliente_resolved}</span>
+                        {f.pagamento_realizado ? (
+                          <Badge variant="outline" className="text-[10px] border-green-300 text-green-700">Cliente Pagou</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px]">Pagamento do Cliente Pendente</Badge>
+                        )}
+                        {f.nps_nota !== null && (
+                          <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                            <Star className="h-3 w-3 text-yellow-500" /> {f.nps_nota}
+                          </span>
+                        )}
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-sm truncate">{f.prestador_nome}</h3>
-                        <p className="text-xs text-muted-foreground">{f.id} • {f.nome_cliente_resolved}</p>
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
+                        <span>Pago em: {f.data_pagamento_realizada ? formatDateShort(f.data_pagamento_realizada) : "—"}</span>
+                        {f.chave_pix && (
+                          <span className="inline-flex items-center gap-1 truncate max-w-[200px]">
+                            <CreditCard className="h-3 w-3 shrink-0" />
+                            PIX: {f.chave_pix}
+                            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => copyToClipboard(f.chave_pix!)}>
+                              <Copy className="h-2.5 w-2.5" />
+                            </Button>
+                          </span>
+                        )}
+                        {f.banco && (
+                          <span className="inline-flex items-center gap-1">
+                            <Building2 className="h-3 w-3 shrink-0" /> {f.banco}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right shrink-0 flex items-center gap-2">
-                      <div className="font-bold text-sm">{formatMoeda(f.financeiro.liquidoPrestador)}</div>
-                      <Badge variant="secondary" className="text-[10px]">Pago</Badge>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-xl font-bold">{formatMoeda(f.financeiro.liquidoPrestador)}</div>
+                      <div className="text-[10px] text-muted-foreground">Líquido</div>
+                    </div>
+
+                    <div className="flex gap-2 shrink-0">
+                      <Button variant="outline" size="sm" className="h-9 px-3" onClick={() => { setDetalhesSel(f); setDetalhesOpen(true); }}>
+                        <Info className="h-3.5 w-3.5" />
+                      </Button>
+                      <Badge variant="secondary" className="text-xs h-9 px-3 flex items-center">Pago</Badge>
                     </div>
                   </div>
                 ))}
