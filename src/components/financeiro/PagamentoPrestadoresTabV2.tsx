@@ -380,6 +380,29 @@ export const PagamentoPrestadoresTabV2 = () => {
     return pendentes;
   })();
 
+  const applyDateFilter = (items: FichaFinanceira[], dateField: "data_pagamento_prevista" | "data_pagamento_realizada") => {
+    if (showAllDates) return items;
+    if (filterMode === "single" && filterDate) {
+      const start = new Date(filterDate); start.setHours(0, 0, 0, 0);
+      const end = new Date(filterDate); end.setHours(23, 59, 59, 999);
+      return items.filter(f => {
+        const d = dateField === "data_pagamento_realizada" ? f.data_pagamento_realizada : f.data_pagamento_prevista;
+        if (!d) return false;
+        return d >= start && d <= end;
+      });
+    }
+    if (filterMode === "range") {
+      return items.filter(f => {
+        const d = dateField === "data_pagamento_realizada" ? f.data_pagamento_realizada : f.data_pagamento_prevista;
+        if (!d) return false;
+        if (filterDate) { const s = new Date(filterDate); s.setHours(0, 0, 0, 0); if (d < s) return false; }
+        if (filterDateFim) { const e = new Date(filterDateFim); e.setHours(23, 59, 59, 999); if (d > e) return false; }
+        return filterDate || filterDateFim;
+      });
+    }
+    return items;
+  };
+
   const filteredPendentes = search
     ? dateFilteredPendentes.filter(f =>
       f.prestador_nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -388,7 +411,17 @@ export const PagamentoPrestadoresTabV2 = () => {
     )
     : dateFilteredPendentes;
 
+  const dateFilteredHistorico = applyDateFilter(historico, "data_pagamento_realizada");
+  const filteredHistorico = search
+    ? dateFilteredHistorico.filter(f =>
+      f.prestador_nome.toLowerCase().includes(search.toLowerCase()) ||
+      f.nome_cliente_resolved.toLowerCase().includes(search.toLowerCase()) ||
+      f.id.toLowerCase().includes(search.toLowerCase())
+    )
+    : dateFilteredHistorico;
+
   const totalAPagar = filteredPendentes.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
+  const totalPago = filteredHistorico.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
 
   const getInitials = (name: string) => {
