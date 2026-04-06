@@ -762,6 +762,7 @@ export type Database = {
           horario_visita_tecnica: string | null
           id: string
           id_zoho: string | null
+          material_pago_24help: boolean | null
           motivo_perda: string | null
           motivo_troca_prestador: string | null
           nome_cliente: string | null
@@ -826,6 +827,7 @@ export type Database = {
           horario_visita_tecnica?: string | null
           id: string
           id_zoho?: string | null
+          material_pago_24help?: boolean | null
           motivo_perda?: string | null
           motivo_troca_prestador?: string | null
           nome_cliente?: string | null
@@ -890,6 +892,7 @@ export type Database = {
           horario_visita_tecnica?: string | null
           id?: string
           id_zoho?: string | null
+          material_pago_24help?: boolean | null
           motivo_perda?: string | null
           motivo_troca_prestador?: string | null
           nome_cliente?: string | null

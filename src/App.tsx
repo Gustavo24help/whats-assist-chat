@@ -39,6 +39,7 @@ import ChatPrestadores from "./pages/ChatPrestadores";
 import Tarefas from "./pages/Tarefas";
 import AdminPrestadorPortal from "./pages/AdminPrestadorPortal";
 import VisibilitySettings from "./pages/VisibilitySettings";
+import Orcamentos from "./pages/Orcamentos";
 
 const queryClient = new QueryClient();
 
@@ -268,6 +269,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requireAdmin>
                     <AdminPrestadorPortal />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/orcamentos"
+                element={
+                  <ProtectedRoute>
+                    <Orcamentos />
                   </ProtectedRoute>
                 }
               />

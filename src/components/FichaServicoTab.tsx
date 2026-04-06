@@ -72,6 +72,7 @@ interface Ficha {
   valor_antes_arredondamento: number | null;
   observacao_financeira: string | null;
   observacao_financeira_por: string | null;
+  material_pago_24help: boolean;
 }
 
 interface Prestador {
@@ -462,6 +463,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         valor_final_pecas: fichaData.valor_final_pecas,
         subtotal: fichaData.subtotal,
         valor_antes_arredondamento: fichaData.valor_antes_arredondamento,
+        material_pago_24help: fichaData.material_pago_24help,
       };
 
       const { error } = await supabase
@@ -1552,6 +1554,16 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     });
                   }}
                 />
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Checkbox
+                    id="material_pago_24help"
+                    checked={ficha?.material_pago_24help || false}
+                    onCheckedChange={(checked) => updateFicha({ material_pago_24help: !!checked })}
+                  />
+                  <Label htmlFor="material_pago_24help" className="text-xs text-muted-foreground cursor-pointer">
+                    Material pago pela 24help
+                  </Label>
+                </div>
               </div>
 
               <div className="space-y-1.5">

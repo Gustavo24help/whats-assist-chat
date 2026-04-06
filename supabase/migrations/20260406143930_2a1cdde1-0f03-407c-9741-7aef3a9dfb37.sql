@@ -1,0 +1,1 @@
+ALTER TABLE public.fichas_de_servico ADD COLUMN material_pago_24help boolean DEFAULT false;

@@ -208,6 +208,7 @@ export function PopupConfirmacaoFinanceira({
       // Preencher valores iniciais da ficha
       setValorMaoObra(fichaData.valor_mao_obra?.toString() || "0");
       setValorMaterial(fichaData.valor_pecas?.toString() || "0"); // valor_pecas = material
+      setMaterialPago24help(fichaData.material_pago_24help || false);
 
       // Buscar adiantamentos pendentes para este prestador/ficha
       const { data: adiantamentosData } = await (supabase
