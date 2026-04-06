@@ -109,7 +109,9 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPaying, setBatchPaying] = useState(false);
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterDateFim, setFilterDateFim] = useState<Date | undefined>(undefined);
   const [showAllDates, setShowAllDates] = useState(true);
+  const [filterMode, setFilterMode] = useState<"single" | "range">("single");
   const [obsPopup, setObsPopup] = useState<FichaFinanceira | null>(null);
 
   const toggleSelect = (id: string) => {
@@ -348,12 +350,29 @@ export const PagamentoPrestadoresTabV2 = () => {
 
   const dateFilteredPendentes = (() => {
     if (showAllDates) return pendentes;
-    if (!filterDate) return pendentes;
-    const start = new Date(filterDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(filterDate);
-    end.setHours(23, 59, 59, 999);
-    return pendentes.filter(f => f.data_pagamento_prevista >= start && f.data_pagamento_prevista <= end);
+    if (filterMode === "single" && filterDate) {
+      const start = new Date(filterDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(filterDate);
+      end.setHours(23, 59, 59, 999);
+      return pendentes.filter(f => f.data_pagamento_prevista >= start && f.data_pagamento_prevista <= end);
+    }
+    if (filterMode === "range") {
+      return pendentes.filter(f => {
+        if (filterDate) {
+          const start = new Date(filterDate);
+          start.setHours(0, 0, 0, 0);
+          if (f.data_pagamento_prevista < start) return false;
+        }
+        if (filterDateFim) {
+          const end = new Date(filterDateFim);
+          end.setHours(23, 59, 59, 999);
+          if (f.data_pagamento_prevista > end) return false;
+        }
+        return filterDate || filterDateFim;
+      });
+    }
+    return pendentes;
   })();
 
   const filteredPendentes = search
@@ -395,28 +414,74 @@ export const PagamentoPrestadoresTabV2 = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar prestador, cliente, ficha..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !filterDate && showAllDates && "text-muted-foreground")}>
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {showAllDates ? "Todas as datas" : filterDate ? format(filterDate, "dd/MM/yyyy", { locale: ptBR }) : "Filtrar data"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={filterDate}
-              onSelect={(d) => { setFilterDate(d); setShowAllDates(false); }}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
-            <div className="border-t p-2">
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => { setShowAllDates(true); setFilterDate(undefined); }}>
-                Todas as datas
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showAllDates ? "default" : "outline"}
+            size="sm"
+            className="h-9 text-xs"
+            onClick={() => { setShowAllDates(true); setFilterDate(undefined); setFilterDateFim(undefined); }}
+          >
+            Todas
+          </Button>
+          <Button
+            variant={!showAllDates && filterMode === "single" ? "default" : "outline"}
+            size="sm"
+            className="h-9 text-xs"
+            onClick={() => { setShowAllDates(false); setFilterMode("single"); setFilterDateFim(undefined); }}
+          >
+            Data fixa
+          </Button>
+          <Button
+            variant={!showAllDates && filterMode === "range" ? "default" : "outline"}
+            size="sm"
+            className="h-9 text-xs"
+            onClick={() => { setShowAllDates(false); setFilterMode("range"); }}
+          >
+            Período
+          </Button>
+        </div>
+
+        {!showAllDates && filterMode === "single" && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal h-9 text-xs", !filterDate && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                {filterDate ? format(filterDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar"}
               </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {!showAllDates && filterMode === "range" && (
+          <>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal h-9 text-xs", !filterDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                  {filterDate ? format(filterDate, "dd/MM/yyyy", { locale: ptBR }) : "De"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+            <span className="text-xs text-muted-foreground">até</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal h-9 text-xs", !filterDateFim && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                  {filterDateFim ? format(filterDateFim, "dd/MM/yyyy", { locale: ptBR }) : "Até"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={filterDateFim} onSelect={setFilterDateFim} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </>
+        )}
       </div>
 
       {/* Pop-ups toggle + batch bar */}
