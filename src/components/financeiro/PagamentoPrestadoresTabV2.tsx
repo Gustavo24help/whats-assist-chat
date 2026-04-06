@@ -85,6 +85,7 @@ interface FichaFinanceira {
   nps_nota: number | null;
   financeiro: ReturnType<typeof calcFinanceiro>;
   data_pagamento_prevista: Date;
+  data_pagamento_realizada: Date | null;
   observacao_financeira: string | null;
   observacao_financeira_por: string | null;
   observacao_operador_nome: string | null;
@@ -181,7 +182,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     const [prestRes, clienteRes, transRes, npsRes, profilesRes] = await Promise.all([
       supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix, banco").in("cpf", prestadorIds),
       supabase.from("clientes").select("telefone, nome").in("telefone", phones),
-      supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_prevista, tipo_troca, justificativa_troca").in("ficha_id", fichaIds),
+      supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_prevista, data_pagamento_realizada, tipo_troca, justificativa_troca").in("ficha_id", fichaIds),
       supabase.from("nps_respostas").select("ficha_id, nota").in("ficha_id", fichaIds),
       obsOperadorIds.length > 0
         ? supabase.from("profiles").select("id, full_name").in("id", obsOperadorIds)
@@ -220,6 +221,7 @@ export const PagamentoPrestadoresTabV2 = () => {
         nps_nota: npsMap.get(f.id) ?? null,
         financeiro: fin,
         data_pagamento_prevista: trans?.data_pagamento_prevista ? new Date(trans.data_pagamento_prevista) : addBusinessDays(finalizacaoMap.get(f.id) || f.updated_at || f.created_at, 2),
+        data_pagamento_realizada: trans?.data_pagamento_realizada ? new Date(trans.data_pagamento_realizada) : null,
         observacao_financeira: f.observacao_financeira || null,
         observacao_financeira_por: f.observacao_financeira_por || null,
         observacao_operador_nome: f.observacao_financeira_por ? (profilesMap.get(f.observacao_financeira_por) || null) : null,
@@ -378,6 +380,29 @@ export const PagamentoPrestadoresTabV2 = () => {
     return pendentes;
   })();
 
+  const applyDateFilter = (items: FichaFinanceira[], dateField: "data_pagamento_prevista" | "data_pagamento_realizada") => {
+    if (showAllDates) return items;
+    if (filterMode === "single" && filterDate) {
+      const start = new Date(filterDate); start.setHours(0, 0, 0, 0);
+      const end = new Date(filterDate); end.setHours(23, 59, 59, 999);
+      return items.filter(f => {
+        const d = dateField === "data_pagamento_realizada" ? f.data_pagamento_realizada : f.data_pagamento_prevista;
+        if (!d) return false;
+        return d >= start && d <= end;
+      });
+    }
+    if (filterMode === "range") {
+      return items.filter(f => {
+        const d = dateField === "data_pagamento_realizada" ? f.data_pagamento_realizada : f.data_pagamento_prevista;
+        if (!d) return false;
+        if (filterDate) { const s = new Date(filterDate); s.setHours(0, 0, 0, 0); if (d < s) return false; }
+        if (filterDateFim) { const e = new Date(filterDateFim); e.setHours(23, 59, 59, 999); if (d > e) return false; }
+        return filterDate || filterDateFim;
+      });
+    }
+    return items;
+  };
+
   const filteredPendentes = search
     ? dateFilteredPendentes.filter(f =>
       f.prestador_nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -386,7 +411,17 @@ export const PagamentoPrestadoresTabV2 = () => {
     )
     : dateFilteredPendentes;
 
+  const dateFilteredHistorico = applyDateFilter(historico, "data_pagamento_realizada");
+  const filteredHistorico = search
+    ? dateFilteredHistorico.filter(f =>
+      f.prestador_nome.toLowerCase().includes(search.toLowerCase()) ||
+      f.nome_cliente_resolved.toLowerCase().includes(search.toLowerCase()) ||
+      f.id.toLowerCase().includes(search.toLowerCase())
+    )
+    : dateFilteredHistorico;
+
   const totalAPagar = filteredPendentes.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
+  const totalPago = filteredHistorico.reduce((s, f) => s + f.financeiro.liquidoPrestador, 0);
   const historicoTotalPages = Math.ceil(historicoTotal / PAGE_SIZE);
 
   const getInitials = (name: string) => {
@@ -402,12 +437,12 @@ export const PagamentoPrestadoresTabV2 = () => {
       {/* Summary */}
       <div className="flex gap-3 overflow-x-auto">
         <div className="min-w-[140px] rounded-lg border bg-card p-3 shrink-0">
-          <div className="text-xs text-muted-foreground">Pendentes</div>
-          <div className="text-2xl font-bold">{filteredPendentes.length}</div>
+          <div className="text-xs text-muted-foreground">{subTab === "pendentes" ? "Pendentes" : "Pagos"}</div>
+          <div className="text-2xl font-bold">{subTab === "pendentes" ? filteredPendentes.length : filteredHistorico.length}</div>
         </div>
         <div className="min-w-[180px] rounded-lg border bg-card p-3 shrink-0">
-          <div className="text-xs text-muted-foreground">Total a Pagar</div>
-          <div className="text-xl font-bold">{formatMoeda(totalAPagar)}</div>
+          <div className="text-xs text-muted-foreground">{subTab === "pendentes" ? "Total a Pagar" : "Total Pago"}</div>
+          <div className="text-xl font-bold">{formatMoeda(subTab === "pendentes" ? totalAPagar : totalPago)}</div>
         </div>
       </div>
 
@@ -613,24 +648,61 @@ export const PagamentoPrestadoresTabV2 = () => {
           <div className="space-y-2">
             {historicoLoading ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
-            ) : historico.length === 0 ? (
+            ) : filteredHistorico.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">Nenhum pagamento realizado</div>
             ) : (
               <>
-                {historico.map(f => (
-                  <div key={f.id} className="rounded-lg border bg-card p-3 flex items-center justify-between opacity-80">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">
-                        {getInitials(f.prestador_nome)}
+                {filteredHistorico.map(f => (
+                  <div key={f.id} className="rounded-lg border bg-card p-4 flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
+                      {getInitials(f.prestador_nome)}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm truncate">{f.prestador_nome}</h3>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <Badge variant="secondary" className="text-[10px]">{f.id}</Badge>
+                        <span className="text-xs text-muted-foreground truncate">Cliente: {f.nome_cliente_resolved}</span>
+                        {f.pagamento_realizado ? (
+                          <Badge variant="outline" className="text-[10px] border-green-300 text-green-700">Cliente Pagou</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px]">Pagamento do Cliente Pendente</Badge>
+                        )}
+                        {f.nps_nota !== null && (
+                          <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                            <Star className="h-3 w-3 text-yellow-500" /> {f.nps_nota}
+                          </span>
+                        )}
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-sm truncate">{f.prestador_nome}</h3>
-                        <p className="text-xs text-muted-foreground">{f.id} • {f.nome_cliente_resolved}</p>
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
+                        <span>Pago em: {f.data_pagamento_realizada ? formatDateShort(f.data_pagamento_realizada) : "—"}</span>
+                        {f.chave_pix && (
+                          <span className="inline-flex items-center gap-1 truncate max-w-[200px]">
+                            <CreditCard className="h-3 w-3 shrink-0" />
+                            PIX: {f.chave_pix}
+                            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => copyToClipboard(f.chave_pix!)}>
+                              <Copy className="h-2.5 w-2.5" />
+                            </Button>
+                          </span>
+                        )}
+                        {f.banco && (
+                          <span className="inline-flex items-center gap-1">
+                            <Building2 className="h-3 w-3 shrink-0" /> {f.banco}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right shrink-0 flex items-center gap-2">
-                      <div className="font-bold text-sm">{formatMoeda(f.financeiro.liquidoPrestador)}</div>
-                      <Badge variant="secondary" className="text-[10px]">Pago</Badge>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-xl font-bold">{formatMoeda(f.financeiro.liquidoPrestador)}</div>
+                      <div className="text-[10px] text-muted-foreground">Líquido</div>
+                    </div>
+
+                    <div className="flex gap-2 shrink-0">
+                      <Button variant="outline" size="sm" className="h-9 px-3" onClick={() => { setDetalhesSel(f); setDetalhesOpen(true); }}>
+                        <Info className="h-3.5 w-3.5" />
+                      </Button>
+                      <Badge variant="secondary" className="text-xs h-9 px-3 flex items-center">Pago</Badge>
                     </div>
                   </div>
                 ))}
