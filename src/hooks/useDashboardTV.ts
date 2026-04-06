@@ -471,8 +471,8 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     if (diffs.length > 0) tempoCicloCompletoDias = Number((diffs.reduce((a, b) => a + b, 0) / diffs.length).toFixed(1));
   }
 
-  // --- Previous period (only fichas paid to prestador) ---
-  const fichasPagasPrev = fichasPagasPrestadorPrev;
+  // --- Previous period (fichas paid to prestador by payment date) ---
+  const fichasPagasPrev = fichasPagasPrevData;
   const receitaPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_total || 0), 0);
   const maoObraPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_mao_obra || 0), 0);
   const pecasPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_pecas || 0), 0);
