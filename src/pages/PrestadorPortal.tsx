@@ -66,6 +66,7 @@ interface Servico {
 interface ServicoDetalhado extends Servico {
   data_finalizacao: string | null;
   data_pagamento_prestador: string | null;
+  material_pago_24help: boolean;
 }
 
 type PeriodoFiltro = "mes_atual" | "ultimos_3_meses" | "este_ano" | "todo_periodo";
@@ -104,10 +105,10 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
       .in("ficha_id", fichaIds)
       .eq("status_novo", "Finalizado");
     
-    // Fetch payment dates from transacoes_financeiras
+    // Fetch payment dates and material_pago_24help from transacoes_financeiras
     const { data: transacoesData } = await supabase
       .from("transacoes_financeiras")
-      .select("ficha_id, data_pagamento_realizada, status_pagamento_prestador")
+      .select("ficha_id, data_pagamento_realizada, status_pagamento_prestador, material_pago_24help")
       .in("ficha_id", fichaIds)
       .eq("prestador_cpf", cpfPrestador);
     
@@ -119,11 +120,15 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
     });
     
     const pagamentoMap = new Map<string, string | null>();
+    const materialPagoMap = new Map<string, boolean>();
     (transacoesData || []).forEach((t: any) => {
       if (t.status_pagamento_prestador === 'pago' && t.data_pagamento_realizada) {
         pagamentoMap.set(t.ficha_id, t.data_pagamento_realizada);
       } else if (!pagamentoMap.has(t.ficha_id)) {
         pagamentoMap.set(t.ficha_id, null);
+      }
+      if (t.material_pago_24help) {
+        materialPagoMap.set(t.ficha_id, true);
       }
     });
     
@@ -131,6 +136,7 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
       ...s,
       data_finalizacao: finalizacaoMap.get(s.id) || null,
       data_pagamento_prestador: pagamentoMap.get(s.id) || null,
+      material_pago_24help: materialPagoMap.get(s.id) || false,
     }));
   };
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -363,7 +369,7 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
   // Métricas gerais do período
   const metricas = useMemo(() => {
     const maoObra = servicosFiltrados.reduce((acc, s) => acc + (s.valor_mao_obra || 0), 0);
-    const pecas = servicosFiltrados.reduce((acc, s) => acc + (s.valor_pecas || 0), 0);
+    const pecas = servicosFiltrados.reduce((acc, s) => acc + (s.material_pago_24help ? 0 : (s.valor_pecas || 0)), 0);
     const total = maoObra + pecas;
     const quantidade = servicosFiltrados.length;
     const ticketMedio = quantidade > 0 ? total / quantidade : 0;
@@ -386,9 +392,10 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
         agrupado[mesAno] = { mesAno, mesLabel, total: 0, maoObra: 0, pecas: 0, quantidade: 0 };
       }
       
-      agrupado[mesAno].total += (servico.valor_mao_obra || 0) + (servico.valor_pecas || 0);
+      const pecasValor = servico.material_pago_24help ? 0 : (servico.valor_pecas || 0);
+      agrupado[mesAno].total += (servico.valor_mao_obra || 0) + pecasValor;
       agrupado[mesAno].maoObra += servico.valor_mao_obra || 0;
-      agrupado[mesAno].pecas += servico.valor_pecas || 0;
+      agrupado[mesAno].pecas += pecasValor;
       agrupado[mesAno].quantidade += 1;
     });
 
@@ -755,7 +762,11 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">{formatCurrency(servico.valor_mao_obra || 0)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(servico.valor_pecas || 0)}</TableCell>
+                              <TableCell className="text-right">
+                                {servico.material_pago_24help 
+                                  ? <span className="text-xs text-muted-foreground italic">Pago pela empresa</span>
+                                  : formatCurrency(servico.valor_pecas || 0)}
+                              </TableCell>
                               <TableCell className="text-sm">{servico.bairro || "—"}</TableCell>
                               <TableCell className="text-sm">
                                 {servico.horario_agendamento 
