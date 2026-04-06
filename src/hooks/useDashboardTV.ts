@@ -395,8 +395,8 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
   const fichasPagasPrestador = allFichasPagas.filter(f => pagoPrestadorSet.has((f as any).id));
   const fichasPagasPrestadorPrev = allFichasPagasPrev.filter(f => pagoPrestadorSet.has((f as any).id));
 
-  // --- Process current period ---
-  const fichasPagas = fichasPagasRes.data || [];
+  // --- Process current period (only fichas paid to prestador) ---
+  const fichasPagas = fichasPagasPrestador;
   const receitaTotal = fichasPagas.reduce((s, f) => s + (f.valor_total || 0), 0);
   const totalMaoObra = fichasPagas.reduce((s, f) => s + (f.valor_mao_obra || 0), 0);
   const totalPecas = fichasPagas.reduce((s, f) => s + (f.valor_pecas || 0), 0);
