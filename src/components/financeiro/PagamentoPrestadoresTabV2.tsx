@@ -109,7 +109,9 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPaying, setBatchPaying] = useState(false);
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterDateFim, setFilterDateFim] = useState<Date | undefined>(undefined);
   const [showAllDates, setShowAllDates] = useState(true);
+  const [filterMode, setFilterMode] = useState<"single" | "range">("single");
   const [obsPopup, setObsPopup] = useState<FichaFinanceira | null>(null);
 
   const toggleSelect = (id: string) => {
