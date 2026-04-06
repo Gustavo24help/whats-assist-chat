@@ -136,7 +136,7 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
       ...s,
       data_finalizacao: finalizacaoMap.get(s.id) || null,
       data_pagamento_prestador: pagamentoMap.get(s.id) || null,
-      material_pago_24help: s.material_pago_24help || materialPagoMap.get(s.id) || false,
+      material_pago_24help: s.material_pago_24help ?? materialPagoMap.get(s.id) ?? false,
     }));
   };
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
