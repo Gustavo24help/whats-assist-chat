@@ -182,7 +182,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     const [prestRes, clienteRes, transRes, npsRes, profilesRes] = await Promise.all([
       supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix, banco").in("cpf", prestadorIds),
       supabase.from("clientes").select("telefone, nome").in("telefone", phones),
-      supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_prevista, tipo_troca, justificativa_troca").in("ficha_id", fichaIds),
+      supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_prevista, data_pagamento_realizada, tipo_troca, justificativa_troca").in("ficha_id", fichaIds),
       supabase.from("nps_respostas").select("ficha_id, nota").in("ficha_id", fichaIds),
       obsOperadorIds.length > 0
         ? supabase.from("profiles").select("id, full_name").in("id", obsOperadorIds)
@@ -221,6 +221,7 @@ export const PagamentoPrestadoresTabV2 = () => {
         nps_nota: npsMap.get(f.id) ?? null,
         financeiro: fin,
         data_pagamento_prevista: trans?.data_pagamento_prevista ? new Date(trans.data_pagamento_prevista) : addBusinessDays(finalizacaoMap.get(f.id) || f.updated_at || f.created_at, 2),
+        data_pagamento_realizada: trans?.data_pagamento_realizada ? new Date(trans.data_pagamento_realizada) : null,
         observacao_financeira: f.observacao_financeira || null,
         observacao_financeira_por: f.observacao_financeira_por || null,
         observacao_operador_nome: f.observacao_financeira_por ? (profilesMap.get(f.observacao_financeira_por) || null) : null,
