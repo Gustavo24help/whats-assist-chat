@@ -266,137 +266,134 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     return q;
   };
 
-  const [
-    fichasPagasRes, fsCriadasRes, agendadosRes, executadosRes,
-    adsRes, conversasRes, npsRes, avalPrestRes, metasRes, orcPendRes,
-    fichasPagasPrevRes, fsCriadasPrevRes, agendadosPrevRes, executadosPrevRes,
-    adsPrevRes, conversasPrevRes,
-    tempoFSAgendadoRes, tempoAgendadoExecRes, tempoCicloRes,
-  ] = await Promise.all([
-    buildFichaFilter(
-      supabase.from('fichas_de_servico')
-        .select('id, valor_total, valor_mao_obra, valor_pecas')
-        .eq('status', 'Finalizado')
-        .eq('pagamento_realizado', true)
-        .gte('created_at', fromStr).lte('created_at', toStr)
-    ),
-    buildFichaFilter(
-      supabase.from('fichas_de_servico')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', fromStr).lte('created_at', toStr)
-    ),
-    buildFichaFilter(
-      supabase.from('fichas_de_servico')
-        .select('*', { count: 'exact', head: true })
-        .in('status', ['Agendado', 'Visita Técnica'])
-        .gte('created_at', fromStr).lte('created_at', toStr)
-    ),
-    buildFichaFilter(
-      supabase.from('fichas_de_servico')
-        .select('*', { count: 'exact', head: true })
-        .in('status', ['Em andamento', 'Finalizado'])
-        .gte('created_at', fromStr).lte('created_at', toStr)
-    ),
-    supabase.from('google_ads_metrics')
-      .select('cliques, conversoes')
-      .gte('data_referencia', fromDate).lte('data_referencia', toDate),
-    supabase.rpc('calculate_conversas_iniciadas', {
-      p_from_date: fromStr, p_to_date: toStr,
-      p_categoria_id: filters.categoriaId || null,
-      p_prestador_cpf: filters.prestadorCpf || null,
-      p_cliente_telefone: null,
-    }),
-    supabase.from('nps_respostas').select('nota').not('nota', 'is', null)
-      .gte('created_at', fromStr).lte('created_at', toStr),
-    supabase.from('avaliacao_prestador').select('nota').not('nota', 'is', null)
-      .gte('created_at', fromStr).lte('created_at', toStr),
-    supabase.from('dashboard_metas').select('*').eq('tipo', 'diarias').limit(1).maybeSingle(),
-    supabase.from('fichas_de_servico')
-      .select('*', { count: 'exact', head: true })
-      .in('status', ['Orçamento Enviado', 'Negociação'])
-      .lte('updated_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()),
-    // Previous period
-    buildFichaFilter(
-      supabase.from('fichas_de_servico')
-        .select('id, valor_total, valor_mao_obra, valor_pecas')
-        .eq('status', 'Finalizado')
-        .eq('pagamento_realizado', true)
-        .gte('created_at', prevFromStr).lte('created_at', prevToStr)
-    ),
-    buildFichaFilter(
-      supabase.from('fichas_de_servico')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', prevFromStr).lte('created_at', prevToStr)
-    ),
-    buildFichaFilter(
-      supabase.from('fichas_de_servico')
-        .select('*', { count: 'exact', head: true })
-        .in('status', ['Agendado', 'Visita Técnica'])
-        .gte('created_at', prevFromStr).lte('created_at', prevToStr)
-    ),
-    buildFichaFilter(
-      supabase.from('fichas_de_servico')
-        .select('*', { count: 'exact', head: true })
-        .in('status', ['Em andamento', 'Finalizado'])
-        .gte('created_at', prevFromStr).lte('created_at', prevToStr)
-    ),
-    supabase.from('google_ads_metrics')
-      .select('cliques, conversoes')
-      .gte('data_referencia', prevFromDate).lte('data_referencia', prevToDate),
-    supabase.rpc('calculate_conversas_iniciadas', {
-      p_from_date: prevFromStr, p_to_date: prevToStr,
-      p_categoria_id: filters.categoriaId || null,
-      p_prestador_cpf: filters.prestadorCpf || null,
-      p_cliente_telefone: null,
-    }),
-    // Time metrics
-    supabase.from('ficha_status_historico')
-      .select('ficha_id, data_inicio, created_at, status_novo')
-      .eq('status_novo', 'Agendado')
-      .gte('created_at', fromStr).lte('created_at', toStr).limit(200),
-    supabase.from('ficha_status_historico')
-      .select('ficha_id, data_inicio, created_at, status_novo, status_anterior')
-      .eq('status_novo', 'Em andamento').eq('status_anterior', 'Agendado')
-      .gte('created_at', fromStr).lte('created_at', toStr).limit(200),
-    buildFichaFilter(
-      supabase.from('fichas_de_servico')
-        .select('created_at, updated_at')
-        .eq('status', 'Finalizado').eq('pagamento_realizado', true)
-        .gte('created_at', fromStr).lte('created_at', toStr).limit(200)
-    ),
+  // --- Step 1: Query transacoes_financeiras by payment date for current & previous periods ---
+  const [transCurrentRes, transPrevRes] = await Promise.all([
+    supabase.from('transacoes_financeiras')
+      .select('ficha_id')
+      .eq('status_pagamento_prestador', 'pago')
+      .gte('data_pagamento_realizada', fromStr)
+      .lte('data_pagamento_realizada', toStr),
+    supabase.from('transacoes_financeiras')
+      .select('ficha_id')
+      .eq('status_pagamento_prestador', 'pago')
+      .gte('data_pagamento_realizada', prevFromStr)
+      .lte('data_pagamento_realizada', prevToStr),
   ]);
 
-  // --- Filter fichas by prestador payment status (pago ao prestador) ---
-  const allFichasPagas = fichasPagasRes.data || [];
-  const allFichasPagasPrev = fichasPagasPrevRes.data || [];
+  const fichaIdsCurrent = [...new Set((transCurrentRes.data || []).map(t => t.ficha_id).filter(Boolean))];
+  const fichaIdsPrev = [...new Set((transPrevRes.data || []).map(t => t.ficha_id).filter(Boolean))];
 
-  // Get ficha IDs to check transacoes_financeiras
-  const fichaIdsCurrent = allFichasPagas.map(f => (f as any).id as string).filter(Boolean);
-  const fichaIdsPrev = allFichasPagasPrev.map(f => (f as any).id as string).filter(Boolean);
-  const allFichaIdsToCheck = [...new Set([...fichaIdsCurrent, ...fichaIdsPrev])];
-
-  let pagoPrestadorSet = new Set<string>();
-  if (allFichaIdsToCheck.length > 0) {
-    // Query in batches of 200
-    for (let i = 0; i < allFichaIdsToCheck.length; i += 200) {
-      const batch = allFichaIdsToCheck.slice(i, i + 200);
-      const { data: transacoes } = await supabase
-        .from('transacoes_financeiras')
-        .select('ficha_id')
-        .in('ficha_id', batch)
-        .eq('status_pagamento_prestador', 'pago');
-      if (transacoes) {
-        for (const t of transacoes) pagoPrestadorSet.add(t.ficha_id);
-      }
+  // --- Step 2: Fetch financial data for those fichas ---
+  const fetchFichasBatch = async (ids: string[]) => {
+    if (ids.length === 0) return [];
+    const results: Array<{ id: string; valor_total: number | null; valor_mao_obra: number | null; valor_pecas: number | null }> = [];
+    for (let i = 0; i < ids.length; i += 200) {
+      const batch = ids.slice(i, i + 200);
+      let q = supabase.from('fichas_de_servico')
+        .select('id, valor_total, valor_mao_obra, valor_pecas')
+        .in('id', batch);
+      if (filters.categoriaId) q = q.eq('categoria_id', filters.categoriaId);
+      if (filters.prestadorCpf) q = q.eq('prestador_id', filters.prestadorCpf);
+      const { data } = await q;
+      if (data) results.push(...data);
     }
-  }
+    return results;
+  };
 
-  // Filter only fichas that are also paid to prestador
-  const fichasPagasPrestador = allFichasPagas.filter(f => pagoPrestadorSet.has((f as any).id));
-  const fichasPagasPrestadorPrev = allFichasPagasPrev.filter(f => pagoPrestadorSet.has((f as any).id));
+  const [fichasPagasData, fichasPagasPrevData, otherQueries] = await Promise.all([
+    fetchFichasBatch(fichaIdsCurrent),
+    fetchFichasBatch(fichaIdsPrev),
+    Promise.all([
+      buildFichaFilter(
+        supabase.from('fichas_de_servico')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', fromStr).lte('created_at', toStr)
+      ),
+      buildFichaFilter(
+        supabase.from('fichas_de_servico')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['Agendado', 'Visita Técnica'])
+          .gte('created_at', fromStr).lte('created_at', toStr)
+      ),
+      buildFichaFilter(
+        supabase.from('fichas_de_servico')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['Em andamento', 'Finalizado'])
+          .gte('created_at', fromStr).lte('created_at', toStr)
+      ),
+      supabase.from('google_ads_metrics')
+        .select('cliques, conversoes')
+        .gte('data_referencia', fromDate).lte('data_referencia', toDate),
+      supabase.rpc('calculate_conversas_iniciadas', {
+        p_from_date: fromStr, p_to_date: toStr,
+        p_categoria_id: filters.categoriaId || null,
+        p_prestador_cpf: filters.prestadorCpf || null,
+        p_cliente_telefone: null,
+      }),
+      supabase.from('nps_respostas').select('nota').not('nota', 'is', null)
+        .gte('created_at', fromStr).lte('created_at', toStr),
+      supabase.from('avaliacao_prestador').select('nota').not('nota', 'is', null)
+        .gte('created_at', fromStr).lte('created_at', toStr),
+      supabase.from('dashboard_metas').select('*').eq('tipo', 'diarias').limit(1).maybeSingle(),
+      supabase.from('fichas_de_servico')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['Orçamento Enviado', 'Negociação'])
+        .lte('updated_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()),
+      // Previous period operational queries
+      buildFichaFilter(
+        supabase.from('fichas_de_servico')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', prevFromStr).lte('created_at', prevToStr)
+      ),
+      buildFichaFilter(
+        supabase.from('fichas_de_servico')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['Agendado', 'Visita Técnica'])
+          .gte('created_at', prevFromStr).lte('created_at', prevToStr)
+      ),
+      buildFichaFilter(
+        supabase.from('fichas_de_servico')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['Em andamento', 'Finalizado'])
+          .gte('created_at', prevFromStr).lte('created_at', prevToStr)
+      ),
+      supabase.from('google_ads_metrics')
+        .select('cliques, conversoes')
+        .gte('data_referencia', prevFromDate).lte('data_referencia', prevToDate),
+      supabase.rpc('calculate_conversas_iniciadas', {
+        p_from_date: prevFromStr, p_to_date: prevToStr,
+        p_categoria_id: filters.categoriaId || null,
+        p_prestador_cpf: filters.prestadorCpf || null,
+        p_cliente_telefone: null,
+      }),
+      // Time metrics
+      supabase.from('ficha_status_historico')
+        .select('ficha_id, data_inicio, created_at, status_novo')
+        .eq('status_novo', 'Agendado')
+        .gte('created_at', fromStr).lte('created_at', toStr).limit(200),
+      supabase.from('ficha_status_historico')
+        .select('ficha_id, data_inicio, created_at, status_novo, status_anterior')
+        .eq('status_novo', 'Em andamento').eq('status_anterior', 'Agendado')
+        .gte('created_at', fromStr).lte('created_at', toStr).limit(200),
+      buildFichaFilter(
+        supabase.from('fichas_de_servico')
+          .select('created_at, updated_at')
+          .eq('status', 'Finalizado').eq('pagamento_realizado', true)
+          .gte('created_at', fromStr).lte('created_at', toStr).limit(200)
+      ),
+    ]),
+  ]);
 
-  // --- Process current period (only fichas paid to prestador) ---
-  const fichasPagas = fichasPagasPrestador;
+  const [
+    fsCriadasRes, agendadosRes, executadosRes,
+    adsRes, conversasRes, npsRes, avalPrestRes, metasRes, orcPendRes,
+    fsCriadasPrevRes, agendadosPrevRes, executadosPrevRes,
+    adsPrevRes, conversasPrevRes,
+    tempoFSAgendadoRes, tempoAgendadoExecRes, tempoCicloRes,
+  ] = otherQueries;
+
+  // --- Process current period (fichas paid to prestador by payment date) ---
+  const fichasPagas = fichasPagasData;
   const receitaTotal = fichasPagas.reduce((s, f) => s + (f.valor_total || 0), 0);
   const totalMaoObra = fichasPagas.reduce((s, f) => s + (f.valor_mao_obra || 0), 0);
   const totalPecas = fichasPagas.reduce((s, f) => s + (f.valor_pecas || 0), 0);
@@ -474,8 +471,8 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     if (diffs.length > 0) tempoCicloCompletoDias = Number((diffs.reduce((a, b) => a + b, 0) / diffs.length).toFixed(1));
   }
 
-  // --- Previous period (only fichas paid to prestador) ---
-  const fichasPagasPrev = fichasPagasPrestadorPrev;
+  // --- Previous period (fichas paid to prestador by payment date) ---
+  const fichasPagasPrev = fichasPagasPrevData;
   const receitaPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_total || 0), 0);
   const maoObraPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_mao_obra || 0), 0);
   const pecasPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_pecas || 0), 0);
