@@ -71,6 +71,7 @@ const sidebarEntries: SidebarEntry[] = [
     icon: FileText,
     items: [
       { label: "Fichas de Serviço", icon: FileText, route: "/fichas" },
+      { label: "Orçamentos", icon: ClipboardList, route: "/orcamentos" },
       { label: "Calendário", icon: CalendarDays, route: "/calendario" },
     ],
   },
