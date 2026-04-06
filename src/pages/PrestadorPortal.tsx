@@ -369,7 +369,7 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
   // Métricas gerais do período
   const metricas = useMemo(() => {
     const maoObra = servicosFiltrados.reduce((acc, s) => acc + (s.valor_mao_obra || 0), 0);
-    const pecas = servicosFiltrados.reduce((acc, s) => acc + (s.valor_pecas || 0), 0);
+    const pecas = servicosFiltrados.reduce((acc, s) => acc + (s.material_pago_24help ? 0 : (s.valor_pecas || 0)), 0);
     const total = maoObra + pecas;
     const quantidade = servicosFiltrados.length;
     const ticketMedio = quantidade > 0 ? total / quantidade : 0;
@@ -392,9 +392,10 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
         agrupado[mesAno] = { mesAno, mesLabel, total: 0, maoObra: 0, pecas: 0, quantidade: 0 };
       }
       
-      agrupado[mesAno].total += (servico.valor_mao_obra || 0) + (servico.valor_pecas || 0);
+      const pecasValor = servico.material_pago_24help ? 0 : (servico.valor_pecas || 0);
+      agrupado[mesAno].total += (servico.valor_mao_obra || 0) + pecasValor;
       agrupado[mesAno].maoObra += servico.valor_mao_obra || 0;
-      agrupado[mesAno].pecas += servico.valor_pecas || 0;
+      agrupado[mesAno].pecas += pecasValor;
       agrupado[mesAno].quantidade += 1;
     });
 
