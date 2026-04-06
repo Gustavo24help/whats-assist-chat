@@ -257,10 +257,10 @@ export const PagamentoPrestadoresTabV2 = () => {
     setHistoricoPage(0);
   }, [search, showAllDates, filterMode, filterDate, filterDateFim]);
 
-  const marcarPago = async (ficha: FichaFinanceira) => {
+  const marcarPago = async (ficha: FichaFinanceira, customDate?: Date) => {
     try {
       setMarkingPaid(ficha.id);
-      const agora = new Date().toISOString();
+      const agora = customDate ? customDate.toISOString() : new Date().toISOString();
 
       const { data: existing } = await supabase
         .from("transacoes_financeiras")
@@ -847,6 +847,47 @@ export const PagamentoPrestadoresTabV2 = () => {
               <Separator />
 
               <div className="space-y-2">
+                <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Data do Pagamento</h4>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dataPagamentoCustom && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dataPagamentoCustom
+                        ? format(dataPagamentoCustom, "dd/MM/yyyy", { locale: ptBR })
+                        : format(new Date(), "dd/MM/yyyy", { locale: ptBR }) + " (hoje)"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dataPagamentoCustom}
+                      onSelect={setDataPagamentoCustom}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dataPagamentoCustom && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground"
+                    onClick={() => setDataPagamentoCustom(undefined)}
+                  >
+                    Usar data de hoje
+                  </Button>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
                 <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Composição dos Valores</h4>
                 <div className="grid grid-cols-2 gap-y-1.5">
                   <span className="text-muted-foreground">Mão de Obra</span>
@@ -870,7 +911,7 @@ export const PagamentoPrestadoresTabV2 = () => {
               <Button
                 className="w-full h-11 text-base"
                 disabled={markingPaid === pagamentoConfirm.id}
-                onClick={() => { marcarPago(pagamentoConfirm); setPagamentoConfirm(null); }}
+                onClick={() => { marcarPago(pagamentoConfirm, dataPagamentoCustom); setPagamentoConfirm(null); setDataPagamentoCustom(undefined); }}
               >
                 {markingPaid === pagamentoConfirm.id ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
