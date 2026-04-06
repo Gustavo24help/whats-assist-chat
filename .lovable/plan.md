@@ -1,53 +1,43 @@
 
 
-## Plano de Implementação
+## Plano: Filtrar serviços pela data de pagamento ao prestador (não pela data de criação da ficha)
 
-### 1. Checkbox "Material pago pela 24help" na aba de Valores da Ficha
+### Problema atual
+O Dashboard TV busca fichas por `created_at` da tabela `fichas_de_servico` e depois cruza com `transacoes_financeiras` para ver se está paga ao prestador. Isso significa que uma ficha criada em março mas paga em abril aparece em **março**, não em abril.
 
-**Problema**: Hoje o campo `material_pago_24help` só existe na tabela `transacoes_financeiras` e é configurado no popup de confirmação financeira. O operador precisa definir isso já na ficha, na aba de valores.
+### Mudança
+Inverter a lógica: buscar primeiro na tabela `transacoes_financeiras` filtrando por `data_pagamento_realizada` no período selecionado, e depois buscar os dados financeiros (valor_total, valor_mao_obra, valor_pecas) das fichas correspondentes.
 
-**Solução**:
+### Alterações em `src/hooks/useDashboardTV.ts`
 
-1. **Migração de banco**: Adicionar coluna `material_pago_24help` (boolean, default false) na tabela `fichas_de_servico`.
+1. **Período atual e anterior** — substituir as queries de `fichasPagasRes` e `fichasPagasPrevRes`:
+   - Em vez de buscar `fichas_de_servico` por `created_at` e depois cruzar com `transacoes_financeiras`, buscar diretamente em `transacoes_financeiras` onde `status_pagamento_prestador = 'pago'` e `data_pagamento_realizada` está no período.
+   - Coletar os `ficha_id` resultantes.
+   - Buscar os dados financeiros (valor_total, valor_mao_obra, valor_pecas) das fichas correspondentes em `fichas_de_servico`.
 
-2. **FichaServicoTab.tsx**: Adicionar um checkbox abaixo do campo "Valor Peças" com label "Material pago pela 24help". Quando marcado, salva `material_pago_24help = true` na ficha. Visualmente, o campo de peças pode mostrar uma indicação de que não entrará no líquido do prestador.
+2. **Remover a lógica de cross-check** (linhas ~369-396) que hoje faz o batch lookup em `transacoes_financeiras` — ela se torna desnecessária pois a fonte primária já é essa tabela.
 
-3. **PopupConfirmacaoFinanceira.tsx**: Ao abrir, carregar o valor de `material_pago_24help` da ficha como estado inicial do checkbox (pré-preenchido). Ao salvar a transação, usar esse valor.
+3. **Manter intactas** todas as outras queries (fsCriadas, agendados, executados, ads, conversas, NPS, etc.) — elas continuam usando `created_at` da ficha pois são métricas operacionais diferentes.
 
-4. **PrestadorPortal.tsx**: Ajustar a lógica de `enrichServicosWithDates` para verificar `material_pago_24help` primeiro na ficha (`fichas_de_servico.material_pago_24help`) e usar como fallback o valor de `transacoes_financeiras` (para dados legados). Isso garante compatibilidade com dados já existentes.
+4. **Métricas de tempo** (tempoCicloCompleto) que hoje usam `created_at` da ficha finalizada — avaliar se também devem mudar. Recomendação: manter por `created_at` pois mede ciclo de processo, não financeiro.
 
-**Dados existentes**: Nenhum dado existente será alterado. A nova coluna tem default `false`, preservando o comportamento atual para fichas já criadas.
+### Fluxo da nova query
 
----
+```text
+transacoes_financeiras
+  WHERE status_pagamento_prestador = 'pago'
+  AND data_pagamento_realizada >= fromStr
+  AND data_pagamento_realizada <= toStr
+  → lista de ficha_ids
 
-### 2. Página de Orçamentos no menu Serviços
+fichas_de_servico
+  WHERE id IN (ficha_ids)
+  → valor_total, valor_mao_obra, valor_pecas
+  → calcula receita, lucro, qtd, ticket, margem
+```
 
-**Solução**:
-
-1. **Nova página `src/pages/Orcamentos.tsx`**: Página dedicada com tabela listando todos os orçamentos da tabela `orcamentos`, com:
-   - Colunas: Ficha (ID), Prestador (nome via join com `prestadores`), Valor MO, Valor Peças, Valor Total, Status, Data de Criação
-   - **Filtros**:
-     - Data fixa ou intervalo (date picker)
-     - Ficha (busca por ID)
-     - Prestador (select com busca)
-     - Cliente (busca por telefone/nome via ficha)
-   - Ordenação por data (mais recente primeiro)
-
-2. **Rota em App.tsx**: Adicionar rota `/orcamentos` protegida.
-
-3. **Menu lateral (PageLayout.tsx)**: Adicionar item "Orçamentos" dentro do grupo "Serviços", usando ícone `DollarSign` ou `ClipboardList`.
-
----
-
-### Arquivos a modificar
-
-| Arquivo | Alteração |
-|---|---|
-| Migração SQL | Adicionar `material_pago_24help` em `fichas_de_servico` |
-| `FichaServicoTab.tsx` | Checkbox na seção de valores |
-| `PopupConfirmacaoFinanceira.tsx` | Pré-preencher checkbox com valor da ficha |
-| `PrestadorPortal.tsx` | Ler flag da ficha com fallback para transação |
-| `src/pages/Orcamentos.tsx` | Nova página com tabela e filtros |
-| `src/App.tsx` | Nova rota `/orcamentos` |
-| `src/components/PageLayout.tsx` | Item no menu Serviços |
+### Impacto
+- **servicosFechados**, **receitaTotal**, **lucroBruto**, **ticketMedio**, **margemMedia**, **pagos** passam a ser contados pela data de pagamento ao prestador.
+- Dados existentes não são alterados — apenas a forma de consulta muda.
+- Celebração de metas também passa a considerar essa nova base.
 
