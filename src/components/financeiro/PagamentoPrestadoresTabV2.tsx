@@ -350,12 +350,29 @@ export const PagamentoPrestadoresTabV2 = () => {
 
   const dateFilteredPendentes = (() => {
     if (showAllDates) return pendentes;
-    if (!filterDate) return pendentes;
-    const start = new Date(filterDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(filterDate);
-    end.setHours(23, 59, 59, 999);
-    return pendentes.filter(f => f.data_pagamento_prevista >= start && f.data_pagamento_prevista <= end);
+    if (filterMode === "single" && filterDate) {
+      const start = new Date(filterDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(filterDate);
+      end.setHours(23, 59, 59, 999);
+      return pendentes.filter(f => f.data_pagamento_prevista >= start && f.data_pagamento_prevista <= end);
+    }
+    if (filterMode === "range") {
+      return pendentes.filter(f => {
+        if (filterDate) {
+          const start = new Date(filterDate);
+          start.setHours(0, 0, 0, 0);
+          if (f.data_pagamento_prevista < start) return false;
+        }
+        if (filterDateFim) {
+          const end = new Date(filterDateFim);
+          end.setHours(23, 59, 59, 999);
+          if (f.data_pagamento_prevista > end) return false;
+        }
+        return filterDate || filterDateFim;
+      });
+    }
+    return pendentes;
   })();
 
   const filteredPendentes = search
