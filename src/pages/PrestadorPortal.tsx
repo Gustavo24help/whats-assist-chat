@@ -762,7 +762,11 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">{formatCurrency(servico.valor_mao_obra || 0)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(servico.valor_pecas || 0)}</TableCell>
+                              <TableCell className="text-right">
+                                {servico.material_pago_24help 
+                                  ? <span className="text-xs text-muted-foreground italic">Pago pela empresa</span>
+                                  : formatCurrency(servico.valor_pecas || 0)}
+                              </TableCell>
                               <TableCell className="text-sm">{servico.bairro || "—"}</TableCell>
                               <TableCell className="text-sm">
                                 {servico.horario_agendamento 
