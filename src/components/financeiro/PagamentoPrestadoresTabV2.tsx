@@ -48,15 +48,18 @@ function calcFinanceiro(ficha: any) {
   const margemPct = 23;
   const totalOS = ficha.valor_total || 0;
   const taxa24help = totalOS > 0 ? totalOS - subtotal : subtotal * (margemPct / 100);
-  const liquidoPrestador = maoObra + taxaVisita;
+  const materialPago24help = ficha.material_pago_24help === true;
+  // Se material pago pela empresa, prestador recebe só MO; senão MO + peças
+  const liquidoPrestador = materialPago24help ? maoObra + taxaVisita : maoObra + pecas + taxaVisita;
   const desconto = 0;
-  const lucroBruto = totalOS - liquidoPrestador - pecas;
+  const lucroBruto = totalOS - liquidoPrestador - (materialPago24help ? pecas : 0);
   const rentab = totalOS > 0 ? (lucroBruto / totalOS) * 100 : 0;
 
   return {
     maoObra, pecas, taxaVisita, adiantCliente, adiantPrestador,
     taxa24help: Math.max(taxa24help, 0), totalOS, liquidoPrestador,
     desconto, lucroBruto: Math.max(lucroBruto, 0), rentab: Math.max(rentab, 0),
+    materialPago24help,
   };
 }
 
