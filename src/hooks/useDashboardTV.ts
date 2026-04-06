@@ -275,7 +275,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
   ] = await Promise.all([
     buildFichaFilter(
       supabase.from('fichas_de_servico')
-        .select('valor_total, valor_mao_obra, valor_pecas')
+        .select('id, valor_total, valor_mao_obra, valor_pecas')
         .eq('status', 'Finalizado')
         .eq('pagamento_realizado', true)
         .gte('created_at', fromStr).lte('created_at', toStr)
@@ -318,7 +318,7 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     // Previous period
     buildFichaFilter(
       supabase.from('fichas_de_servico')
-        .select('valor_total, valor_mao_obra, valor_pecas')
+        .select('id, valor_total, valor_mao_obra, valor_pecas')
         .eq('status', 'Finalizado')
         .eq('pagamento_realizado', true)
         .gte('created_at', prevFromStr).lte('created_at', prevToStr)
@@ -366,8 +366,37 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     ),
   ]);
 
-  // --- Process current period ---
-  const fichasPagas = fichasPagasRes.data || [];
+  // --- Filter fichas by prestador payment status (pago ao prestador) ---
+  const allFichasPagas = fichasPagasRes.data || [];
+  const allFichasPagasPrev = fichasPagasPrevRes.data || [];
+
+  // Get ficha IDs to check transacoes_financeiras
+  const fichaIdsCurrent = allFichasPagas.map(f => (f as any).id as string).filter(Boolean);
+  const fichaIdsPrev = allFichasPagasPrev.map(f => (f as any).id as string).filter(Boolean);
+  const allFichaIdsToCheck = [...new Set([...fichaIdsCurrent, ...fichaIdsPrev])];
+
+  let pagoPrestadorSet = new Set<string>();
+  if (allFichaIdsToCheck.length > 0) {
+    // Query in batches of 200
+    for (let i = 0; i < allFichaIdsToCheck.length; i += 200) {
+      const batch = allFichaIdsToCheck.slice(i, i + 200);
+      const { data: transacoes } = await supabase
+        .from('transacoes_financeiras')
+        .select('ficha_id')
+        .in('ficha_id', batch)
+        .eq('status_pagamento_prestador', 'pago');
+      if (transacoes) {
+        for (const t of transacoes) pagoPrestadorSet.add(t.ficha_id);
+      }
+    }
+  }
+
+  // Filter only fichas that are also paid to prestador
+  const fichasPagasPrestador = allFichasPagas.filter(f => pagoPrestadorSet.has((f as any).id));
+  const fichasPagasPrestadorPrev = allFichasPagasPrev.filter(f => pagoPrestadorSet.has((f as any).id));
+
+  // --- Process current period (only fichas paid to prestador) ---
+  const fichasPagas = fichasPagasPrestador;
   const receitaTotal = fichasPagas.reduce((s, f) => s + (f.valor_total || 0), 0);
   const totalMaoObra = fichasPagas.reduce((s, f) => s + (f.valor_mao_obra || 0), 0);
   const totalPecas = fichasPagas.reduce((s, f) => s + (f.valor_pecas || 0), 0);
@@ -445,8 +474,8 @@ async function fetchTVData(filters: TVFilters): Promise<TVDashboardData> {
     if (diffs.length > 0) tempoCicloCompletoDias = Number((diffs.reduce((a, b) => a + b, 0) / diffs.length).toFixed(1));
   }
 
-  // --- Previous period ---
-  const fichasPagasPrev = fichasPagasPrevRes.data || [];
+  // --- Previous period (only fichas paid to prestador) ---
+  const fichasPagasPrev = fichasPagasPrestadorPrev;
   const receitaPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_total || 0), 0);
   const maoObraPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_mao_obra || 0), 0);
   const pecasPrev = fichasPagasPrev.reduce((s, f) => s + (f.valor_pecas || 0), 0);
