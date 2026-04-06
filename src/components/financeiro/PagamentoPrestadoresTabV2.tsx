@@ -437,12 +437,12 @@ export const PagamentoPrestadoresTabV2 = () => {
       {/* Summary */}
       <div className="flex gap-3 overflow-x-auto">
         <div className="min-w-[140px] rounded-lg border bg-card p-3 shrink-0">
-          <div className="text-xs text-muted-foreground">Pendentes</div>
-          <div className="text-2xl font-bold">{filteredPendentes.length}</div>
+          <div className="text-xs text-muted-foreground">{subTab === "pendentes" ? "Pendentes" : "Pagos"}</div>
+          <div className="text-2xl font-bold">{subTab === "pendentes" ? filteredPendentes.length : filteredHistorico.length}</div>
         </div>
         <div className="min-w-[180px] rounded-lg border bg-card p-3 shrink-0">
-          <div className="text-xs text-muted-foreground">Total a Pagar</div>
-          <div className="text-xl font-bold">{formatMoeda(totalAPagar)}</div>
+          <div className="text-xs text-muted-foreground">{subTab === "pendentes" ? "Total a Pagar" : "Total Pago"}</div>
+          <div className="text-xl font-bold">{formatMoeda(subTab === "pendentes" ? totalAPagar : totalPago)}</div>
         </div>
       </div>
 
