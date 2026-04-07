@@ -1,141 +1,168 @@
 
 
-## Plano: Sistema de Gatilhos de Template 24h + Contas a Receber
+# Plano: Melhorias no Chat Interno, Notificações, Inatividade, Leitura por Operador e Módulo Tarefas Operacionais
 
-Este plano implementa duas funcionalidades conectadas: (1) detecção automática da janela de 24h do WhatsApp para decidir se envia mensagem normal ou template, e (2) página de Contas a Receber para gestão de cobranças.
+## Resumo
 
----
-
-### Contexto atual
-
-- O sistema **já verifica a janela de 24h** no `send-whatsapp` (linhas 147-189) e retorna `FORA_JANELA_24H` quando fora da janela.
-- O `EnviarLinkPagamentoDialog.tsx` **já trata** esse erro mostrando aviso ao operador.
-- O `send-template` **já existe** e envia via `contentSid`.
-- **Não existe** tabela `contas_receber` nem `whatsapp_envios_rastreamento`.
-- **Não existe** campo `ultima_mensagem_recebida` na tabela `clientes` (apenas `ultima_interacao`).
-
-O que falta é: (a) automatizar o fallback para template quando fora da janela, em vez de apenas bloquear, e (b) criar a página de Contas a Receber.
+6 frentes de trabalho: (1) Performance e bugs do chat interno, (2) Notificação popup para mensagens internas e atribuição de operador, (3) Logout por inatividade com aviso prévio, (4) Leitura de mensagens por operador individual, (5) Novo módulo "Tarefas Operacionais" com sub-módulos "Conversas a resolver" e "Delegação".
 
 ---
 
-### Parte 1: Automatização do envio com fallback para template
+## 1. Arrumar Mensagens Internas
 
-**1.1 Migração — campo na tabela clientes**
+### Problemas identificados
+- **Lentidão**: O `InternalChatList` faz N+1 queries — para cada conversa, busca membros, perfil, última mensagem e contagem de não lidos **sequencialmente**. Com 10 conversas = ~50 queries.
+- **Duplicação de conversas**: O `NewInternalChatDialog` verifica conversas existentes iterando por todas as memberships do usuário em loop (N queries). Se falhar em alguma verificação de timing, cria duplicada.
+- **Attachments**: O upload funciona corretamente (bucket `chat-files`, pasta `internal/`), mas precisa validação manual.
+
+### Solução
+- **Refatorar `InternalChatList`**: Buscar todas as conversas com uma única query, prefetching de profiles e últimas mensagens em batch (2-3 queries no total em vez de ~50).
+- **Corrigir duplicação**: Criar uma função SQL `find_or_create_internal_conversation(user1, user2)` que faz verificação atômica (SELECT + INSERT em transação), eliminando race conditions.
+- **Cache de profiles**: Manter um Map de profiles já carregados para evitar re-fetch.
+
+---
+
+## 2. Notificações Popup (Mensagens Internas + Atribuição de Operador)
+
+### 2.1 Popup para mensagens internas
+- Criar componente `InternalMessagePopupOverlay` (similar ao `AvisoPopupOverlay`).
+- Escutar Realtime em `internal_messages` INSERT.
+- Se `sender_id !== currentUser.id` e a conversa **não está aberta** (rota !== `/mensagens` ou `selectedConversation !== conversation_id`), mostrar popup com:
+  - Nome do remetente, preview da mensagem
+  - Botão "Ir para conversa" (navega para `/mensagens` e seleciona a conversa)
+  - Botão "Fechar"
+- **Somente marcar como vista quando o usuário ENTRAR na conversa** (não ao ver o popup).
+
+### 2.2 Popup para atribuição de operador ao chat
+- Escutar Realtime em `clientes` UPDATE onde `atendente_id` muda para o `currentUser.id`.
+- Mostrar popup: "Você foi atribuído à conversa de [nome cliente]"
+- Botão "Ir para conversa" → navega para `/chat` e abre a conversa.
+
+### Considerações offline
+- Se o computador estiver desligado/fechado, o popup não será visto em tempo real.
+- Ao abrir o app, verificar mensagens internas não lidas recentes (últimas 2h) e exibir o popup mais recente pendente.
+
+---
+
+## 3. Logout por Inatividade (2h)
+
+### Implementação
+- Criar hook `useInactivityLogout` usado no `AuthProvider` ou `App.tsx`.
+- Rastrear atividade: `mousemove`, `keydown`, `click`, `scroll`, `touchstart`.
+- Timer de 2h (7.200.000ms). Ao atingir 1h45min (15min antes), exibir modal de aviso:
+  - "Você será desconectado em X minutos por inatividade"
+  - Botão "Continuar conectado" (reseta o timer)
+- Ao atingir 2h sem interação → `supabase.auth.signOut()` + redirect para `/auth`.
+- Usar `localStorage` para timestamp da última atividade (persistir entre abas).
+- Se o computador estava desligado/fechado: ao reabrir, verificar se `lastActivity + 2h < now()` → deslogar imediatamente.
+
+---
+
+## 4. Leitura de Mensagens por Operador Individual
+
+### Problema atual
+- `marcado_nao_lido` é um campo único na tabela `clientes`. Se um operador abre a conversa, marca como lido para todos.
+
+### Solução
+
+**Migração — nova tabela `mensagem_leitura_operador`:**
 ```sql
-ALTER TABLE clientes 
-ADD COLUMN IF NOT EXISTS ultima_mensagem_recebida TIMESTAMPTZ;
+CREATE TABLE mensagem_leitura_operador (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cliente_telefone TEXT NOT NULL,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  last_read_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(cliente_telefone, user_id)
+);
 ```
 
-**1.2 Migração — tabela contas_receber**
+- Quando o operador abre uma conversa, faz UPSERT em `mensagem_leitura_operador` com timestamp atual.
+- A contagem de não lidos no `ConversationList` passa a consultar: mensagens com `data_hora > last_read_at` do operador logado (em vez do campo global `marcado_nao_lido`).
+- O campo `marcado_nao_lido` continua existindo como fallback/compatibilidade mas não é mais a fonte primária.
+- Cada operador vê seu próprio estado de leitura independente.
+
+---
+
+## 5. Módulo "Tarefas Operacionais" (nova página)
+
+### Diferença do módulo existente
+O módulo "Tarefas" existente (`/tarefas`) é focado em gestão de projetos internos (App/Sistema, Outros). O novo módulo é **operacional**, focado no dia a dia dos atendimentos.
+
+### 5.1 Sub-módulo: Conversas a Resolver
+- Lista fichas com status diferente de "Finalizado", "Perdido", "Não foi adiante".
+- Colunas: ID Ficha, Cliente, Status, Prestador, Última interação, Tempo no status
+- Botão "Ir para conversa" → abre `/chat` com o cliente selecionado
+- Filtros: por status, prestador, operador atribuído, ordenação por urgência
+
+### 5.2 Sub-módulo: Delegação
+- Criar tarefas operacionais com campos:
+  - Título, descrição, nível de urgência (baixa/média/alta/crítica)
+  - Atribuir a um ou mais usuários
+  - Vincular a uma ficha (opcional)
+  - Prazo (data/hora)
+  - Tolerância de repetição do aviso (ex: "repetir a cada 30min", "não repetir", "repetir a cada 1h")
+  - Status: pendente / em andamento / resolvido
+- Botão "Ir para conversa" se houver ficha vinculada
+- **Notificação popup** ao atribuído (similar ao de aviso), com frequência de repetição configurável
+- Ao marcar como resolvido, notifica o criador
+
+**Migração — tabela `tarefas_operacionais`:**
 ```sql
-CREATE TABLE contas_receber (
+CREATE TABLE tarefas_operacionais (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ficha_id TEXT REFERENCES fichas_de_servico(id),
-  cliente_telefone TEXT NOT NULL,
-  cliente_nome TEXT,
-  prestador_nome TEXT,
-  valor_total NUMERIC DEFAULT 0,
-  data_vencimento DATE,
-  data_pagamento DATE,
-  status TEXT DEFAULT 'aguardando',
-  pagamento_link TEXT,
-  asaas_id TEXT,
-  asaas_status TEXT,
-  requer_template BOOLEAN DEFAULT false,
-  link_enviado_em TIMESTAMPTZ,
-  link_reenvio_count INTEGER DEFAULT 0,
+  titulo TEXT NOT NULL,
+  descricao TEXT,
+  urgencia TEXT DEFAULT 'media', -- baixa, media, alta, critica
+  criado_por UUID REFERENCES auth.users(id),
+  ficha_id TEXT,
+  status TEXT DEFAULT 'pendente', -- pendente, em_andamento, resolvido
+  prazo TIMESTAMPTZ,
+  tolerancia_aviso_minutos INTEGER DEFAULT 0, -- 0 = não repetir
+  ultimo_aviso_em TIMESTAMPTZ,
+  resolvido_em TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE contas_receber ENABLE ROW LEVEL SECURITY;
--- RLS: apenas autenticados
-CREATE POLICY "Authenticated users can manage contas_receber"
-  ON contas_receber FOR ALL TO authenticated USING (true) WITH CHECK (true);
-```
 
-**1.3 Migração — tabela whatsapp_envios_rastreamento**
-```sql
-CREATE TABLE whatsapp_envios_rastreamento (
+CREATE TABLE tarefas_operacionais_atribuidos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  cliente_telefone TEXT,
-  conta_receber_id UUID REFERENCES contas_receber(id),
-  ficha_id TEXT,
-  tipo_envio TEXT, -- 'normal' ou 'template'
-  template_sid TEXT,
-  status TEXT DEFAULT 'enviado',
-  criado_em TIMESTAMPTZ DEFAULT now()
+  tarefa_id UUID REFERENCES tarefas_operacionais(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  UNIQUE(tarefa_id, user_id)
 );
-ALTER TABLE whatsapp_envios_rastreamento ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated users can manage envios"
-  ON whatsapp_envios_rastreamento FOR ALL TO authenticated USING (true) WITH CHECK (true);
 ```
 
-**1.4 Atualizar `twilio-webhook` — registrar `ultima_mensagem_recebida`**
-Quando uma mensagem de cliente chega (direção `client_to_bot`), atualizar o campo `ultima_mensagem_recebida` do cliente com o timestamp atual. Isso complementa o `ultima_interacao` já existente.
-
-**1.5 Atualizar `send-whatsapp` — fallback automático para template**
-Em vez de retornar `FORA_JANELA_24H` e bloquear, o `send-whatsapp` passará a aceitar um parâmetro opcional `fallbackToTemplate: true` com `templateContentSid` e `templateVariables`. Se fora da janela e fallback habilitado, ele chama o `send-template` internamente. Se não, mantém o comportamento atual de bloqueio.
-
-**1.6 Atualizar `EnviarLinkPagamentoDialog.tsx`**
-Adicionar opção de "Enviar como Template" quando fora da janela, usando um template pré-configurado para link de pagamento, em vez de apenas exibir erro.
-
 ---
 
-### Parte 2: Página Contas a Receber
+## Arquivos a criar/modificar
 
-**2.1 Nova página `src/pages/ContasReceber.tsx`**
-Adaptação do componente fornecido para a stack do projeto (TypeScript, Supabase client, shadcn/ui). Inclui:
-- **3 cards de resumo** no topo: A Receber (azul), Pago (verde), Vencido (vermelho)
-- **Filtros**: Status, Período, Cliente, Prestador
-- **Tabela**: ID, Cliente, Valor, Vencimento, Pagamento, Status, Ações (ver detalhes)
-- **Modal de detalhes**: Info do serviço, info de pagamento, link Asaas, botões (reenviar link, marcar pago, editar vencimento, cancelar)
-- Indicador visual de "Requer Template" e "Horas desde última mensagem"
-
-**2.2 Rota e menu**
-- `src/App.tsx`: Adicionar rota `/contas-receber`
-- `src/components/PageLayout.tsx`: Adicionar item "Contas a Receber" dentro do grupo Financeiro
-
----
-
-### Visualização da UI (para texto de aviso)
-
-**Contas a Receber** — Tela principal:
-- Topo: 3 cards coloridos (A Receber | Pago | Vencido) com valores totais e quantidade
-- Abaixo: barra de filtros (Status, Período, Cliente, Prestador)
-- Tabela com colunas: Ficha, Cliente, Valor, Vencimento, Pagamento, Status, Ações
-- Badge colorido por status: verde (Pago), azul (Aguardando), vermelho (Vencido)
-- Clicando em "Ver detalhes" abre modal com resumo, botões de ação e histórico de envios
-
-**Envio de Link de Pagamento** — Melhoria:
-- Quando o cliente não respondeu há mais de 24h, aparece aviso amarelo
-- Botão "Enviar como Template" disponível automaticamente
-- Registro do tipo de envio (normal vs template) para rastreabilidade
-
----
-
-### Texto para Aviso da Nova Funcionalidade
-
-> **Nova funcionalidade: Contas a Receber**
->
-> Agora você pode acompanhar todas as cobranças em um só lugar. Acesse pelo menu Financeiro > Contas a Receber.
->
-> - Veja o resumo de valores a receber, pagos e vencidos
-> - Filtre por status, período, cliente ou prestador
-> - Reenvie links de pagamento diretamente pela tela
-> - O sistema detecta automaticamente se o cliente está fora da janela de 24h do WhatsApp e oferece envio via template aprovado
-> - Histórico completo de envios (normal ou template) para cada cobrança
-
----
-
-### Arquivos modificados
-
-| Arquivo | Alteração |
+| Arquivo | Ação |
 |---|---|
-| Migração SQL | 3 alterações: campo em clientes, tabela contas_receber, tabela whatsapp_envios_rastreamento |
-| `supabase/functions/twilio-webhook/index.ts` | Atualizar `ultima_mensagem_recebida` em mensagens recebidas |
-| `supabase/functions/send-whatsapp/index.ts` | Adicionar fallback para template |
-| `src/pages/ContasReceber.tsx` | Nova página |
-| `src/components/EnviarLinkPagamentoDialog.tsx` | Botão de envio via template |
-| `src/App.tsx` | Nova rota |
-| `src/components/PageLayout.tsx` | Item no menu |
+| `src/components/internal-chat/InternalChatList.tsx` | Refatorar queries para batch |
+| `src/components/internal-chat/NewInternalChatDialog.tsx` | Função atômica anti-duplicação |
+| `src/components/InternalMessagePopupOverlay.tsx` | **Novo** — popup de mensagem interna |
+| `src/components/AtribuicaoOperadorPopup.tsx` | **Novo** — popup de atribuição |
+| `src/hooks/useInactivityLogout.tsx` | **Novo** — hook de inatividade |
+| `src/components/InactivityWarningModal.tsx` | **Novo** — modal de aviso 15min |
+| `src/pages/TarefasOperacionais.tsx` | **Novo** — página com tabs |
+| `src/components/tarefas-op/ConversasResolver.tsx` | **Novo** — sub-módulo conversas |
+| `src/components/tarefas-op/DelegacaoTab.tsx` | **Novo** — sub-módulo delegação |
+| `src/components/tarefas-op/DelegacaoFormDialog.tsx` | **Novo** — formulário de criação |
+| `src/components/TarefaOpPopupOverlay.tsx` | **Novo** — popup de delegação |
+| `src/components/ConversationList.tsx` | Usar `mensagem_leitura_operador` por usuário |
+| `src/components/ChatWindow.tsx` | UPSERT em `mensagem_leitura_operador` ao abrir |
+| `src/App.tsx` | Rota + overlays + hook de inatividade |
+| `src/components/PageLayout.tsx` | Menu item "Tarefas Operacionais" |
+| Migrações SQL | 2 tabelas novas + RLS |
+
+---
+
+## Ordem de implementação
+
+1. Migrações SQL (tabelas + RLS)
+2. Refatorar chat interno (performance + anti-duplicação)
+3. Hook de inatividade + modal de aviso
+4. Leitura por operador individual
+5. Popups de notificação (mensagens internas + atribuição)
+6. Módulo Tarefas Operacionais (Conversas a Resolver + Delegação)
 
