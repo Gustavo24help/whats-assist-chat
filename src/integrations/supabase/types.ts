@@ -100,6 +100,30 @@ export type Database = {
         }
         Relationships: []
       }
+      atribuicao_cadeia: {
+        Row: {
+          created_at: string | null
+          destino_user_id: string | null
+          id: string
+          ordem: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          destino_user_id?: string | null
+          id?: string
+          ordem?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          destino_user_id?: string | null
+          id?: string
+          ordem?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       avaliacao_prestador: {
         Row: {
           classificacao: string | null
@@ -1064,6 +1088,30 @@ export type Database = {
           id?: string
           impressoes?: number | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      horario_saida_previsto: {
+        Row: {
+          hora_saida: string
+          id: string
+          lembrete_minutos_antes: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          hora_saida?: string
+          id?: string
+          lembrete_minutos_antes?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          hora_saida?: string
+          id?: string
+          lembrete_minutos_antes?: number
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

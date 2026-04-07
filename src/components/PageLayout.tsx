@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { redistributeChats } from "@/hooks/useLogoutRedistribution";
 
 const SIDEBAR_KEY = "home-sidebar-collapsed";
 const SIDEBAR_GROUPS_KEY = "home-sidebar-groups";
@@ -152,6 +153,14 @@ export function PageLayout({ children, fullHeight = false }: PageLayoutProps) {
   };
 
   const handleLogout = async () => {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser?.id) {
+      try {
+        await redistributeChats(currentUser.id);
+      } catch (err) {
+        console.error("Erro ao redistribuir chats:", err);
+      }
+    }
     await supabase.auth.signOut();
     toast.success("Logout realizado com sucesso!");
     navigate("/auth");

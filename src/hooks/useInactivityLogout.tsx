@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { redistributeChats } from "@/hooks/useLogoutRedistribution";
 
 const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 const WARNING_BEFORE = 15 * 60 * 1000; // 15 minutes before
@@ -46,6 +47,10 @@ export function useInactivityLogout() {
     // Set logout timer (2h from now)
     logoutTimerRef.current = setTimeout(async () => {
       setShowWarning(false);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        try { await redistributeChats(user.id); } catch {}
+      }
       await supabase.auth.signOut();
       navigate("/auth");
     }, INACTIVITY_TIMEOUT);
