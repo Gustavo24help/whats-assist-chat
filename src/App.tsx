@@ -309,9 +309,18 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/tarefas-operacionais"
+                element={
+                  <ProtectedRoute>
+                    <TarefasOperacionais />
+                  </ProtectedRoute>
+                }
+              />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
                           </Routes>
+              </InactivityWrapper>
             </NotificationProvider>
           </AuthProvider>
         </BrowserRouter>
