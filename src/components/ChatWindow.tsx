@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
 import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 import { ReplyIndicator } from "./ReplyIndicator";
+import { AtribuicaoDescricaoDialog } from "./AtribuicaoDescricaoDialog";
 
 import {
   AlertDialog,
