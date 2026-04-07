@@ -1,7 +1,7 @@
 import React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { VisualModeProvider } from "@/contexts/VisualModeContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
