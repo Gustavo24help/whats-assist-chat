@@ -2149,7 +2149,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                                   "w-full justify-start text-xs h-8",
                                   atendenteAtual?.id === a.id && "bg-accent"
                                 )}
-                                onClick={() => atribuirOperador(a.id, a.nome)}
+                                onClick={() => iniciarAtribuicao(a.id, a.nome)}
                               >
                                 <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold mr-2">
                                   {a.nome.charAt(0).toUpperCase()}
