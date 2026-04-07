@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
     // ========== ETAPA 3: Enviar mensagem ==========
     if (dentroJanela) {
       // Mensagem livre com o link
-      const mensagem = `${nomeCliente}, segue o link para pagamento do serviço ${ficha.nome_ficha || ficha_id} no valor de ${valorFormatado}:\n\n${paymentUrl}\n\nQualquer dúvida estamos à disposição! 😊`;
+      const mensagem = `Segue o link para pagamento do serviço ${ficha.nome_ficha || ficha_id} no valor de ${valorFormatado}:\n\n${paymentUrl}\n\nQualquer dúvida estamos à disposição! 😊`;
 
       const body = new URLSearchParams();
       body.append("To", whatsappTo);
