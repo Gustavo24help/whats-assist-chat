@@ -64,6 +64,17 @@ export const DelegacaoFormDialog = ({ open, onOpenChange, onCreated }: Delegacao
     setSaving(true);
     try {
       const tarefaId = crypto.randomUUID();
+      // Buscar telefone do cliente se ficha foi informada
+      let clienteTelefone: string | null = null;
+      if (fichaId.trim()) {
+        const { data: fichaData } = await (supabase as any)
+          .from("fichas_de_servico")
+          .select("telefone_cliente")
+          .eq("id", fichaId.trim())
+          .maybeSingle();
+        clienteTelefone = fichaData?.telefone_cliente || null;
+      }
+
       const { error } = await (supabase as any)
         .from("tarefas_operacionais")
         .insert({
@@ -73,6 +84,7 @@ export const DelegacaoFormDialog = ({ open, onOpenChange, onCreated }: Delegacao
           urgencia,
           criado_por: user.id,
           ficha_id: fichaId.trim() || null,
+          cliente_telefone: clienteTelefone,
           prazo: prazo ? new Date(prazo).toISOString() : null,
           tolerancia_aviso_minutos: parseInt(tolerancia) || 0,
         });
