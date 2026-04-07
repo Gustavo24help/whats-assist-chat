@@ -95,10 +95,23 @@ export const DelegacaoTab = () => {
       atribByTarefa[a.tarefa_id].push(profileMap[a.user_id] || "Usuário");
     });
 
+    // Para tarefas com ficha mas sem telefone, buscar da ficha
+    const tarefasSemTelefone = data.filter((t: any) => t.ficha_id && !t.cliente_telefone);
+    const fichaIdsSemTel = tarefasSemTelefone.map((t: any) => t.ficha_id);
+    const fichasTelMap: Record<string, string> = {};
+    if (fichaIdsSemTel.length > 0) {
+      const { data: fichasData } = await (supabase as any)
+        .from("fichas_de_servico")
+        .select("id, telefone_cliente")
+        .in("id", fichaIdsSemTel);
+      fichasData?.forEach((f: any) => { fichasTelMap[f.id] = f.telefone_cliente; });
+    }
+
     setTarefas(data.map((t: any) => ({
       ...t,
       criador_nome: profileMap[t.criado_por] || "—",
       atribuidos_nomes: atribByTarefa[t.id] || [],
+      cliente_telefone: t.cliente_telefone || fichasTelMap[t.ficha_id] || null,
     })));
 
     setLoading(false);
