@@ -54,52 +54,20 @@ export const NewInternalChatDialog = ({ open, onOpenChange, onCreated }: NewInte
     setCreating(true);
 
     try {
-      // Check if conversation already exists between these two users
-      const { data: myMemberships } = await (supabase as any)
-        .from("internal_conversation_members")
-        .select("conversation_id")
-        .eq("user_id", user.id);
+      // Use atomic function to find or create conversation
+      const { data, error } = await (supabase as any)
+        .rpc("find_or_create_internal_conversation", {
+          p_user1: user.id,
+          p_user2: targetUserId,
+        });
 
-      if (myMemberships) {
-        for (const m of myMemberships) {
-          const { data: otherMember } = await (supabase as any)
-            .from("internal_conversation_members")
-            .select("id")
-            .eq("conversation_id", m.conversation_id)
-            .eq("user_id", targetUserId)
-            .maybeSingle();
+      if (error) throw error;
 
-          if (otherMember) {
-            // Conversation already exists
-            onCreated(m.conversation_id);
-            onOpenChange(false);
-            setCreating(false);
-            return;
-          }
-        }
-      }
-
-      // Create new conversation (generate UUID client-side to avoid SELECT policy issue)
-      const convId = crypto.randomUUID();
-      const { error: convError } = await (supabase as any)
-        .from("internal_conversations")
-        .insert({ id: convId, is_group: false });
-
-      if (convError) throw convError;
-
-      // Add both members
-      const { error: membersError } = await (supabase as any)
-        .from("internal_conversation_members")
-        .insert([
-          { conversation_id: convId, user_id: user.id },
-          { conversation_id: convId, user_id: targetUserId },
-        ]);
-
-      if (membersError) throw membersError;
-
+      const convId = data as string;
       onCreated(convId);
       onOpenChange(false);
     } catch (err) {
+      console.error("Erro ao criar conversa:", err);
       toast.error("Erro ao criar conversa");
     } finally {
       setCreating(false);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -29,9 +29,10 @@ export const InternalChatList = ({ selectedId, onSelect, onNewChat }: InternalCh
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     if (!user) return;
 
+    // Step 1: Get all my memberships
     const { data: memberships } = await (supabase as any)
       .from("internal_conversation_members")
       .select("conversation_id, last_read_at")
@@ -49,86 +50,111 @@ export const InternalChatList = ({ selectedId, onSelect, onNewChat }: InternalCh
       lastReadMap[m.conversation_id] = m.last_read_at;
     });
 
+    // Step 2: Get all conversations in one query
     const { data: convs } = await (supabase as any)
       .from("internal_conversations")
       .select("id, updated_at, is_group, group_name")
       .in("id", convIds)
       .order("updated_at", { ascending: false });
 
-    if (!convs) {
+    if (!convs || convs.length === 0) {
+      setConversations([]);
       setLoading(false);
       return;
     }
 
-    const enriched: Conversation[] = [];
+    // Step 3: Get ALL members for all conversations in one query
+    const { data: allMembers } = await (supabase as any)
+      .from("internal_conversation_members")
+      .select("conversation_id, user_id")
+      .in("conversation_id", convIds)
+      .neq("user_id", user.id);
 
-    for (const conv of convs) {
-      // Get other members
-      const { data: members } = await (supabase as any)
-        .from("internal_conversation_members")
-        .select("user_id")
-        .eq("conversation_id", conv.id)
-        .neq("user_id", user.id);
+    // Step 4: Collect unique user IDs and fetch profiles in batch
+    const otherUserIds = [...new Set((allMembers || []).map((m: any) => m.user_id))];
+    const profileMap: Record<string, string> = {};
+    
+    if (otherUserIds.length > 0) {
+      const { data: profiles } = await (supabase as any)
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", otherUserIds);
+      
+      profiles?.forEach((p: any) => { profileMap[p.id] = p.full_name || "Usuário"; });
+    }
 
-      let otherName = "Conversa";
-      let otherId: string | undefined;
-      if (members && members.length > 0) {
-        otherId = members[0].user_id;
-        const { data: profile } = await (supabase as any)
-          .from("profiles")
-          .select("full_name")
-          .eq("id", members[0].user_id)
-          .single();
-        otherName = profile?.full_name || "Usuário";
+    // Step 5: Get last messages for all conversations in one query
+    // We fetch the latest messages and deduplicate by conversation_id
+    const { data: allMessages } = await (supabase as any)
+      .from("internal_messages")
+      .select("conversation_id, content, file_name, created_at, sender_id")
+      .in("conversation_id", convIds)
+      .order("created_at", { ascending: false })
+      .limit(convIds.length * 2); // enough to get at least 1 per conv
+
+    const lastMsgMap: Record<string, any> = {};
+    allMessages?.forEach((msg: any) => {
+      if (!lastMsgMap[msg.conversation_id]) {
+        lastMsgMap[msg.conversation_id] = msg;
       }
+    });
 
-      // Get last message
-      const { data: lastMsgs } = await (supabase as any)
-        .from("internal_messages")
-        .select("content, file_name, created_at")
-        .eq("conversation_id", conv.id)
-        .order("created_at", { ascending: false })
-        .limit(1);
+    // Step 6: Get unread counts in batch
+    // For each conversation, count messages after last_read_at from other senders
+    const unreadCounts: Record<string, number> = {};
+    
+    // Batch: get all messages from others in all conversations
+    const { data: allOtherMsgs } = await (supabase as any)
+      .from("internal_messages")
+      .select("conversation_id, created_at")
+      .in("conversation_id", convIds)
+      .neq("sender_id", user.id)
+      .order("created_at", { ascending: false });
 
-      const lastMsg = lastMsgs?.[0];
+    convIds.forEach((cid: string) => {
+      const lastRead = lastReadMap[cid];
+      const msgs = (allOtherMsgs || []).filter((m: any) => m.conversation_id === cid);
+      if (lastRead) {
+        unreadCounts[cid] = msgs.filter((m: any) => m.created_at > lastRead).length;
+      } else {
+        unreadCounts[cid] = msgs.length;
+      }
+    });
+
+    // Step 7: Build member map per conversation
+    const membersByConv: Record<string, string[]> = {};
+    (allMembers || []).forEach((m: any) => {
+      if (!membersByConv[m.conversation_id]) membersByConv[m.conversation_id] = [];
+      membersByConv[m.conversation_id].push(m.user_id);
+    });
+
+    // Step 8: Assemble enriched conversations
+    const enriched: Conversation[] = convs.map((conv: any) => {
+      const otherIds = membersByConv[conv.id] || [];
+      const otherId = otherIds[0];
+      const otherName = conv.is_group
+        ? (conv.group_name || "Grupo")
+        : (otherId ? profileMap[otherId] || "Usuário" : "Conversa");
+
+      const lastMsg = lastMsgMap[conv.id];
       const lastMessage = lastMsg?.content || (lastMsg?.file_name ? `📎 ${lastMsg.file_name}` : undefined);
 
-      // Count unread
-      const lastRead = lastReadMap[conv.id];
-      let unreadCount = 0;
-      if (lastRead) {
-        const { count } = await (supabase as any)
-          .from("internal_messages")
-          .select("id", { count: "exact", head: true })
-          .eq("conversation_id", conv.id)
-          .neq("sender_id", user.id)
-          .gt("created_at", lastRead);
-        unreadCount = count || 0;
-      } else {
-        const { count } = await (supabase as any)
-          .from("internal_messages")
-          .select("id", { count: "exact", head: true })
-          .eq("conversation_id", conv.id)
-          .neq("sender_id", user.id);
-        unreadCount = count || 0;
-      }
-
-      enriched.push({
+      return {
         ...conv,
-        other_member_name: conv.is_group ? (conv.group_name || "Grupo") : otherName,
+        other_member_name: otherName,
         other_member_id: otherId,
         last_message: lastMessage,
-        unread_count: unreadCount,
-      });
-    }
+        unread_count: unreadCounts[conv.id] || 0,
+      };
+    });
 
     setConversations(enriched);
     setLoading(false);
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     loadConversations();
-  }, [user?.id]);
+  }, [loadConversations]);
 
   // Refresh on realtime
   useEffect(() => {
@@ -140,7 +166,7 @@ export const InternalChatList = ({ selectedId, onSelect, onNewChat }: InternalCh
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id]);
+  }, [loadConversations]);
 
   return (
     <div className="flex flex-col h-full border-r bg-background">
