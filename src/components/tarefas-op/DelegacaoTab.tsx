@@ -211,7 +211,7 @@ export const DelegacaoTab = () => {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     {t.ficha_id && (
-                      <Button variant="outline" size="sm" onClick={() => navigate("/chat")} className="gap-1">
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/chat?telefone=${encodeURIComponent(t.cliente_telefone || "")}`)} className="gap-1">
                         <MessageCircle className="h-3.5 w-3.5" />
                       </Button>
                     )}

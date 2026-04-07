@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ConversationList } from "@/components/ConversationList";
 import { ContactsTab } from "@/components/ContactsTab";
@@ -20,6 +20,7 @@ import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
 
 const Chat = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { openRoute } = useOpenInNewTab();
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [fichaOpen, setFichaOpen] = useState(false);
@@ -27,6 +28,27 @@ const Chat = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [botDisabledAcknowledged, setBotDisabledAcknowledged] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"conversas" | "contatos">("conversas");
+
+  // Auto-select client from URL param
+  useEffect(() => {
+    const telefone = searchParams.get("telefone");
+    if (!telefone || selectedCliente?.telefone === telefone) return;
+
+    const loadCliente = async () => {
+      const { data: cliente } = await supabase
+        .from("clientes")
+        .select("*")
+        .eq("telefone", telefone)
+        .maybeSingle();
+
+      if (cliente) {
+        handleSelectCliente(cliente);
+        // Clear the param so it doesn't re-trigger
+        setSearchParams({}, { replace: true });
+      }
+    };
+    loadCliente();
+  }, [searchParams]);
 
   useEffect(() => {
     const checkAuth = async () => {
