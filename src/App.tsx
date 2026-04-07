@@ -7,6 +7,11 @@ import { VisualModeProvider } from "@/contexts/VisualModeContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { AvisoPopupOverlay } from "@/components/AvisoPopupOverlay";
 import { TarefaPopupOverlay } from "@/components/TarefaPopupOverlay";
+import { InternalMessagePopupOverlay } from "@/components/InternalMessagePopupOverlay";
+import { AtribuicaoOperadorPopup } from "@/components/AtribuicaoOperadorPopup";
+import { TarefaOpPopupOverlay } from "@/components/TarefaOpPopupOverlay";
+import { InactivityWarningModal } from "@/components/InactivityWarningModal";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
@@ -37,12 +42,23 @@ import PlanilhaControlePagamentos from "./pages/PlanilhaControlePagamentos";
 import Calendario from "./pages/Calendario";
 import ChatPrestadores from "./pages/ChatPrestadores";
 import Tarefas from "./pages/Tarefas";
+import TarefasOperacionais from "./pages/TarefasOperacionais";
 import AdminPrestadorPortal from "./pages/AdminPrestadorPortal";
 import VisibilitySettings from "./pages/VisibilitySettings";
 import Orcamentos from "./pages/Orcamentos";
 import ContasReceber from "./pages/ContasReceber";
 
 const queryClient = new QueryClient();
+
+const InactivityWrapper = ({ children }: { children: React.ReactNode }) => {
+  const { showWarning, minutesLeft, dismissWarning } = useInactivityLogout();
+  return (
+    <>
+      <InactivityWarningModal open={showWarning} minutesLeft={minutesLeft} onDismiss={dismissWarning} />
+      {children}
+    </>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -51,8 +67,12 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <NotificationProvider>
+              <InactivityWrapper>
               <AvisoPopupOverlay />
               <TarefaPopupOverlay />
+              <InternalMessagePopupOverlay />
+              <AtribuicaoOperadorPopup />
+              <TarefaOpPopupOverlay />
               <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/orcamento" element={<OrcamentoPublico />} />
@@ -289,9 +309,18 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/tarefas-operacionais"
+                element={
+                  <ProtectedRoute>
+                    <TarefasOperacionais />
+                  </ProtectedRoute>
+                }
+              />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
                           </Routes>
+              </InactivityWrapper>
             </NotificationProvider>
           </AuthProvider>
         </BrowserRouter>

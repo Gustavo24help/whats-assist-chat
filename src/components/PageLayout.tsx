@@ -102,6 +102,7 @@ const sidebarEntries: SidebarEntry[] = [
     ],
   },
   { label: "Tarefas", icon: ClipboardList, route: "/tarefas" },
+  { label: "Tarefas Operacionais", icon: ClipboardList, route: "/tarefas-operacionais" },
   { label: "Bairros", icon: MapPin, route: "/bairros" },
   {
     label: "Configurações",
