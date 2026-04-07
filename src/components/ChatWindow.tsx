@@ -2867,6 +2867,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         onTimeout={handleTakeoverTimeout}
         onClose={() => setTakeoverWaitingOpen(false)}
       />
+
+      <AtribuicaoDescricaoDialog
+        open={atribuicaoDialogOpen}
+        onOpenChange={setAtribuicaoDialogOpen}
+        operadorNome={pendingAtribuicao?.nome || ""}
+        onConfirm={(desc) => {
+          if (pendingAtribuicao) {
+            atribuirOperador(pendingAtribuicao.id, pendingAtribuicao.nome, desc || undefined);
+          }
+          setPendingAtribuicao(null);
+        }}
+      />
     </div>
   );
 };
