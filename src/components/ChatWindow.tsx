@@ -198,6 +198,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   // Estados para atribuição de operador
   const [atendenteAtual, setAtendenteAtual] = useState<{ id: string; nome: string } | null>(null);
   const [todosAtendentes, setTodosAtendentes] = useState<Array<{ id: string; nome: string }>>([]);
+  const [atribuicaoDialogOpen, setAtribuicaoDialogOpen] = useState(false);
+  const [pendingAtribuicao, setPendingAtribuicao] = useState<{ id: string; nome: string } | null>(null);
   
   // Estados para notas internas
   const [notasDialogOpen, setNotasDialogOpen] = useState(false);
