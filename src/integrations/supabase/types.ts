@@ -1164,6 +1164,27 @@ export type Database = {
           },
         ]
       }
+      mensagem_leitura_operador: {
+        Row: {
+          cliente_telefone: string
+          id: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cliente_telefone: string
+          id?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cliente_telefone?: string
+          id?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       mensagens: {
         Row: {
           arquivo_url: string | null
@@ -1843,6 +1864,89 @@ export type Database = {
         }
         Relationships: []
       }
+      tarefas_operacionais: {
+        Row: {
+          cliente_telefone: string | null
+          created_at: string | null
+          criado_por: string | null
+          descricao: string | null
+          ficha_id: string | null
+          id: string
+          prazo: string | null
+          resolvido_em: string | null
+          resolvido_nota: string | null
+          status: string
+          titulo: string
+          tolerancia_aviso_minutos: number | null
+          ultimo_aviso_em: string | null
+          updated_at: string | null
+          urgencia: string
+        }
+        Insert: {
+          cliente_telefone?: string | null
+          created_at?: string | null
+          criado_por?: string | null
+          descricao?: string | null
+          ficha_id?: string | null
+          id?: string
+          prazo?: string | null
+          resolvido_em?: string | null
+          resolvido_nota?: string | null
+          status?: string
+          titulo: string
+          tolerancia_aviso_minutos?: number | null
+          ultimo_aviso_em?: string | null
+          updated_at?: string | null
+          urgencia?: string
+        }
+        Update: {
+          cliente_telefone?: string | null
+          created_at?: string | null
+          criado_por?: string | null
+          descricao?: string | null
+          ficha_id?: string | null
+          id?: string
+          prazo?: string | null
+          resolvido_em?: string | null
+          resolvido_nota?: string | null
+          status?: string
+          titulo?: string
+          tolerancia_aviso_minutos?: number | null
+          ultimo_aviso_em?: string | null
+          updated_at?: string | null
+          urgencia?: string
+        }
+        Relationships: []
+      }
+      tarefas_operacionais_atribuidos: {
+        Row: {
+          created_at: string | null
+          id: string
+          tarefa_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          tarefa_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          tarefa_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tarefas_operacionais_atribuidos_tarefa_id_fkey"
+            columns: ["tarefa_id"]
+            isOneToOne: false
+            referencedRelation: "tarefas_operacionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_assignees: {
         Row: {
           task_id: string
@@ -2507,6 +2611,10 @@ export type Database = {
       }
       can_manage_avisos: { Args: { _user_id: string }; Returns: boolean }
       check_and_close_orcamento_forms: { Args: never; Returns: undefined }
+      find_or_create_internal_conversation: {
+        Args: { p_user1: string; p_user2: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
