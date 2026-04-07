@@ -385,6 +385,7 @@ export type Database = {
           tags: string[] | null
           telefone: string
           ultima_interacao: string | null
+          ultima_mensagem_recebida: string | null
         }
         Insert: {
           arquivado?: boolean
@@ -410,6 +411,7 @@ export type Database = {
           tags?: string[] | null
           telefone: string
           ultima_interacao?: string | null
+          ultima_mensagem_recebida?: string | null
         }
         Update: {
           arquivado?: boolean
@@ -435,6 +437,7 @@ export type Database = {
           tags?: string[] | null
           telefone?: string
           ultima_interacao?: string | null
+          ultima_mensagem_recebida?: string | null
         }
         Relationships: [
           {
@@ -532,6 +535,74 @@ export type Database = {
             columns: ["transacao_id"]
             isOneToOne: false
             referencedRelation: "transacoes_financeiras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contas_receber: {
+        Row: {
+          asaas_id: string | null
+          asaas_status: string | null
+          cliente_nome: string | null
+          cliente_telefone: string
+          created_at: string | null
+          data_pagamento: string | null
+          data_vencimento: string | null
+          ficha_id: string | null
+          id: string
+          link_enviado_em: string | null
+          link_reenvio_count: number | null
+          pagamento_link: string | null
+          prestador_nome: string | null
+          requer_template: boolean | null
+          status: string | null
+          updated_at: string | null
+          valor_total: number | null
+        }
+        Insert: {
+          asaas_id?: string | null
+          asaas_status?: string | null
+          cliente_nome?: string | null
+          cliente_telefone: string
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string | null
+          ficha_id?: string | null
+          id?: string
+          link_enviado_em?: string | null
+          link_reenvio_count?: number | null
+          pagamento_link?: string | null
+          prestador_nome?: string | null
+          requer_template?: boolean | null
+          status?: string | null
+          updated_at?: string | null
+          valor_total?: number | null
+        }
+        Update: {
+          asaas_id?: string | null
+          asaas_status?: string | null
+          cliente_nome?: string | null
+          cliente_telefone?: string
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string | null
+          ficha_id?: string | null
+          id?: string
+          link_enviado_em?: string | null
+          link_reenvio_count?: number | null
+          pagamento_link?: string | null
+          prestador_nome?: string | null
+          requer_template?: boolean | null
+          status?: string | null
+          updated_at?: string | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_receber_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
             referencedColumns: ["id"]
           },
         ]
@@ -2339,6 +2410,47 @@ export type Database = {
           timestamp?: string
         }
         Relationships: []
+      }
+      whatsapp_envios_rastreamento: {
+        Row: {
+          cliente_telefone: string | null
+          conta_receber_id: string | null
+          criado_em: string | null
+          ficha_id: string | null
+          id: string
+          status: string | null
+          template_sid: string | null
+          tipo_envio: string | null
+        }
+        Insert: {
+          cliente_telefone?: string | null
+          conta_receber_id?: string | null
+          criado_em?: string | null
+          ficha_id?: string | null
+          id?: string
+          status?: string | null
+          template_sid?: string | null
+          tipo_envio?: string | null
+        }
+        Update: {
+          cliente_telefone?: string | null
+          conta_receber_id?: string | null
+          criado_em?: string | null
+          ficha_id?: string | null
+          id?: string
+          status?: string | null
+          template_sid?: string | null
+          tipo_envio?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_envios_rastreamento_conta_receber_id_fkey"
+            columns: ["conta_receber_id"]
+            isOneToOne: false
+            referencedRelation: "contas_receber"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_templates: {
         Row: {

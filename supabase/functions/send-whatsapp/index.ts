@@ -44,7 +44,7 @@ serve(async (req) => {
       );
     }
 
-    const { to, message, mediaUrl, userId, remetente, replyToMessageId, fromNumber, ficha_id, conversation_id, operador_nome, tipo_remetente } = await req.json();
+    const { to, message, mediaUrl, userId, remetente, replyToMessageId, fromNumber, ficha_id, conversation_id, operador_nome, tipo_remetente, fallbackToTemplate, templateContentSid, templateVariables } = await req.json();
 
     // Input validation
     if (!to || typeof to !== 'string' || to.length > 50) {
@@ -178,6 +178,49 @@ serve(async (req) => {
       const dentroJanela24h = diferencaHoras < 24;
 
       if (!dentroJanela24h) {
+        // Se fallback para template está habilitado, enviar via template
+        if (fallbackToTemplate && templateContentSid) {
+          console.log('[send-whatsapp] Fora da janela 24h — usando fallback para template:', templateContentSid);
+          
+          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
+          const authStr = btoa(`${twilioAccountSid}:${twilioAuthToken}`);
+          const sendFrom = activePhoneNumber!.startsWith('whatsapp:') ? activePhoneNumber! : `whatsapp:${activePhoneNumber}`;
+          const sendTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+          
+          const templateForm = new URLSearchParams();
+          templateForm.append('To', sendTo);
+          templateForm.append('From', sendFrom);
+          templateForm.append('ContentSid', templateContentSid);
+          if (templateVariables) {
+            templateForm.append('ContentVariables', typeof templateVariables === 'string' ? templateVariables : JSON.stringify(templateVariables));
+          }
+          
+          const templateRes = await fetch(twilioUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${authStr}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: templateForm,
+          });
+          
+          const templateData = await templateRes.json();
+          
+          if (!templateRes.ok) {
+            console.error('[send-whatsapp] Erro ao enviar template fallback:', templateData);
+            return new Response(
+              JSON.stringify({ success: false, error: 'TEMPLATE_FALLBACK_FAILED', details: templateData }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          console.log('[send-whatsapp] Template fallback enviado com sucesso:', templateData.sid);
+          return new Response(
+            JSON.stringify({ success: true, sid: templateData.sid, sentViaTemplate: true }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
         return new Response(
           JSON.stringify({
             success: false,
