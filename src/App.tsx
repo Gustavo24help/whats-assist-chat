@@ -12,6 +12,9 @@ import { AtribuicaoOperadorPopup } from "@/components/AtribuicaoOperadorPopup";
 import { TarefaOpPopupOverlay } from "@/components/TarefaOpPopupOverlay";
 import { InactivityWarningModal } from "@/components/InactivityWarningModal";
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
+import { ExitReminderPopup } from "@/components/ExitReminderPopup";
+import { useExitReminder } from "@/hooks/useExitReminder";
+import { redistributeChats } from "@/hooks/useLogoutRedistribution";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
@@ -52,9 +55,24 @@ const queryClient = new QueryClient();
 
 const InactivityWrapper = ({ children }: { children: React.ReactNode }) => {
   const { showWarning, minutesLeft, dismissWarning } = useInactivityLogout();
+  const { showReminder, exitTime, dismiss: dismissReminder } = useExitReminder();
+  const navigate = useNavigate();
+
+  const handleExitLogout = async () => {
+    dismissReminder();
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id) {
+      try { await redistributeChats(user.id); } catch {}
+    }
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
   return (
     <>
       <InactivityWarningModal open={showWarning} minutesLeft={minutesLeft} onDismiss={dismissWarning} />
+      <ExitReminderPopup open={showReminder} exitTime={exitTime} onDismiss={dismissReminder} onLogout={handleExitLogout} />
       {children}
     </>
   );
