@@ -196,6 +196,11 @@ export const DelegacaoTab = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm">{t.titulo}</span>
+                      {(t as any).tipo === "atribuicao_chat" && (
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">
+                          Chat
+                        </Badge>
+                      )}
                       <Badge variant="secondary" className={urgenciaColors[t.urgencia] || ""}>
                         {t.urgencia}
                       </Badge>
