@@ -389,7 +389,10 @@ serve(async (req) => {
         if (isClientMessage) {
           await supabase
             .from("clientes")
-            .update({ ultima_interacao: new Date().toISOString() })
+            .update({ 
+              ultima_interacao: new Date().toISOString(),
+              ultima_mensagem_recebida: new Date().toISOString()
+            })
             .eq("telefone", cliente.telefone);
         }
 
