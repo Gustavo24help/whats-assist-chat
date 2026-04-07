@@ -1071,7 +1071,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
-  const atribuirOperador = async (operadorId: string, operadorNome: string) => {
+  const atribuirOperador = async (operadorId: string, operadorNome: string, descricao?: string) => {
     const { error } = await supabase
       .from('clientes')
       .update({ atendente_id: operadorId })
@@ -1082,10 +1082,34 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     } else {
       setAtendenteAtual({ id: operadorId, nome: operadorNome });
       toast.success(`Atribuído para ${operadorNome}`);
+
+      // Register as atribuicao_chat task in tarefas_operacionais
+      try {
+        const tarefaId = crypto.randomUUID();
+        await (supabase as any)
+          .from("tarefas_operacionais")
+          .insert({
+            id: tarefaId,
+            titulo: `Chat atribuído: ${clienteNome || clienteTelefone}`,
+            descricao: descricao || null,
+            urgencia: "media",
+            tipo: "atribuicao_chat",
+            criado_por: user?.id,
+            cliente_telefone: clienteTelefone,
+          });
+
+        await (supabase as any)
+          .from("tarefas_operacionais_atribuidos")
+          .insert({ tarefa_id: tarefaId, user_id: operadorId });
+      } catch {}
     }
   };
 
-  // Função para assumir conversa para si mesmo
+  // Handler for opening description dialog before assigning
+  const iniciarAtribuicao = (operadorId: string, operadorNome: string) => {
+    setPendingAtribuicao({ id: operadorId, nome: operadorNome });
+    setAtribuicaoDialogOpen(true);
+  };
   const assumirParaMim = async () => {
     if (!user) return;
     
