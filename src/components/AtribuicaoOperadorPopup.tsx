@@ -1,19 +1,21 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { X, UserCheck } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { X, UserCheck, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PopupData {
   id: string;
   clienteNome: string;
   clienteTelefone: string;
+  descricao?: string;
 }
 
 export const AtribuicaoOperadorPopup = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [popups, setPopups] = useState<PopupData[]>([]);
 
   useEffect(() => {
@@ -25,23 +27,33 @@ export const AtribuicaoOperadorPopup = () => {
         event: "UPDATE",
         schema: "public",
         table: "clientes",
-      }, (payload: any) => {
+      }, async (payload: any) => {
         const newRow = payload.new;
         const oldRow = payload.old;
 
-        // Only trigger when atendente_id changes TO the current user
         if (newRow.atendente_id === user.id && oldRow.atendente_id !== user.id) {
+          // Check if there's a recent atribuicao_chat task for this phone
+          let descricao: string | undefined;
+          try {
+            const { data: tarefa } = await (supabase as any)
+              .from("tarefas_operacionais")
+              .select("descricao")
+              .eq("cliente_telefone", newRow.telefone)
+              .eq("tipo", "atribuicao_chat")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            descricao = tarefa?.descricao || undefined;
+          } catch {}
+
           const id = `${newRow.telefone}-${Date.now()}`;
           setPopups(prev => [...prev, {
             id,
             clienteNome: newRow.nome || "Cliente",
             clienteTelefone: newRow.telefone,
+            descricao,
           }]);
-
-          // Auto-dismiss after 15 seconds
-          setTimeout(() => {
-            setPopups(prev => prev.filter(p => p.id !== id));
-          }, 15000);
+          // NO auto-dismiss - user must manually close
         }
       })
       .subscribe();
@@ -55,37 +67,62 @@ export const AtribuicaoOperadorPopup = () => {
 
   const goToChat = (popup: PopupData) => {
     dismiss(popup.id);
-    navigate("/chat");
+    const tel = encodeURIComponent(popup.clienteTelefone);
+    if (location.pathname === "/chat") {
+      // Already on chat page - use window event to trigger selection
+      window.dispatchEvent(new CustomEvent("select-chat-cliente", { detail: { telefone: popup.clienteTelefone } }));
+    } else {
+      navigate(`/chat?telefone=${tel}`);
+    }
   };
 
   if (popups.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
-      {popups.map(popup => (
-        <div
-          key={popup.id}
-          className="bg-background border border-primary/30 rounded-lg shadow-lg p-4 animate-in slide-in-from-right-5 fade-in duration-300"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <UserCheck className="h-5 w-5 text-primary shrink-0" />
-              <div className="min-w-0">
-                <p className="font-semibold text-sm">Conversa atribuída</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  Você foi atribuído à conversa de {popup.clienteNome}
-                </p>
+    <>
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-black/40 z-[99]" />
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="flex flex-col gap-3 max-w-md w-full">
+          {popups.map(popup => (
+            <div
+              key={popup.id}
+              className="bg-background border-2 border-primary rounded-xl shadow-2xl p-6 animate-in zoom-in-95 fade-in duration-300"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="bg-primary/10 rounded-full p-2.5">
+                    <UserCheck className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-base">Conversa atribuída a você</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {popup.clienteNome}
+                    </p>
+                    {popup.descricao && (
+                      <p className="text-sm text-foreground/80 mt-2 bg-muted/50 rounded-md p-2 italic">
+                        "{popup.descricao}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => dismiss(popup.id)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button variant="outline" className="flex-1" onClick={() => dismiss(popup.id)}>
+                  Fechar
+                </Button>
+                <Button className="flex-1 gap-1.5" onClick={() => goToChat(popup)}>
+                  <MessageCircle className="h-4 w-4" />
+                  Ir para conversa
+                </Button>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => dismiss(popup.id)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <Button size="sm" className="mt-2 w-full" onClick={() => goToChat(popup)}>
-            Ir para conversa
-          </Button>
+          ))}
         </div>
-      ))}
-    </div>
+      </div>
+    </>
   );
 };
