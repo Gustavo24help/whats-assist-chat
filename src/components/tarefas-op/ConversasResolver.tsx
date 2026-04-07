@@ -124,7 +124,7 @@ export const ConversasResolver = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate("/chat")}
+                  onClick={() => navigate(`/chat?telefone=${encodeURIComponent(f.telefone_cliente)}`)}
                   className="shrink-0 gap-1"
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
