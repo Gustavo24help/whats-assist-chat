@@ -37,6 +37,7 @@ export const EnviarLinkPagamentoDialog = ({
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [foraJanela, setForaJanela] = useState(false);
+  const [enviandoTemplate, setEnviandoTemplate] = useState(false);
 
   const copiarLink = () => {
     navigator.clipboard.writeText(paymentUrl);
@@ -111,11 +112,43 @@ export const EnviarLinkPagamentoDialog = ({
     }
   };
 
+  const enviarViaTemplate = async () => {
+    if (!telefoneCliente) return;
+    setEnviandoTemplate(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: {
+          to: telefoneCliente,
+          message: mensagem,
+          userId: user?.id,
+          fallbackToTemplate: true,
+          templateContentSid: "HX7cc2b987e2d793fb99d4d02cb1e5ebb7",
+          templateVariables: JSON.stringify({ "1": nomeCliente || "Cliente", "2": fichaId }),
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setEnviado(true);
+        setForaJanela(false);
+        toast.success("Link enviado via template aprovado!");
+        onEnviado?.();
+      } else {
+        throw new Error(data?.error || "Erro ao enviar template");
+      }
+    } catch (err: any) {
+      toast.error(`Erro: ${err.message}`);
+    } finally {
+      setEnviandoTemplate(false);
+    }
+  };
+
   // Reset state when dialog closes
   const handleOpenChange = (v: boolean) => {
     if (!v) {
       setEnviado(false);
       setForaJanela(false);
+      setEnviandoTemplate(false);
       setMensagem(defaultMsg);
     }
     onOpenChange(v);
@@ -164,11 +197,22 @@ export const EnviarLinkPagamentoDialog = ({
 
           {/* Fora da janela warning */}
           {foraJanela && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3 flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-              <div className="text-xs text-amber-800 dark:text-amber-200">
-                <strong>Fora da janela de 24h.</strong> Copie a mensagem abaixo e envie manualmente pelo WhatsApp, ou use um template aprovado.
+            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="text-xs text-amber-800 dark:text-amber-200">
+                  <strong>Fora da janela de 24h.</strong> Envie via template aprovado ou copie a mensagem e envie manualmente.
+                </div>
               </div>
+              <Button
+                size="sm"
+                className="w-full gap-1.5"
+                disabled={enviandoTemplate || enviado}
+                onClick={enviarViaTemplate}
+              >
+                {enviandoTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {enviandoTemplate ? "Enviando template..." : "Enviar como Template"}
+              </Button>
             </div>
           )}
 
