@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
 import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 import { ReplyIndicator } from "./ReplyIndicator";
+import { AtribuicaoDescricaoDialog } from "./AtribuicaoDescricaoDialog";
 
 import {
   AlertDialog,
@@ -197,6 +198,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   // Estados para atribuição de operador
   const [atendenteAtual, setAtendenteAtual] = useState<{ id: string; nome: string } | null>(null);
   const [todosAtendentes, setTodosAtendentes] = useState<Array<{ id: string; nome: string }>>([]);
+  const [atribuicaoDialogOpen, setAtribuicaoDialogOpen] = useState(false);
+  const [pendingAtribuicao, setPendingAtribuicao] = useState<{ id: string; nome: string } | null>(null);
   
   // Estados para notas internas
   const [notasDialogOpen, setNotasDialogOpen] = useState(false);
@@ -1068,7 +1071,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
-  const atribuirOperador = async (operadorId: string, operadorNome: string) => {
+  const atribuirOperador = async (operadorId: string, operadorNome: string, descricao?: string) => {
     const { error } = await supabase
       .from('clientes')
       .update({ atendente_id: operadorId })
@@ -1079,10 +1082,34 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     } else {
       setAtendenteAtual({ id: operadorId, nome: operadorNome });
       toast.success(`Atribuído para ${operadorNome}`);
+
+      // Register as atribuicao_chat task in tarefas_operacionais
+      try {
+        const tarefaId = crypto.randomUUID();
+        await (supabase as any)
+          .from("tarefas_operacionais")
+          .insert({
+            id: tarefaId,
+            titulo: `Chat atribuído: ${clienteNome || clienteTelefone}`,
+            descricao: descricao || null,
+            urgencia: "media",
+            tipo: "atribuicao_chat",
+            criado_por: user?.id,
+            cliente_telefone: clienteTelefone,
+          });
+
+        await (supabase as any)
+          .from("tarefas_operacionais_atribuidos")
+          .insert({ tarefa_id: tarefaId, user_id: operadorId });
+      } catch {}
     }
   };
 
-  // Função para assumir conversa para si mesmo
+  // Handler for opening description dialog before assigning
+  const iniciarAtribuicao = (operadorId: string, operadorNome: string) => {
+    setPendingAtribuicao({ id: operadorId, nome: operadorNome });
+    setAtribuicaoDialogOpen(true);
+  };
   const assumirParaMim = async () => {
     if (!user) return;
     
@@ -2122,7 +2149,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                                   "w-full justify-start text-xs h-8",
                                   atendenteAtual?.id === a.id && "bg-accent"
                                 )}
-                                onClick={() => atribuirOperador(a.id, a.nome)}
+                                onClick={() => iniciarAtribuicao(a.id, a.nome)}
                               >
                                 <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold mr-2">
                                   {a.nome.charAt(0).toUpperCase()}
@@ -2839,6 +2866,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         operadorNome={takeoverWaitingOperadorNome}
         onTimeout={handleTakeoverTimeout}
         onClose={() => setTakeoverWaitingOpen(false)}
+      />
+
+      <AtribuicaoDescricaoDialog
+        open={atribuicaoDialogOpen}
+        onOpenChange={setAtribuicaoDialogOpen}
+        operadorNome={pendingAtribuicao?.nome || ""}
+        onConfirm={(desc) => {
+          if (pendingAtribuicao) {
+            atribuirOperador(pendingAtribuicao.id, pendingAtribuicao.nome, desc || undefined);
+          }
+          setPendingAtribuicao(null);
+        }}
       />
     </div>
   );

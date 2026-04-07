@@ -1924,6 +1924,7 @@ export type Database = {
           resolvido_em: string | null
           resolvido_nota: string | null
           status: string
+          tipo: string
           titulo: string
           tolerancia_aviso_minutos: number | null
           ultimo_aviso_em: string | null
@@ -1941,6 +1942,7 @@ export type Database = {
           resolvido_em?: string | null
           resolvido_nota?: string | null
           status?: string
+          tipo?: string
           titulo: string
           tolerancia_aviso_minutos?: number | null
           ultimo_aviso_em?: string | null
@@ -1958,6 +1960,7 @@ export type Database = {
           resolvido_em?: string | null
           resolvido_nota?: string | null
           status?: string
+          tipo?: string
           titulo?: string
           tolerancia_aviso_minutos?: number | null
           ultimo_aviso_em?: string | null

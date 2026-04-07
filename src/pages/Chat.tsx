@@ -43,12 +43,29 @@ const Chat = () => {
 
       if (cliente) {
         handleSelectCliente(cliente);
-        // Clear the param so it doesn't re-trigger
         setSearchParams({}, { replace: true });
       }
     };
     loadCliente();
   }, [searchParams]);
+
+  // Listen for custom event when already on chat page
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const telefone = (e as CustomEvent).detail?.telefone;
+      if (!telefone) return;
+      const { data: cliente } = await supabase
+        .from("clientes")
+        .select("*")
+        .eq("telefone", telefone)
+        .maybeSingle();
+      if (cliente) {
+        handleSelectCliente(cliente);
+      }
+    };
+    window.addEventListener("select-chat-cliente", handler);
+    return () => window.removeEventListener("select-chat-cliente", handler);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
