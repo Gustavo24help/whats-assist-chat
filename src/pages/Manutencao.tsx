@@ -4,6 +4,7 @@ import { AccountInfo } from "@/components/AccountInfo";
 import { PasswordChange } from "@/components/PasswordChange";
 import { UserManagement } from "@/components/UserManagement";
 import { FerramentasManutencao } from "@/components/FerramentasManutencao";
+import { AtribuicaoCadeiaConfig } from "@/components/AtribuicaoCadeiaConfig";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,6 +41,7 @@ const Manutencao = () => {
             <TabsContent value="account" className="space-y-4">
               <AccountInfo />
               <PasswordChange />
+              <AtribuicaoCadeiaConfig />
             </TabsContent>
 
             {isAdmin && (
