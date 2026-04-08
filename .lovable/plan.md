@@ -1,106 +1,41 @@
 
 
-# Plano: Sistema Completo de Registro de Ponto
+# Plano: Corrigir conversas fantasma no Chat Prestadores
 
-## Problema principal
-A tabela `registro_ponto` **não existe** no banco de dados (a migração original nunca foi aplicada). Isso causa o erro 404 em toda interação com o ponto.
+## Problema
+Várias conversas no Chat Prestadores aparecem começando com mensagens do sistema (onboarding, fichas de serviço, etc.) sem nenhuma resposta do prestador. Isso acontece porque:
 
-## O que será feito
+1. A função `send-whatsapp` atualiza `ultima_interacao` em toda mensagem enviada (outbound), fazendo conversas unilaterais parecerem recentes
+2. O `sync-twilio-messages` cria entradas `prestadores_chat` ao sincronizar mensagens históricas outbound, gerando conversas que o prestador nunca iniciou
+3. Não há distinção visual entre conversas com interação real e conversas apenas com mensagens do sistema
 
-### 1. Migração SQL - Criar tabelas
+## Solução
 
-**Tabela `registro_ponto`** (recriar):
-- `id`, `user_id`, `entrada_em`, `saida_em`, `created_at`
-- `entrada_oficial` (TIME) - horário ajustado com tolerância
-- `tipo` TEXT DEFAULT `'normal'` - valores: `normal`, `ajuste_manual`
-- `observacao` TEXT - para lançamentos avulsos
+### 1. Parar de atualizar `ultima_interacao` em mensagens outbound
 
-**Tabela `configuracao_ponto`** (nova):
-- `user_id` UUID UNIQUE
-- `carga_diaria_minutos` INTEGER DEFAULT 480 (8h)
-- `hora_inicio_prevista` TIME DEFAULT '08:00'
-- `hora_fim_prevista` TIME DEFAULT '17:00'
-- `saldo_inicial_minutos` INTEGER DEFAULT 0
+No `send-whatsapp`, remover a atualização de `ultima_interacao` ao enviar mensagem para prestador (linhas 306-309). Essa atualização já é feita corretamente no `twilio-webhook` apenas para mensagens inbound.
 
-RLS: cada usuário lê/edita apenas seus próprios registros. Admins podem ler todos (para supervisão futura).
+### 2. Adicionar indicador visual na lista de conversas
 
-### 2. Tela de Ponto (`RegistroPonto.tsx`) - Reescrita completa
+Na `ConversationListPrestadores`, usar a contagem de mensagens do prestador (já disponível via last message) para indicar conversas sem resposta. Conversas onde o prestador nunca respondeu ficam com opacidade reduzida e badge "Sem resposta".
 
-**Seção superior - Status e ações:**
-- Botão "Registrar Entrada" / "Registrar Saída"
-- Badge "Em expediente" / "Fora do expediente"
-- Timer negativo em tempo real: conta de `carga_diaria` até zero
-- Exibição do horário configurado (ex: "12:00 - 16:00 | Carga: 4h")
+### 3. Filtro para ocultar conversas sem interação
 
-**Seção de contadores:**
-- Horas trabalhadas hoje
-- Saldo do dia (positivo = hora extra, negativo = falta)
-- Saldo acumulado da semana
-- Horas extras acumuladas
-- Horas negativas acumuladas
+Adicionar um toggle na lista para mostrar/ocultar conversas onde o prestador nunca enviou mensagem. Padrão: ocultar.
 
-**Seção de histórico (paginado):**
-- Lista de registros com entrada, saída, duração
-- Indicador se houve tolerância aplicada
+## Arquivos a modificar
 
-**Seção de lançamento avulso:**
-- Formulário para inserir entrada/saída retroativa com observação
-- Para ajuste inicial do sistema no meio da semana
-
-### 3. Configuração por usuário
-
-Na tela de Settings (ou na própria tela de ponto):
-- Campo "Carga diária" (horas:minutos)
-- Campos "Horário previsto de início" e "fim"
-- Campo "Saldo inicial (minutos)" - para ajuste retroativo
-
-### 4. Tolerância de 2 minutos na entrada
-
-Ao registrar entrada:
-- Se `agora - hora_inicio_prevista <= 2 min`, gravar `entrada_oficial = hora_inicio_prevista`
-- Caso contrário, `entrada_oficial = agora`
-- Apenas na entrada (conforme escolha do usuário)
-
-### 5. Popup de fim de expediente
-
-Quando o timer chega a zero:
-- Modal grande que trava a tela
-- "Você completou sua carga horária!"
-- Botão "Deslogar" (faz signOut + redistribui chats)
-- Botão "Continuar" (fecha modal, a partir daqui conta como hora extra)
-
-### 6. Redirecionamento pós-login
-
-No `Auth.tsx` e `ProtectedRoute`:
-- Após login, verificar se o usuário já tem `registro_ponto` aberto hoje
-- Se não tem, redirecionar para `/registro-ponto`
-- Se já tem entrada registrada, seguir para a rota normal
-
-### 7. Hook `usePontoClock` (novo)
-
-Hook global que roda enquanto logado:
-- Calcula tempo restante / hora extra em tempo real
-- Dispara o popup de fim de expediente
-- Expõe `minutosRestantes`, `emHoraExtra`, `horasTrabalhadas`
-
----
-
-## Arquivos
-
-| Arquivo | Ação |
+| Arquivo | Mudança |
 |---|---|
-| Nova migração SQL | Criar `registro_ponto` + `configuracao_ponto` |
-| `src/pages/RegistroPonto.tsx` | Reescrever completamente |
-| `src/hooks/usePontoClock.ts` | Novo - timer global |
-| `src/components/PontoEndModal.tsx` | Novo - popup fim de expediente |
-| `src/pages/Auth.tsx` | Ajustar destino pós-login |
-| `src/App.tsx` | Adicionar PontoEndModal global |
+| `supabase/functions/send-whatsapp/index.ts` | Remover update de `ultima_interacao` para prestadores no envio outbound |
+| `src/components/prestador-chat/ConversationListPrestadores.tsx` | Adicionar filtro "sem resposta" + indicador visual |
 
 ## Ordem
-1. Migração SQL
-2. Hook `usePontoClock`
-3. Reescrever `RegistroPonto.tsx`
-4. Popup `PontoEndModal`
-5. Ajustar redirecionamento pós-login
-6. Integrar no App.tsx
+1. Deploy da edge function corrigida
+2. Atualizar frontend com filtro
+
+## Observações
+- Dados existentes não são alterados
+- Conversas "fantasma" existentes continuam acessíveis via filtro
+- A `ultima_interacao` dos registros antigos não será recalculada (seria necessária uma migração manual de dados, se desejado)
 
