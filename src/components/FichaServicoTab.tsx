@@ -138,10 +138,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [searchPrestadorValores, setSearchPrestadorValores] = useState<string>('');
   const [dataAgendamento, setDataAgendamento] = useState<string>('');
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
+  const [horaFimAgendamento, setHoraFimAgendamento] = useState<string>('');
   const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
   const [horaVisitaTecnica, setHoraVisitaTecnica] = useState<string>('');
+  const [horaFimVisitaTecnica, setHoraFimVisitaTecnica] = useState<string>('');
   const [dataRetorno, setDataRetorno] = useState<string>('');
   const [horaRetorno, setHoraRetorno] = useState<string>('');
+  const [horaFimRetorno, setHoraFimRetorno] = useState<string>('');
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [ajustarDataOpen, setAjustarDataOpen] = useState(false);
@@ -465,6 +468,22 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         subtotal: fichaData.subtotal,
         valor_antes_arredondamento: fichaData.valor_antes_arredondamento,
         material_pago_24help: fichaData.material_pago_24help,
+        // Time window fields - client windows
+        hora_inicio_agendamento: horaAgend?.trim() || null,
+        hora_fim_agendamento: (window as any).__horaFimAgendamento || null,
+        hora_inicio_retorno: horaRetorno?.trim() ? horaRetorno.trim() : null,
+        hora_fim_retorno: (window as any).__horaFimRetorno || null,
+        // Provider windows (auto-calculated)
+        ...((() => {
+          const provAgend = calcularJanelaPrestador(horaAgend?.trim() || '', (window as any).__horaFimAgendamento || '');
+          const provRetorno = calcularJanelaPrestador(horaRetorno?.trim() || '', (window as any).__horaFimRetorno || '');
+          return {
+            hora_inicio_prestador_agendamento: provAgend?.inicio || null,
+            hora_fim_prestador_agendamento: provAgend?.fim || null,
+            hora_inicio_prestador_retorno: provRetorno?.inicio || null,
+            hora_fim_prestador_retorno: provRetorno?.fim || null,
+          };
+        })()),
       };
 
       const { error } = await supabase
@@ -540,10 +559,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     setFicha(null);
     setDataAgendamento('');
     setHoraAgendamento('');
+    setHoraFimAgendamento('');
     setDataVisitaTecnica('');
     setHoraVisitaTecnica('');
+    setHoraFimVisitaTecnica('');
     setDataRetorno('');
     setHoraRetorno('');
+    setHoraFimRetorno('');
     
     fetchFicha();
     fetchPrestadores();
@@ -612,10 +634,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       console.log(`🧹 Limpando estados de horário para ficha ${fichaId}`);
       setDataAgendamento('');
       setHoraAgendamento('');
+      setHoraFimAgendamento('');
       setDataVisitaTecnica('');
       setHoraVisitaTecnica('');
+      setHoraFimVisitaTecnica('');
       setDataRetorno('');
       setHoraRetorno('');
+      setHoraFimRetorno('');
       
       // ✅ SIMPLIFICADO: Carregar exatamente como está no banco, sem conversão de timezone
       // Função auxiliar para parsear horário com detecção de timezone
@@ -692,6 +717,18 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         }
       } else {
         console.log(`✅ Ficha ${fichaId} não tem data de retorno`);
+      }
+
+      // Load hora_fim fields from DB
+      if ((fichaCompleta as any).hora_fim_agendamento) {
+        setHoraFimAgendamento(String((fichaCompleta as any).hora_fim_agendamento).slice(0, 5));
+      }
+      if ((fichaCompleta as any).hora_fim_retorno) {
+        setHoraFimRetorno(String((fichaCompleta as any).hora_fim_retorno).slice(0, 5));
+      }
+      // For visita técnica, use hora_fim_agendamento if tipo is visita
+      if ((fichaCompleta as any).hora_fim_agendamento && (fichaCompleta as any).tipo_agendamento === 'visita_tecnica') {
+        setHoraFimVisitaTecnica(String((fichaCompleta as any).hora_fim_agendamento).slice(0, 5));
       }
     }
   };
