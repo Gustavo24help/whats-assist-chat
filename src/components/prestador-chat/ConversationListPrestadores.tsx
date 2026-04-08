@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Archive, MessageCircle } from "lucide-react";
+import { Search, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
@@ -34,9 +34,7 @@ export const ConversationListPrestadores = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
-  const [hideNoReply, setHideNoReply] = useState(true);
   const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
-  const [hasInbound, setHasInbound] = useState<Record<string, boolean>>({});
 
   const fetchPrestadores = useCallback(async () => {
     const { data, error } = await supabase
@@ -65,14 +63,8 @@ export const ConversationListPrestadores = ({
 
       if (msgs) {
         const lastMsgs: Record<string, string> = {};
-        const inbound: Record<string, boolean> = {};
 
         for (const msg of msgs) {
-          // Track if prestador ever sent a message (remetente = 'cliente' means the prestador sent it)
-          if (msg.remetente === "cliente") {
-            inbound[msg.prestador_telefone] = true;
-          }
-          // Get last message preview
           if (!lastMsgs[msg.prestador_telefone]) {
             if (msg.tipo === "audio") lastMsgs[msg.prestador_telefone] = "🎵 Áudio";
             else if (msg.tipo === "imagem") lastMsgs[msg.prestador_telefone] = "📷 Imagem";
@@ -82,7 +74,6 @@ export const ConversationListPrestadores = ({
           }
         }
         setLastMessages(lastMsgs);
-        setHasInbound(inbound);
       }
     }
   }, [showArchived]);
@@ -101,22 +92,15 @@ export const ConversationListPrestadores = ({
   }, [fetchPrestadores]);
 
   const filtered = useMemo(() => {
-    let list = prestadores;
-
-    // Filter out conversations with no inbound messages
-    if (hideNoReply) {
-      list = list.filter((p) => hasInbound[p.telefone]);
-    }
-
-    if (!searchTerm) return list;
+    if (!searchTerm) return prestadores;
     const lower = searchTerm.toLowerCase();
-    return list.filter(
+    return prestadores.filter(
       (p) =>
         p.nome.toLowerCase().includes(lower) ||
         p.telefone.includes(lower) ||
         (p.cpf && p.cpf.includes(lower))
     );
-  }, [prestadores, searchTerm, hideNoReply, hasInbound]);
+  }, [prestadores, searchTerm]);
 
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "";
@@ -142,11 +126,6 @@ export const ConversationListPrestadores = ({
     return trimmedName;
   };
 
-  const ghostCount = useMemo(() => {
-    if (!hideNoReply) return 0;
-    return prestadores.filter((p) => !hasInbound[p.telefone]).length;
-  }, [prestadores, hasInbound, hideNoReply]);
-
   return (
     <div className="h-full flex flex-col">
       <div className="p-3 border-b space-y-2">
@@ -168,17 +147,6 @@ export const ConversationListPrestadores = ({
             Arquivadas
           </Button>
         </div>
-        <Button
-          variant={hideNoReply ? "default" : "outline"}
-          size="sm"
-          className="w-full text-xs"
-          onClick={() => setHideNoReply(!hideNoReply)}
-        >
-          <MessageCircle className="h-3 w-3 mr-1" />
-          {hideNoReply
-            ? `Mostrando só com resposta (${ghostCount} ocultas)`
-            : "Mostrar todas"}
-        </Button>
       </div>
 
       <ScrollArea className="flex-1">
@@ -190,7 +158,6 @@ export const ConversationListPrestadores = ({
           </div>
         ) : (
           filtered.map((prestador) => {
-            const isGhost = !hasInbound[prestador.telefone];
             return (
               <button
                 key={prestador.telefone}
@@ -198,8 +165,7 @@ export const ConversationListPrestadores = ({
                 className={cn(
                   "w-full text-left p-3 border-b hover:bg-accent/50 transition-colors",
                   selectedTelefone === prestador.telefone && "bg-accent",
-                  prestador.marcado_nao_lido && "bg-primary/5 border-l-2 border-l-primary",
-                  isGhost && "opacity-50"
+                  prestador.marcado_nao_lido && "bg-primary/5 border-l-2 border-l-primary"
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -220,9 +186,6 @@ export const ConversationListPrestadores = ({
                   <p className="text-xs text-muted-foreground truncate flex-1">
                     {lastMessages[prestador.telefone] || "Sem mensagens"}
                   </p>
-                  {isGhost && (
-                    <Badge variant="outline" className="text-[10px] px-1 py-0 text-muted-foreground">Sem resposta</Badge>
-                  )}
                   {prestador.status_conversa === "fechada" && (
                     <Badge variant="secondary" className="text-[10px] px-1 py-0">Fechada</Badge>
                   )}
