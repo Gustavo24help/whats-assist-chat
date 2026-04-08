@@ -16,17 +16,21 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
 
+  // Capturar URL de retorno (se veio de um redirect do ProtectedRoute)
+  const searchParams = new URLSearchParams(window.location.search);
+  const returnTo = searchParams.get("returnTo") || "/";
+
   // Verificar se já está logado
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        console.log('✅ Auth - Usuário já logado, redirecionando');
-        navigate("/");
+        console.log('✅ Auth - Usuário já logado, redirecionando para:', returnTo);
+        navigate(returnTo);
       }
     };
     checkSession();
-  }, [navigate]);
+  }, [navigate, returnTo]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +86,7 @@ const Auth = () => {
       }
 
       // AuthContext vai detectar automaticamente e carregar o perfil
-      navigate("/");
+      navigate(returnTo);
     } catch (error: any) {
       console.error('❌ Auth - Erro no login:', error);
       toast.error(error.message || "Erro ao autenticar");
