@@ -1,39 +1,44 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const STORAGE_KEY = "open-links-same-tab";
 
+/** Read the "same tab" preference from localStorage (pure helper) */
+export function getSameTabPreference(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+/** Write the "same tab" preference to localStorage (pure helper) */
+export function setSameTabPreference(value: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, String(value));
+  } catch {
+    // ignore
+  }
+}
+
 /**
- * Hook that controls whether navigation links open in new tabs.
- * By default, links open in new tabs. Only "admin_ti" users can disable this.
+ * Stateless hook that exposes only the navigation action.
+ * No internal useState — avoids hook-count mismatches across renders.
  */
 export function useOpenInNewTab() {
   const { isAdminTI } = useAuth();
-  const [sameTab, setSameTab] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(sameTab));
-  }, [sameTab]);
 
   const openRoute = useCallback(
-    (path: string, _e?: React.MouseEvent) => {
-      if (sameTab && isAdminTI) {
-        // Same-tab navigation
-        window.location.href = new URL(path, window.location.origin).href;
+    (path: string) => {
+      const url = new URL(path, window.location.origin).href;
+      if (isAdminTI && getSameTabPreference()) {
+        window.location.href = url;
       } else {
-        // Build absolute URL so the new tab opens the correct origin
-        const url = new URL(path, window.location.origin).href;
         window.open(url, "_blank");
       }
     },
-    [sameTab, isAdminTI]
+    [isAdminTI]
   );
 
-  return { openRoute, sameTab, setSameTab, canToggle: isAdminTI };
+  return { openRoute };
 }
