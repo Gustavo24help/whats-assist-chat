@@ -9,6 +9,11 @@ export interface AgendamentoData {
   status: string | null;
   data_visita_tecnica: string | null;
   horario_visita_tecnica: string | null;
+  // Provider window fields (optional for backward compat)
+  hora_inicio_prestador_agendamento?: string | null;
+  hora_fim_prestador_agendamento?: string | null;
+  hora_inicio_prestador_retorno?: string | null;
+  hora_fim_prestador_retorno?: string | null;
 }
 
 export interface EstadoAgendamento {
@@ -83,9 +88,43 @@ export function getAgendamentoDates(ag: AgendamentoData): { inicio: Date | null;
   return { inicio, fim };
 }
 
+/**
+ * Get provider-specific dates from an agendamento, using provider window fields.
+ */
+export function getAgendamentoDatesForPrestador(ag: AgendamentoData): { inicio: Date | null; fim: Date | null } {
+  const clienteDates = getAgendamentoDates(ag);
+  if (!clienteDates.inicio) return clienteDates;
+
+  let tipo = ag.tipo_agendamento;
+  if (!tipo) {
+    if (ag.data_retorno) tipo = 'retorno';
+    else if (ag.data_visita_tecnica || ag.horario_visita_tecnica) tipo = 'visita_tecnica';
+    else tipo = 'servico';
+  }
+
+  const isRetorno = tipo === 'retorno';
+  const prestadorInicio = isRetorno ? ag.hora_inicio_prestador_retorno : ag.hora_inicio_prestador_agendamento;
+  const prestadorFim = isRetorno ? ag.hora_fim_prestador_retorno : ag.hora_fim_prestador_agendamento;
+
+  const dataBase = clienteDates.inicio.toISOString().split('T')[0];
+
+  let inicio = clienteDates.inicio;
+  let fim = clienteDates.fim;
+
+  if (prestadorInicio) {
+    inicio = new Date(`${dataBase}T${prestadorInicio}`);
+  }
+  if (prestadorFim) {
+    fim = new Date(`${dataBase}T${prestadorFim}`);
+  }
+
+  return { inicio, fim };
+}
+
 export function calcularEstadoAgendamento(ag: AgendamentoData): EstadoAgendamento {
   const tipo = ag.tipo_agendamento || 'servico';
   const corBase = corPorTipo[tipo] || '#10B981';
+  // No blinking — all static
   const defaultResult: EstadoAgendamento = { estado: 'normal', cor: corBase, piscar: false, classe: '' };
 
   const { inicio, fim } = getAgendamentoDates(ag);
@@ -99,9 +138,9 @@ export function calcularEstadoAgendamento(ag: AgendamentoData): EstadoAgendament
     return { estado: 'futuro', cor: corBase, piscar: false, classe: '' };
   }
 
-  // Alerta (2h antes até início)
+  // Alerta (2h antes até início) — no blink
   if (agora >= duasHorasAntes && agora < inicio) {
-    return { estado: 'alerta', cor: corBase, piscar: true, classe: 'agendamento-alerta' };
+    return { estado: 'alerta', cor: corBase, piscar: false, classe: '' };
   }
 
   // Em andamento
@@ -112,19 +151,15 @@ export function calcularEstadoAgendamento(ag: AgendamentoData): EstadoAgendament
   if (!fim && agora >= inicio) {
     const dozeHorasDepois = new Date(inicio.getTime() + 12 * 60 * 60 * 1000);
     if (agora <= dozeHorasDepois) {
-      // Check if should be atrasado based on status
-      if (!['Finalizado', 'Em andamento'].includes(ag.status || '')) {
-        // Still within 12h window, show as in progress
-      }
       return { estado: 'andamento', cor: '#3B82F6', piscar: false, classe: '' };
     }
   }
 
-  // Atrasado
+  // Atrasado — no blink
   const limiteAtraso = fim ? fim : new Date(inicio.getTime() + 12 * 60 * 60 * 1000);
 
   if (agora > limiteAtraso && !['Finalizado', 'Em andamento'].includes(ag.status || '')) {
-    return { estado: 'atrasado', cor: '#EF4444', piscar: true, classe: 'agendamento-atrasado' };
+    return { estado: 'atrasado', cor: '#EF4444', piscar: false, classe: '' };
   }
 
   return defaultResult;

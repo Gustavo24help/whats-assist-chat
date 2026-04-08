@@ -1,16 +1,19 @@
 import { useMemo } from "react";
 import { calcularEstadoAgendamento, getLabelTipo, type AgendamentoData } from "@/lib/calcularEstadoAgendamento";
+import { formatJanela, getJanelaHorario, type HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { format } from "date-fns";
 
 interface AgendamentoCardProps {
   ficha: any;
   onClick: () => void;
   compact?: boolean;
+  /** Which time window to display: 'cliente' (default), 'prestador', or 'ambos' */
+  contextoHorario?: HorarioContexto;
 }
 
 const statusCancelados = ['Não foi adiante', 'Perdido', 'Orçamento Não Aprovado'];
 
-export function AgendamentoCard({ ficha, onClick, compact = false }: AgendamentoCardProps) {
+export function AgendamentoCard({ ficha, onClick, compact = false, contextoHorario = 'cliente' }: AgendamentoCardProps) {
   const agData: AgendamentoData = {
     tipo_agendamento: ficha.tipo_agendamento,
     horario_agendamento: ficha.horario_agendamento,
@@ -22,41 +25,45 @@ export function AgendamentoCard({ ficha, onClick, compact = false }: Agendamento
     status: ficha.status,
     data_visita_tecnica: ficha.data_visita_tecnica,
     horario_visita_tecnica: ficha.horario_visita_tecnica,
+    hora_inicio_prestador_agendamento: ficha.hora_inicio_prestador_agendamento,
+    hora_fim_prestador_agendamento: ficha.hora_fim_prestador_agendamento,
+    hora_inicio_prestador_retorno: ficha.hora_inicio_prestador_retorno,
+    hora_fim_prestador_retorno: ficha.hora_fim_prestador_retorno,
   };
 
   const estado = useMemo(() => calcularEstadoAgendamento(agData), [ficha]);
   const isCancelado = statusCancelados.includes(ficha.status || '');
 
   const horaStr = useMemo(() => {
-    // Inferir tipo real
-    let tipo = ficha.tipo_agendamento;
-    if (!tipo) {
-      if (ficha.data_retorno) tipo = 'retorno';
-      else if (ficha.data_visita_tecnica || ficha.horario_visita_tecnica) tipo = 'visita_tecnica';
-      else tipo = 'servico';
+    if (contextoHorario === 'ambos') {
+      const janelas = getJanelaHorario(ficha, 'ambos') as any;
+      const cStr = formatJanela(janelas?.cliente?.inicio, janelas?.cliente?.fim);
+      const pStr = formatJanela(janelas?.prestador?.inicio, janelas?.prestador?.fim);
+      if (cStr && pStr && cStr !== pStr) return `C:${cStr} | P:${pStr}`;
+      return cStr || pStr || fallbackHora();
     }
 
-    if (tipo === 'retorno' && ficha.hora_inicio_retorno) {
-      const fim = ficha.hora_fim_retorno ? ` - ${ficha.hora_fim_retorno.slice(0, 5)}` : '';
-      return `${ficha.hora_inicio_retorno.slice(0, 5)}${fim}`;
-    }
-    if (ficha.hora_inicio_agendamento) {
-      const fim = ficha.hora_fim_agendamento ? ` - ${ficha.hora_fim_agendamento.slice(0, 5)}` : '';
-      return `${ficha.hora_inicio_agendamento.slice(0, 5)}${fim}`;
-    }
+    const janela = getJanelaHorario(ficha, contextoHorario);
+    const janelaStr = formatJanela((janela as any)?.inicio, (janela as any)?.fim);
+    if (janelaStr) return janelaStr;
+
+    return fallbackHora();
+  }, [ficha, contextoHorario]);
+
+  function fallbackHora(): string {
     if (ficha.horario_agendamento) {
       return format(new Date(ficha.horario_agendamento), 'HH:mm');
     }
-    if (tipo === 'visita_tecnica' && ficha.horario_visita_tecnica) {
+    if (ficha.horario_visita_tecnica) {
       return format(new Date(ficha.horario_visita_tecnica), 'HH:mm');
     }
     return '';
-  }, [ficha]);
+  }
 
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left rounded-lg px-2 py-1 text-xs font-medium text-white truncate transition-all duration-150 active:scale-[0.97] ${estado.classe} ${isCancelado ? 'opacity-50' : ''}`}
+      className={`w-full text-left rounded-lg px-2 py-1 text-xs font-medium text-white truncate transition-all duration-150 active:scale-[0.97] ${isCancelado ? 'opacity-50' : ''}`}
       style={{ backgroundColor: estado.cor }}
       title={`${ficha.id} - ${ficha.nome_cliente || 'Cliente'} - ${ficha.prestadores?.nome || 'Sem prestador'}`}
     >

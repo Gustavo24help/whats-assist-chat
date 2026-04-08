@@ -3,6 +3,7 @@ import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, is
 import { ptBR } from "date-fns/locale";
 import { AgendamentoCard } from "./AgendamentoCard";
 import { getAgendamentoDates } from "@/lib/calcularEstadoAgendamento";
+import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,9 +12,10 @@ interface Props {
   fichas: any[];
   currentDate: Date;
   onSelectFicha: (ficha: any) => void;
+  contextoHorario?: HorarioContexto;
 }
 
-export function CalendarioMensal({ fichas, currentDate, onSelectFicha }: Props) {
+export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente' }: Props) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const days = useMemo(() => {
@@ -43,7 +45,6 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha }: Props) 
 
   return (
     <div className="flex gap-4">
-      {/* Calendar grid */}
       <div className={`border rounded-xl overflow-hidden bg-card ${selectedDay ? 'flex-1' : 'w-full'}`}>
         <div className="grid grid-cols-7">
           {weekDays.map(d => (
@@ -75,7 +76,7 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha }: Props) 
                 </div>
                 <div className="space-y-0.5 max-h-[80px] 2xl:max-h-[100px] overflow-y-auto">
                   {dayFichas.slice(0, 4).map(f => (
-                    <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} compact />
+                    <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} compact contextoHorario={contextoHorario} />
                   ))}
                   {dayFichas.length > 4 && (
                     <div
@@ -92,7 +93,6 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha }: Props) 
         </div>
       </div>
 
-      {/* Side panel */}
       {selectedDay && selectedDayDate && (
         <div className="w-[320px] shrink-0 border rounded-xl bg-card flex flex-col max-h-[calc(100vh-220px)]">
           <div className="flex items-center justify-between p-3 border-b">
@@ -107,7 +107,7 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha }: Props) 
           <ScrollArea className="flex-1 p-2">
             <div className="space-y-1.5">
               {selectedDayFichas.map(f => (
-                <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} compact={false} />
+                <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} compact={false} contextoHorario={contextoHorario} />
               ))}
               {selectedDayFichas.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-4">Nenhum agendamento</p>

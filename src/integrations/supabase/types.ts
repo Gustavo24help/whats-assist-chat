@@ -850,8 +850,12 @@ export type Database = {
           formulario_orcamento_data_primeiro_envio: string | null
           formulario_orcamento_encerrado_em: string | null
           hora_fim_agendamento: string | null
+          hora_fim_prestador_agendamento: string | null
+          hora_fim_prestador_retorno: string | null
           hora_fim_retorno: string | null
           hora_inicio_agendamento: string | null
+          hora_inicio_prestador_agendamento: string | null
+          hora_inicio_prestador_retorno: string | null
           hora_inicio_retorno: string | null
           horario_agendamento: string | null
           horario_visita_tecnica: string | null
@@ -915,8 +919,12 @@ export type Database = {
           formulario_orcamento_data_primeiro_envio?: string | null
           formulario_orcamento_encerrado_em?: string | null
           hora_fim_agendamento?: string | null
+          hora_fim_prestador_agendamento?: string | null
+          hora_fim_prestador_retorno?: string | null
           hora_fim_retorno?: string | null
           hora_inicio_agendamento?: string | null
+          hora_inicio_prestador_agendamento?: string | null
+          hora_inicio_prestador_retorno?: string | null
           hora_inicio_retorno?: string | null
           horario_agendamento?: string | null
           horario_visita_tecnica?: string | null
@@ -980,8 +988,12 @@ export type Database = {
           formulario_orcamento_data_primeiro_envio?: string | null
           formulario_orcamento_encerrado_em?: string | null
           hora_fim_agendamento?: string | null
+          hora_fim_prestador_agendamento?: string | null
+          hora_fim_prestador_retorno?: string | null
           hora_fim_retorno?: string | null
           hora_inicio_agendamento?: string | null
+          hora_inicio_prestador_agendamento?: string | null
+          hora_inicio_prestador_retorno?: string | null
           hora_inicio_retorno?: string | null
           horario_agendamento?: string | null
           horario_visita_tecnica?: string | null

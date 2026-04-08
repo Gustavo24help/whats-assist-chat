@@ -3,16 +3,18 @@ import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AgendamentoCard } from "./AgendamentoCard";
 import { getAgendamentoDates } from "@/lib/calcularEstadoAgendamento";
+import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 
 interface Props {
   fichas: any[];
   currentDate: Date;
   onSelectFicha: (ficha: any) => void;
+  contextoHorario?: HorarioContexto;
 }
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 7);
 
-export function CalendarioDiario({ fichas, currentDate, onSelectFicha }: Props) {
+export function CalendarioDiario({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente' }: Props) {
   const fichasByHour = useMemo(() => {
     const map: Record<number, any[]> = {};
     fichas.forEach(f => {
@@ -40,7 +42,7 @@ export function CalendarioDiario({ fichas, currentDate, onSelectFicha }: Props) 
               </div>
               <div className="p-1 space-y-1">
                 {slotFichas.map(f => (
-                  <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} />
+                  <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} contextoHorario={contextoHorario} />
                 ))}
               </div>
             </div>
