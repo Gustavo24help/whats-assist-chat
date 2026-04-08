@@ -1,83 +1,64 @@
 
+Objetivo: corrigir de forma definitiva o problema em que páginas protegidas publicadas abrem a Home ou perdem o destino original, especialmente quando são abertas em nova aba.
 
-## Plano: Redistribuição automática de chats ao deslogar + Cadeia de atribuição configurável + Lembrete de saída
+Diagnóstico provável
+- O problema não parece ser da rota em si, porque `ProtectedRoute` já tenta enviar `returnTo`.
+- Há inconsistência no fluxo de navegação/auth:
+  1. `useOpenInNewTab` usa `window.open(path, "_blank")` e, no modo mesma aba, usa `window.location.href`, ou seja, faz navegação “hard” fora do React Router.
+  2. Algumas páginas ainda têm checagens próprias de sessão (`Chat` e `ChatPrestadores`) que redirecionam para `/auth` sem preservar `returnTo`.
+  3. O login hoje depende só do `returnTo` vindo na URL; quando ele some em algum ponto, o fallback volta para `/`.
+- Isso explica o sintoma visto nos logs: o usuário é autenticado, mas o `Auth` registra redirecionamento para `/`, não para a página solicitada.
 
-### Resumo
+Plano de implementação
+1. Centralizar a lógica de “destino pretendido”
+- Criar uma função utilitária única para resolver o destino pós-login:
+  - prioridade 1: `returnTo` da URL
+  - prioridade 2: destino pendente salvo localmente
+  - prioridade 3: `/`
+- Validar esse destino para aceitar apenas rotas internas do app, evitando quebra de navegação.
 
-Quando um operador deslogar (manualmente ou por inatividade), seus chats atribuídos serão redistribuídos automaticamente conforme uma cadeia de prioridade configurável. Cada operador poderá definir quem recebe seus chats, e receberá um lembrete antes do horário previsto de saída.
+2. Tornar a navegação em nova aba robusta
+- Refatorar `useOpenInNewTab` para:
+  - usar URL absoluta baseada em `window.location.origin`
+  - salvar o destino antes de abrir a nova aba
+  - no modo mesma aba, usar navegação do router em vez de `window.location.href`
+- Isso evita hard reload desnecessário e reduz perda de contexto.
 
----
+3. Fazer o auth respeitar sempre o destino real
+- Ajustar `Auth.tsx` para consumir a mesma lógica centralizada de destino.
+- Ao detectar sessão existente ou após login, redirecionar para o destino resolvido, não diretamente para `/`.
+- Limpar o destino pendente depois do redirecionamento para não contaminar navegações futuras.
 
-### 1. Nova tabela: `atribuicao_cadeia`
+4. Eliminar redirecionamentos concorrentes
+- Remover ou adaptar as checagens locais de sessão em `Chat.tsx` e `ChatPrestadores.tsx`, deixando `ProtectedRoute` ser a fonte principal de proteção.
+- Onde ainda houver redirecionamento manual para `/auth`, incluir preservação do destino atual.
 
-Cada operador define sua cadeia de redistribuição (ex: "se eu sair, manda pra João → Maria → qualquer disponível"):
+5. Endurecer o `ProtectedRoute`
+- Manter o `returnTo` atual, mas passar a salvar também o destino pendente localmente como redundância.
+- Preservar pathname + querystring completos, para não quebrar casos como `/chat?telefone=...`.
 
-```sql
-CREATE TABLE atribuicao_cadeia (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  ordem INTEGER NOT NULL DEFAULT 0,
-  destino_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- NULL = qualquer disponível
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(user_id, ordem)
-);
-```
+Arquivos que devem ser ajustados
+- `src/hooks/useOpenInNewTab.ts`
+- `src/pages/Auth.tsx`
+- `src/components/ProtectedRoute.tsx`
+- `src/pages/Chat.tsx`
+- `src/pages/ChatPrestadores.tsx`
+- possivelmente um novo utilitário, algo como `src/lib/authRedirect.ts`
 
-### 2. Nova tabela: `horario_saida_previsto`
+Safeguards
+- Não mexer em dados do banco, horários, registros ou lógica operacional do sistema.
+- A correção ficará restrita à navegação/autenticação no frontend.
+- Queries como `?telefone=...` continuarão intactas.
 
-Cada operador define seu horário previsto de saída (usado para lembrete):
-
-```sql
-CREATE TABLE horario_saida_previsto (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
-  hora_saida TIME NOT NULL DEFAULT '18:00',
-  lembrete_minutos_antes INTEGER NOT NULL DEFAULT 15,
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-### 3. Lógica de redistribuição (no logout)
-
-Ao deslogar (manual ou por inatividade), no hook `useInactivityLogout` e no botão de logout:
-
-1. Buscar todos os clientes com `atendente_id = user.id`
-2. Buscar a cadeia do operador em `atribuicao_cadeia` (ordenada por `ordem`)
-3. Para cada destino na cadeia, verificar se está online (tem `registro_ponto` aberto, sem `saida_em`)
-4. Atribuir ao primeiro disponível; se nenhum da cadeia estiver online, atribuir a qualquer operador com ponto aberto
-5. Se destino_user_id for NULL na cadeia, significa "qualquer disponível"
-
-Essa lógica será implementada como **função no cliente** chamada antes do `signOut()`.
-
-### 4. Lembrete de saída (notificação)
-
-- Um `setInterval` no App verifica a cada minuto se o horário atual está dentro do range de lembrete do operador
-- Ex: se `hora_saida = 18:00` e `lembrete_minutos_antes = 15`, às 17:45 exibe popup: "Seu horário de saída é às 18:00. Lembre-se de deslogar."
-- O popup tem botão "Deslogar agora" e "Fechar"
-
-### 5. Tela de configuração
-
-Na página de **Configurações** (ou Manutenção → Minha Conta), adicionar seção:
-
-- **Cadeia de redistribuição**: lista sortable onde o operador adiciona usuários na ordem de prioridade, com opção "Qualquer disponível" como fallback
-- **Horário de saída**: input de hora + minutos de antecedência do lembrete
-
-### 6. Arquivos a criar/modificar
-
-| Arquivo | Ação |
-|---|---|
-| Migração SQL | 2 novas tabelas + RLS |
-| `src/hooks/useInactivityLogout.tsx` | Chamar redistribuição antes do signOut |
-| `src/components/PageLayout.tsx` ou `src/App.tsx` | Botão logout existente → chamar redistribuição |
-| `src/hooks/useLogoutRedistribution.ts` | **Novo** — lógica de redistribuir chats |
-| `src/hooks/useExitReminder.ts` | **Novo** — lembrete de horário de saída |
-| `src/components/ExitReminderPopup.tsx` | **Novo** — popup de lembrete |
-| `src/components/AtribuicaoCadeiaConfig.tsx` | **Novo** — config da cadeia na tela de configurações |
-| `src/pages/Settings.tsx` ou `src/pages/Manutencao.tsx` | Adicionar seção de cadeia + horário |
-
-### Detalhes técnicos
-
-- A redistribuição roda **client-side antes do signOut** — é rápida (1 query para buscar chats, 1 query para buscar cadeia, 1 batch update)
-- O lembrete usa `hora_saida` comparado com `new Date().toLocaleTimeString()` em intervalos de 1 minuto
-- RLS: cada usuário só pode ler/editar sua própria cadeia e horário
-
+Validação após implementação
+- Abrir em nova aba pelo menu lateral:
+  - Dashboard TV
+  - Dashboard
+  - Chat
+  - Settings
+- Testar com sessão ativa.
+- Testar com sessão expirada, confirmando que:
+  - vai para login
+  - após login volta exatamente para a rota original
+  - não cai na Home por engano
+- Testar também no domínio publicado, não só no preview.
