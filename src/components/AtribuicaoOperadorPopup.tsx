@@ -12,6 +12,8 @@ interface PopupData {
   descricao?: string;
 }
 
+const REDISTRIBUTION_FLAG = "redistribuicao-em-andamento";
+
 export const AtribuicaoOperadorPopup = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -32,28 +34,44 @@ export const AtribuicaoOperadorPopup = () => {
         const oldRow = payload.old;
 
         if (newRow.atendente_id === user.id && oldRow.atendente_id !== user.id) {
-          // Check if there's a recent atribuicao_chat task for this phone
-          let descricao: string | undefined;
+          // Skip if redistribution is in progress (bulk reassignment)
           try {
-            const { data: tarefa } = await (supabase as any)
-              .from("tarefas_operacionais")
-              .select("descricao")
-              .eq("cliente_telefone", newRow.telefone)
-              .eq("tipo", "atribuicao_chat")
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            descricao = tarefa?.descricao || undefined;
+            if (localStorage.getItem(REDISTRIBUTION_FLAG) === "true") return;
           } catch {}
 
-          const id = `${newRow.telefone}-${Date.now()}`;
-          setPopups(prev => [...prev, {
-            id,
-            clienteNome: newRow.nome || "Cliente",
-            clienteTelefone: newRow.telefone,
-            descricao,
-          }]);
-          // NO auto-dismiss - user must manually close
+          // Dedup: skip if there's already a popup for this phone
+          setPopups(prev => {
+            if (prev.some(p => p.clienteTelefone === newRow.telefone)) return prev;
+
+            // We need to fetch description async, so we add first then update
+            const id = `${newRow.telefone}-${Date.now()}`;
+            const newPopup: PopupData = {
+              id,
+              clienteNome: newRow.nome || "Cliente",
+              clienteTelefone: newRow.telefone,
+            };
+
+            // Fetch description in background
+            (async () => {
+              try {
+                const { data: tarefa } = await (supabase as any)
+                  .from("tarefas_operacionais")
+                  .select("descricao")
+                  .eq("cliente_telefone", newRow.telefone)
+                  .eq("tipo", "atribuicao_chat")
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+                if (tarefa?.descricao) {
+                  setPopups(p => p.map(pp =>
+                    pp.id === id ? { ...pp, descricao: tarefa.descricao } : pp
+                  ));
+                }
+              } catch {}
+            })();
+
+            return [...prev, newPopup];
+          });
         }
       })
       .subscribe();

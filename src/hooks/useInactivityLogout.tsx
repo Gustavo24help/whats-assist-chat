@@ -6,6 +6,8 @@ import { redistributeChats } from "@/hooks/useLogoutRedistribution";
 const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 const WARNING_BEFORE = 15 * 60 * 1000; // 15 minutes before
 const LAST_ACTIVITY_KEY = "last-activity-timestamp";
+const TAB_OPENED_KEY = "tab-opened-at";
+const TAB_GRACE_PERIOD = 15_000; // 15 seconds grace for new tabs
 
 export function useInactivityLogout() {
   const [showWarning, setShowWarning] = useState(false);
@@ -27,12 +29,9 @@ export function useInactivityLogout() {
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
     if (countdownRef.current) clearInterval(countdownRef.current);
 
-    // Set warning timer (1h45m from now)
     warningTimerRef.current = setTimeout(() => {
       setShowWarning(true);
       setMinutesLeft(15);
-      
-      // Start countdown
       countdownRef.current = setInterval(() => {
         setMinutesLeft(prev => {
           if (prev <= 1) {
@@ -44,7 +43,6 @@ export function useInactivityLogout() {
       }, 60000);
     }, INACTIVITY_TIMEOUT - WARNING_BEFORE);
 
-    // Set logout timer (2h from now)
     logoutTimerRef.current = setTimeout(async () => {
       setShowWarning(false);
       const { data: { user } } = await supabase.auth.getUser();
@@ -61,29 +59,40 @@ export function useInactivityLogout() {
   }, [updateActivity]);
 
   useEffect(() => {
-    // Check if already expired on mount
+    // Mark when this tab was opened
+    try { sessionStorage.setItem(TAB_OPENED_KEY, String(Date.now())); } catch {}
+
+    // Check if this is a recently opened tab (grace period)
+    let isNewTab = false;
     try {
-      const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
-      if (lastActivity) {
-        const elapsed = Date.now() - Number(lastActivity);
-        if (elapsed >= INACTIVITY_TIMEOUT) {
-          // Expired while away — logout immediately
-          supabase.auth.signOut().then(() => navigate("/auth"));
-          return;
-        }
+      const tabOpened = sessionStorage.getItem(TAB_OPENED_KEY);
+      if (tabOpened && Date.now() - Number(tabOpened) < TAB_GRACE_PERIOD) {
+        isNewTab = true;
       }
     } catch {}
 
-    // Initialize
+    // Check if already expired on mount
+    if (!isNewTab) {
+      try {
+        const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+        if (lastActivity) {
+          const elapsed = Date.now() - Number(lastActivity);
+          if (elapsed >= INACTIVITY_TIMEOUT) {
+            supabase.auth.signOut().then(() => navigate("/auth"));
+            return;
+          }
+        }
+      } catch {}
+    }
+
+    // Initialize — always refresh the activity timestamp
     updateActivity();
 
     const events = ["mousemove", "keydown", "click", "scroll", "touchstart"];
-    
-    // Throttle to avoid excessive updates
     let lastUpdate = 0;
     const handler = () => {
       const now = Date.now();
-      if (now - lastUpdate < 30000) return; // throttle: once per 30s
+      if (now - lastUpdate < 30000) return;
       lastUpdate = now;
       updateActivity();
     };
