@@ -18,14 +18,15 @@ import { TemplateManagement } from "@/components/TemplateManagement";
 import { FerramentasManutencao } from "@/components/FerramentasManutencao";
 import { DailyGoalsManager } from "@/components/DailyGoalsManager";
 import { StatusAlertSettings } from "@/components/StatusAlertSettings";
-import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
+import { getSameTabPreference, setSameTabPreference } from "@/hooks/useOpenInNewTab";
 import { PageLayout } from "@/components/PageLayout";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAdmin, isAdminTI, loading } = useAuth();
-  const { sameTab, setSameTab, canToggle } = useOpenInNewTab();
+  const [sameTab, setSameTabLocal] = useState(getSameTabPreference);
+  const canToggle = isAdminTI;
   const [twilioAccountSid, setTwilioAccountSid] = useState("");
   const [twilioAuthToken, setTwilioAuthToken] = useState("");
   const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
@@ -450,7 +451,7 @@ const Settings = () => {
                     </div>
                     <Switch
                       checked={sameTab}
-                      onCheckedChange={setSameTab}
+                      onCheckedChange={(v) => { setSameTabLocal(v); setSameTabPreference(v); }}
                     />
                   </div>
                 )}
