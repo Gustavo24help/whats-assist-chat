@@ -17,6 +17,7 @@ import { useExitReminder } from "@/hooks/useExitReminder";
 import { redistributeChats } from "@/hooks/useLogoutRedistribution";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "./pages/Home";
+import { FichaWhatsAppDemo } from "./components/FichaWhatsApp";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
@@ -94,6 +95,7 @@ const App = () => (
               <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/orcamento" element={<OrcamentoPublico />} />
+              <Route path="/ficha-whatsapp-demo" element={<FichaWhatsAppDemo />} />
               <Route path="/prestador" element={<PrestadorPortal />} />
               <Route
                 path="/"
