@@ -327,11 +327,11 @@ All colors MUST be HSL.
   }
 
   .agendamento-alerta {
-    animation: blink-warning 1.5s infinite;
+    /* Blinking removed per request — use static styling only */
   }
 
   .agendamento-atrasado {
-    animation: blink-danger 1s infinite;
+    /* Blinking removed per request — use static styling only */
   }
 }
 
