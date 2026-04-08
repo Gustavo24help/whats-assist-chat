@@ -3,6 +3,7 @@ import { Bell, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 type AvisoPopup = {
   id: string;
@@ -14,6 +15,7 @@ type AvisoPopup = {
 
 export const AvisoPopupOverlay = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [popupAviso, setPopupAviso] = useState<AvisoPopup | null>(null);
   const [canClose, setCanClose] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -95,7 +97,16 @@ export const AvisoPopupOverlay = () => {
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 text-base font-bold">
             <Bell className="h-5 w-5 text-brand-yellow" />
-            Novo Aviso
+            <button
+              type="button"
+              className="underline-offset-4 hover:underline"
+              onClick={() => {
+                setPopupAviso(null);
+                navigate("/avisos");
+              }}
+            >
+              Novo Aviso
+            </button>
           </div>
           <Button
             size="icon"
