@@ -60,39 +60,31 @@ Deno.serve(async (req) => {
     if (telefoneAlvo) {
       telefonesParaRecuperar = [telefoneAlvo];
     } else {
-      // Buscar chats sem mensagens inbound
-      const { data: chatsAfetados } = await supabase.rpc("get_prestador_chats_sem_inbound" as any)
-        .limit(maxTelefones);
+      // Buscar todos os prestadores_chat e filtrar os que não têm inbound
+      // usando uma única query eficiente via left join simulado
+      const { data: allChats } = await supabase
+        .from("prestadores_chat")
+        .select("telefone")
+        .order("ultima_interacao", { ascending: false })
+        .limit(maxTelefones * 3);
 
-      if (!chatsAfetados || chatsAfetados.length === 0) {
-        // Fallback: query direta
-        const { data: chats } = await supabase
-          .from("prestadores_chat")
-          .select("telefone")
-          .order("ultima_interacao", { ascending: false })
-          .limit(200);
+      if (allChats) {
+        // Batch check: buscar todos telefones que TÊM pelo menos 1 inbound
+        const telefones = allChats.map(c => c.telefone);
+        const { data: comInbound } = await supabase
+          .from("mensagens_prestadores")
+          .select("prestador_telefone")
+          .in("prestador_telefone", telefones)
+          .eq("remetente", "cliente")
+          .limit(1000);
 
-        if (chats) {
-          const telefonesComInbound = new Set<string>();
-          for (const chat of chats) {
-            const { count } = await supabase
-              .from("mensagens_prestadores")
-              .select("id", { count: "exact", head: true })
-              .eq("prestador_telefone", chat.telefone)
-              .eq("remetente", "cliente");
+        const telefonesComInbound = new Set(
+          (comInbound || []).map((r: any) => r.prestador_telefone)
+        );
 
-            if ((count || 0) > 0) {
-              telefonesComInbound.add(chat.telefone);
-            }
-          }
-
-          telefonesParaRecuperar = chats
-            .filter(c => !telefonesComInbound.has(c.telefone))
-            .map(c => c.telefone)
-            .slice(0, maxTelefones);
-        }
-      } else {
-        telefonesParaRecuperar = (chatsAfetados as any[]).map((c: any) => c.telefone);
+        telefonesParaRecuperar = telefones
+          .filter(t => !telefonesComInbound.has(t))
+          .slice(0, maxTelefones);
       }
     }
 
