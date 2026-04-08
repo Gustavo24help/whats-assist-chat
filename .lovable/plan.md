@@ -1,54 +1,106 @@
 
 
-# Plano: Corrigir 3 problemas - Logout em troca de tela, Spam de notificação, Leitura compartilhada
+# Plano: Sistema Completo de Registro de Ponto
 
-## Problema 1: Logout ao trocar de tela
+## Problema principal
+A tabela `registro_ponto` **não existe** no banco de dados (a migração original nunca foi aplicada). Isso causa o erro 404 em toda interação com o ponto.
 
-**Causa raiz:** O `PageLayout` usa `openRoute()` que abre rotas em **nova aba** (`window.open("_blank")`). Cada nova aba carrega o app do zero. No `useInactivityLogout`, ao montar (linha 66-74), ele verifica `localStorage("last-activity-timestamp")` -- se o timestamp estiver desatualizado (throttle de 30s), o app pode considerar a sessão expirada e deslogar imediatamente.
+## O que será feito
 
-Além disso, a nova aba restaura a sessão Supabase, mas o `INITIAL_SESSION` pode disparar `SIGNED_OUT` primeiro (como visto nos logs do console), causando um flash de logout.
+### 1. Migração SQL - Criar tabelas
 
-**Correção:**
-1. No `useInactivityLogout`, ao verificar a expiração no mount, atualizar o `last-activity-timestamp` para `Date.now()` quando a diferença for < INACTIVITY_TIMEOUT. Isso evita que uma aba recém-aberta herde um timestamp antigo e se auto-deslogue.
-2. Adicionar uma tolerância: ao abrir uma nova aba, gravar um marcador `tab-opened-at` no `sessionStorage`. Se o hook detectar que a aba foi aberta há menos de 10 segundos, ignorar a verificação de expiração inicial.
+**Tabela `registro_ponto`** (recriar):
+- `id`, `user_id`, `entrada_em`, `saida_em`, `created_at`
+- `entrada_oficial` (TIME) - horário ajustado com tolerância
+- `tipo` TEXT DEFAULT `'normal'` - valores: `normal`, `ajuste_manual`
+- `observacao` TEXT - para lançamentos avulsos
 
-## Problema 2: Spam de notificação de atribuição
+**Tabela `configuracao_ponto`** (nova):
+- `user_id` UUID UNIQUE
+- `carga_diaria_minutos` INTEGER DEFAULT 480 (8h)
+- `hora_inicio_prevista` TIME DEFAULT '08:00'
+- `hora_fim_prevista` TIME DEFAULT '17:00'
+- `saldo_inicial_minutos` INTEGER DEFAULT 0
 
-**Causa raiz:** O `AtribuicaoOperadorPopup` escuta **todas** as UPDATEs na tabela `clientes`. Quando o `redistributeChats` reatribui N chats para um operador, cada UPDATE individual gera uma notificação popup. Resultado: operador recebe N popups de uma vez.
+RLS: cada usuário lê/edita apenas seus próprios registros. Admins podem ler todos (para supervisão futura).
 
-Além disso, não há deduplicação -- se o mesmo telefone for reatribuído múltiplas vezes (por reconexões Realtime ou atualizações em cascata), popups duplicados aparecem.
+### 2. Tela de Ponto (`RegistroPonto.tsx`) - Reescrita completa
 
-**Correção:**
-1. Adicionar filtro no `AtribuicaoOperadorPopup`: ignorar updates que vêm de redistribuição automática. Distinguir redistribuição de atribuição manual verificando se existe uma `tarefa_operacional` do tipo `atribuicao_chat` criada recentemente (últimos 10 segundos) para esse telefone.
-2. Adicionar deduplicação por telefone: se já existe um popup ativo para o mesmo `clienteTelefone`, não criar outro.
-3. Alternativa mais simples e confiável: no `redistributeChats`, antes de atualizar os clientes, gravar os telefones sendo redistribuídos em uma variável/localStorage temporária. O popup verifica essa lista e ignora.
+**Seção superior - Status e ações:**
+- Botão "Registrar Entrada" / "Registrar Saída"
+- Badge "Em expediente" / "Fora do expediente"
+- Timer negativo em tempo real: conta de `carga_diaria` até zero
+- Exibição do horário configurado (ex: "12:00 - 16:00 | Carga: 4h")
 
-**Abordagem escolhida:** Deduplicação por telefone + flag `redistribuicao_em_andamento` em `localStorage` que o `redistributeChats` ativa antes de redistribuir e desativa depois. O popup ignora eventos enquanto a flag estiver ativa.
+**Seção de contadores:**
+- Horas trabalhadas hoje
+- Saldo do dia (positivo = hora extra, negativo = falta)
+- Saldo acumulado da semana
+- Horas extras acumuladas
+- Horas negativas acumuladas
 
-## Problema 3: Leitura compartilhada entre operadores
+**Seção de histórico (paginado):**
+- Lista de registros com entrada, saída, duração
+- Indicador se houve tolerância aplicada
 
-**Causa raiz:** O `clearUnreadMark` no `ChatWindow.tsx` (linhas 1050-1054) ainda faz `update({ marcado_nao_lido: false })` globalmente na tabela `clientes`. Isso marca o chat como lido para **todos** os operadores, não apenas para quem abriu a conversa. A tabela `mensagem_leitura_operador` (per-operator) existe e é preenchida, mas o campo global `marcado_nao_lido` é zerado para todos.
+**Seção de lançamento avulso:**
+- Formulário para inserir entrada/saída retroativa com observação
+- Para ajuste inicial do sistema no meio da semana
 
-**Correção:**
-1. Remover a atualização global de `marcado_nao_lido = false` do `clearUnreadMark`. Manter apenas o upsert na `mensagem_leitura_operador`.
-2. Na `ConversationList`, mudar a lógica de "não lida" para usar a tabela `mensagem_leitura_operador` do operador atual, comparando `last_read_at` com a última mensagem do cliente, em vez de confiar no campo global `marcado_nao_lido`.
-3. Manter a trigger `mark_client_unread_on_new_message` como está (ela marca globalmente, o que é ok como "broadcast" de nova mensagem), mas a verificação de leitura passa a ser per-operator.
+### 3. Configuração por usuário
+
+Na tela de Settings (ou na própria tela de ponto):
+- Campo "Carga diária" (horas:minutos)
+- Campos "Horário previsto de início" e "fim"
+- Campo "Saldo inicial (minutos)" - para ajuste retroativo
+
+### 4. Tolerância de 2 minutos na entrada
+
+Ao registrar entrada:
+- Se `agora - hora_inicio_prevista <= 2 min`, gravar `entrada_oficial = hora_inicio_prevista`
+- Caso contrário, `entrada_oficial = agora`
+- Apenas na entrada (conforme escolha do usuário)
+
+### 5. Popup de fim de expediente
+
+Quando o timer chega a zero:
+- Modal grande que trava a tela
+- "Você completou sua carga horária!"
+- Botão "Deslogar" (faz signOut + redistribui chats)
+- Botão "Continuar" (fecha modal, a partir daqui conta como hora extra)
+
+### 6. Redirecionamento pós-login
+
+No `Auth.tsx` e `ProtectedRoute`:
+- Após login, verificar se o usuário já tem `registro_ponto` aberto hoje
+- Se não tem, redirecionar para `/registro-ponto`
+- Se já tem entrada registrada, seguir para a rota normal
+
+### 7. Hook `usePontoClock` (novo)
+
+Hook global que roda enquanto logado:
+- Calcula tempo restante / hora extra em tempo real
+- Dispara o popup de fim de expediente
+- Expõe `minutosRestantes`, `emHoraExtra`, `horasTrabalhadas`
 
 ---
 
-## Arquivos a modificar
+## Arquivos
 
-| Arquivo | Mudança |
+| Arquivo | Ação |
 |---|---|
-| `src/hooks/useInactivityLogout.tsx` | Tolerância para novas abas, não deslogar ao montar se aba é recente |
-| `src/hooks/useLogoutRedistribution.ts` | Gravar flag `redistribuicao-em-andamento` durante redistribuição |
-| `src/components/AtribuicaoOperadorPopup.tsx` | Ignorar eventos durante redistribuição + dedup por telefone |
-| `src/components/ChatWindow.tsx` | Remover update global de `marcado_nao_lido` |
-| `src/components/ConversationList.tsx` | Usar `mensagem_leitura_operador` per-operator para determinar status de leitura |
+| Nova migração SQL | Criar `registro_ponto` + `configuracao_ponto` |
+| `src/pages/RegistroPonto.tsx` | Reescrever completamente |
+| `src/hooks/usePontoClock.ts` | Novo - timer global |
+| `src/components/PontoEndModal.tsx` | Novo - popup fim de expediente |
+| `src/pages/Auth.tsx` | Ajustar destino pós-login |
+| `src/App.tsx` | Adicionar PontoEndModal global |
 
-## Ordem de implementação
-
-1. Fix do logout em troca de tela (useInactivityLogout)
-2. Fix do spam de notificação (redistributeChats + AtribuicaoOperadorPopup)
-3. Fix da leitura compartilhada (ChatWindow + ConversationList)
+## Ordem
+1. Migração SQL
+2. Hook `usePontoClock`
+3. Reescrever `RegistroPonto.tsx`
+4. Popup `PontoEndModal`
+5. Ajustar redirecionamento pós-login
+6. Integrar no App.tsx
 
