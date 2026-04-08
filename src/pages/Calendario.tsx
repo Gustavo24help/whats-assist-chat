@@ -13,6 +13,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getCorTipo, getLabelTipo } from "@/lib/calcularEstadoAgendamento";
+import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { PageLayout } from "@/components/PageLayout";
 
 const tiposAgendamento = [
@@ -20,6 +21,12 @@ const tiposAgendamento = [
   { value: 'servico', label: 'Serviço' },
   { value: 'visita_tecnica', label: 'Visita Técnica' },
   { value: 'retorno', label: 'Retorno' },
+];
+
+const visaoHorarioOptions = [
+  { value: 'cliente', label: 'Janela Cliente' },
+  { value: 'prestador', label: 'Janela Prestador' },
+  { value: 'ambos', label: 'Ambas Janelas' },
 ];
 
 export default function Calendario() {
@@ -32,11 +39,11 @@ export default function Calendario() {
   const [filtroPrestador, setFiltroPrestador] = useState("all");
   const [prestadores, setPrestadores] = useState<any[]>([]);
   const [selectedFicha, setSelectedFicha] = useState<any>(null);
+  const [visaoHorario, setVisaoHorario] = useState<HorarioContexto>('cliente');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch fichas with scheduling data
       const { data, error } = await supabase
         .from('fichas_de_servico')
         .select(`
@@ -44,6 +51,8 @@ export default function Calendario() {
           horario_agendamento, data_visita_tecnica, horario_visita_tecnica,
           tipo_agendamento, hora_inicio_agendamento, hora_fim_agendamento,
           data_retorno, hora_inicio_retorno, hora_fim_retorno,
+          hora_inicio_prestador_agendamento, hora_fim_prestador_agendamento,
+          hora_inicio_prestador_retorno, hora_fim_prestador_retorno,
           prestador_id, categoria_id, notas,
           prestadores!fichas_de_servico_prestador_id_fkey(nome, cpf, telefone),
           clientes!fichas_de_servico_telefone_cliente_fkey(nome),
@@ -54,7 +63,6 @@ export default function Calendario() {
       if (error) throw error;
       setFichas(data || []);
 
-      // Fetch prestadores for filter
       const { data: pData } = await supabase
         .from('prestadores')
         .select('cpf, nome')
@@ -107,7 +115,6 @@ export default function Calendario() {
 
   return (
     <PageLayout>
-      {/* Header */}
       <header className="h-14 border-b bg-background/80 backdrop-blur-sm flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
@@ -123,7 +130,6 @@ export default function Calendario() {
       </header>
 
       <main className="flex-1 p-4 space-y-4">
-        {/* Filters + navigation */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" onClick={() => navigateDate('prev')}>
@@ -139,6 +145,17 @@ export default function Calendario() {
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
+            <Select value={visaoHorario} onValueChange={(v) => setVisaoHorario(v as HorarioContexto)}>
+              <SelectTrigger className="w-[160px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {visaoHorarioOptions.map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={filtroTipo} onValueChange={setFiltroTipo}>
               <SelectTrigger className="w-[150px] h-8 text-xs">
                 <SelectValue />
@@ -164,7 +181,6 @@ export default function Calendario() {
           </div>
         </div>
 
-        {/* Legenda + Contadores */}
         <div className="flex flex-wrap items-center gap-4 text-xs">
           {(['servico', 'visita_tecnica', 'retorno'] as const).map(tipo => (
             <div key={tipo} className="flex items-center gap-1.5">
@@ -179,7 +195,6 @@ export default function Calendario() {
           </div>
         </div>
 
-        {/* Calendar tabs */}
         <Tabs value={viewMode} onValueChange={setViewMode}>
           <TabsList>
             <TabsTrigger value="mensal">Mensal</TabsTrigger>
@@ -188,18 +203,17 @@ export default function Calendario() {
           </TabsList>
 
           <TabsContent value="mensal" className="mt-3">
-            <CalendarioMensal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} />
+            <CalendarioMensal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} />
           </TabsContent>
           <TabsContent value="semanal" className="mt-3">
-            <CalendarioSemanal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} />
+            <CalendarioSemanal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} />
           </TabsContent>
           <TabsContent value="diario" className="mt-3">
-            <CalendarioDiario fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} />
+            <CalendarioDiario fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} />
           </TabsContent>
         </Tabs>
       </main>
 
-      {/* Modal */}
       <AgendamentoDetalhesModal
         ficha={selectedFicha}
         open={!!selectedFicha}

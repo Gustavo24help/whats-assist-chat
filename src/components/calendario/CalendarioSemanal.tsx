@@ -3,16 +3,18 @@ import { startOfWeek, addDays, format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AgendamentoCard } from "./AgendamentoCard";
 import { getAgendamentoDates } from "@/lib/calcularEstadoAgendamento";
+import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 
 interface Props {
   fichas: any[];
   currentDate: Date;
   onSelectFicha: (ficha: any) => void;
+  contextoHorario?: HorarioContexto;
 }
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 7); // 7-22
 
-export function CalendarioSemanal({ fichas, currentDate, onSelectFicha }: Props) {
+export function CalendarioSemanal({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente' }: Props) {
   const weekStart = useMemo(() => startOfWeek(currentDate, { locale: ptBR }), [currentDate]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
@@ -60,7 +62,7 @@ export function CalendarioSemanal({ fichas, currentDate, onSelectFicha }: Props)
               return (
                 <div key={key} className="border-b border-r p-0.5 space-y-0.5">
                   {slotFichas.map(f => (
-                    <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} compact />
+                    <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} compact contextoHorario={contextoHorario} />
                   ))}
                 </div>
               );
