@@ -834,6 +834,34 @@ export const ConversationList = ({
         });
       }
 
+      // ✅ Query extra: Buscar leitura per-operator para determinar não lido
+      let operatorReadMap = new Map<string, string>(); // telefone -> last_read_at
+      if (user?.id) {
+        const { data: readData } = await (supabase as any)
+          .from('mensagem_leitura_operador')
+          .select('cliente_telefone, last_read_at')
+          .eq('user_id', user.id);
+        readData?.forEach((r: any) => {
+          operatorReadMap.set(r.cliente_telefone, r.last_read_at);
+        });
+      }
+
+      // ✅ Buscar última mensagem de CLIENTE por telefone para comparar com leitura
+      const { data: ultimasMensagensCliente } = await supabase
+        .from('mensagens')
+        .select('cliente_id, data_hora')
+        .in('cliente_id', telefones)
+        .eq('remetente', 'cliente')
+        .order('data_hora', { ascending: false })
+        .limit(1000);
+
+      const ultimaMsgClienteMap = new Map<string, string>();
+      ultimasMensagensCliente?.forEach(msg => {
+        if (!ultimaMsgClienteMap.has(msg.cliente_id)) {
+          ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
+        }
+      });
+
       // ✅ Combinar tudo SEM QUERIES EXTRAS
       const clientesComFicha = clientesData.map(cliente => {
         // Calcular janela 24h
@@ -879,6 +907,17 @@ export const ConversationList = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
+        // Per-operator unread: compare last_read_at with latest client message
+        const lastRead = operatorReadMap.get(cliente.telefone);
+        const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
+        let perOperatorUnread = false;
+        if (lastClientMsg) {
+          if (!lastRead || new Date(lastClientMsg) > new Date(lastRead)) {
+            // Only mark unread if bot was already disabled at some point (same logic as trigger)
+            perOperatorUnread = cliente.bot_ja_desligado_alguma_vez === true;
+          }
+        }
+
         return {
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
@@ -888,7 +927,7 @@ export const ConversationList = ({
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
           bot_desligado_manualmente: cliente.bot_desligado_manualmente,
-          marcado_nao_lido: cliente.marcado_nao_lido,
+          marcado_nao_lido: perOperatorUnread,
           orcamentos_count: orcamentosCount,
           pagamento_link: (fichaData as any)?.pagamento_link || null,
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
