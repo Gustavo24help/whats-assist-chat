@@ -1040,18 +1040,13 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
   const clearUnreadMark = async () => {
     if (!user) return;
-    // Per-operator read status
+    // Per-operator read status only — do NOT clear global marcado_nao_lido
     await (supabase as any)
       .from('mensagem_leitura_operador')
       .upsert(
         { cliente_telefone: clienteTelefone, user_id: user.id, last_read_at: new Date().toISOString() },
         { onConflict: 'cliente_telefone,user_id' }
       );
-    // Legacy: also clear global flag
-    await supabase
-      .from('clientes')
-      .update({ marcado_nao_lido: false })
-      .eq('telefone', clienteTelefone);
   };
 
   // ✅ Removidas funções duplicadas - consolidadas em fetchClienteData()
