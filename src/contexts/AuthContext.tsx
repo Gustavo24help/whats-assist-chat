@@ -139,48 +139,48 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
     }, 10000);
 
-    // Carregar sessão inicial
-    const initializeAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('❌ AuthContext - Erro ao carregar sessão:', error);
-          setLoading(false);
-          return;
-        }
+    let initialSessionHandled = false;
 
-        if (session?.user) {
-          setUser(session.user);
-          await loadUserProfile(session.user.id);
-        }
-      } catch (error) {
-        console.error('❌ AuthContext - Erro na inicialização:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-
-    // Escutar mudanças de autenticação
+    // Escutar mudanças de autenticação ANTES de getSession (evita race condition)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
+        console.log('🔄 AuthContext - onAuthStateChange:', event);
+        if (event === 'INITIAL_SESSION') {
+          // Sessão inicial restaurada do storage
+          if (session?.user) {
+            setUser(session.user);
+            setTimeout(() => loadUserProfile(session.user.id), 0);
+          }
+          initialSessionHandled = true;
+          setLoading(false);
+        } else if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
           setTimeout(() => loadUserProfile(session.user.id), 0);
+          if (!initialSessionHandled) {
+            setLoading(false);
+          }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setUserProfile(null);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           setUser(session.user);
-          // Só recarregar perfil se ainda não existe
-          if (!userProfile) {
-            setTimeout(() => loadUserProfile(session.user.id), 0);
-          }
         }
       }
     );
+
+    // getSession como fallback caso INITIAL_SESSION não dispare
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('❌ AuthContext - Erro ao carregar sessão:', error);
+      }
+      if (!initialSessionHandled) {
+        if (session?.user) {
+          setUser(session.user);
+          loadUserProfile(session.user.id);
+        }
+        setLoading(false);
+      }
+    });
 
     return () => {
       clearTimeout(safetyTimeout);
