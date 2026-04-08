@@ -1,60 +1,61 @@
 
-Diagnóstico encontrado
 
-O problema não é visual nem da tela do chat “esconder” parte da conversa.
-Para o telefone 5541999198393, o banco hoje realmente só tem 2 mensagens em `mensagens_prestadores`, ambas enviadas por nós, nestes horários:
-- 2026-03-27 20:09:51
-- 2026-03-27 20:10:21
+# Plano: Corrigir popup de atribuição disparando ao enviar mensagem
 
-Ou seja: a conversa aparece “cortada” porque o histórico salvo para esse prestador já está incompleto na base.
+## Problema encontrado
 
-Causa raiz identificada
+Quando um operador envia uma mensagem, o código em `enviarMensagem()` (linha 1635-1646 de ChatWindow.tsx) faz auto-atribuição se `atendenteAtual` estiver `null`:
 
-Há dois pontos no histórico do projeto que explicam isso:
+```typescript
+if (!atendenteAtual) {
+  await atribuirOperador(user.id, ...);
+}
+```
 
-1. Migrações antigas moveram mensagens do número de prestadores de `mensagens` para `mensagens_prestadores`
-- existe uma migração que copiou para `mensagens_prestadores` tudo que estivesse ligado ao número `554138910814`
-- outra migração depois apagou esses registros da tabela antiga
+Isso atualiza `clientes.atendente_id`, o que dispara o Realtime UPDATE. O `AtribuicaoOperadorPopup` escuta esse evento e mostra o popup toda vez que `newRow.atendente_id === user.id && oldRow.atendente_id !== user.id` — sem distinguir se foi **auto-atribuição** ou se **outra pessoa** atribuiu.
 
-2. Esse processo dependeu do que já existia em `mensagens` naquele momento
-- então, se só parte do fluxo estava lá, ou se mensagens anteriores/respostas do prestador não estavam presentes/associadas corretamente, o chat novo ficou só com esse “pedaço final”
-- no caso investigado, não existe mais histórico complementar para esse telefone nem em `mensagens`, então o recorte atual virou o histórico oficial desse chat
+Resultado: toda mensagem enviada pelo operador que causa auto-atribuição gera o popup "Conversa atribuída a você" para ele mesmo.
 
-Por que isso acontece em “várias outras”
-- porque não parece ser um caso isolado de renderização
-- parece um efeito de migração/sincronização histórica do canal de prestadores
-- alguns chats foram criados com apenas mensagens outbound que estavam disponíveis no momento da cópia
+## Solução
 
-O que eu faria para corrigir
+Alterar `AtribuicaoOperadorPopup.tsx` para **ignorar auto-atribuições**. A forma mais simples e robusta:
 
-1. Mapear os chats afetados
-- identificar conversas de prestadores com histórico suspeito, por exemplo:
-  - apenas mensagens outbound
-  - sem nenhuma mensagem inbound
-  - primeira mensagem já aparentando continuação de fluxo
-  - volume muito baixo e padrão de onboarding/template
+No `AtribuicaoOperadorPopup`, após detectar que `newRow.atendente_id === user.id`, verificar se **quem fez a mudança** é o próprio usuário. Como o Realtime não fornece "quem alterou", usaremos uma abordagem de flag local:
 
-2. Fazer uma recuperação histórica controlada
-- revisar a lógica de `sync-twilio-messages` para reconstruir corretamente o histórico dos prestadores a partir da origem externa
-- cruzar por `message_sid`, telefone normalizado e número Twilio usado
-- inserir apenas o que estiver faltando, sem duplicar o que já existe
+1. **Criar um flag global** (`window.__selfAssignmentInProgress`) que é setado em `true` antes de qualquer auto-atribuição ou "assumir para mim" e resetado logo após.
+2. No `AtribuicaoOperadorPopup`, checar esse flag e ignorar o evento se estiver `true`.
 
-3. Adicionar salvaguardas para não piorar dados já existentes
-- não sobrescrever mensagens atuais
-- não alterar timestamps existentes já corretos
-- não mexer em chats saudáveis
-- limitar a correção apenas aos telefones detectados como incompletos
+Isso cobre:
+- Auto-atribuição ao enviar mensagem
+- "Assumir para mim" (botão manual)
+- Qualquer outra auto-atribuição feita pelo próprio operador
 
-4. Validar no preview e depois em um conjunto pequeno de telefones
-- começar pelo 5541999198393
-- comparar antes/depois
-- só então ampliar para os demais chats afetados
+## Arquivos a modificar
 
-Por que essa solução faz sentido
-- porque o defeito está no dado salvo, não na interface
-- esconder/filter/remarcar conversa não resolve
-- a solução correta é reconstruir o histórico faltante com critério e deduplicação, preservando tudo que já está certo
+| Arquivo | Mudança |
+|---|---|
+| `src/components/ChatWindow.tsx` | Setar flag antes/depois de `atribuirOperador` quando é auto-atribuição e em `assumirParaMim` |
+| `src/components/AtribuicaoOperadorPopup.tsx` | Checar flag e ignorar evento se auto-atribuição |
 
-Se você aprovar, eu sigo com um plano de correção em 2 frentes:
-- ajuste da rotina de recuperação histórica dos chats de prestadores
-- recuperação segura dos telefones afetados, começando por 5541999198393
+## Detalhe técnico
+
+No `ChatWindow.tsx`, antes de chamar `atribuirOperador` na auto-atribuição (linha 1645) e em `assumirParaMim`:
+```typescript
+(window as any).__selfAssignmentInProgress = true;
+await atribuirOperador(user.id, ...);
+setTimeout(() => { (window as any).__selfAssignmentInProgress = false; }, 2000);
+```
+
+No `AtribuicaoOperadorPopup.tsx`, na condição (linha 36):
+```typescript
+if (newRow.atendente_id === user.id && oldRow.atendente_id !== user.id) {
+  if ((window as any).__selfAssignmentInProgress) return; // ← adicionar
+  ...
+}
+```
+
+## Impacto
+- Nenhuma mudança em dados
+- Popups de atribuição feita por **outros operadores** continuam funcionando normalmente
+- Apenas auto-atribuições (enviar mensagem, assumir) param de gerar popup
+
