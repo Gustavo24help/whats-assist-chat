@@ -470,13 +470,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         material_pago_24help: fichaData.material_pago_24help,
         // Time window fields - client windows
         hora_inicio_agendamento: horaAgend?.trim() || null,
-        hora_fim_agendamento: (window as any).__horaFimAgendamento || null,
+        hora_fim_agendamento: horaFimAgendamento?.trim() || null,
         hora_inicio_retorno: horaRetorno?.trim() ? horaRetorno.trim() : null,
-        hora_fim_retorno: (window as any).__horaFimRetorno || null,
+        hora_fim_retorno: horaFimRetorno?.trim() || null,
         // Provider windows (auto-calculated)
         ...((() => {
-          const provAgend = calcularJanelaPrestador(horaAgend?.trim() || '', (window as any).__horaFimAgendamento || '');
-          const provRetorno = calcularJanelaPrestador(horaRetorno?.trim() || '', (window as any).__horaFimRetorno || '');
+          const provAgend = calcularJanelaPrestador(horaAgend?.trim() || '', horaFimAgendamento?.trim() || '');
+          const provRetorno = calcularJanelaPrestador(horaRetorno?.trim() || '', horaFimRetorno?.trim() || '');
           return {
             hora_inicio_prestador_agendamento: provAgend?.inicio || null,
             hora_fim_prestador_agendamento: provAgend?.fim || null,
