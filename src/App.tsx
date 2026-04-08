@@ -14,6 +14,8 @@ import { InactivityWarningModal } from "@/components/InactivityWarningModal";
 import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { ExitReminderPopup } from "@/components/ExitReminderPopup";
 import { useExitReminder } from "@/hooks/useExitReminder";
+import { PontoEndModal } from "@/components/PontoEndModal";
+import { usePontoClock } from "@/hooks/usePontoClock";
 import { redistributeChats } from "@/hooks/useLogoutRedistribution";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "./pages/Home";
@@ -57,6 +59,7 @@ const queryClient = new QueryClient();
 const InactivityWrapper = ({ children }: { children: React.ReactNode }) => {
   const { showWarning, minutesLeft, dismissWarning } = useInactivityLogout();
   const { showReminder, exitTime, dismiss: dismissReminder } = useExitReminder();
+  const { showEndModal, dismissEndModal } = usePontoClock();
   const navigate = useNavigate();
 
   const handleExitLogout = async () => {
@@ -74,6 +77,7 @@ const InactivityWrapper = ({ children }: { children: React.ReactNode }) => {
     <>
       <InactivityWarningModal open={showWarning} minutesLeft={minutesLeft} onDismiss={dismissWarning} />
       <ExitReminderPopup open={showReminder} exitTime={exitTime} onDismiss={dismissReminder} onLogout={handleExitLogout} />
+      <PontoEndModal open={showEndModal} onContinue={dismissEndModal} />
       {children}
     </>
   );
