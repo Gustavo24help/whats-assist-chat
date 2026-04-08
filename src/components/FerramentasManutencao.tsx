@@ -50,6 +50,13 @@ const tools: ToolConfig[] = [
     icon: <Activity className="h-4 w-4" />,
     method: "GET",
   },
+  {
+    id: "recover-prestador",
+    name: "Recuperar Histórico Prestadores",
+    description: "Recupera mensagens faltantes de prestadores na Twilio (últimos 30 dias, 10 telefones por vez)",
+    functionName: "recover-prestador-history",
+    icon: <RefreshCw className="h-4 w-4" />,
+  },
 ];
 
 export const FerramentasManutencao = () => {
