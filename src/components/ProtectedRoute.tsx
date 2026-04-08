@@ -24,8 +24,10 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (!user) {
-    console.log('🚫 ProtectedRoute - Usuário não autenticado, redirecionando para /auth');
-    return <Navigate to="/auth" replace />;
+    const currentPath = window.location.pathname + window.location.search;
+    const authUrl = currentPath && currentPath !== "/" ? `/auth?returnTo=${encodeURIComponent(currentPath)}` : "/auth";
+    console.log('🚫 ProtectedRoute - Usuário não autenticado, redirecionando para:', authUrl);
+    return <Navigate to={authUrl} replace />;
   }
 
   if (requireAdmin && !isAdmin) {
