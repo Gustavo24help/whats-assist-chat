@@ -73,8 +73,19 @@ const Auth = () => {
         toast.success("Login realizado com sucesso!");
       }
 
-      console.log('✅ Auth - Redirecionando para:', destination);
-      navigate(destination, { replace: true });
+      // Check if user needs to clock in today
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const { data: pontoHoje } = await (supabase as any)
+        .from("registro_ponto")
+        .select("id")
+        .eq("user_id", data.user?.id)
+        .gte("entrada_em", todayStart.toISOString())
+        .limit(1);
+
+      const finalDest = (!pontoHoje || pontoHoje.length === 0) ? "/registro-ponto" : destination;
+      console.log('✅ Auth - Redirecionando para:', finalDest);
+      navigate(finalDest, { replace: true });
     } catch (error: any) {
       console.error('❌ Auth - Erro no login:', error);
       toast.error(error.message || "Erro ao autenticar");
