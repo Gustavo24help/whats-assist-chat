@@ -1099,6 +1099,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           .insert({ tarefa_id: tarefaId, user_id: operadorId });
       } catch {}
     }
+    if (isSelf) setTimeout(() => { (window as any).__selfAssignmentInProgress = false; }, 2000);
   };
 
   // Handler for opening description dialog before assigning
@@ -1116,7 +1117,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .single();
     
     const nome = profile?.full_name || 'Você';
-    await atribuirOperador(user.id, nome);
+    await atribuirOperador(user.id, nome, undefined, true);
   };
 
   // Função para iniciar solicitação de takeover
@@ -1432,7 +1433,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           .eq('id', user.id)
           .single();
         
-        await atribuirOperador(user.id, profile?.full_name || 'Você');
+        await atribuirOperador(user.id, profile?.full_name || 'Você', undefined, true);
       }
     }
 
@@ -1524,7 +1525,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           .eq('id', user.id)
           .single();
         
-        await atribuirOperador(user.id, profile?.full_name || 'Você');
+        await atribuirOperador(user.id, profile?.full_name || 'Você', undefined, true);
       }
     }
 
@@ -1643,7 +1644,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             .eq('id', user.id)
             .single();
           
-          await atribuirOperador(user.id, profile?.full_name || 'Você');
+          await atribuirOperador(user.id, profile?.full_name || 'Você', undefined, true);
         }
       }
       
@@ -2120,7 +2121,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                               .eq('id', user.id)
                               .single();
                             
-                            await atribuirOperador(user.id, profile?.full_name || 'Você');
+                            await atribuirOperador(user.id, profile?.full_name || 'Você', undefined, true);
                           }
                         }}
                       >
