@@ -50,11 +50,27 @@ export const DelegacaoTab = () => {
   const [statusFilter, setStatusFilter] = useState<"pendente" | "em_andamento" | "resolvido" | "all">("pendente");
 
   const loadTarefas = async () => {
+    if (!user) return;
     setLoading(true);
+
+    // First get task IDs assigned to this user
+    const { data: myAssignments } = await (supabase as any)
+      .from("tarefas_operacionais_atribuidos")
+      .select("tarefa_id")
+      .eq("user_id", user.id);
+
+    const myTaskIds = (myAssignments || []).map((a: any) => a.tarefa_id);
+
+    if (myTaskIds.length === 0) {
+      setTarefas([]);
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await (supabase as any)
       .from("tarefas_operacionais")
       .select("*")
+      .in("id", myTaskIds)
       .order("created_at", { ascending: false });
 
     if (error || !data) {
@@ -73,7 +89,7 @@ export const DelegacaoTab = () => {
       profiles?.forEach((p: any) => { profileMap[p.id] = p.full_name || "Usuário"; });
     }
 
-    // Get atribuidos
+    // Get atribuidos for these tasks
     const tarefaIds = data.map((t: any) => t.id);
     const { data: atribuidos } = await (supabase as any)
       .from("tarefas_operacionais_atribuidos")
@@ -209,7 +225,7 @@ export const DelegacaoTab = () => {
                       </Badge>
                     </div>
                     {t.descricao && (
-                      <p className="text-xs text-muted-foreground mt-1">{t.descricao}</p>
+                      <DescricaoColapsavel texto={t.descricao} />
                     )}
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span>Por: {t.criador_nome}</span>
