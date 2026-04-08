@@ -52,7 +52,7 @@ export const ConversationListPrestadores = ({
     setLoading(false);
 
     if (data && data.length > 0) {
-      const phones = data.map((p: any) => p.telefone);
+      const phones = (data as PrestadorChat[]).map((p) => p.telefone);
 
       // Fetch last messages + check for inbound messages
       const { data: msgs } = await supabase
