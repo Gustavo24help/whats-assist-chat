@@ -1,64 +1,50 @@
 
-Objetivo: corrigir de forma definitiva o problema em que páginas protegidas publicadas abrem a Home ou perdem o destino original, especialmente quando são abertas em nova aba.
+Objetivo: eliminar o crash React ligado ao `useOpenInNewTab` sem alterar dados nem o fluxo de redirecionamento já corrigido.
 
-Diagnóstico provável
-- O problema não parece ser da rota em si, porque `ProtectedRoute` já tenta enviar `returnTo`.
-- Há inconsistência no fluxo de navegação/auth:
-  1. `useOpenInNewTab` usa `window.open(path, "_blank")` e, no modo mesma aba, usa `window.location.href`, ou seja, faz navegação “hard” fora do React Router.
-  2. Algumas páginas ainda têm checagens próprias de sessão (`Chat` e `ChatPrestadores`) que redirecionam para `/auth` sem preservar `returnTo`.
-  3. O login hoje depende só do `returnTo` vindo na URL; quando ele some em algum ponto, o fallback volta para `/`.
-- Isso explica o sintoma visto nos logs: o usuário é autenticado, mas o `Auth` registra redirecionamento para `/`, não para a página solicitada.
+Diagnóstico
+- O stack atual aponta sempre para `useOpenInNewTab` chamado dentro de `PageLayout`.
+- Hoje esse hook mistura duas responsabilidades:
+  1. estado persistido (`sameTab` com `useState`/`useEffect`)
+  2. ação de navegação (`openRoute`)
+- Ele é usado em vários lugares (`PageLayout`, `Chat`, `ChatPrestadores`, `Settings`), então qualquer inconsistência nele afeta praticamente todo o app.
+- O erro “Should have a queue” costuma ser efeito colateral de hooks desincronizados; o caminho mais seguro é tirar o estado desse hook compartilhado.
 
 Plano de implementação
-1. Centralizar a lógica de “destino pretendido”
-- Criar uma função utilitária única para resolver o destino pós-login:
-  - prioridade 1: `returnTo` da URL
-  - prioridade 2: destino pendente salvo localmente
-  - prioridade 3: `/`
-- Validar esse destino para aceitar apenas rotas internas do app, evitando quebra de navegação.
+1. Enxugar `useOpenInNewTab`
+- Refatorar o hook para ficar estável e sem estado interno compartilhado.
+- Ele deve expor só a ação `openRoute(path)` e verificar `isAdminTI`.
 
-2. Tornar a navegação em nova aba robusta
-- Refatorar `useOpenInNewTab` para:
-  - usar URL absoluta baseada em `window.location.origin`
-  - salvar o destino antes de abrir a nova aba
-  - no modo mesma aba, usar navegação do router em vez de `window.location.href`
-- Isso evita hard reload desnecessário e reduz perda de contexto.
+2. Isolar a preferência de navegação
+- Mover a leitura/gravação de `sameTab` para helpers puros de `localStorage`.
+- Deixar o `useState` dessa preferência apenas em `Settings.tsx`, que é a única tela que edita isso.
 
-3. Fazer o auth respeitar sempre o destino real
-- Ajustar `Auth.tsx` para consumir a mesma lógica centralizada de destino.
-- Ao detectar sessão existente ou após login, redirecionar para o destino resolvido, não diretamente para `/`.
-- Limpar o destino pendente depois do redirecionamento para não contaminar navegações futuras.
+3. Atualizar os consumidores
+- `PageLayout.tsx`, `Chat.tsx` e `ChatPrestadores.tsx` passam a usar apenas a navegação enxuta.
+- `Settings.tsx` controla o toggle localmente, sem depender de um hook global com estado.
 
-4. Eliminar redirecionamentos concorrentes
-- Remover ou adaptar as checagens locais de sessão em `Chat.tsx` e `ChatPrestadores.tsx`, deixando `ProtectedRoute` ser a fonte principal de proteção.
-- Onde ainda houver redirecionamento manual para `/auth`, incluir preservação do destino atual.
+4. Preservar comportamento atual
+- Continuar abrindo em nova aba por padrão.
+- Permitir mesma aba somente para `admin_ti`.
+- Manter URLs absolutas e sem mexer na lógica de auth/redirect já feita.
 
-5. Endurecer o `ProtectedRoute`
-- Manter o `returnTo` atual, mas passar a salvar também o destino pendente localmente como redundância.
-- Preservar pathname + querystring completos, para não quebrar casos como `/chat?telefone=...`.
+5. Estabilizar a árvore de render
+- Remover a gambiarra de “clean rebuild”.
+- Revisar os arquivos afetados para garantir que não exista retorno condicional envolvendo esse hook.
 
-Arquivos que devem ser ajustados
+Arquivos a ajustar
 - `src/hooks/useOpenInNewTab.ts`
-- `src/pages/Auth.tsx`
-- `src/components/ProtectedRoute.tsx`
+- `src/pages/Settings.tsx`
+- `src/components/PageLayout.tsx`
 - `src/pages/Chat.tsx`
 - `src/pages/ChatPrestadores.tsx`
-- possivelmente um novo utilitário, algo como `src/lib/authRedirect.ts`
 
 Safeguards
-- Não mexer em dados do banco, horários, registros ou lógica operacional do sistema.
-- A correção ficará restrita à navegação/autenticação no frontend.
-- Queries como `?telefone=...` continuarão intactas.
+- Sem mudanças em banco, horários, registros ou dados já salvos.
+- Correção restrita à navegação frontend e ao estado local da preferência de abertura.
 
-Validação após implementação
-- Abrir em nova aba pelo menu lateral:
-  - Dashboard TV
-  - Dashboard
-  - Chat
-  - Settings
-- Testar com sessão ativa.
-- Testar com sessão expirada, confirmando que:
-  - vai para login
-  - após login volta exatamente para a rota original
-  - não cai na Home por engano
-- Testar também no domínio publicado, não só no preview.
+Validação
+- Abrir Home, Chat, Chat Prestadores e Settings sem blank screen.
+- Alternar “mesma aba / nova aba” em Settings.
+- Testar os links do menu lateral e os atalhos do Chat.
+- Fazer hard refresh no preview após a correção.
+- Publicar e repetir os testes no domínio publicado.
