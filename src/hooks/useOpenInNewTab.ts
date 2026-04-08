@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
 
 const STORAGE_KEY = "open-links-same-tab";
 
@@ -10,7 +9,6 @@ const STORAGE_KEY = "open-links-same-tab";
  */
 export function useOpenInNewTab() {
   const { isAdminTI } = useAuth();
-  const navigate = useNavigate();
   const [sameTab, setSameTab] = useState(() => {
     try {
       return localStorage.getItem(STORAGE_KEY) === "true";
@@ -26,15 +24,15 @@ export function useOpenInNewTab() {
   const openRoute = useCallback(
     (path: string, _e?: React.MouseEvent) => {
       if (sameTab && isAdminTI) {
-        // Use React Router navigate instead of hard window.location.href
-        navigate(path);
+        // Same-tab navigation
+        window.location.href = new URL(path, window.location.origin).href;
       } else {
         // Build absolute URL so the new tab opens the correct origin
         const url = new URL(path, window.location.origin).href;
         window.open(url, "_blank");
       }
     },
-    [sameTab, isAdminTI, navigate]
+    [sameTab, isAdminTI]
   );
 
   return { openRoute, sameTab, setSameTab, canToggle: isAdminTI };
