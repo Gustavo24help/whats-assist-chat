@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,21 +33,38 @@ const statusColors: Record<string, string> = {
 };
 
 export const ConversasResolver = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [fichas, setFichas] = useState<FichaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
-    loadFichas();
-  }, []);
+    if (user) loadFichas();
+  }, [user?.id]);
 
   const loadFichas = async () => {
+    if (!user) return;
     setLoading(true);
+
+    // Only load fichas where the client is assigned to this operator
+    const { data: clientesAtribuidos } = await supabase
+      .from("clientes")
+      .select("telefone")
+      .eq("atendente_id", user.id);
+
+    const telefonesAtribuidos = (clientesAtribuidos || []).map(c => c.telefone);
+
+    if (telefonesAtribuidos.length === 0) {
+      setFichas([]);
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("fichas_de_servico")
       .select("id, nome_ficha, nome_cliente, telefone_cliente, status, prestador_id, updated_at")
+      .in("telefone_cliente", telefonesAtribuidos)
       .not("status", "in", `(${STATUS_FINAIS.map(s => `"${s}"`).join(",")})`)
       .order("updated_at", { ascending: true });
 

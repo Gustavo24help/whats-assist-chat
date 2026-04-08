@@ -4,12 +4,37 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Check, MessageCircle } from "lucide-react";
+import { Plus, Check, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DelegacaoFormDialog } from "./DelegacaoFormDialog";
 import { useNavigate } from "react-router-dom";
+
+const MAX_DESC_LENGTH = 120;
+
+const DescricaoColapsavel = ({ texto }: { texto: string }) => {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = texto.length > MAX_DESC_LENGTH;
+
+  if (!isLong) {
+    return <p className="text-xs text-muted-foreground mt-1">{texto}</p>;
+  }
+
+  return (
+    <div className="mt-1">
+      <p className="text-xs text-muted-foreground">
+        {expanded ? texto : texto.slice(0, MAX_DESC_LENGTH) + "..."}
+      </p>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="text-xs text-primary flex items-center gap-0.5 mt-0.5 hover:underline"
+      >
+        {expanded ? <>Ver menos <ChevronUp className="h-3 w-3" /></> : <>Ver mais <ChevronDown className="h-3 w-3" /></>}
+      </button>
+    </div>
+  );
+};
 
 interface TarefaOp {
   id: string;
@@ -50,11 +75,27 @@ export const DelegacaoTab = () => {
   const [statusFilter, setStatusFilter] = useState<"pendente" | "em_andamento" | "resolvido" | "all">("pendente");
 
   const loadTarefas = async () => {
+    if (!user) return;
     setLoading(true);
+
+    // First get task IDs assigned to this user
+    const { data: myAssignments } = await (supabase as any)
+      .from("tarefas_operacionais_atribuidos")
+      .select("tarefa_id")
+      .eq("user_id", user.id);
+
+    const myTaskIds = (myAssignments || []).map((a: any) => a.tarefa_id);
+
+    if (myTaskIds.length === 0) {
+      setTarefas([]);
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await (supabase as any)
       .from("tarefas_operacionais")
       .select("*")
+      .in("id", myTaskIds)
       .order("created_at", { ascending: false });
 
     if (error || !data) {
@@ -73,7 +114,7 @@ export const DelegacaoTab = () => {
       profiles?.forEach((p: any) => { profileMap[p.id] = p.full_name || "Usuário"; });
     }
 
-    // Get atribuidos
+    // Get atribuidos for these tasks
     const tarefaIds = data.map((t: any) => t.id);
     const { data: atribuidos } = await (supabase as any)
       .from("tarefas_operacionais_atribuidos")
@@ -209,7 +250,7 @@ export const DelegacaoTab = () => {
                       </Badge>
                     </div>
                     {t.descricao && (
-                      <p className="text-xs text-muted-foreground mt-1">{t.descricao}</p>
+                      <DescricaoColapsavel texto={t.descricao} />
                     )}
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span>Por: {t.criador_nome}</span>
