@@ -884,6 +884,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     console.log('🧹 Limpando agendamento manualmente');
     setDataAgendamento('');
     setHoraAgendamento('');
+    setHoraFimAgendamento('');
     
     if (ficha) {
       const updatedFicha = { ...ficha, horario_agendamento: null };
@@ -898,6 +899,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     console.log('🧹 Limpando visita técnica manualmente');
     setDataVisitaTecnica('');
     setHoraVisitaTecnica('');
+    setHoraFimVisitaTecnica('');
     
     if (ficha) {
       const updatedFicha = { 
