@@ -303,7 +303,10 @@ serve(async (req) => {
         throw new Error(`Erro ao salvar mensagem: ${insertError.message}`);
       }
 
-      // NÃO atualizar ultima_interacao em outbound — só inbound (twilio-webhook) deve atualizar
+      await supabase
+        .from('prestadores_chat')
+        .update({ ultima_interacao: new Date().toISOString() })
+        .eq('telefone', to);
     } else {
       const { error: insertError } = await supabase.from('mensagens').insert({
         cliente_id: to,
