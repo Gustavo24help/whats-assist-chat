@@ -40,9 +40,15 @@ Deno.serve(async (req) => {
       if (raw.trim()) body = JSON.parse(raw);
     } catch { /* empty */ }
 
-    const telefoneAlvo = body.telefone
-      ? normalizeWhatsappNumber(String(body.telefone))
-      : "";
+    let telefoneAlvo = "";
+    if (body.telefone) {
+      let raw = String(body.telefone).trim();
+      // Ensure + prefix for bare numbers
+      if (!raw.startsWith("whatsapp:") && !raw.startsWith("+")) {
+        raw = "+" + raw;
+      }
+      telefoneAlvo = normalizeWhatsappNumber(raw);
+    }
     const maxTelefones = Math.min(Number(body.limit) || 10, 50);
     const daysBack = Math.min(Number(body.days) || 30, 90);
 
