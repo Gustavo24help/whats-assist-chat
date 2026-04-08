@@ -10,6 +10,7 @@ import { getLabelTipo, getCorTipo } from "@/lib/calcularEstadoAgendamento";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Copy } from "lucide-react";
+import { formatJanela } from "@/lib/janelaHorarioPrestador";
 
 const ALL_STATUS = [
   'Ficha Criada', 'Contato Inicial', 'Dúvida Prestador', 'Orçamento Enviado',
@@ -133,6 +134,27 @@ export function AgendamentoDetalhesModal({ ficha, open, onClose, onSaved }: Prop
             <div>
               <span className="text-muted-foreground">Status Atual</span>
               <p className="font-medium">{ficha.status}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <span className="text-muted-foreground">Janela Cliente</span>
+              <p className="font-medium">
+                {formatJanela(
+                  ficha.tipo_agendamento === 'retorno' ? ficha.hora_inicio_retorno : ficha.hora_inicio_agendamento,
+                  ficha.tipo_agendamento === 'retorno' ? ficha.hora_fim_retorno : ficha.hora_fim_agendamento
+                ) || '—'}
+              </p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Janela Prestador</span>
+              <p className="font-medium">
+                {formatJanela(
+                  ficha.tipo_agendamento === 'retorno' ? ficha.hora_inicio_prestador_retorno : ficha.hora_inicio_prestador_agendamento,
+                  ficha.tipo_agendamento === 'retorno' ? ficha.hora_fim_prestador_retorno : ficha.hora_fim_prestador_agendamento
+                ) || '—'}
+              </p>
             </div>
           </div>
 

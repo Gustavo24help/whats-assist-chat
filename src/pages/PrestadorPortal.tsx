@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { ChevronDown, LogOut, CheckCircle2, XCircle, Clock, MapPin, TrendingUp, Wallet, Wrench, Package } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, isWithinInterval } from "date-fns";
+import { formatJanela } from "@/lib/janelaHorarioPrestador";
 import { ptBR } from "date-fns/locale";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
 
@@ -61,6 +62,11 @@ interface Servico {
   valor_pecas: number | null;
   tempo_servico: string | null;
   updated_at: string;
+  hora_inicio_prestador_agendamento: string | null;
+  hora_fim_prestador_agendamento: string | null;
+  hora_inicio_prestador_retorno: string | null;
+  hora_fim_prestador_retorno: string | null;
+  data_retorno: string | null;
 }
 
 interface ServicoDetalhado extends Servico {
@@ -947,7 +953,15 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
                                   <div className="flex-1 space-y-1">
                                     <div className="flex items-center justify-between">
                                       <h4 className="font-semibold">
-                                        {horario && format(new Date(horario), "HH:mm", { locale: ptBR })}
+                                        {(() => {
+                                          const provWindow = formatJanela(
+                                            servico.hora_inicio_prestador_agendamento,
+                                            servico.hora_fim_prestador_agendamento
+                                          );
+                                          if (provWindow) return provWindow;
+                                          if (horario) return format(new Date(horario), "HH:mm", { locale: ptBR });
+                                          return '';
+                                        })()}
                                         {" - "}
                                         {servico.nome_ficha || servico.id}
                                       </h4>
@@ -1028,7 +1042,10 @@ export default function PrestadorPortal(props: PrestadorPortalProps = {}) {
                                   </div>
                                   {servico.horario_agendamento && (
                                     <p className="text-sm text-muted-foreground">
-                                      📅 {format(new Date(servico.horario_agendamento), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                      📅 {format(new Date(servico.horario_agendamento), "dd/MM/yyyy", { locale: ptBR })}
+                                      {' '}
+                                      {formatJanela(servico.hora_inicio_prestador_agendamento, servico.hora_fim_prestador_agendamento) 
+                                        || format(new Date(servico.horario_agendamento), "'às' HH:mm", { locale: ptBR })}
                                     </p>
                                   )}
                                   <p className="text-sm">{servico.descricao}</p>
