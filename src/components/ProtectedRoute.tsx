@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
+import { savePendingRoute } from '@/lib/authRedirect';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -26,7 +27,11 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
 
   if (!user) {
     const currentPath = location.pathname + location.search;
-    const authUrl = currentPath && currentPath !== "/" ? `/auth?returnTo=${encodeURIComponent(currentPath)}` : "/auth";
+    // Save to localStorage as redundancy so it survives hard reloads / new tabs
+    savePendingRoute(currentPath);
+    const authUrl = currentPath && currentPath !== "/"
+      ? `/auth?returnTo=${encodeURIComponent(currentPath)}`
+      : "/auth";
     console.log('🚫 ProtectedRoute - Usuário não autenticado, redirecionando para:', authUrl);
     return <Navigate to={authUrl} replace />;
   }

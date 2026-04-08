@@ -67,23 +67,7 @@ const Chat = () => {
     return () => window.removeEventListener("select-chat-cliente", handler);
   }, []);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-      }
-    };
-    checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        navigate("/auth");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+  // Auth is handled by ProtectedRoute — no local session check needed
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

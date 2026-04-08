@@ -16,13 +16,7 @@ const ChatPrestadores = () => {
   const { openRoute } = useOpenInNewTab();
   const [selectedPrestador, setSelectedPrestador] = useState<any>(null);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) navigate("/auth");
-    };
-    checkAuth();
-  }, [navigate]);
+  // Auth is handled by ProtectedRoute — no local session check needed
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
