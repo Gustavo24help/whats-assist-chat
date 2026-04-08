@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Archive } from "lucide-react";
+import { Search, Archive, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
@@ -34,7 +34,9 @@ export const ConversationListPrestadores = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
+  const [hideNoReply, setHideNoReply] = useState(true);
   const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
+  const [hasInbound, setHasInbound] = useState<Record<string, boolean>>({});
 
   const fetchPrestadores = useCallback(async () => {
     const { data, error } = await supabase
@@ -51,18 +53,26 @@ export const ConversationListPrestadores = ({
     setPrestadores((data as PrestadorChat[]) || []);
     setLoading(false);
 
-    // Fetch last messages for each prestador
     if (data && data.length > 0) {
       const phones = data.map((p: any) => p.telefone);
+
+      // Fetch last messages + check for inbound messages
       const { data: msgs } = await supabase
         .from("mensagens_prestadores")
-        .select("prestador_telefone, texto, tipo, data_hora")
+        .select("prestador_telefone, texto, tipo, data_hora, remetente")
         .in("prestador_telefone", phones)
         .order("data_hora", { ascending: false });
 
       if (msgs) {
         const lastMsgs: Record<string, string> = {};
+        const inbound: Record<string, boolean> = {};
+
         for (const msg of msgs) {
+          // Track if prestador ever sent a message (remetente = 'cliente' means the prestador sent it)
+          if (msg.remetente === "cliente") {
+            inbound[msg.prestador_telefone] = true;
+          }
+          // Get last message preview
           if (!lastMsgs[msg.prestador_telefone]) {
             if (msg.tipo === "audio") lastMsgs[msg.prestador_telefone] = "🎵 Áudio";
             else if (msg.tipo === "imagem") lastMsgs[msg.prestador_telefone] = "📷 Imagem";
@@ -72,6 +82,7 @@ export const ConversationListPrestadores = ({
           }
         }
         setLastMessages(lastMsgs);
+        setHasInbound(inbound);
       }
     }
   }, [showArchived]);
@@ -80,35 +91,32 @@ export const ConversationListPrestadores = ({
     fetchPrestadores();
   }, [fetchPrestadores]);
 
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel("prestadores_chat_changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "prestadores_chat" },
-        () => fetchPrestadores()
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "mensagens_prestadores" },
-        () => fetchPrestadores()
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "prestadores_chat" }, () => fetchPrestadores())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensagens_prestadores" }, () => fetchPrestadores())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [fetchPrestadores]);
 
   const filtered = useMemo(() => {
-    if (!searchTerm) return prestadores;
+    let list = prestadores;
+
+    // Filter out conversations with no inbound messages
+    if (hideNoReply) {
+      list = list.filter((p) => hasInbound[p.telefone]);
+    }
+
+    if (!searchTerm) return list;
     const lower = searchTerm.toLowerCase();
-    return prestadores.filter(
+    return list.filter(
       (p) =>
         p.nome.toLowerCase().includes(lower) ||
         p.telefone.includes(lower) ||
         (p.cpf && p.cpf.includes(lower))
     );
-  }, [prestadores, searchTerm]);
+  }, [prestadores, searchTerm, hideNoReply, hasInbound]);
 
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "";
@@ -120,26 +128,24 @@ export const ConversationListPrestadores = ({
 
   const formatPhoneNumber = (phone: string) => {
     const digits = phone.replace(/\D/g, "");
-    // Remove country code 55
     const local = digits.startsWith("55") ? digits.slice(2) : digits;
-    if (local.length === 11) {
-      return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
-    }
-    if (local.length === 10) {
-      return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
-    }
+    if (local.length === 11) return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+    if (local.length === 10) return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
     return phone.replace("whatsapp:", "").replace("+", "");
   };
 
   const getPrestadorDisplayName = (nome: string) => {
     const trimmedName = nome.trim();
-
     if (!trimmedName) return "Prestador";
     if (trimmedName.startsWith("whatsapp:")) return null;
     if (/^[0-9()+\-\s]+$/.test(trimmedName)) return null;
-
     return trimmedName;
   };
+
+  const ghostCount = useMemo(() => {
+    if (!hideNoReply) return 0;
+    return prestadores.filter((p) => !hasInbound[p.telefone]).length;
+  }, [prestadores, hasInbound, hideNoReply]);
 
   return (
     <div className="h-full flex flex-col">
@@ -154,24 +160,25 @@ export const ConversationListPrestadores = ({
           />
         </div>
         <div className="flex gap-2">
-          <Button
-            variant={showArchived ? "outline" : "default"}
-            size="sm"
-            className="flex-1"
-            onClick={() => setShowArchived(false)}
-          >
+          <Button variant={showArchived ? "outline" : "default"} size="sm" className="flex-1" onClick={() => setShowArchived(false)}>
             Ativas
           </Button>
-          <Button
-            variant={showArchived ? "default" : "outline"}
-            size="sm"
-            className="flex-1"
-            onClick={() => setShowArchived(true)}
-          >
+          <Button variant={showArchived ? "default" : "outline"} size="sm" className="flex-1" onClick={() => setShowArchived(true)}>
             <Archive className="h-3 w-3 mr-1" />
             Arquivadas
           </Button>
         </div>
+        <Button
+          variant={hideNoReply ? "default" : "outline"}
+          size="sm"
+          className="w-full text-xs"
+          onClick={() => setHideNoReply(!hideNoReply)}
+        >
+          <MessageCircle className="h-3 w-3 mr-1" />
+          {hideNoReply
+            ? `Mostrando só com resposta (${ghostCount} ocultas)`
+            : "Mostrar todas"}
+        </Button>
       </div>
 
       <ScrollArea className="flex-1">
@@ -182,40 +189,47 @@ export const ConversationListPrestadores = ({
             {searchTerm ? "Nenhum prestador encontrado" : "Nenhuma conversa"}
           </div>
         ) : (
-          filtered.map((prestador) => (
-            <button
-              key={prestador.telefone}
-              onClick={() => onSelectPrestador(prestador)}
-              className={cn(
-                "w-full text-left p-3 border-b hover:bg-accent/50 transition-colors",
-                selectedTelefone === prestador.telefone && "bg-accent",
-                prestador.marcado_nao_lido && "bg-primary/5 border-l-2 border-l-primary"
-              )}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-medium text-sm truncate flex-1">
-                  {getPrestadorDisplayName(prestador.nome) || formatPhoneNumber(prestador.telefone)}
-                </span>
-                <span className="text-xs text-muted-foreground ml-2">
-                  {formatTime(prestador.ultima_interacao)}
-                </span>
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {prestador.telefone.replace("whatsapp:+", "+")}
-              </div>
-              {prestador.cpf && (
-                <div className="text-xs text-muted-foreground mb-1">CPF: {prestador.cpf}</div>
-              )}
-              <div className="flex items-center gap-1">
-                <p className="text-xs text-muted-foreground truncate flex-1">
-                  {lastMessages[prestador.telefone] || "Sem mensagens"}
-                </p>
-                {prestador.status_conversa === "fechada" && (
-                  <Badge variant="secondary" className="text-[10px] px-1 py-0">Fechada</Badge>
+          filtered.map((prestador) => {
+            const isGhost = !hasInbound[prestador.telefone];
+            return (
+              <button
+                key={prestador.telefone}
+                onClick={() => onSelectPrestador(prestador)}
+                className={cn(
+                  "w-full text-left p-3 border-b hover:bg-accent/50 transition-colors",
+                  selectedTelefone === prestador.telefone && "bg-accent",
+                  prestador.marcado_nao_lido && "bg-primary/5 border-l-2 border-l-primary",
+                  isGhost && "opacity-50"
                 )}
-              </div>
-            </button>
-          ))
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-sm truncate flex-1">
+                    {getPrestadorDisplayName(prestador.nome) || formatPhoneNumber(prestador.telefone)}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    {formatTime(prestador.ultima_interacao)}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {prestador.telefone.replace("whatsapp:+", "+")}
+                </div>
+                {prestador.cpf && (
+                  <div className="text-xs text-muted-foreground mb-1">CPF: {prestador.cpf}</div>
+                )}
+                <div className="flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground truncate flex-1">
+                    {lastMessages[prestador.telefone] || "Sem mensagens"}
+                  </p>
+                  {isGhost && (
+                    <Badge variant="outline" className="text-[10px] px-1 py-0 text-muted-foreground">Sem resposta</Badge>
+                  )}
+                  {prestador.status_conversa === "fechada" && (
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0">Fechada</Badge>
+                  )}
+                </div>
+              </button>
+            );
+          })
         )}
       </ScrollArea>
     </div>
