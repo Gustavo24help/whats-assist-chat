@@ -34,6 +34,8 @@ export const AtribuicaoOperadorPopup = () => {
         const oldRow = payload.old;
 
         if (newRow.atendente_id === user.id && oldRow.atendente_id !== user.id) {
+          // Skip self-assignments (sending message, "assumir para mim")
+          if ((window as any).__selfAssignmentInProgress) return;
           // Skip if redistribution is in progress (bulk reassignment)
           try {
             if (localStorage.getItem(REDISTRIBUTION_FLAG) === "true") return;

@@ -1066,7 +1066,8 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
-  const atribuirOperador = async (operadorId: string, operadorNome: string, descricao?: string) => {
+  const atribuirOperador = async (operadorId: string, operadorNome: string, descricao?: string, isSelf = false) => {
+    if (isSelf) (window as any).__selfAssignmentInProgress = true;
     const { error } = await supabase
       .from('clientes')
       .update({ atendente_id: operadorId })
