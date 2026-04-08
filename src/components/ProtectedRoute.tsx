@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -10,6 +10,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
   const { user, isAdmin, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -24,7 +25,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (!user) {
-    const currentPath = window.location.pathname + window.location.search;
+    const currentPath = location.pathname + location.search;
     const authUrl = currentPath && currentPath !== "/" ? `/auth?returnTo=${encodeURIComponent(currentPath)}` : "/auth";
     console.log('🚫 ProtectedRoute - Usuário não autenticado, redirecionando para:', authUrl);
     return <Navigate to={authUrl} replace />;
