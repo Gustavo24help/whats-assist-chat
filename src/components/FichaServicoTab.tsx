@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { calcularJanelaPrestador } from "@/lib/janelaHorarioPrestador";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -137,10 +138,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [searchPrestadorValores, setSearchPrestadorValores] = useState<string>('');
   const [dataAgendamento, setDataAgendamento] = useState<string>('');
   const [horaAgendamento, setHoraAgendamento] = useState<string>('');
+  const [horaFimAgendamento, setHoraFimAgendamento] = useState<string>('');
   const [dataVisitaTecnica, setDataVisitaTecnica] = useState<string>('');
   const [horaVisitaTecnica, setHoraVisitaTecnica] = useState<string>('');
+  const [horaFimVisitaTecnica, setHoraFimVisitaTecnica] = useState<string>('');
   const [dataRetorno, setDataRetorno] = useState<string>('');
   const [horaRetorno, setHoraRetorno] = useState<string>('');
+  const [horaFimRetorno, setHoraFimRetorno] = useState<string>('');
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [ajustarDataOpen, setAjustarDataOpen] = useState(false);
@@ -464,6 +468,22 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         subtotal: fichaData.subtotal,
         valor_antes_arredondamento: fichaData.valor_antes_arredondamento,
         material_pago_24help: fichaData.material_pago_24help,
+        // Time window fields - client windows
+        hora_inicio_agendamento: horaAgend?.trim() || null,
+        hora_fim_agendamento: horaFimAgendamento?.trim() || null,
+        hora_inicio_retorno: horaRetorno?.trim() ? horaRetorno.trim() : null,
+        hora_fim_retorno: horaFimRetorno?.trim() || null,
+        // Provider windows (auto-calculated)
+        ...((() => {
+          const provAgend = calcularJanelaPrestador(horaAgend?.trim() || '', horaFimAgendamento?.trim() || '');
+          const provRetorno = calcularJanelaPrestador(horaRetorno?.trim() || '', horaFimRetorno?.trim() || '');
+          return {
+            hora_inicio_prestador_agendamento: provAgend?.inicio || null,
+            hora_fim_prestador_agendamento: provAgend?.fim || null,
+            hora_inicio_prestador_retorno: provRetorno?.inicio || null,
+            hora_fim_prestador_retorno: provRetorno?.fim || null,
+          };
+        })()),
       };
 
       const { error } = await supabase
@@ -539,10 +559,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     setFicha(null);
     setDataAgendamento('');
     setHoraAgendamento('');
+    setHoraFimAgendamento('');
     setDataVisitaTecnica('');
     setHoraVisitaTecnica('');
+    setHoraFimVisitaTecnica('');
     setDataRetorno('');
     setHoraRetorno('');
+    setHoraFimRetorno('');
     
     fetchFicha();
     fetchPrestadores();
@@ -611,10 +634,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       console.log(`🧹 Limpando estados de horário para ficha ${fichaId}`);
       setDataAgendamento('');
       setHoraAgendamento('');
+      setHoraFimAgendamento('');
       setDataVisitaTecnica('');
       setHoraVisitaTecnica('');
+      setHoraFimVisitaTecnica('');
       setDataRetorno('');
       setHoraRetorno('');
+      setHoraFimRetorno('');
       
       // ✅ SIMPLIFICADO: Carregar exatamente como está no banco, sem conversão de timezone
       // Função auxiliar para parsear horário com detecção de timezone
@@ -691,6 +717,18 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         }
       } else {
         console.log(`✅ Ficha ${fichaId} não tem data de retorno`);
+      }
+
+      // Load hora_fim fields from DB
+      if ((fichaCompleta as any).hora_fim_agendamento) {
+        setHoraFimAgendamento(String((fichaCompleta as any).hora_fim_agendamento).slice(0, 5));
+      }
+      if ((fichaCompleta as any).hora_fim_retorno) {
+        setHoraFimRetorno(String((fichaCompleta as any).hora_fim_retorno).slice(0, 5));
+      }
+      // For visita técnica, use hora_fim_agendamento if tipo is visita
+      if ((fichaCompleta as any).hora_fim_agendamento && (fichaCompleta as any).tipo_agendamento === 'visita_tecnica') {
+        setHoraFimVisitaTecnica(String((fichaCompleta as any).hora_fim_agendamento).slice(0, 5));
       }
     }
   };
@@ -846,6 +884,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     console.log('🧹 Limpando agendamento manualmente');
     setDataAgendamento('');
     setHoraAgendamento('');
+    setHoraFimAgendamento('');
     
     if (ficha) {
       const updatedFicha = { ...ficha, horario_agendamento: null };
@@ -860,6 +899,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     console.log('🧹 Limpando visita técnica manualmente');
     setDataVisitaTecnica('');
     setHoraVisitaTecnica('');
+    setHoraFimVisitaTecnica('');
     
     if (ficha) {
       const updatedFicha = { 
@@ -1249,7 +1289,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                <div className="grid grid-cols-3 gap-2 mt-1.5">
                   <div>
                     <Label htmlFor="data_agendamento" className="text-[10px] text-muted-foreground">Data</Label>
                     <Input
@@ -1261,7 +1301,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="hora_agendamento" className="text-[10px] text-muted-foreground">Horário</Label>
+                    <Label htmlFor="hora_agendamento" className="text-[10px] text-muted-foreground">Início</Label>
                     <Input
                       id="hora_agendamento"
                       type="time"
@@ -1270,7 +1310,26 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="hora_fim_agendamento" className="text-[10px] text-muted-foreground">Fim</Label>
+                    <Input
+                      id="hora_fim_agendamento"
+                      type="time"
+                      value={horaFimAgendamento}
+                      onChange={(e) => setHoraFimAgendamento(e.target.value)}
+                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
                 </div>
+                {horaAgendamento && horaFimAgendamento && (() => {
+                  const prov = calcularJanelaPrestador(horaAgendamento, horaFimAgendamento);
+                  if (!prov) return null;
+                  return (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Janela prestador: {prov.inicio} - {prov.fim}
+                    </p>
+                  );
+                })()}
                 
                 {ficha?.preferencia_horario_cliente && (
                   <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
@@ -1302,7 +1361,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                <div className="grid grid-cols-3 gap-2 mt-1.5">
                   <div>
                     <Label htmlFor="data_visita_tecnica" className="text-[10px] text-muted-foreground">Data</Label>
                     <Input
@@ -1314,7 +1373,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="hora_visita_tecnica" className="text-[10px] text-muted-foreground">Horário</Label>
+                    <Label htmlFor="hora_visita_tecnica" className="text-[10px] text-muted-foreground">Início</Label>
                     <Input
                       id="hora_visita_tecnica"
                       type="time"
@@ -1323,7 +1382,26 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="hora_fim_visita_tecnica" className="text-[10px] text-muted-foreground">Fim</Label>
+                    <Input
+                      id="hora_fim_visita_tecnica"
+                      type="time"
+                      value={horaFimVisitaTecnica}
+                      onChange={(e) => setHoraFimVisitaTecnica(e.target.value)}
+                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
                 </div>
+                {horaVisitaTecnica && horaFimVisitaTecnica && (() => {
+                  const prov = calcularJanelaPrestador(horaVisitaTecnica, horaFimVisitaTecnica);
+                  if (!prov) return null;
+                  return (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Janela prestador: {prov.inicio} - {prov.fim}
+                    </p>
+                  );
+                })()}
               </div>
 
               <div className="pt-2 border-t">
@@ -1344,7 +1422,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                <div className="grid grid-cols-3 gap-2 mt-1.5">
                   <div>
                     <Label htmlFor="data_retorno" className="text-[10px] text-muted-foreground">Data</Label>
                     <Input
@@ -1356,7 +1434,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="hora_retorno" className="text-[10px] text-muted-foreground">Horário</Label>
+                    <Label htmlFor="hora_retorno" className="text-[10px] text-muted-foreground">Início</Label>
                     <Input
                       id="hora_retorno"
                       type="time"
@@ -1365,7 +1443,26 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="hora_fim_retorno" className="text-[10px] text-muted-foreground">Fim</Label>
+                    <Input
+                      id="hora_fim_retorno"
+                      type="time"
+                      value={horaFimRetorno}
+                      onChange={(e) => setHoraFimRetorno(e.target.value)}
+                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
                 </div>
+                {horaRetorno && horaFimRetorno && (() => {
+                  const prov = calcularJanelaPrestador(horaRetorno, horaFimRetorno);
+                  if (!prov) return null;
+                  return (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Janela prestador: {prov.inicio} - {prov.fim}
+                    </p>
+                  );
+                })()}
               </div>
             </div>
           </AccordionContent>
