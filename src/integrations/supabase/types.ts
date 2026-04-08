@@ -473,6 +473,39 @@ export type Database = {
           },
         ]
       }
+      configuracao_ponto: {
+        Row: {
+          carga_diaria_minutos: number
+          created_at: string
+          hora_fim_prevista: string
+          hora_inicio_prevista: string
+          id: string
+          saldo_inicial_minutos: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          carga_diaria_minutos?: number
+          created_at?: string
+          hora_fim_prevista?: string
+          hora_inicio_prevista?: string
+          id?: string
+          saldo_inicial_minutos?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          carga_diaria_minutos?: number
+          created_at?: string
+          hora_fim_prevista?: string
+          hora_inicio_prevista?: string
+          id?: string
+          saldo_inicial_minutos?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       configuracoes: {
         Row: {
           chave: string
@@ -1867,6 +1900,39 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      registro_ponto: {
+        Row: {
+          created_at: string
+          entrada_em: string
+          entrada_oficial: string | null
+          id: string
+          observacao: string | null
+          saida_em: string | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entrada_em?: string
+          entrada_oficial?: string | null
+          id?: string
+          observacao?: string | null
+          saida_em?: string | null
+          tipo?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entrada_em?: string
+          entrada_oficial?: string | null
+          id?: string
+          observacao?: string | null
+          saida_em?: string | null
+          tipo?: string
+          user_id?: string
         }
         Relationships: []
       }
