@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { calcularJanelaPrestador } from "@/lib/janelaHorarioPrestador";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
