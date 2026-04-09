@@ -1355,7 +1355,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       id="hora_fim_agendamento"
                       type="time"
                       value={horaFimAgendamento}
-                      onChange={(e) => setHoraFimAgendamento(e.target.value)}
+                      onChange={(e) => updateHoraFimAgendamento(e.target.value)}
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1488,7 +1488,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       id="hora_fim_retorno"
                       type="time"
                       value={horaFimRetorno}
-                      onChange={(e) => setHoraFimRetorno(e.target.value)}
+                      onChange={(e) => updateHoraFimRetorno(e.target.value)}
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
