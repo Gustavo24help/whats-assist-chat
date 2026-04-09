@@ -84,6 +84,7 @@ interface Prestador {
   cpf: string;
   nome: string;
   id_crm: string | null;
+  telefone: string;
 }
 
 const STATUS_OPTIONS = [
@@ -750,7 +751,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const fetchPrestadores = async () => {
     const { data } = await supabase
       .from('prestadores')
-      .select('cpf, nome, id_crm')
+      .select('cpf, nome, id_crm, telefone')
       .order('nome');
 
     if (data) setPrestadores(data as Prestador[]);
@@ -1421,12 +1422,26 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
                 {/* WhatsApp copy buttons - Cliente & Prestador */}
                 {dataAgendamento && horaAgendamento && (() => {
-                  const prestadorNome = prestadores.find(p => p.cpf === ficha?.prestador_id)?.nome || '—';
+                  const prestadorObj = prestadores.find(p => p.cpf === ficha?.prestador_id);
+                  const prestadorNome = prestadorObj?.nome || '—';
+                  const prestadorTelefone = prestadorObj?.telefone || '';
                   const clienteNome = nomeCliente || ficha?.nome_cliente || '—';
                   const dataFormatada = dataAgendamento.split('-').reverse().join('/');
                   const enderecoCompleto = [ficha?.endereco, ficha?.bairro, ficha?.cidade].filter(Boolean).join(', ');
+                  const telefoneCliente = ficha?.telefone_cliente || '';
                   
-                  // Determine hora display
+                  const formatPhone = (t: string) => {
+                    const digits = t.replace(/\D/g, '');
+                    if (digits.length === 13 && digits.startsWith('55')) {
+                      const local = digits.slice(2);
+                      return `(${local.slice(0,2)}) ${local.slice(2,7)}-${local.slice(7)}`;
+                    }
+                    if (digits.length === 11) {
+                      return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+                    }
+                    return t;
+                  };
+
                   let horaCliente = horaAgendamento;
                   let horaPrestador = horaAgendamento;
                   if (horaFimAgendamento) {
@@ -1435,59 +1450,47 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     horaPrestador = prov ? `${prov.inicio} – ${prov.fim}` : horaCliente;
                   }
 
-                  // Detect special schedule (before 10h, after 18h, or weekend)
                   const horaNum = parseInt(horaAgendamento.split(':')[0]);
                   const dateObj = parse(dataAgendamento, 'yyyy-MM-dd', new Date());
                   const dayOfWeek = dateObj.getDay();
                   const isEspecial = horaNum < 10 || horaNum >= 18 || dayOfWeek === 0 || dayOfWeek === 6;
 
-                  const telefoneCliente = ficha?.telefone_cliente || '';
-                  // Format phone for display
-                  const formatPhone = (t: string) => {
-                    const digits = t.replace(/\D/g, '');
-                    if (digits.length === 13 && digits.startsWith('55')) {
-                      const local = digits.slice(2);
-                      return `(${local.slice(0,2)}) ${local.slice(2,7)}-${local.slice(7)}`;
-                    }
-                    return t;
-                  };
-
                   const buildText = (visao: 'cliente' | 'prestador') => {
                     const hora = visao === 'prestador' ? horaPrestador : horaCliente;
                     const lines: string[] = [
-                      '• Ficha de Serviço',
-                      `• Serviço: ${ficha?.descricao || '—'}`,
-                      `• Data: ${dataFormatada}`,
-                      `• Hora: ${hora}`,
+                      '📋 *Detalhes do Serviço Agendado*',
+                      '',
+                      `🔧 Serviço: ${ficha?.descricao || '—'}`,
+                      `📅 Data: ${dataFormatada}`,
+                      `🕐 Hora: ${hora}`,
                     ];
                     if (visao === 'cliente') {
-                      lines.push(`• Prestador: ${prestadorNome}`);
+                      lines.push(`👷 Prestador: ${prestadorNome}`);
+                      if (isEspecial && prestadorTelefone) lines.push(`📞 Telefone: ${formatPhone(prestadorTelefone)}`);
                     } else {
-                      lines.push(`• Cliente: ${clienteNome}`);
+                      lines.push(`👤 Cliente: ${clienteNome}`);
+                      if (isEspecial && telefoneCliente) lines.push(`📞 Telefone: ${formatPhone(telefoneCliente)}`);
                     }
-                    if (isEspecial) {
-                      lines.push(`• Telefone: ${visao === 'cliente' ? '—' : formatPhone(telefoneCliente)}`);
-                    }
-                    lines.push(`• Endereço: ${enderecoCompleto || '—'}`);
-                    if (ficha?.notas) lines.push(`• Observações: ${ficha.notas}`);
+                    lines.push(`📍 Endereço: ${enderecoCompleto || '—'}`);
+                    if (ficha?.notas) lines.push(`📝 Observações: ${ficha.notas}`);
 
                     if (isEspecial) {
                       lines.push('');
                       if (visao === 'cliente') {
                         lines.push(
-                          '• ⚠️ Este agendamento é em horário especial. Para comunicações urgentes com o prestador, você pode enviar mensagem diretamente pelo WhatsApp.',
+                          '⚠️ Este agendamento é em horário especial. Para comunicações urgentes com o prestador, você pode enviar mensagem diretamente pelo WhatsApp.',
                           '',
-                          '• Importante: Qualquer acordo realizado diretamente com o prestador, sem conhecimento da 24help, não possui garantia. Caso o escopo do serviço mude, comunique-nos imediatamente.'
+                          '⚠️ Importante: Qualquer acordo realizado diretamente com o prestador, sem conhecimento da 24help, não possui garantia. Caso o escopo do serviço mude, comunique-nos imediatamente.'
                         );
                       } else {
                         lines.push(
-                          '• ⚠️ Este agendamento é em sua janela de horário especial. Para comunicações urgentes com o cliente, você pode enviar mensagem diretamente pelo WhatsApp.',
+                          '⚠️ Este agendamento é em sua janela de horário especial. Para comunicações urgentes com o cliente, você pode enviar mensagem diretamente pelo WhatsApp.',
                           '',
-                          '• Confiamos em você! Estamos compartilhando o telefone do cliente para facilitar a comunicação. Lembre-se: qualquer alteração no escopo do serviço deve ser aprovada formalmente pela 24help. Não deixe de nos comunicar sobre mudanças no combinado.'
+                          '🤝 Confiamos em você! Estamos compartilhando o telefone do cliente para facilitar a comunicação. Lembre-se: qualquer alteração no escopo do serviço deve ser aprovada formalmente pela 24help. Não deixe de nos comunicar sobre mudanças no combinado.'
                         );
                       }
                     }
-                    return lines.join('\n');
+                    return lines.map(l => l.replace(/\*/g, '')).join('\n');
                   };
 
                   const handleCopy = async (visao: 'cliente' | 'prestador') => {
@@ -1635,6 +1638,71 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     </p>
                   );
                 })()}
+                {dataVisitaTecnica && horaVisitaTecnica && (() => {
+                  const prestadorObj = prestadores.find(p => p.cpf === ficha?.prestador_id);
+                  const prestadorNome = prestadorObj?.nome || '—';
+                  const prestadorTelefone = prestadorObj?.telefone || '';
+                  const clienteNome2 = nomeCliente || ficha?.nome_cliente || '—';
+                  const dataFormatada = dataVisitaTecnica.split('-').reverse().join('/');
+                  const enderecoCompleto = [ficha?.endereco, ficha?.bairro, ficha?.cidade].filter(Boolean).join(', ');
+                  const telefoneCliente = ficha?.telefone_cliente || '';
+                  const formatPhone = (t: string) => {
+                    const digits = t.replace(/\D/g, '');
+                    if (digits.length === 13 && digits.startsWith('55')) { const local = digits.slice(2); return `(${local.slice(0,2)}) ${local.slice(2,7)}-${local.slice(7)}`; }
+                    if (digits.length === 11) { return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`; }
+                    return t;
+                  };
+                  let horaClienteVT = horaVisitaTecnica;
+                  let horaPrestadorVT = horaVisitaTecnica;
+                  if (horaFimVisitaTecnica) {
+                    horaClienteVT = `${horaVisitaTecnica} – ${horaFimVisitaTecnica}`;
+                    const prov = calcularJanelaPrestador(horaVisitaTecnica, horaFimVisitaTecnica);
+                    horaPrestadorVT = prov ? `${prov.inicio} – ${prov.fim}` : horaClienteVT;
+                  }
+                  const horaNum = parseInt(horaVisitaTecnica.split(':')[0]);
+                  const dateObj = parse(dataVisitaTecnica, 'yyyy-MM-dd', new Date());
+                  const dayOfWeek = dateObj.getDay();
+                  const isEspecial = horaNum < 10 || horaNum >= 18 || dayOfWeek === 0 || dayOfWeek === 6;
+
+                  const buildTextVT = (visao: 'cliente' | 'prestador') => {
+                    const hora = visao === 'prestador' ? horaPrestadorVT : horaClienteVT;
+                    const lines: string[] = [
+                      '🔍 *Detalhes da Visita Técnica Agendada*',
+                      '',
+                      `🔧 Serviço: ${ficha?.descricao || '—'}`,
+                      `📅 Data: ${dataFormatada}`,
+                      `🕐 Hora: ${hora}`,
+                    ];
+                    if (visao === 'cliente') {
+                      lines.push(`👷 Prestador: ${prestadorNome}`);
+                      if (isEspecial && prestadorTelefone) lines.push(`📞 Telefone: ${formatPhone(prestadorTelefone)}`);
+                    } else {
+                      lines.push(`👤 Cliente: ${clienteNome2}`);
+                      if (isEspecial && telefoneCliente) lines.push(`📞 Telefone: ${formatPhone(telefoneCliente)}`);
+                    }
+                    lines.push(`📍 Endereço: ${enderecoCompleto || '—'}`);
+                    if (ficha?.notas) lines.push(`📝 Observações: ${ficha.notas}`);
+                    if (isEspecial) {
+                      lines.push('');
+                      if (visao === 'cliente') {
+                        lines.push('⚠️ Esta visita técnica é em horário especial. Para comunicações urgentes com o prestador, você pode enviar mensagem diretamente pelo WhatsApp.', '', '⚠️ Importante: Qualquer acordo realizado diretamente com o prestador, sem conhecimento da 24help, não possui garantia. Caso o escopo do serviço mude, comunique-nos imediatamente.');
+                      } else {
+                        lines.push('⚠️ Esta visita técnica é em sua janela de horário especial. Para comunicações urgentes com o cliente, você pode enviar mensagem diretamente pelo WhatsApp.', '', '🤝 Confiamos em você! Estamos compartilhando o telefone do cliente para facilitar a comunicação. Lembre-se: qualquer alteração no escopo do serviço deve ser aprovada formalmente pela 24help. Não deixe de nos comunicar sobre mudanças no combinado.');
+                      }
+                    }
+                    return lines.map(l => l.replace(/\*/g, '')).join('\n');
+                  };
+                  return (
+                    <div className="flex gap-2 mt-2">
+                      <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs gap-1.5" onClick={async () => { await navigator.clipboard.writeText(buildTextVT('cliente')); toast.success('Visita técnica cliente copiada', { duration: 1500, id: 'copy-vt-cliente' }); }}>
+                        <Copy className="h-3 w-3" /> 📋 Ficha Cliente
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs gap-1.5" onClick={async () => { await navigator.clipboard.writeText(buildTextVT('prestador')); toast.success('Visita técnica prestador copiada', { duration: 1500, id: 'copy-vt-prestador' }); }}>
+                        <Copy className="h-3 w-3" /> 📋 Ficha Prestador
+                      </Button>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="pt-2 border-t">
@@ -1737,6 +1805,71 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     <p className="text-[10px] text-muted-foreground mt-1">
                       Prestador: {horaRetorno} (mesmo horário)
                     </p>
+                  );
+                })()}
+                {dataRetorno && horaRetorno && (() => {
+                  const prestadorObj = prestadores.find(p => p.cpf === ficha?.prestador_id);
+                  const prestadorNome = prestadorObj?.nome || '—';
+                  const prestadorTelefone = prestadorObj?.telefone || '';
+                  const clienteNome2 = nomeCliente || ficha?.nome_cliente || '—';
+                  const dataFormatada = dataRetorno.split('-').reverse().join('/');
+                  const enderecoCompleto = [ficha?.endereco, ficha?.bairro, ficha?.cidade].filter(Boolean).join(', ');
+                  const telefoneCliente = ficha?.telefone_cliente || '';
+                  const formatPhone = (t: string) => {
+                    const digits = t.replace(/\D/g, '');
+                    if (digits.length === 13 && digits.startsWith('55')) { const local = digits.slice(2); return `(${local.slice(0,2)}) ${local.slice(2,7)}-${local.slice(7)}`; }
+                    if (digits.length === 11) { return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`; }
+                    return t;
+                  };
+                  let horaClienteRet = horaRetorno;
+                  let horaPrestadorRet = horaRetorno;
+                  if (horaFimRetorno) {
+                    horaClienteRet = `${horaRetorno} – ${horaFimRetorno}`;
+                    const prov = calcularJanelaPrestador(horaRetorno, horaFimRetorno);
+                    horaPrestadorRet = prov ? `${prov.inicio} – ${prov.fim}` : horaClienteRet;
+                  }
+                  const horaNum = parseInt(horaRetorno.split(':')[0]);
+                  const dateObj = parse(dataRetorno, 'yyyy-MM-dd', new Date());
+                  const dayOfWeek = dateObj.getDay();
+                  const isEspecial = horaNum < 10 || horaNum >= 18 || dayOfWeek === 0 || dayOfWeek === 6;
+
+                  const buildTextRet = (visao: 'cliente' | 'prestador') => {
+                    const hora = visao === 'prestador' ? horaPrestadorRet : horaClienteRet;
+                    const lines: string[] = [
+                      '🔄 *Detalhes do Retorno Agendado*',
+                      '',
+                      `🔧 Serviço: ${ficha?.descricao || '—'}`,
+                      `📅 Data: ${dataFormatada}`,
+                      `🕐 Hora: ${hora}`,
+                    ];
+                    if (visao === 'cliente') {
+                      lines.push(`👷 Prestador: ${prestadorNome}`);
+                      if (isEspecial && prestadorTelefone) lines.push(`📞 Telefone: ${formatPhone(prestadorTelefone)}`);
+                    } else {
+                      lines.push(`👤 Cliente: ${clienteNome2}`);
+                      if (isEspecial && telefoneCliente) lines.push(`📞 Telefone: ${formatPhone(telefoneCliente)}`);
+                    }
+                    lines.push(`📍 Endereço: ${enderecoCompleto || '—'}`);
+                    if (ficha?.notas) lines.push(`📝 Observações: ${ficha.notas}`);
+                    if (isEspecial) {
+                      lines.push('');
+                      if (visao === 'cliente') {
+                        lines.push('⚠️ Este retorno é em horário especial. Para comunicações urgentes com o prestador, você pode enviar mensagem diretamente pelo WhatsApp.', '', '⚠️ Importante: Qualquer acordo realizado diretamente com o prestador, sem conhecimento da 24help, não possui garantia. Caso o escopo do serviço mude, comunique-nos imediatamente.');
+                      } else {
+                        lines.push('⚠️ Este retorno é em sua janela de horário especial. Para comunicações urgentes com o cliente, você pode enviar mensagem diretamente pelo WhatsApp.', '', '🤝 Confiamos em você! Estamos compartilhando o telefone do cliente para facilitar a comunicação. Lembre-se: qualquer alteração no escopo do serviço deve ser aprovada formalmente pela 24help. Não deixe de nos comunicar sobre mudanças no combinado.');
+                      }
+                    }
+                    return lines.map(l => l.replace(/\*/g, '')).join('\n');
+                  };
+                  return (
+                    <div className="flex gap-2 mt-2">
+                      <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs gap-1.5" onClick={async () => { await navigator.clipboard.writeText(buildTextRet('cliente')); toast.success('Retorno cliente copiado', { duration: 1500, id: 'copy-ret-cliente' }); }}>
+                        <Copy className="h-3 w-3" /> 📋 Ficha Cliente
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs gap-1.5" onClick={async () => { await navigator.clipboard.writeText(buildTextRet('prestador')); toast.success('Retorno prestador copiado', { duration: 1500, id: 'copy-ret-prestador' }); }}>
+                        <Copy className="h-3 w-3" /> 📋 Ficha Prestador
+                      </Button>
+                    </div>
                   );
                 })()}
               </div>
