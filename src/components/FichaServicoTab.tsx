@@ -1228,7 +1228,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         <AccordionItem value="agendamento" className="border rounded-lg shadow-sm bg-card hover:bg-muted/20 transition-colors">
           <AccordionTrigger className="px-2.5 py-2.5 hover:no-underline">
             <div className="flex items-center gap-2">
-           <Calendar className="h-4 w-4 text-primary" />
+           <CalendarIcon className="h-4 w-4 text-primary" />
               <span className="font-medium text-sm text-gray-700">Agendamento</span>
             </div>
             <TooltipProvider>
@@ -1317,7 +1317,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               <div>
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
+                    <CalendarIcon className="h-3 w-3" />
                     Agendamento do Serviço
                   </Label>
                   {(dataAgendamento || horaAgendamento) && (
@@ -1450,7 +1450,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
               <div className="pt-2 border-t">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
+                    <CalendarIcon className="h-3 w-3" />
                     Retorno
                   </Label>
                   {(dataRetorno || horaRetorno) && (
@@ -2214,7 +2214,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             variant="outline"
             className="shadow-2xl hover:scale-[0.98] active:scale-95 transition-all h-10 text-sm border-orange-500 text-orange-700 hover:bg-orange-50"
           >
-            <Calendar className="mr-2 h-4 w-4" />
+            <CalendarIcon className="mr-2 h-4 w-4" />
             Ajustar Data Finalização
           </Button>
         )}
