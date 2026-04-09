@@ -1428,13 +1428,34 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <div className="grid grid-cols-3 gap-2 mt-1.5">
                   <div>
                     <Label htmlFor="data_visita_tecnica" className="text-[10px] text-muted-foreground">Data</Label>
-                    <Input
-                      id="data_visita_tecnica"
-                      type="date"
-                      value={dataVisitaTecnica}
-                      onChange={(e) => updateDataVisitaTecnica(e.target.value)}
-                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "h-9 w-full justify-start text-left text-sm font-normal",
+                            !dataVisitaTecnica && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                          {dataVisitaTecnica ? format(parse(dataVisitaTecnica, 'yyyy-MM-dd', new Date()), 'dd/MM/yyyy') : <span>Selecione</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarPicker
+                          mode="single"
+                          selected={dataVisitaTecnica ? parse(dataVisitaTecnica, 'yyyy-MM-dd', new Date()) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              updateDataVisitaTecnica(format(date, 'yyyy-MM-dd'));
+                            }
+                          }}
+                          locale={ptBR}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <Label htmlFor="hora_visita_tecnica" className="text-[10px] text-muted-foreground">Início</Label>
@@ -1489,13 +1510,34 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <div className="grid grid-cols-3 gap-2 mt-1.5">
                   <div>
                     <Label htmlFor="data_retorno" className="text-[10px] text-muted-foreground">Data</Label>
-                    <Input
-                      id="data_retorno"
-                      type="date"
-                      value={dataRetorno}
-                      onChange={(e) => updateDataRetorno(e.target.value)}
-                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "h-9 w-full justify-start text-left text-sm font-normal",
+                            !dataRetorno && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                          {dataRetorno ? format(parse(dataRetorno, 'yyyy-MM-dd', new Date()), 'dd/MM/yyyy') : <span>Selecione</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarPicker
+                          mode="single"
+                          selected={dataRetorno ? parse(dataRetorno, 'yyyy-MM-dd', new Date()) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              updateDataRetorno(format(date, 'yyyy-MM-dd'));
+                            }
+                          }}
+                          locale={ptBR}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <Label htmlFor="hora_retorno" className="text-[10px] text-muted-foreground">Início</Label>
