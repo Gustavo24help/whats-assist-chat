@@ -1807,6 +1807,71 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     </p>
                   );
                 })()}
+                {dataRetorno && horaRetorno && (() => {
+                  const prestadorObj = prestadores.find(p => p.cpf === ficha?.prestador_id);
+                  const prestadorNome = prestadorObj?.nome || '—';
+                  const prestadorTelefone = prestadorObj?.telefone || '';
+                  const clienteNome2 = nomeCliente || ficha?.nome_cliente || '—';
+                  const dataFormatada = dataRetorno.split('-').reverse().join('/');
+                  const enderecoCompleto = [ficha?.endereco, ficha?.bairro, ficha?.cidade].filter(Boolean).join(', ');
+                  const telefoneCliente = ficha?.telefone_cliente || '';
+                  const formatPhone = (t: string) => {
+                    const digits = t.replace(/\D/g, '');
+                    if (digits.length === 13 && digits.startsWith('55')) { const local = digits.slice(2); return `(${local.slice(0,2)}) ${local.slice(2,7)}-${local.slice(7)}`; }
+                    if (digits.length === 11) { return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`; }
+                    return t;
+                  };
+                  let horaClienteRet = horaRetorno;
+                  let horaPrestadorRet = horaRetorno;
+                  if (horaFimRetorno) {
+                    horaClienteRet = `${horaRetorno} – ${horaFimRetorno}`;
+                    const prov = calcularJanelaPrestador(horaRetorno, horaFimRetorno);
+                    horaPrestadorRet = prov ? `${prov.inicio} – ${prov.fim}` : horaClienteRet;
+                  }
+                  const horaNum = parseInt(horaRetorno.split(':')[0]);
+                  const dateObj = parse(dataRetorno, 'yyyy-MM-dd', new Date());
+                  const dayOfWeek = dateObj.getDay();
+                  const isEspecial = horaNum < 10 || horaNum >= 18 || dayOfWeek === 0 || dayOfWeek === 6;
+
+                  const buildTextRet = (visao: 'cliente' | 'prestador') => {
+                    const hora = visao === 'prestador' ? horaPrestadorRet : horaClienteRet;
+                    const lines: string[] = [
+                      '🔄 *Detalhes do Retorno Agendado*',
+                      '',
+                      `🔧 Serviço: ${ficha?.descricao || '—'}`,
+                      `📅 Data: ${dataFormatada}`,
+                      `🕐 Hora: ${hora}`,
+                    ];
+                    if (visao === 'cliente') {
+                      lines.push(`👷 Prestador: ${prestadorNome}`);
+                      if (isEspecial && prestadorTelefone) lines.push(`📞 Telefone: ${formatPhone(prestadorTelefone)}`);
+                    } else {
+                      lines.push(`👤 Cliente: ${clienteNome2}`);
+                      if (isEspecial && telefoneCliente) lines.push(`📞 Telefone: ${formatPhone(telefoneCliente)}`);
+                    }
+                    lines.push(`📍 Endereço: ${enderecoCompleto || '—'}`);
+                    if (ficha?.notas) lines.push(`📝 Observações: ${ficha.notas}`);
+                    if (isEspecial) {
+                      lines.push('');
+                      if (visao === 'cliente') {
+                        lines.push('⚠️ Este retorno é em horário especial. Para comunicações urgentes com o prestador, você pode enviar mensagem diretamente pelo WhatsApp.', '', '⚠️ Importante: Qualquer acordo realizado diretamente com o prestador, sem conhecimento da 24help, não possui garantia. Caso o escopo do serviço mude, comunique-nos imediatamente.');
+                      } else {
+                        lines.push('⚠️ Este retorno é em sua janela de horário especial. Para comunicações urgentes com o cliente, você pode enviar mensagem diretamente pelo WhatsApp.', '', '🤝 Confiamos em você! Estamos compartilhando o telefone do cliente para facilitar a comunicação. Lembre-se: qualquer alteração no escopo do serviço deve ser aprovada formalmente pela 24help. Não deixe de nos comunicar sobre mudanças no combinado.');
+                      }
+                    }
+                    return lines.map(l => l.replace(/\*/g, '')).join('\n');
+                  };
+                  return (
+                    <div className="flex gap-2 mt-2">
+                      <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs gap-1.5" onClick={async () => { await navigator.clipboard.writeText(buildTextRet('cliente')); toast.success('Retorno cliente copiado', { duration: 1500, id: 'copy-ret-cliente' }); }}>
+                        <Copy className="h-3 w-3" /> 📋 Ficha Cliente
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs gap-1.5" onClick={async () => { await navigator.clipboard.writeText(buildTextRet('prestador')); toast.success('Retorno prestador copiado', { duration: 1500, id: 'copy-ret-prestador' }); }}>
+                        <Copy className="h-3 w-3" /> 📋 Ficha Prestador
+                      </Button>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </AccordionContent>
