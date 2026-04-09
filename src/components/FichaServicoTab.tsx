@@ -1335,16 +1335,34 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <div className="grid grid-cols-3 gap-2 mt-1.5">
                   <div>
                     <Label htmlFor="data_agendamento" className="text-[10px] text-muted-foreground">Data</Label>
-                    <Input
-                      id="data_agendamento"
-                      type="date"
-                      value={dataAgendamento}
-                      onChange={(e) => updateDataAgendamento(e.target.value)}
-                      className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="hora_agendamento" className="text-[10px] text-muted-foreground">Início</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "h-9 w-full justify-start text-left text-sm font-normal",
+                            !dataAgendamento && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                          {dataAgendamento ? format(parse(dataAgendamento, 'yyyy-MM-dd', new Date()), 'dd/MM/yyyy') : <span>Selecione</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarPicker
+                          mode="single"
+                          selected={dataAgendamento ? parse(dataAgendamento, 'yyyy-MM-dd', new Date()) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              updateDataAgendamento(format(date, 'yyyy-MM-dd'));
+                            }
+                          }}
+                          locale={ptBR}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <Input
                       id="hora_agendamento"
                       type="time"
