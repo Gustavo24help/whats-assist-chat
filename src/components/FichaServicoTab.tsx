@@ -84,6 +84,7 @@ interface Prestador {
   cpf: string;
   nome: string;
   id_crm: string | null;
+  telefone: string;
 }
 
 const STATUS_OPTIONS = [
