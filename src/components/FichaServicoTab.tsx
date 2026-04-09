@@ -387,7 +387,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     dataAgend: string,
     horaAgend: string,
     dataVisita: string,
-    horaVisita: string
+    horaVisita: string,
+    horaFimAgend: string = '',
+    dataRet: string = '',
+    horaRet: string = '',
+    horaFimRet: string = ''
   ) => {
     if (!targetFichaId) {
       console.error('❌ Salvamento: fichaId inválido');
@@ -420,10 +424,10 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       }
 
       let retornoISO: string | null = null;
-      if (dataRetorno && dataRetorno.trim() && horaRetorno && horaRetorno.trim()) {
-        retornoISO = `${dataRetorno}T${horaRetorno}:00-03:00`;
-      } else if (dataRetorno && dataRetorno.trim()) {
-        retornoISO = `${dataRetorno}T00:00:00-03:00`;
+      if (dataRet && dataRet.trim() && horaRet && horaRet.trim()) {
+        retornoISO = `${dataRet}T${horaRet}:00-03:00`;
+      } else if (dataRet && dataRet.trim()) {
+        retornoISO = `${dataRet}T00:00:00-03:00`;
       }
 
       console.log(`💾 Salvando ficha ${targetFichaId} - agendamento: ${agendamentoISO}, visita: ${visitaTecnicaISO}, retorno: ${retornoISO}`);
@@ -468,15 +472,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         subtotal: fichaData.subtotal,
         valor_antes_arredondamento: fichaData.valor_antes_arredondamento,
         material_pago_24help: fichaData.material_pago_24help,
-        // Time window fields - client windows
+        // Time window fields - client windows (using explicit params, not closures)
         hora_inicio_agendamento: horaAgend?.trim() || null,
-        hora_fim_agendamento: horaFimAgendamento?.trim() || null,
-        hora_inicio_retorno: horaRetorno?.trim() ? horaRetorno.trim() : null,
-        hora_fim_retorno: horaFimRetorno?.trim() || null,
+        hora_fim_agendamento: horaFimAgend?.trim() || null,
+        hora_inicio_retorno: horaRet?.trim() || null,
+        hora_fim_retorno: horaFimRet?.trim() || null,
         // Provider windows (auto-calculated)
         ...((() => {
-          const provAgend = calcularJanelaPrestador(horaAgend?.trim() || '', horaFimAgendamento?.trim() || '');
-          const provRetorno = calcularJanelaPrestador(horaRetorno?.trim() || '', horaFimRetorno?.trim() || '');
+          const provAgend = calcularJanelaPrestador(horaAgend?.trim() || '', horaFimAgend?.trim() || '');
+          const provRetorno = calcularJanelaPrestador(horaRet?.trim() || '', horaFimRet?.trim() || '');
           return {
             hora_inicio_prestador_agendamento: provAgend?.inicio || null,
             hora_fim_prestador_agendamento: provAgend?.fim || null,
@@ -541,9 +545,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           dataAgend: string,
           horaAgend: string,
           dataVisita: string,
-          horaVisita: string
+          horaVisita: string,
+          horaFimAgend: string,
+          dataRet: string,
+          horaRet: string,
+          horaFimRet: string
         ) => {
-          salvarFichaEEnviarWebhook(targetFichaId, fichaData, dataAgend, horaAgend, dataVisita, horaVisita);
+          salvarFichaEEnviarWebhook(targetFichaId, fichaData, dataAgend, horaAgend, dataVisita, horaVisita, horaFimAgend, dataRet, horaRet, horaFimRet);
         },
         500
       ),
