@@ -1,61 +1,45 @@
 
 
-# Plano: Corrigir popup de atribuição disparando ao enviar mensagem
+# Plano: Desativar popup de tarefas + Corrigir agendamentos sumindo
 
-## Problema encontrado
+## Diagnóstico
 
-Quando um operador envia uma mensagem, o código em `enviarMensagem()` (linha 1635-1646 de ChatWindow.tsx) faz auto-atribuição se `atendenteAtual` estiver `null`:
+### 1. Popup persistente
+O popup que a Paula vê **não é o `AtribuicaoOperadorPopup`** (que já foi desativado). É o **`TarefaOpPopupOverlay`**, um componente separado que escuta INSERTs na tabela `tarefas_operacionais_atribuidos` via Realtime. Sempre que o sistema cria uma tarefa operacional de atribuição de chat, esse popup dispara.
 
-```typescript
-if (!atendenteAtual) {
-  await atribuirOperador(user.id, ...);
-}
-```
+### 2. Agendamentos sumindo
+Investigação no banco revelou dados corrompidos:
+- **FS14-260407**: foi "Agendado" em 07/04, agora está "Orçamento Enviado" com `horario_agendamento: null` e apenas `hora_inicio_agendamento: 13:00` sobreviveu
+- **FGM1@260409**: tem `horario_agendamento: 0002-02-12` (data corrompida — ano 0002)
+- **FS6-260402**: mudou para "Retorno" em 09/04, agora está "Perdido" sem dados de retorno
 
-Isso atualiza `clientes.atendente_id`, o que dispara o Realtime UPDATE. O `AtribuicaoOperadorPopup` escuta esse evento e mostra o popup toda vez que `newRow.atendente_id === user.id && oldRow.atendente_id !== user.id` — sem distinguir se foi **auto-atribuição** ou se **outra pessoa** atribuiu.
+**Causa raiz**: a função `salvarFichaEEnviarWebhook` recebe `dataAgend` e `horaAgend` como parâmetros, mas lê `horaFimAgendamento`, `dataRetorno`, `horaRetorno`, `horaFimRetorno` direto do **state do componente** (closures). O autoSave (debounce 500ms) pode disparar com valores de state já limpos (ex: ao trocar de ficha), sobrescrevendo campos válidos do banco com `null`.
 
-Resultado: toda mensagem enviada pelo operador que causa auto-atribuição gera o popup "Conversa atribuída a você" para ele mesmo.
+Além disso, qualquer save (incluindo mudança de status, pagamento, etc.) reescreve **todos** os campos de agendamento, mesmo quando nenhum campo de agendamento foi alterado.
+
+### 3. Campos "travados"
+O campo `hora_fim_agendamento` e os campos de Retorno/Visita Técnica hora-fim **não disparam autoSave** — apenas atualizam state local sem salvar. O operador edita mas nada acontece até salvar manualmente.
+
+---
 
 ## Solução
 
-Alterar `AtribuicaoOperadorPopup.tsx` para **ignorar auto-atribuições**. A forma mais simples e robusta:
+### Arquivo 1: `src/components/TarefaOpPopupOverlay.tsx`
+Desativar completamente — retornar `null`, igual ao `AtribuicaoOperadorPopup`.
 
-No `AtribuicaoOperadorPopup`, após detectar que `newRow.atendente_id === user.id`, verificar se **quem fez a mudança** é o próprio usuário. Como o Realtime não fornece "quem alterou", usaremos uma abordagem de flag local:
+### Arquivo 2: `src/components/FichaServicoTab.tsx`
+Três correções:
 
-1. **Criar um flag global** (`window.__selfAssignmentInProgress`) que é setado em `true` antes de qualquer auto-atribuição ou "assumir para mim" e resetado logo após.
-2. No `AtribuicaoOperadorPopup`, checar esse flag e ignorar o evento se estiver `true`.
+**A) Passar TODOS os campos de agendamento como parâmetros** do `salvarFichaEEnviarWebhook` e do `autoSave`, eliminando dependência de closures stale. Adicionar `horaFimAgendamento`, `dataRetorno`, `horaRetorno`, `horaFimRetorno` como parâmetros explícitos.
 
-Isso cobre:
-- Auto-atribuição ao enviar mensagem
-- "Assumir para mim" (botão manual)
-- Qualquer outra auto-atribuição feita pelo próprio operador
+**B) Os campos `hora_fim_agendamento`, `hora_fim_retorno`, `hora_fim_visita_tecnica` devem disparar autoSave** ao serem alterados, assim como já fazem `dataAgendamento` e `horaAgendamento`.
 
-## Arquivos a modificar
+**C) Não sobrescrever campos de agendamento quando não houver dados para gravar.** Na construção do `updateData`, se os parâmetros de agendamento estão todos vazios E a ficha no banco já tem dados, não incluir esses campos no update. Concretamente: antes de escrever `horario_agendamento: null`, verificar se a ficha carregada (`ficha`) já possuía esse campo preenchido e se o operador intencionalmente limpou (via botão "Limpar agendamento").
 
-| Arquivo | Mudança |
-|---|---|
-| `src/components/ChatWindow.tsx` | Setar flag antes/depois de `atribuirOperador` quando é auto-atribuição e em `assumirParaMim` |
-| `src/components/AtribuicaoOperadorPopup.tsx` | Checar flag e ignorar evento se auto-atribuição |
-
-## Detalhe técnico
-
-No `ChatWindow.tsx`, antes de chamar `atribuirOperador` na auto-atribuição (linha 1645) e em `assumirParaMim`:
-```typescript
-(window as any).__selfAssignmentInProgress = true;
-await atribuirOperador(user.id, ...);
-setTimeout(() => { (window as any).__selfAssignmentInProgress = false; }, 2000);
-```
-
-No `AtribuicaoOperadorPopup.tsx`, na condição (linha 36):
-```typescript
-if (newRow.atendente_id === user.id && oldRow.atendente_id !== user.id) {
-  if ((window as any).__selfAssignmentInProgress) return; // ← adicionar
-  ...
-}
-```
+---
 
 ## Impacto
-- Nenhuma mudança em dados
-- Popups de atribuição feita por **outros operadores** continuam funcionando normalmente
-- Apenas auto-atribuições (enviar mensagem, assumir) param de gerar popup
-
+- Nenhum popup de tarefa operacional aparecerá mais
+- Agendamentos existentes no banco não serão mais sobrescritos acidentalmente
+- Campos de hora-fim passam a salvar automaticamente ao serem preenchidos
+- Dados já corrompidos (ex: FS14-260407) precisarão ser corrigidos manualmente pelos operadores
