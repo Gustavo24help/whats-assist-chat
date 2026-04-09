@@ -1363,6 +1363,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                         />
                       </PopoverContent>
                     </Popover>
+                    {dataAgendamento && (
+                      <Button variant="ghost" size="sm" onClick={() => updateDataAgendamento('')} className="h-5 w-5 p-0 mt-0.5 hover:bg-destructive/10 hover:text-destructive" title="Limpar data">
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="hora_agendamento" className="text-[10px] text-muted-foreground">Início</Label>
@@ -1373,6 +1378,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       onChange={(e) => updateHoraAgendamento(e.target.value)}
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
+                    {horaAgendamento && (
+                      <Button variant="ghost" size="sm" onClick={() => updateHoraAgendamento('')} className="h-5 w-5 p-0 mt-0.5 hover:bg-destructive/10 hover:text-destructive" title="Limpar horário">
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="hora_fim_agendamento" className="text-[10px] text-muted-foreground">Fim</Label>
@@ -1383,14 +1393,26 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       onChange={(e) => updateHoraFimAgendamento(e.target.value)}
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
+                    {horaFimAgendamento && (
+                      <Button variant="ghost" size="sm" onClick={() => updateHoraFimAgendamento('')} className="h-5 w-5 p-0 mt-0.5 hover:bg-destructive/10 hover:text-destructive" title="Limpar horário fim">
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-                {horaAgendamento && horaFimAgendamento && (() => {
-                  const prov = calcularJanelaPrestador(horaAgendamento, horaFimAgendamento);
-                  if (!prov) return null;
+                {horaAgendamento && (() => {
+                  if (horaFimAgendamento) {
+                    const prov = calcularJanelaPrestador(horaAgendamento, horaFimAgendamento);
+                    if (!prov) return null;
+                    return (
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Janela prestador: {prov.inicio} - {prov.fim}
+                      </p>
+                    );
+                  }
                   return (
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Janela prestador: {prov.inicio} - {prov.fim}
+                      Prestador: {horaAgendamento} (mesmo horário)
                     </p>
                   );
                 })()}
