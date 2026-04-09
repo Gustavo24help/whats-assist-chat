@@ -905,7 +905,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             console.error('❌ Erro ao atualizar nome:', error);
             toast.error('Erro ao atualizar nome do cliente');
           } else {
-            toast.success('Nome do cliente atualizado');
+            toast.success('Nome atualizado', { duration: 1500, id: 'nome-cliente' });
           }
         } catch (error) {
           console.error('❌ Erro:', error);
@@ -936,7 +936,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       autoSave(fichaId, updatedFicha, '', '', dataVisitaTecnica, horaVisitaTecnica, '', dataRetorno, horaRetorno, horaFimRetorno);
     }
     
-    toast.success('Agendamento limpo');
+    toast.success('Agendamento limpo', { duration: 1500, id: 'limpar-agendamento' });
   };
 
   const limparVisitaTecnica = () => {
@@ -955,7 +955,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, '', '', horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
     
-    toast.success('Visita técnica limpa');
+    toast.success('Visita técnica limpa', { duration: 1500, id: 'limpar-visita' });
   };
 
   const limparRetorno = () => {
@@ -970,7 +970,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, '', '', '');
     }
     
-    toast.success('Retorno limpo');
+    toast.success('Retorno limpo', { duration: 1500, id: 'limpar-retorno' });
   };
 
   const salvarManualmente = async () => {
@@ -1027,7 +1027,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
         if (reprovarError) throw reprovarError;
 
-        toast.success("Orçamento aprovado automaticamente!");
+        toast.success("Orçamento sincronizado", { duration: 1500, id: 'orcamento-sync' });
       } else {
         // Criar e aprovar orçamento automaticamente com valores passados diretamente
         const { error: criarError } = await supabase
@@ -1045,7 +1045,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
         if (criarError) throw criarError;
 
-        toast.success("Orçamento criado e aprovado automaticamente!");
+        toast.success("Orçamento sincronizado", { duration: 1500, id: 'orcamento-sync' });
       }
     } catch (error) {
       console.error('Erro ao sincronizar orçamentos:', error);
@@ -1266,7 +1266,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                         ficha.notas ? `📝 Obs: ${ficha.notas}` : null,
                       ].filter(Boolean).join('\n');
                       await navigator.clipboard.writeText(lines);
-                      toast.success("Informações copiadas para o clipboard!");
+                      toast.success("Copiado!", { duration: 1500, id: 'copy-info' });
                     }}
                   >
                     <Copy className="h-4 w-4" />
@@ -1999,7 +1999,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       className="h-9 w-9 shrink-0"
                       onClick={() => {
                         navigator.clipboard.writeText(ficha.pagamento_link || '');
-                        toast.success("Link copiado!");
+                        toast.success("Copiado!", { duration: 1500, id: 'copy-link' });
                       }}
                     >
                       <Copy className="h-4 w-4" />
