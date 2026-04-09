@@ -600,7 +600,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           table: 'fichas_de_servico',
           filter: `id=eq.${fichaId}`
         },
-        () => fetchFicha()
+        () => {
+          if (!skipRealtimeRef.current) {
+            fetchFicha();
+          }
+        }
       )
       .subscribe();
 
