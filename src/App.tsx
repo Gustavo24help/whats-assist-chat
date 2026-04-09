@@ -53,6 +53,7 @@ import AdminPrestadorPortal from "./pages/AdminPrestadorPortal";
 import VisibilitySettings from "./pages/VisibilitySettings";
 import Orcamentos from "./pages/Orcamentos";
 import ContasReceber from "./pages/ContasReceber";
+import ContasPagar from "./pages/ContasPagar";
 
 const queryClient = new QueryClient();
 
@@ -331,6 +332,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <ContasReceber />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/contas-pagar"
+                element={
+                  <ProtectedRoute>
+                    <ContasPagar />
                   </ProtectedRoute>
                 }
               />

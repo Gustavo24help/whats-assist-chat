@@ -148,7 +148,12 @@ export const DelegacaoTab = () => {
       fichasData?.forEach((f: any) => { fichasTelMap[f.id] = f.telefone_cliente; });
     }
 
-    setTarefas(data.map((t: any) => ({
+    // Filter out auto-generated system tasks (self-assignment via chat)
+    const filteredData = data.filter((t: any) =>
+      !(t.tipo === "atribuicao_chat" && t.criado_por === user?.id)
+    );
+
+    setTarefas(filteredData.map((t: any) => ({
       ...t,
       criador_nome: profileMap[t.criado_por] || "—",
       atribuidos_nomes: atribByTarefa[t.id] || [],

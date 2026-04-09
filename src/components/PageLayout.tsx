@@ -89,8 +89,8 @@ const sidebarEntries: SidebarEntry[] = [
     label: "Financeiro",
     icon: DollarSign,
     items: [
-      { label: "Financeiro", icon: DollarSign, route: "/financeiro" },
-      { label: "Contas a Receber", icon: DollarSign, route: "/contas-receber" },
+      { label: "Contas a Receber", icon: DollarSign, route: "/financeiro" },
+      { label: "Contas a Pagar", icon: DollarSign, route: "/contas-pagar" },
       { label: "Planilha", icon: FileSpreadsheet, route: "/planilha" },
     ],
   },
