@@ -251,7 +251,7 @@ export const DelegacaoTab = () => {
                         {t.urgencia}
                       </Badge>
                       <Badge variant="secondary" className={statusColors[t.status] || ""}>
-                        {t.status === "em_andamento" ? "Em andamento" : t.status}
+                        {t.status === "em_andamento" ? "Em andamento" : t.status === "pendente" ? "Pendente" : t.status === "resolvido" ? "Resolvido" : t.status}
                       </Badge>
                     </div>
                     {t.descricao && (
