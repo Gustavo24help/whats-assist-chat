@@ -1363,6 +1363,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                         />
                       </PopoverContent>
                     </Popover>
+                  </div>
+                  <div>
+                    <Label htmlFor="hora_agendamento" className="text-[10px] text-muted-foreground">Início</Label>
                     <Input
                       id="hora_agendamento"
                       type="time"
