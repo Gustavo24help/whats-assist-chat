@@ -387,7 +387,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     dataAgend: string,
     horaAgend: string,
     dataVisita: string,
-    horaVisita: string
+    horaVisita: string,
+    horaFimAgend: string = '',
+    dataRet: string = '',
+    horaRet: string = '',
+    horaFimRet: string = ''
   ) => {
     if (!targetFichaId) {
       console.error('❌ Salvamento: fichaId inválido');
@@ -420,10 +424,10 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       }
 
       let retornoISO: string | null = null;
-      if (dataRetorno && dataRetorno.trim() && horaRetorno && horaRetorno.trim()) {
-        retornoISO = `${dataRetorno}T${horaRetorno}:00-03:00`;
-      } else if (dataRetorno && dataRetorno.trim()) {
-        retornoISO = `${dataRetorno}T00:00:00-03:00`;
+      if (dataRet && dataRet.trim() && horaRet && horaRet.trim()) {
+        retornoISO = `${dataRet}T${horaRet}:00-03:00`;
+      } else if (dataRet && dataRet.trim()) {
+        retornoISO = `${dataRet}T00:00:00-03:00`;
       }
 
       console.log(`💾 Salvando ficha ${targetFichaId} - agendamento: ${agendamentoISO}, visita: ${visitaTecnicaISO}, retorno: ${retornoISO}`);
@@ -468,15 +472,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         subtotal: fichaData.subtotal,
         valor_antes_arredondamento: fichaData.valor_antes_arredondamento,
         material_pago_24help: fichaData.material_pago_24help,
-        // Time window fields - client windows
+        // Time window fields - client windows (using explicit params, not closures)
         hora_inicio_agendamento: horaAgend?.trim() || null,
-        hora_fim_agendamento: horaFimAgendamento?.trim() || null,
-        hora_inicio_retorno: horaRetorno?.trim() ? horaRetorno.trim() : null,
-        hora_fim_retorno: horaFimRetorno?.trim() || null,
+        hora_fim_agendamento: horaFimAgend?.trim() || null,
+        hora_inicio_retorno: horaRet?.trim() || null,
+        hora_fim_retorno: horaFimRet?.trim() || null,
         // Provider windows (auto-calculated)
         ...((() => {
-          const provAgend = calcularJanelaPrestador(horaAgend?.trim() || '', horaFimAgendamento?.trim() || '');
-          const provRetorno = calcularJanelaPrestador(horaRetorno?.trim() || '', horaFimRetorno?.trim() || '');
+          const provAgend = calcularJanelaPrestador(horaAgend?.trim() || '', horaFimAgend?.trim() || '');
+          const provRetorno = calcularJanelaPrestador(horaRet?.trim() || '', horaFimRet?.trim() || '');
           return {
             hora_inicio_prestador_agendamento: provAgend?.inicio || null,
             hora_fim_prestador_agendamento: provAgend?.fim || null,
@@ -541,9 +545,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           dataAgend: string,
           horaAgend: string,
           dataVisita: string,
-          horaVisita: string
+          horaVisita: string,
+          horaFimAgend: string,
+          dataRet: string,
+          horaRet: string,
+          horaFimRet: string
         ) => {
-          salvarFichaEEnviarWebhook(targetFichaId, fichaData, dataAgend, horaAgend, dataVisita, horaVisita);
+          salvarFichaEEnviarWebhook(targetFichaId, fichaData, dataAgend, horaAgend, dataVisita, horaVisita, horaFimAgend, dataRet, horaRet, horaFimRet);
         },
         500
       ),
@@ -785,7 +793,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     // Auto-save em mudança de STATUS
     if (updates.status && updates.status !== ficha.status) {
       console.log('📊 Status mudou, salvando automaticamente:', updates.status);
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
       
       // Disparar NPS automaticamente quando status muda para "Finalizado"
       if (updates.status === 'Finalizado' && ficha.telefone_cliente) {
@@ -806,21 +814,28 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     // Auto-save quando pagamento_gerar_link mudar (dispara webhook para Make.com criar link)
     if (updates.pagamento_gerar_link !== undefined && updates.pagamento_gerar_link !== ficha.pagamento_gerar_link) {
       console.log('💳 pagamento_gerar_link mudou, salvando automaticamente:', updates.pagamento_gerar_link);
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
   const updateDataAgendamento = (data: string) => {
     setDataAgendamento(data);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
   const updateHoraAgendamento = (hora: string) => {
     setHoraAgendamento(hora);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
+    }
+  };
+
+  const updateHoraFimAgendamento = (hora: string) => {
+    setHoraFimAgendamento(hora);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, hora, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
@@ -829,20 +844,43 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (ficha) {
       const updatedFicha = { ...ficha, data_visita_tecnica: data };
       setFicha(updatedFicha);
-      // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
+      if (fichaId) {
+        autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, data, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
+      }
     }
   };
 
   const updateHoraVisitaTecnica = (hora: string) => {
     setHoraVisitaTecnica(hora);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, hora, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
+    }
+  };
+
+  const updateHoraFimVisitaTecnica = (hora: string) => {
+    setHoraFimVisitaTecnica(hora);
+    // Visita técnica hora_fim doesn't have a separate DB column yet, just local state
   };
 
   const updateDataRetorno = (data: string) => {
     setDataRetorno(data);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, data, horaRetorno, horaFimRetorno);
+    }
   };
 
   const updateHoraRetorno = (hora: string) => {
     setHoraRetorno(hora);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, hora, horaFimRetorno);
+    }
+  };
+
+  const updateHoraFimRetorno = (hora: string) => {
+    setHoraFimRetorno(hora);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, hora);
+    }
   };
 
   // Debounced update para nome do cliente
@@ -889,7 +927,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (ficha) {
       const updatedFicha = { ...ficha, horario_agendamento: null };
       setFicha(updatedFicha);
-      autoSave(fichaId, updatedFicha, '', '', dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, '', '', dataVisitaTecnica, horaVisitaTecnica, '', dataRetorno, horaRetorno, horaFimRetorno);
     }
     
     toast.success('Agendamento limpo');
@@ -908,7 +946,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         data_visita_tecnica: null 
       };
       setFicha(updatedFicha);
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, '', '');
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, '', '', horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
     
     toast.success('Visita técnica limpa');
@@ -918,11 +956,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     console.log('🧹 Limpando retorno manualmente');
     setDataRetorno('');
     setHoraRetorno('');
+    setHoraFimRetorno('');
     
     if (ficha) {
       const updatedFicha = { ...ficha };
       setFicha(updatedFicha);
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, '', '', '');
     }
     
     toast.success('Retorno limpo');
@@ -942,7 +981,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
 
     console.log('💾 Salvamento manual disparado');
-    await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+    await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     toast.success("Ficha salva com sucesso!");
   };
 
@@ -1316,7 +1355,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       id="hora_fim_agendamento"
                       type="time"
                       value={horaFimAgendamento}
-                      onChange={(e) => setHoraFimAgendamento(e.target.value)}
+                      onChange={(e) => updateHoraFimAgendamento(e.target.value)}
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1388,7 +1427,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       id="hora_fim_visita_tecnica"
                       type="time"
                       value={horaFimVisitaTecnica}
-                      onChange={(e) => setHoraFimVisitaTecnica(e.target.value)}
+                      onChange={(e) => updateHoraFimVisitaTecnica(e.target.value)}
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1449,7 +1488,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       id="hora_fim_retorno"
                       type="time"
                       value={horaFimRetorno}
-                      onChange={(e) => setHoraFimRetorno(e.target.value)}
+                      onChange={(e) => updateHoraFimRetorno(e.target.value)}
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
