@@ -1427,7 +1427,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       id="hora_fim_visita_tecnica"
                       type="time"
                       value={horaFimVisitaTecnica}
-                      onChange={(e) => setHoraFimVisitaTecnica(e.target.value)}
+                      onChange={(e) => updateHoraFimVisitaTecnica(e.target.value)}
                       className="h-9 text-sm focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
