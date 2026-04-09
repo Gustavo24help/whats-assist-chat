@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,13 +76,20 @@ const formatarDataSegura = (dataStr: string | null | undefined, formatStr: strin
 
 const OrcamentoPublico = () => {
   const [searchParams] = useSearchParams();
+  const params = useParams<{ fichaId?: string }>();
   
   // Obter fichaId com fallback robusto para window.location
   const getFichaId = (): string | null => {
-    // Primeiro tenta pelo React Router
+    // 1. Path parameter (novo formato: /orcamento/ID)
+    if (params.fichaId) {
+      console.log("OrcamentoPublico - fichaId do path param:", params.fichaId);
+      return params.fichaId;
+    }
+    
+    // 2. Query parameter (formato antigo: /orcamento?ficha=ID)
     const fromRouter = searchParams.get("ficha");
     if (fromRouter) {
-      console.log("OrcamentoPublico - fichaId do React Router:", fromRouter);
+      console.log("OrcamentoPublico - fichaId do query param:", fromRouter);
       return fromRouter;
     }
     

@@ -122,7 +122,7 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
   };
 
   const copiarLinkOrcamento = (fichaNome: string) => {
-    const link = `https://chat.24help.com.br/orcamento?ficha=${encodeURIComponent(fichaNome)}`;
+    const link = `https://chat.24help.com.br/orcamento/${encodeURIComponent(fichaNome)}`;
     navigator.clipboard.writeText(link);
     toast.success("Link copiado para a área de transferência!");
   };
