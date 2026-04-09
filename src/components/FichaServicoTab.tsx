@@ -988,7 +988,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
     console.log('💾 Salvamento manual disparado');
     await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
-    toast.success("Ficha salva com sucesso!");
+    toast.success("Salvo", { duration: 1500, id: 'ficha-salva' });
   };
 
   // Função de sincronização que recebe valores diretamente (não usa estado)
