@@ -481,14 +481,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         hora_fim_agendamento: horaFimAgend?.trim() || null,
         hora_inicio_retorno: horaRet?.trim() || null,
         hora_fim_retorno: horaFimRet?.trim() || null,
-        // Provider windows (auto-calculated)
+        // Provider windows (auto-calculated or same as client when single time)
         ...((() => {
-          const provAgend = calcularJanelaPrestador(horaAgend?.trim() || '', horaFimAgend?.trim() || '');
-          const provRetorno = calcularJanelaPrestador(horaRet?.trim() || '', horaFimRet?.trim() || '');
+          const hasAgendWindow = horaAgend?.trim() && horaFimAgend?.trim();
+          const hasRetornoWindow = horaRet?.trim() && horaFimRet?.trim();
+          const provAgend = hasAgendWindow ? calcularJanelaPrestador(horaAgend!.trim(), horaFimAgend!.trim()) : null;
+          const provRetorno = hasRetornoWindow ? calcularJanelaPrestador(horaRet!.trim(), horaFimRet!.trim()) : null;
           return {
-            hora_inicio_prestador_agendamento: provAgend?.inicio || null,
+            // If only hora_inicio (no fim), prestador gets same single time
+            hora_inicio_prestador_agendamento: provAgend?.inicio || (horaAgend?.trim() && !horaFimAgend?.trim() ? horaAgend.trim() : null),
             hora_fim_prestador_agendamento: provAgend?.fim || null,
-            hora_inicio_prestador_retorno: provRetorno?.inicio || null,
+            hora_inicio_prestador_retorno: provRetorno?.inicio || (horaRet?.trim() && !horaFimRet?.trim() ? horaRet.trim() : null),
             hora_fim_prestador_retorno: provRetorno?.fim || null,
           };
         })()),
