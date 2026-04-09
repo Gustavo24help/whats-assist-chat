@@ -255,9 +255,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     
     const webhookUrl = config?.valor;
     
-    if (!webhookUrl) {
+     if (!webhookUrl) {
       console.warn("⚠️ WEBHOOK NÃO CONFIGURADO - Ficha salva mas webhook não enviado");
-      toast.warning("Webhook não configurado. Configure em Configurações.");
       return;
     }
 
