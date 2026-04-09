@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageCircle, ExternalLink } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,43 +32,25 @@ const statusColors: Record<string, string> = {
 };
 
 export const ConversasResolver = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [fichas, setFichas] = useState<FichaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
-    if (user) loadFichas();
-  }, [user?.id]);
+    loadFichas();
+  }, []);
 
   const loadFichas = async () => {
-    if (!user) return;
     setLoading(true);
-
-    // Only load fichas where the client is assigned to this operator
-    const { data: clientesAtribuidos } = await supabase
-      .from("clientes")
-      .select("telefone")
-      .eq("atendente_id", user.id);
-
-    const telefonesAtribuidos = (clientesAtribuidos || []).map(c => c.telefone);
-
-    if (telefonesAtribuidos.length === 0) {
-      setFichas([]);
-      setLoading(false);
-      return;
-    }
 
     const { data, error } = await supabase
       .from("fichas_de_servico")
       .select("id, nome_ficha, nome_cliente, telefone_cliente, status, prestador_id, updated_at")
-      .in("telefone_cliente", telefonesAtribuidos)
       .not("status", "in", `(${STATUS_FINAIS.map(s => `"${s}"`).join(",")})`)
       .order("updated_at", { ascending: true });
 
     if (!error && data) {
-      // Get prestador names
       const prestadorIds = [...new Set(data.filter(f => f.prestador_id).map(f => f.prestador_id!))];
       let prestadorMap: Record<string, string> = {};
 
@@ -78,7 +59,6 @@ export const ConversasResolver = () => {
           .from("prestadores")
           .select("cpf, nome")
           .in("cpf", prestadorIds);
-
         prestadores?.forEach(p => { prestadorMap[p.cpf] = p.nome; });
       }
 
