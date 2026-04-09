@@ -98,6 +98,7 @@ const App = () => (
               <TarefaOpPopupOverlay />
               <Routes>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/orcamento/:fichaId" element={<OrcamentoPublico />} />
               <Route path="/orcamento" element={<OrcamentoPublico />} />
               <Route path="/ficha-whatsapp-demo" element={<FichaWhatsAppDemo />} />
               <Route path="/prestador" element={<PrestadorPortal />} />
