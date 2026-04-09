@@ -751,7 +751,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const fetchPrestadores = async () => {
     const { data } = await supabase
       .from('prestadores')
-      .select('cpf, nome, id_crm')
+      .select('cpf, nome, id_crm, telefone')
       .order('nome');
 
     if (data) setPrestadores(data as Prestador[]);
