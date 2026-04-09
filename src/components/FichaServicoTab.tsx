@@ -374,12 +374,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           url: webhookUrl,
           timestamp: new Date().toISOString()
         });
-        toast.success("Webhook enviado com sucesso!");
+        // Webhook silencioso - sem toast
       }
     } catch (webhookError) {
       console.error('Erro ao enviar webhook:', webhookError);
       const errorMessage = webhookError instanceof Error ? webhookError.message : 'Erro desconhecido';
-      toast.error("Falha ao enviar webhook: " + errorMessage);
+      console.error("Falha ao enviar webhook: " + errorMessage);
     }
   };
 
