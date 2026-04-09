@@ -152,38 +152,29 @@ export const FilterDropdown = ({
                 <div className="space-y-2">
                   <h4 className="font-semibold text-xs">Status da Ficha</h4>
                   <RadioGroup value={statusFilter} onValueChange={onStatusFilterChange}>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="all" id="status-all" />
-                      <Label htmlFor="status-all" className="text-sm cursor-pointer">Todos</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Ficha Criada" id="status-criada" />
-                      <Label htmlFor="status-criada" className="text-sm cursor-pointer">Ficha Criada</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Contato Inicial" id="status-contato" />
-                      <Label htmlFor="status-contato" className="text-sm cursor-pointer">Contato Inicial</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Orçamento Enviado" id="status-orcamento" />
-                      <Label htmlFor="status-orcamento" className="text-sm cursor-pointer">Orçamento Enviado</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Visita Técnica" id="status-visita" />
-                      <Label htmlFor="status-visita" className="text-sm cursor-pointer">Visita Técnica</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Agendado" id="status-agendado" />
-                      <Label htmlFor="status-agendado" className="text-sm cursor-pointer">Agendado</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Em andamento" id="status-andamento" />
-                      <Label htmlFor="status-andamento" className="text-sm cursor-pointer">Em Andamento</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Finalizado" id="status-finalizado" />
-                      <Label htmlFor="status-finalizado" className="text-sm cursor-pointer">Finalizado</Label>
-                    </div>
+                    {[
+                      { value: "all", label: "Todos" },
+                      { value: "Ficha Criada", label: "Ficha Criada" },
+                      { value: "Contato Inicial", label: "Contato Inicial" },
+                      { value: "Dúvida Prestador", label: "Dúvida Prestador" },
+                      { value: "Orçamento Enviado", label: "Orçamento Enviado" },
+                      { value: "Negociação", label: "Negociação" },
+                      { value: "Visita Técnica", label: "Visita Técnica" },
+                      { value: "Orçamento Aprovado / Agendamento", label: "Orç. Aprovado / Agendamento" },
+                      { value: "Orçamento Não Aprovado", label: "Orçamento Não Aprovado" },
+                      { value: "Agendado", label: "Agendado" },
+                      { value: "Em andamento", label: "Em Andamento" },
+                      { value: "Retorno", label: "Retorno" },
+                      { value: "Finalizado", label: "Finalizado" },
+                      { value: "Garantia", label: "Garantia" },
+                      { value: "Perdido", label: "Perdido" },
+                      { value: "Não foi adiante", label: "Não foi adiante" },
+                    ].map((s) => (
+                      <div key={s.value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={s.value} id={`status-${s.value}`} />
+                        <Label htmlFor={`status-${s.value}`} className="text-sm cursor-pointer">{s.label}</Label>
+                      </div>
+                    ))}
                   </RadioGroup>
                 </div>
 
