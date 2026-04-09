@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { calcularJanelaPrestador } from "@/lib/janelaHorarioPrestador";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -150,6 +150,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [dataRetorno, setDataRetorno] = useState<string>('');
   const [horaRetorno, setHoraRetorno] = useState<string>('');
   const [horaFimRetorno, setHoraFimRetorno] = useState<string>('');
+  const skipRealtimeRef = useRef(false);
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [ajustarDataOpen, setAjustarDataOpen] = useState(false);
@@ -497,6 +498,10 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         })()),
       };
 
+      // Skip the next realtime refetch since we just saved
+      skipRealtimeRef.current = true;
+      setTimeout(() => { skipRealtimeRef.current = false; }, 2000);
+
       const { error } = await supabase
         .from('fichas_de_servico')
         .update(updateData)
@@ -595,7 +600,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           table: 'fichas_de_servico',
           filter: `id=eq.${fichaId}`
         },
-        () => fetchFicha()
+        () => {
+          if (!skipRealtimeRef.current) {
+            fetchFicha();
+          }
+        }
       )
       .subscribe();
 
