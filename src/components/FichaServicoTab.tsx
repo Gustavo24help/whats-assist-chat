@@ -793,7 +793,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     // Auto-save em mudança de STATUS
     if (updates.status && updates.status !== ficha.status) {
       console.log('📊 Status mudou, salvando automaticamente:', updates.status);
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
       
       // Disparar NPS automaticamente quando status muda para "Finalizado"
       if (updates.status === 'Finalizado' && ficha.telefone_cliente) {
@@ -814,21 +814,28 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     // Auto-save quando pagamento_gerar_link mudar (dispara webhook para Make.com criar link)
     if (updates.pagamento_gerar_link !== undefined && updates.pagamento_gerar_link !== ficha.pagamento_gerar_link) {
       console.log('💳 pagamento_gerar_link mudou, salvando automaticamente:', updates.pagamento_gerar_link);
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
   const updateDataAgendamento = (data: string) => {
     setDataAgendamento(data);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
   const updateHoraAgendamento = (hora: string) => {
     setHoraAgendamento(hora);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
+    }
+  };
+
+  const updateHoraFimAgendamento = (hora: string) => {
+    setHoraFimAgendamento(hora);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, hora, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
@@ -837,20 +844,43 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (ficha) {
       const updatedFicha = { ...ficha, data_visita_tecnica: data };
       setFicha(updatedFicha);
-      // REMOVIDO: autoSave (salva apenas ao mudar status, aprovar orçamento, ou salvar manualmente)
+      if (fichaId) {
+        autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, data, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
+      }
     }
   };
 
   const updateHoraVisitaTecnica = (hora: string) => {
     setHoraVisitaTecnica(hora);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, hora, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
+    }
+  };
+
+  const updateHoraFimVisitaTecnica = (hora: string) => {
+    setHoraFimVisitaTecnica(hora);
+    // Visita técnica hora_fim doesn't have a separate DB column yet, just local state
   };
 
   const updateDataRetorno = (data: string) => {
     setDataRetorno(data);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, data, horaRetorno, horaFimRetorno);
+    }
   };
 
   const updateHoraRetorno = (hora: string) => {
     setHoraRetorno(hora);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, hora, horaFimRetorno);
+    }
+  };
+
+  const updateHoraFimRetorno = (hora: string) => {
+    setHoraFimRetorno(hora);
+    if (ficha && fichaId) {
+      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, hora);
+    }
   };
 
   // Debounced update para nome do cliente
