@@ -367,7 +367,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           url: webhookUrl,
           error: errorText
         });
-        toast.error(`Webhook falhou (${response.status}): ${errorText.substring(0, 100)}`);
+        console.error(`Webhook falhou (${response.status}): ${errorText.substring(0, 100)}`);
         throw new Error(`Webhook error: ${response.status}`);
       } else {
         console.log("✅ WEBHOOK ENVIADO COM SUCESSO:", {
