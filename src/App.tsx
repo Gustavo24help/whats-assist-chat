@@ -314,7 +314,7 @@ const App = () => (
               <Route
                 path="/admin-prestador"
                 element={
-                  <ProtectedRoute requireAdmin>
+                  <ProtectedRoute>
                     <AdminPrestadorPortal />
                   </ProtectedRoute>
                 }
