@@ -498,6 +498,10 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         })()),
       };
 
+      // Skip the next realtime refetch since we just saved
+      skipRealtimeRef.current = true;
+      setTimeout(() => { skipRealtimeRef.current = false; }, 2000);
+
       const { error } = await supabase
         .from('fichas_de_servico')
         .update(updateData)
