@@ -136,7 +136,7 @@ export default function FichaWhatsApp(props: FichaWhatsAppProps) {
   );
 }
 
-/* ── Demo wrapper (remove when integrating) ── */
+/* ── Demo wrapper ── */
 export function FichaWhatsAppDemo() {
   return (
     <div className="p-6 bg-[#efeae2] min-h-screen flex items-start justify-center">
