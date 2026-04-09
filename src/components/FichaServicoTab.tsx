@@ -255,9 +255,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     
     const webhookUrl = config?.valor;
     
-    if (!webhookUrl) {
+     if (!webhookUrl) {
       console.warn("⚠️ WEBHOOK NÃO CONFIGURADO - Ficha salva mas webhook não enviado");
-      toast.warning("Webhook não configurado. Configure em Configurações.");
       return;
     }
 
@@ -368,19 +367,19 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           url: webhookUrl,
           error: errorText
         });
-        toast.error(`Webhook falhou (${response.status}): ${errorText.substring(0, 100)}`);
+        console.error(`Webhook falhou (${response.status}): ${errorText.substring(0, 100)}`);
         throw new Error(`Webhook error: ${response.status}`);
       } else {
         console.log("✅ WEBHOOK ENVIADO COM SUCESSO:", {
           url: webhookUrl,
           timestamp: new Date().toISOString()
         });
-        toast.success("Webhook enviado com sucesso!");
+        // Webhook silencioso - sem toast
       }
     } catch (webhookError) {
       console.error('Erro ao enviar webhook:', webhookError);
       const errorMessage = webhookError instanceof Error ? webhookError.message : 'Erro desconhecido';
-      toast.error("Falha ao enviar webhook: " + errorMessage);
+      console.error("Falha ao enviar webhook: " + errorMessage);
     }
   };
 
@@ -906,7 +905,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             console.error('❌ Erro ao atualizar nome:', error);
             toast.error('Erro ao atualizar nome do cliente');
           } else {
-            toast.success('Nome do cliente atualizado');
+            toast.success('Nome atualizado', { duration: 1500, id: 'nome-cliente' });
           }
         } catch (error) {
           console.error('❌ Erro:', error);
@@ -937,7 +936,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       autoSave(fichaId, updatedFicha, '', '', dataVisitaTecnica, horaVisitaTecnica, '', dataRetorno, horaRetorno, horaFimRetorno);
     }
     
-    toast.success('Agendamento limpo');
+    toast.success('Agendamento limpo', { duration: 1500, id: 'limpar-agendamento' });
   };
 
   const limparVisitaTecnica = () => {
@@ -956,7 +955,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, '', '', horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
     
-    toast.success('Visita técnica limpa');
+    toast.success('Visita técnica limpa', { duration: 1500, id: 'limpar-visita' });
   };
 
   const limparRetorno = () => {
@@ -971,7 +970,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, '', '', '');
     }
     
-    toast.success('Retorno limpo');
+    toast.success('Retorno limpo', { duration: 1500, id: 'limpar-retorno' });
   };
 
   const salvarManualmente = async () => {
@@ -989,7 +988,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
     console.log('💾 Salvamento manual disparado');
     await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
-    toast.success("Ficha salva com sucesso!");
+    toast.success("Salvo", { duration: 1500, id: 'ficha-salva' });
   };
 
   // Função de sincronização que recebe valores diretamente (não usa estado)
@@ -1028,7 +1027,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
         if (reprovarError) throw reprovarError;
 
-        toast.success("Orçamento aprovado automaticamente!");
+        toast.success("Orçamento sincronizado", { duration: 1500, id: 'orcamento-sync' });
       } else {
         // Criar e aprovar orçamento automaticamente com valores passados diretamente
         const { error: criarError } = await supabase
@@ -1046,7 +1045,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
         if (criarError) throw criarError;
 
-        toast.success("Orçamento criado e aprovado automaticamente!");
+        toast.success("Orçamento sincronizado", { duration: 1500, id: 'orcamento-sync' });
       }
     } catch (error) {
       console.error('Erro ao sincronizar orçamentos:', error);
@@ -1267,7 +1266,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                         ficha.notas ? `📝 Obs: ${ficha.notas}` : null,
                       ].filter(Boolean).join('\n');
                       await navigator.clipboard.writeText(lines);
-                      toast.success("Informações copiadas para o clipboard!");
+                      toast.success("Copiado!", { duration: 1500, id: 'copy-info' });
                     }}
                   >
                     <Copy className="h-4 w-4" />
@@ -2000,7 +1999,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       className="h-9 w-9 shrink-0"
                       onClick={() => {
                         navigator.clipboard.writeText(ficha.pagamento_link || '');
-                        toast.success("Link copiado!");
+                        toast.success("Copiado!", { duration: 1500, id: 'copy-link' });
                       }}
                     >
                       <Copy className="h-4 w-4" />
