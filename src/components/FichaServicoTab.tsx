@@ -927,7 +927,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     if (ficha) {
       const updatedFicha = { ...ficha, horario_agendamento: null };
       setFicha(updatedFicha);
-      autoSave(fichaId, updatedFicha, '', '', dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, '', '', dataVisitaTecnica, horaVisitaTecnica, '', dataRetorno, horaRetorno, horaFimRetorno);
     }
     
     toast.success('Agendamento limpo');
@@ -946,7 +946,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         data_visita_tecnica: null 
       };
       setFicha(updatedFicha);
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, '', '');
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, '', '', horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
     
     toast.success('Visita técnica limpa');
@@ -956,11 +956,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     console.log('🧹 Limpando retorno manualmente');
     setDataRetorno('');
     setHoraRetorno('');
+    setHoraFimRetorno('');
     
     if (ficha) {
       const updatedFicha = { ...ficha };
       setFicha(updatedFicha);
-      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+      autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, '', '', '');
     }
     
     toast.success('Retorno limpo');
@@ -980,7 +981,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
 
     console.log('💾 Salvamento manual disparado');
-    await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica);
+    await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     toast.success("Ficha salva com sucesso!");
   };
 
