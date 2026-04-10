@@ -284,6 +284,48 @@ const RegistroPontoPage = () => {
     await loadRegistros();
   };
 
+  const limparSaldos = async () => {
+    if (!user) return;
+    const confirmar = window.confirm(
+      "Deseja limpar os valores de Saldo hoje, Saldo semanal e Saldo inicial?"
+    );
+    if (!confirmar) return;
+
+    setSaving(true);
+
+    const inicioSemana = new Date();
+    inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay() + 1);
+    inicioSemana.setHours(0, 0, 0, 0);
+
+    const { error: errorSemana } = await (supabase as any)
+      .from("registro_ponto")
+      .delete()
+      .eq("user_id", user.id)
+      .gte("entrada_em", inicioSemana.toISOString());
+
+    const { error: errorAberto } = await (supabase as any)
+      .from("registro_ponto")
+      .delete()
+      .eq("user_id", user.id)
+      .is("saida_em", null);
+
+    const { error: errorConfig } = await (supabase as any)
+      .from("configuracao_ponto")
+      .update({ saldo_inicial_minutos: 0 })
+      .eq("user_id", user.id);
+
+    setSaving(false);
+
+    if (errorSemana || errorAberto || errorConfig) {
+      toast.error("Não foi possível limpar os saldos.");
+      return;
+    }
+
+    toast.success("Saldos limpos com sucesso!");
+    setCfgSaldo("0");
+    await Promise.all([loadConfig(), loadRegistros()]);
+  };
+
   return (
     <PageLayout>
       <header className="h-16 border-b bg-background/80 backdrop-blur-sm flex items-center justify-between px-6 shadow-sm">
@@ -389,6 +431,9 @@ const RegistroPontoPage = () => {
           <Button variant="outline" size="sm" onClick={() => setShowManual(!showManual)}>
             <Plus className="h-4 w-4 mr-1" />
             Lançamento Avulso
+          </Button>
+          <Button variant="destructive" size="sm" onClick={limparSaldos} disabled={saving}>
+            Limpar saldos
           </Button>
         </div>
 
