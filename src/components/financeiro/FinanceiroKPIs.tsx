@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DollarSign, TrendingUp, Clock, Wallet, AlertTriangle } from "lucide-react";
 import { startOfMonth, endOfMonth } from "date-fns";
 
-const FINANCEIRO_CUTOFF = "2026-03-13T23:00:00.000Z";
+
 
 const formatMoeda = (valor: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
