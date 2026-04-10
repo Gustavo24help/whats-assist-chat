@@ -115,11 +115,11 @@ const fetchMessageMedia = async (
 };
 
 const findOutgoingPlaceholder = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   clienteId: string,
   remetente: string,
   sentAtIso: string,
-) => {
+): Promise<{ id: string } | null> => {
   const sentAt = new Date(sentAtIso);
   const windowStart = new Date(sentAt.getTime() - PLACEHOLDER_REPAIR_WINDOW_MS).toISOString();
   const windowEnd = new Date(sentAt.getTime() + PLACEHOLDER_REPAIR_WINDOW_MS).toISOString();
@@ -135,7 +135,7 @@ const findOutgoingPlaceholder = async (
 
   if (error || !data?.length) return null;
 
-  return data.find((mensagem) => {
+  return (data as any[]).find((mensagem: any) => {
     const semSid = !mensagem.message_sid;
     const semTexto = !String(mensagem.texto || "").trim();
     const semArquivo = !mensagem.arquivo_url;
