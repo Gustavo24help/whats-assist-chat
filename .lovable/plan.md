@@ -1,54 +1,42 @@
 
 
-# Plano: Reorganizar Financeiro + Melhorias Tarefas Operacionais
+# Diagnóstico e Correções: Contas a Receber / Contas a Pagar + Build Error
 
-## 1. Reorganizar navegação do Financeiro
+## Problema Identificado
 
-**Problema**: O sidebar tem "Financeiro > Financeiro" e "Financeiro > Contas a Receber" como páginas separadas, sendo que Contas a Receber é duplicação acidental. A página `/financeiro` já tem as duas abas (Pagamento Clientes e Pagamento Prestadores).
+### 1. Fichas "fantasma" inflando as listas
+Uma atualização em massa em 06/04/2026 (todas com `updated_at: 2026-04-06 14:51:55`) fez com que 18 fichas antigas (criadas entre Nov/2025 e Mar/2026) passassem o filtro `FINANCEIRO_CUTOFF` (`2026-03-13`). Essas fichas:
+- Não têm link de pagamento (nunca tiveram cobrança Asaas)
+- Estão como `pagamento_realizado = false/null`
+- Aparecem na lista de "Pendentes" sem link, sem sentido real de cobrança
 
-**Solução**: 
-- Renomear os dois itens do sidebar para **"Contas a Receber"** (rota `/financeiro`, que mostra aba Pagamento Clientes) e **"Contas a Pagar"** (rota `/contas-pagar`, que mostra aba Pagamento Prestadores)
-- Eliminar a rota `/contas-receber` duplicada
-- Separar as abas em duas páginas independentes:
-  - `/financeiro` → Contas a Receber (atual PagamentoClientesTabV2 + KPIs de clientes)
-  - `/contas-pagar` → Contas a Pagar (atual PagamentoPrestadoresTabV2 + KPIs de prestadores)
-- Manter a Planilha como terceiro item do grupo
+São 19 fichas sem link dos 42 "pendentes" — quase metade da lista não deveria estar ali.
 
-**Arquivos**: `PageLayout.tsx`, `Financeiro.tsx` (renomear/dividir), `App.tsx` (adicionar rota `/contas-pagar`, remover `/contas-receber`)
+### 2. Asaas está funcionando
+Os links Asaas existem nas fichas recentes (abril). O webhook Asaas não tem logs recentes, mas isso é normal se não houve pagamentos confirmados hoje. A integração em si está OK.
 
-## 2. Aba Delegação com indicador laranja
+### 3. Build error em `sync-twilio-messages`
+Erros de TypeScript por tipos implícitos `any` e tipo `never` em queries. Pré-existente, não relacionado às mudanças recentes.
 
-**Problema**: O operador não percebe quando tem delegações pendentes.
+## Solução
 
-**Solução**: 
-- No `TarefasOperacionais.tsx`, fazer uma query para contar delegações pendentes (status != "resolvido") atribuídas ao usuário, filtrando apenas `tipo != 'atribuicao_chat'` (ou tipo IS NULL) — somente criadas manualmente
-- Se houver pendentes, aplicar classe `bg-orange-500 text-white` na tab "Delegação"
+### Contas a Receber (`PagamentoClientesTabV2.tsx`)
+- Adicionar filtro baseado em `created_at` além do `updated_at`: fichas com `created_at` anterior ao cutoff E sem `pagamento_link` serão excluídas da lista de pendentes
+- Isso remove as fichas antigas que foram "arrastadas" pelo bulk update sem afetar fichas legítimas
 
-## 3. Filtrar delegações — somente manuais
+### Contas a Pagar (`PagamentoPrestadoresTabV2.tsx`)
+- Mesmo problema: a query busca todas as fichas Finalizadas com `valor > 0` e prestador, sem filtro de cutoff. Fichas muito antigas sem transação financeira aparecem como "pendentes de pagamento ao prestador"
+- Adicionar filtro equivalente para excluir fichas antigas sem relevância financeira
 
-**Problema**: Delegações criadas automaticamente pelo sistema (tipo `atribuicao_chat` vindas de auto-atribuição ao enviar mensagem) poluem a lista.
-
-**Solução**: No `DelegacaoTab.tsx`, na query de tarefas, adicionar filtro para excluir tarefas onde `tipo = 'atribuicao_chat'` **E** `criado_por = user.id` (auto-atribuição). Ou seja, manter as atribuições feitas por outros operadores (que são manuais), mas excluir as auto-geradas.
-
-Melhor abordagem: excluir todas que foram geradas por auto-atribuição. Na prática, o `atribuirOperador` com `isSelf=true` gera essas tarefas. Vou adicionar um campo ou simplesmente filtrar: se `tipo = 'atribuicao_chat'` e `criado_por` é o mesmo que o atribuído, excluir.
-
-No `DelegacaoTab.tsx`, após carregar as tarefas, filtrar no JS: remover tarefas onde `tipo === 'atribuicao_chat'` e o criador é o próprio usuário atribuído (auto-atribuição ao enviar mensagem).
-
-## 4. Conversas a Resolver — remover filtro de atribuição
-
-**Problema**: A aba só mostra fichas de clientes atribuídos ao operador, mas deveria mostrar TODAS as conversas ativas que requerem ação.
-
-**Solução**: No `ConversasResolver.tsx`, remover a consulta a `clientes.atendente_id` e mostrar todas as fichas com status que requerem o operador (excluindo Finalizado, Perdido, Não foi adiante). Manter filtro por status.
+### Build error (`sync-twilio-messages/index.ts`)
+- Adicionar tipagem explícita para `response: Response` e `data: any`
+- Tipar o retorno de `findOutgoingPlaceholder` e o parâmetro `supabase`
 
 ## Arquivos alterados
 
 | Arquivo | Alteração |
 |---|---|
-| `src/components/PageLayout.tsx` | Renomear itens sidebar: "Contas a Receber" e "Contas a Pagar" |
-| `src/pages/Financeiro.tsx` | Transformar em página "Contas a Receber" (só PagamentoClientesTabV2) |
-| `src/pages/ContasPagar.tsx` | Nova página com PagamentoPrestadoresTabV2 |
-| `src/App.tsx` | Adicionar rota `/contas-pagar`, remover `/contas-receber` |
-| `src/pages/TarefasOperacionais.tsx` | Adicionar badge laranja na tab Delegação quando há pendentes |
-| `src/components/tarefas-op/DelegacaoTab.tsx` | Filtrar tarefas auto-geradas por sistema |
-| `src/components/tarefas-op/ConversasResolver.tsx` | Remover filtro de atribuição, mostrar todas fichas ativas |
+| `src/components/financeiro/PagamentoClientesTabV2.tsx` | Filtrar fichas antigas sem link de pagamento |
+| `src/components/financeiro/PagamentoPrestadoresTabV2.tsx` | Filtrar fichas antigas sem transação financeira relevante |
+| `supabase/functions/sync-twilio-messages/index.ts` | Corrigir erros de tipagem TypeScript |
 
