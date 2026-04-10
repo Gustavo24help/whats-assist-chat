@@ -152,7 +152,13 @@ export const PagamentoPrestadoresTabV2 = () => {
     const { data: fichasData, error, count } = await query;
     if (error) throw error;
 
-    const fichas = (fichasData || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
+    const fichas = (fichasData || []).filter((f: any) => {
+      if (EXCLUDED_FICHAS.includes(f.id)) return false;
+      // Excluir fichas antigas (created_at antes do cutoff de março/2026) sem link de pagamento
+      const FINANCEIRO_CUTOFF = "2026-03-13T23:00:00.000Z";
+      if (f.created_at && f.created_at < FINANCEIRO_CUTOFF && !f.pagamento_link) return false;
+      return true;
+    });
     if (fichas.length === 0) return { items: [] as FichaFinanceira[], total: count || 0 };
 
     const prestadorIds = [...new Set(fichas.map((f: any) => f.prestador_id))];

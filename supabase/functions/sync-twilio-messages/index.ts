@@ -34,7 +34,7 @@ const fetchAllTwilioMessages = async (
   while (nextUrl && pages < 10) {
     pages += 1;
 
-    const response = await fetch(nextUrl, {
+    const response: Response = await fetch(nextUrl, {
       headers: {
         Authorization: `Basic ${authHeader}`,
       },
@@ -46,7 +46,7 @@ const fetchAllTwilioMessages = async (
       throw new Error(`Twilio API error [${label}] ${response.status}: ${errorText}`);
     }
 
-    const data = await response.json();
+    const data: any = await response.json();
     messages.push(...(data.messages || []));
 
     nextUrl = data.next_page_uri ? `https://api.twilio.com${data.next_page_uri}` : null;

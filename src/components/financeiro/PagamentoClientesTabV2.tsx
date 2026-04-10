@@ -124,7 +124,12 @@ export const PagamentoClientesTabV2 = () => {
       .gte("updated_at", FINANCEIRO_CUTOFF)
       .order("updated_at", { ascending: false });
 
-    const filteredPendentes = (pendentes || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
+    const filteredPendentes = (pendentes || []).filter((f: any) => {
+      if (EXCLUDED_FICHAS.includes(f.id)) return false;
+      // Excluir fichas antigas (created_at antes do cutoff) que não possuem link de pagamento
+      if (f.created_at && f.created_at < FINANCEIRO_CUTOFF && !f.pagamento_link) return false;
+      return true;
+    });
     const filteredPagos = (pagos || []).filter((f: any) => !EXCLUDED_FICHAS.includes(f.id));
     
     // For paid items, get data_pagamento_realizada from transacoes
