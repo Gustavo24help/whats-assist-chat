@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -38,8 +38,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const activeUserIdRef = useRef<string | null>(null);
+  const profileRequestRef = useRef(0);
 
-  const loadUserProfile = async (userId: string) => {
+  const applySessionUser = (sessionUser: User | null) => {
+    activeUserIdRef.current = sessionUser?.id ?? null;
+    setUser(sessionUser);
+
+    if (!sessionUser) {
+      profileRequestRef.current += 1;
+      setUserProfile(null);
+    }
+  };
+
+  const loadUserProfile = async (userId: string, userEmail?: string) => {
+    const requestId = ++profileRequestRef.current;
+    const isStaleRequest = () => activeUserIdRef.current !== userId || profileRequestRef.current !== requestId;
+
     try {
       console.log('🔍 AuthContext - Carregando perfil do usuário:', userId);
 
@@ -71,10 +86,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // Usar fallback seguro
         const userProfileData: UserProfile = {
           id: userId,
-          email: user?.email || '',
+          email: userEmail || user?.email || '',
           fullName: profile?.full_name || 'Sem nome',
           role: 'user' // Fallback seguro
         };
+
+        if (isStaleRequest()) return null;
+
         setUserProfile(userProfileData);
         console.log('⚠️ AuthContext - Usando fallback devido a erro');
         return userProfileData;
@@ -93,10 +111,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const userProfileData: UserProfile = {
         id: userId,
-        email: user?.email || '',
+        email: userEmail || user?.email || '',
         fullName: profile?.full_name || 'Sem nome',
         role: finalRole
       };
+
+      if (isStaleRequest()) return null;
 
       setUserProfile(userProfileData);
 
@@ -112,18 +132,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Fallback seguro em caso de erro
       const fallbackProfile: UserProfile = {
         id: userId,
-        email: user?.email || '',
+        email: userEmail || user?.email || '',
         fullName: 'Sem nome',
         role: 'user'
       };
+
+      if (isStaleRequest()) return null;
+
       setUserProfile(fallbackProfile);
       return fallbackProfile;
     }
   };
 
+  const queueProfileLoad = (sessionUser: User) => {
+    setTimeout(() => {
+      if (activeUserIdRef.current === sessionUser.id) {
+        void loadUserProfile(sessionUser.id, sessionUser.email || '');
+      }
+    }, 0);
+  };
+
   const refreshUserProfile = async () => {
     if (user) {
-      await loadUserProfile(user.id);
+      await loadUserProfile(user.id, user.email || '');
     }
   };
 
@@ -147,23 +178,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.log('🔄 AuthContext - onAuthStateChange:', event);
         if (event === 'INITIAL_SESSION') {
           // Sessão inicial restaurada do storage
-          if (session?.user) {
-            setUser(session.user);
-            setTimeout(() => loadUserProfile(session.user.id), 0);
-          }
+          applySessionUser(session?.user ?? null);
+          if (session?.user) queueProfileLoad(session.user);
           initialSessionHandled = true;
           setLoading(false);
         } else if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user);
-          setTimeout(() => loadUserProfile(session.user.id), 0);
+          applySessionUser(session.user);
+          queueProfileLoad(session.user);
           if (!initialSessionHandled) {
             setLoading(false);
           }
         } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setUserProfile(null);
+          setTimeout(() => {
+            supabase.auth.getSession().then(({ data: { session: currentSession }, error }) => {
+              if (error) {
+                console.error('❌ AuthContext - Erro ao reconciliar SIGNED_OUT:', error);
+              }
+
+              if (currentSession?.user) {
+                console.warn('⚠️ AuthContext - SIGNED_OUT transitório detectado, restaurando sessão');
+                applySessionUser(currentSession.user);
+                queueProfileLoad(currentSession.user);
+              } else {
+                applySessionUser(null);
+              }
+
+              setLoading(false);
+            });
+          }, 0);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setUser(session.user);
+          applySessionUser(session.user);
         }
       }
     );
@@ -174,9 +218,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.error('❌ AuthContext - Erro ao carregar sessão:', error);
       }
       if (!initialSessionHandled) {
+        applySessionUser(session?.user ?? null);
         if (session?.user) {
-          setUser(session.user);
-          loadUserProfile(session.user.id);
+          void loadUserProfile(session.user.id, session.user.email || '');
         }
         setLoading(false);
       }
