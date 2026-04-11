@@ -93,8 +93,14 @@ function ConversationItemBeta({
         )}
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground truncate max-w-[70%]">
+      {conversa.ultima_mensagem && (
+        <p className="text-xs text-muted-foreground truncate mt-0.5">
+          {conversa.ultima_mensagem}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-[10px] text-muted-foreground truncate max-w-[50%]">
           {conversa.clienteTelefone.replace("whatsapp:", "")}
         </span>
         <UnreadBadge

@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useClienteSignals } from "@/hooks/useClienteSignals";
 import { useOperadorUnread } from "@/hooks/useOperadorUnread";
 import { SkillVendasCoach } from "./SkillVendasCoach";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export interface ChatWindowBetaProps {
   clienteTelefone: string;
@@ -23,9 +25,12 @@ interface MensagemDisplay {
 }
 
 export function ChatWindowBeta({ clienteTelefone, clienteNome, onBack }: ChatWindowBetaProps) {
+  const { user } = useAuth();
   const [mensagens, setMensagens] = useState<MensagemDisplay[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(true);
   const [coachingVisible, setCoachingVisible] = useState(true);
+  const [texto, setTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { coaching } = useClienteSignals(clienteTelefone);
@@ -69,7 +74,6 @@ export function ChatWindowBeta({ clienteTelefone, clienteNome, onBack }: ChatWin
         (payload) => {
           const newMsg = payload.new as MensagemDisplay;
           setMensagens((prev) => [...prev, newMsg]);
-          // Re-marcar como lido se estiver na conversa
           if (newMsg.remetente === "cliente") {
             marcarComoLido();
           }
@@ -88,6 +92,44 @@ export function ChatWindowBeta({ clienteTelefone, clienteNome, onBack }: ChatWin
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [mensagens]);
+
+  // Enviar mensagem
+  const enviarMensagem = async () => {
+    if (!texto.trim() || !user || enviando) return;
+
+    setEnviando(true);
+    const telefoneClean = clienteTelefone.replace("whatsapp:", "");
+
+    try {
+      const { error } = await supabase.functions.invoke("send-whatsapp", {
+        body: {
+          to: telefoneClean,
+          body: texto.trim(),
+          operador_id: user.id,
+          operador_nome: user.user_metadata?.full_name || "Operador",
+        },
+      });
+
+      if (error) {
+        console.error("Erro ao enviar:", error);
+        toast.error("Erro ao enviar mensagem");
+      } else {
+        setTexto("");
+      }
+    } catch (err) {
+      console.error("Erro:", err);
+      toast.error("Erro ao enviar mensagem");
+    }
+
+    setEnviando(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      enviarMensagem();
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -115,6 +157,7 @@ export function ChatWindowBeta({ clienteTelefone, clienteNome, onBack }: ChatWin
       {coaching && coachingVisible && !loadingMsgs && (
         <SkillVendasCoach
           coaching={coaching}
+          onCopiar={(sugestao) => setTexto(sugestao)}
           onDescartar={() => setCoachingVisible(false)}
         />
       )}
@@ -173,17 +216,25 @@ export function ChatWindowBeta({ clienteTelefone, clienteNome, onBack }: ChatWin
         )}
       </div>
 
-      {/* Input placeholder - será conectado ao envio real no PROMPT 5 */}
+      {/* Input funcional */}
       <div className="border-t p-3 shrink-0">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Chat BETA — envio será habilitado no próximo passo"
-            disabled
-            className="flex-1 px-3 py-2 border rounded-lg text-sm bg-muted text-muted-foreground"
+        <div className="flex gap-2 items-end">
+          <textarea
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Digite sua mensagem..."
+            rows={1}
+            disabled={enviando}
+            className="flex-1 px-3 py-2 border rounded-lg text-sm bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <Button disabled size="sm">
-            Enviar
+          <Button
+            onClick={enviarMensagem}
+            disabled={!texto.trim() || enviando}
+            size="sm"
+            className="shrink-0"
+          >
+            <Send className="h-4 w-4" />
           </Button>
         </div>
       </div>
