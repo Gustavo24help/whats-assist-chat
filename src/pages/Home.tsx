@@ -234,6 +234,9 @@ const Home = () => {
               {unreadCount} não lido{unreadCount > 1 ? "s" : ""}
             </Badge>
           )}
+          <Button size="sm" variant="outline" onClick={() => navigate("/chat-beta")} className="border-green-500 text-green-700 hover:bg-green-50">
+            🧪 Chat BETA
+          </Button>
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => navigate("/avisos")}>
               <PlusCircle className="h-4 w-4 mr-1" />
