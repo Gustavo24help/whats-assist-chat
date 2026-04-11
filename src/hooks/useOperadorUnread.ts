@@ -113,47 +113,32 @@ export function useOperadorUnread(clienteTelefone: string) {
     };
   }, [clienteTelefone, user]);
 
-  // Marcar conversa como lida
+  // Marcar conversa como lida (via edge function para bypasser RLS)
   const marcarComoLido = useCallback(async () => {
     if (!clienteTelefone || !user) return;
 
-    const agora = new Date().toISOString();
-
-    // Upsert: zerar não lidos e registrar leitura
-    const { error } = await supabase
-      .from('conversa_operador_leitura')
-      .upsert(
-        {
+    try {
+      const { error } = await supabase.functions.invoke('marcar-conversa-lida', {
+        body: {
           cliente_telefone: clienteTelefone,
           operador_id: user.id,
-          mensagens_nao_lidas: 0,
-          ultima_leitura: agora,
-          updated_at: agora,
         },
-        { onConflict: 'cliente_telefone,operador_id' }
-      );
+      });
 
-    if (error) {
-      console.error('Erro ao marcar como lido:', error);
-      return;
+      if (error) {
+        console.error('Erro ao marcar como lido:', error);
+        return;
+      }
+
+      // Atualizar localmente
+      setData((prev) => ({
+        ...(prev || { outroOpLeuNome: null, outroOpLeuEm: null, outroOpLeuHa: null }),
+        naoLidos: 0,
+        ultimaLeitura: new Date(),
+      }));
+    } catch (err) {
+      console.error('Erro ao marcar como lido:', err);
     }
-
-    // Atualizar localmente
-    setData((prev) => ({
-      ...(prev || { outroOpLeuNome: null, outroOpLeuEm: null, outroOpLeuHa: null }),
-      naoLidos: 0,
-      ultimaLeitura: new Date(agora),
-    }));
-
-    // Registrar que "outro operador leu" para os demais
-    await supabase
-      .from('conversa_operador_leitura')
-      .update({
-        outro_operador_leu_id: user.id,
-        outro_operador_leu_em: agora,
-      })
-      .eq('cliente_telefone', clienteTelefone)
-      .neq('operador_id', user.id);
   }, [clienteTelefone, user]);
 
   return {
