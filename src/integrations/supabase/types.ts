@@ -702,6 +702,50 @@ export type Database = {
           },
         ]
       }
+      conversa_operador_leitura: {
+        Row: {
+          cliente_telefone: string
+          created_at: string | null
+          id: string
+          mensagens_nao_lidas: number | null
+          operador_id: string
+          outro_operador_leu_em: string | null
+          outro_operador_leu_id: string | null
+          ultima_leitura: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_telefone: string
+          created_at?: string | null
+          id?: string
+          mensagens_nao_lidas?: number | null
+          operador_id: string
+          outro_operador_leu_em?: string | null
+          outro_operador_leu_id?: string | null
+          ultima_leitura?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_telefone?: string
+          created_at?: string | null
+          id?: string
+          mensagens_nao_lidas?: number | null
+          operador_id?: string
+          outro_operador_leu_em?: string | null
+          outro_operador_leu_id?: string | null
+          ultima_leitura?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversa_operador_leitura_cliente_telefone_fkey"
+            columns: ["cliente_telefone"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["telefone"]
+          },
+        ]
+      }
       daily_goals: {
         Row: {
           created_at: string | null
@@ -820,6 +864,84 @@ export type Database = {
             columns: ["transacao_id"]
             isOneToOne: false
             referencedRelation: "transacoes_financeiras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ficha_coaching: {
+        Row: {
+          atualizado_em: string | null
+          cliente_telefone: string
+          conversao_base: number | null
+          conversao_meta: number | null
+          criado_em: string | null
+          ficha_id: string | null
+          id: string
+          multiplos_orcamentos: number | null
+          perguntas_tecnicas: number | null
+          prioridade: string | null
+          profile_cliente: string | null
+          proximo_passo: string | null
+          ratio_cliente_op: number | null
+          sugestao_mensagem: string | null
+          tempo_sem_resposta_minutos: number | null
+          tpr_minutos: number | null
+          ultima_msg_cliente: boolean | null
+          urgencia: boolean | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          cliente_telefone: string
+          conversao_base?: number | null
+          conversao_meta?: number | null
+          criado_em?: string | null
+          ficha_id?: string | null
+          id?: string
+          multiplos_orcamentos?: number | null
+          perguntas_tecnicas?: number | null
+          prioridade?: string | null
+          profile_cliente?: string | null
+          proximo_passo?: string | null
+          ratio_cliente_op?: number | null
+          sugestao_mensagem?: string | null
+          tempo_sem_resposta_minutos?: number | null
+          tpr_minutos?: number | null
+          ultima_msg_cliente?: boolean | null
+          urgencia?: boolean | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          cliente_telefone?: string
+          conversao_base?: number | null
+          conversao_meta?: number | null
+          criado_em?: string | null
+          ficha_id?: string | null
+          id?: string
+          multiplos_orcamentos?: number | null
+          perguntas_tecnicas?: number | null
+          prioridade?: string | null
+          profile_cliente?: string | null
+          proximo_passo?: string | null
+          ratio_cliente_op?: number | null
+          sugestao_mensagem?: string | null
+          tempo_sem_resposta_minutos?: number | null
+          tpr_minutos?: number | null
+          ultima_msg_cliente?: boolean | null
+          urgencia?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ficha_coaching_cliente_telefone_fkey"
+            columns: ["cliente_telefone"]
+            isOneToOne: true
+            referencedRelation: "clientes"
+            referencedColumns: ["telefone"]
+          },
+          {
+            foreignKeyName: "ficha_coaching_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
             referencedColumns: ["id"]
           },
         ]
