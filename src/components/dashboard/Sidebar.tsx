@@ -31,6 +31,7 @@ const mainNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { label: 'Dashboard TV', icon: Monitor, path: '/dashboard-tv' },
   { label: 'Chat', icon: MessageCircle, path: '/chat' },
+  { label: 'Chat BETA', icon: MessageCircle, path: '/chat-beta' },
   { label: 'Prestadores', icon: Users, path: '/prestadores' },
   { label: 'Bairros', icon: MapPin, path: '/bairros' },
   // Estas rotas ainda não existem como páginas separadas; manter como acesso ao dashboard principal
