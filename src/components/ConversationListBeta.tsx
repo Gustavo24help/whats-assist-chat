@@ -1539,6 +1539,19 @@ export const ConversationListBeta = ({
                       statusAlertColor={cliente.statusAlertColor}
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
                     />
+                    {/* 🆕 BETA: Per-operator unread badge */}
+                    {(operatorReadMap.get(cliente.telefone)?.nao_lidos || 0) > 0 && (
+                      <div className="absolute top-1 right-1 z-10">
+                        <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-green-500 text-white text-xs font-bold">
+                          {operatorReadMap.get(cliente.telefone)?.nao_lidos}
+                        </span>
+                      </div>
+                    )}
+                    {operatorReadMap.get(cliente.telefone)?.outro_op_leu_nome && operatorReadMap.get(cliente.telefone)?.outro_op_leu_em && (
+                      <div className="px-2 pb-1 text-[10px] text-muted-foreground">
+                        ℹ️ Lida por {operatorReadMap.get(cliente.telefone)?.outro_op_leu_nome}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
