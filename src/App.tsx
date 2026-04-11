@@ -121,6 +121,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/chat-beta"
+                element={
+                  <ProtectedRoute>
+                    <ChatBeta />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/dashboard"
                 element={
                   <ProtectedRoute>
