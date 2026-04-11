@@ -352,6 +352,14 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/chat-beta"
+                element={
+                  <ProtectedRoute>
+                    <ChatBeta />
+                  </ProtectedRoute>
+                }
+              />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
                           </Routes>
