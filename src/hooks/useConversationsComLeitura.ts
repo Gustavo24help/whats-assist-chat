@@ -1,17 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-
-interface ConversaComLeitura {
-  cliente_telefone: string;
-  nome_cliente: string;
-  ultima_mensagem: string | null;
-  updated_at: string | null;
-  naoLidosPorEsteOp: number;
-  outroOpLeuNome: string | null;
-  outroOpLeuHa: string | null;
-  urgencia?: boolean;
-}
+import type { ConversaComLeitura } from "@/types/chat-beta";
 
 export function useConversationsComLeitura() {
   const { user } = useAuth();
@@ -95,8 +85,8 @@ export function useConversationsComLeitura() {
           : null;
 
         return {
-          cliente_telefone: c.telefone,
-          nome_cliente: c.nome || c.telefone.replace("whatsapp:", ""),
+          clienteTelefone: c.telefone,
+          clienteNome: c.nome || c.telefone.replace("whatsapp:", ""),
           ultima_mensagem: ultimaMsgMap[c.telefone] || null,
           updated_at: c.ultima_interacao,
           naoLidosPorEsteOp: leitura?.mensagens_nao_lidas || 0,
