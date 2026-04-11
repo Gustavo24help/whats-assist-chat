@@ -100,7 +100,7 @@ function ConversationItemBeta({
         <UnreadBadge
           count={0}
           operadorNome={conversa.outroOpLeuNome}
-          tempoHa={conversa.outroOpLeuEm ? "recente" : null}
+          tempoHa={conversa.outroOpLeuHa}
         />
       </div>
     </button>
