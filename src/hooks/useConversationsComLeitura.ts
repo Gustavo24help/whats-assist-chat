@@ -55,7 +55,7 @@ export function useConversationsComLeitura(filtros?: {
       .order('ultima_mensagem_recebida', { ascending: false });
 
     if (filtros?.status) {
-      query = query.eq('status_conversa', filtros.status);
+      query = query.eq('status_conversa', filtros.status as "aberta" | "fechada");
     }
 
     const { data: clientes } = await query;
