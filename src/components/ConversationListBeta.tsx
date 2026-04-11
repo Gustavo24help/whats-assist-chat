@@ -51,7 +51,7 @@ interface ConversationListProps {
   botDisabledAcknowledged?: Set<string>;
 }
 
-export const ConversationList = ({ 
+export const ConversationListBeta = ({ 
   selectedClienteTelefone, 
   onSelectCliente, 
   unreadMessages,

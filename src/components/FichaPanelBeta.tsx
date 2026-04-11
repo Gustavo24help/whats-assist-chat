@@ -20,7 +20,7 @@ interface FichaPanelProps {
   onClose: () => void;
 }
 
-export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanelProps) => {
+export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaPanelProps) => {
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [fichaAtual, setFichaAtual] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);

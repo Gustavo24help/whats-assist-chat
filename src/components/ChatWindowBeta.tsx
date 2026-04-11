@@ -166,7 +166,7 @@ interface ChatWindowProps {
   onToggleFicha?: () => void;
 }
 
-export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha }: ChatWindowProps) => {
+export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha }: ChatWindowProps) => {
   const { user, userProfile, isSupervisor } = useAuth();
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");

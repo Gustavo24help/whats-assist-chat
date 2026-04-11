@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ConversationList } from "@/components/ConversationList";
+import { ConversationListBeta as ConversationList } from "@/components/ConversationListBeta";
 import { ContactsTab } from "@/components/ContactsTab";
-import { ChatWindow } from "@/components/ChatWindow";
-import { FichaPanel } from "@/components/FichaPanel";
+import { ChatWindowBeta as ChatWindow } from "@/components/ChatWindowBeta";
+import { FichaPanelBeta as FichaPanel } from "@/components/FichaPanelBeta";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { LogOut, Settings, PanelLeftOpen, Home, MessageCircle, Users } from "lucide-react";
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
 
-const Chat = () => {
+const ChatBeta = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { openRoute } = useOpenInNewTab();
@@ -287,4 +287,4 @@ const Chat = () => {
   );
 };
 
-export default Chat;
+export default ChatBeta;
