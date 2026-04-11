@@ -36,8 +36,10 @@ export interface OperadorUnreadData {
 export interface ConversaComLeitura {
   clienteTelefone: string;
   clienteNome: string;
+  ultima_mensagem: string | null;
+  updated_at: string | null;
   naoLidosPorEsteOp: number;
-  leuEm: string | null;
-  outroOpLeuEm: string | null;
   outroOpLeuNome: string | null;
+  outroOpLeuHa: string | null;
+  urgencia?: boolean;
 }
