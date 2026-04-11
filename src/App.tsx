@@ -21,6 +21,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "./pages/Home";
 import { FichaWhatsAppDemo } from "./components/FichaWhatsApp";
 import Chat from "./pages/Chat";
+import ChatBeta from "./pages/ChatBeta";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";

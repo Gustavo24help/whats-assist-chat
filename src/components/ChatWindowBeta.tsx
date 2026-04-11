@@ -170,6 +170,8 @@ interface ChatWindowProps {
 
 export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha }: ChatWindowProps) => {
   const { user, userProfile, isSupervisor } = useAuth();
+  const { coaching } = useClienteSignalsBeta(clienteTelefone);
+  const [coachingVisible, setCoachingVisible] = useState(true);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -2527,6 +2529,16 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
               </div>
             )}
             
+            {coachingVisible && coaching && (
+              <SkillVendasCoach
+                coaching={coaching}
+                onCopiar={(texto) => {
+                  setNovaMsg(texto);
+                }}
+                onDescartar={() => setCoachingVisible(false)}
+              />
+            )}
+
             {mensagens.map((msg, index) => {
           const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
           const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
