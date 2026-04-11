@@ -12,10 +12,10 @@ export function useConversationsComLeitura() {
     if (!user) return;
 
     try {
-      // 1. Buscar unique conversation_ids
+      // 1. Buscar mensagens agrupadas por conversation_id
       const { data: msgData, error: msgError } = await supabase
         .from("mensagens")
-        .select("conversation_id, cliente_id, data_hora, texto")
+        .select("conversation_id, cliente_id, data_hora, texto, operador_nome")
         .order("data_hora", { ascending: false });
 
       if (msgError) {
@@ -34,6 +34,7 @@ export function useConversationsComLeitura() {
             cliente_id: msg.cliente_id,
             ultima_mensagem: msg.texto,
             updated_at: msg.data_hora,
+            operador_nome: msg.operador_nome,
           });
         }
       });
