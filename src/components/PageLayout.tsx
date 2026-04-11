@@ -57,7 +57,6 @@ function isGroup(entry: SidebarEntry): entry is SidebarGroup {
 const sidebarEntries: SidebarEntry[] = [
   { label: "Início", icon: Bell, route: "/" },
   { label: "Chat de Atendimento", icon: MessageCircle, route: "/chat" },
-  { label: "Chat BETA", icon: MessageCircle, route: "/chat-beta" },
   { label: "Chat Prestadores", icon: Wrench, route: "/chat-prestadores" },
   {
     label: "Relatórios",

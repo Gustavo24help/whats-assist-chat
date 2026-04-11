@@ -54,7 +54,6 @@ import VisibilitySettings from "./pages/VisibilitySettings";
 import Orcamentos from "./pages/Orcamentos";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
-import ChatBeta from "./pages/ChatBeta";
 
 const queryClient = new QueryClient();
 
@@ -349,14 +348,6 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <TarefasOperacionais />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/chat-beta"
-                element={
-                  <ProtectedRoute>
-                    <ChatBeta />
                   </ProtectedRoute>
                 }
               />
