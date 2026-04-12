@@ -116,7 +116,7 @@ const ChatBeta = () => {
             <Home className="h-3.5 w-3.5" />
           </Button>
           <Logo />
-          <span className="text-[10px] font-bold tracking-wider bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded hidden md:inline-block">
+          <span className="text-[10px] font-bold tracking-wider bg-primary/10 text-primary px-1.5 py-0.5 rounded hidden md:inline-block">
             BETA
           </span>
         </div>
