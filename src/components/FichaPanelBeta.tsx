@@ -239,19 +239,19 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
         {/* ── COACHING SUGGESTION ── */}
         {coaching && showCoaching && (
           <div className="p-3 border-b border-border/40">
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
+            <div className="bg-accent/50 border border-border rounded-lg p-2.5">
               <div className="flex items-start justify-between mb-1.5">
                 <div className="flex items-center gap-1">
-                  <Lightbulb className="h-3.5 w-3.5 text-amber-600" />
-                  <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                  <Lightbulb className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-foreground">
                     {coaching.perfil}
                   </span>
                 </div>
-                <button onClick={() => setShowCoaching(false)} className="text-amber-400 hover:text-amber-600">
+                <button onClick={() => setShowCoaching(false)} className="text-muted-foreground hover:text-foreground">
                   <X className="h-3 w-3" />
                 </button>
               </div>
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 mb-1">
+              <p className="text-[10px] text-muted-foreground mb-1">
                 Meta: {(coaching.conversaoMeta * 100).toFixed(0)}% · Próximo: {coaching.proximoPassoLabel}
               </p>
               {coaching.prioridade === 'maxima' && (
@@ -259,12 +259,12 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
                   🔴 PRIORIDADE MÁXIMA
                 </Badge>
               )}
-              <div className="bg-white/60 dark:bg-black/20 rounded p-2 mb-2">
-                <p className="text-[11px] text-amber-900 dark:text-amber-200 italic">
+              <div className="bg-muted/50 rounded p-2 mb-2">
+                <p className="text-[11px] text-foreground italic">
                   &ldquo;{coaching.sugestaoMensagem}&rdquo;
                 </p>
               </div>
-              <Button size="sm" variant="outline" className="h-6 text-[10px] w-full border-amber-300 text-amber-700 hover:bg-amber-100" onClick={copiarSugestao}>
+              <Button size="sm" variant="outline" className="h-6 text-[10px] w-full" onClick={copiarSugestao}>
                 <Copy className="h-3 w-3 mr-1" />
                 Copiar Sugestão
               </Button>
