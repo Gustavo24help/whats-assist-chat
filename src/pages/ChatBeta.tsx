@@ -136,7 +136,7 @@ const ChatBeta = () => {
           </Button>
           <Logo />
           <div className="hidden md:flex items-center gap-1 ml-2">
-            <span className="text-xs font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+            <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
               BETA
             </span>
             <span className="text-xs text-muted-foreground">Skill Vendas ativa</span>
