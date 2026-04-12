@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus, ClipboardCheck, MapPin, Phone, User, Copy, Lightbulb } from "lucide-react";
+import { X, FileText, DollarSign, Plus, ClipboardCheck, MapPin, Phone, User, Copy, Lightbulb, Wrench, Star, UserCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 interface Ficha {
   id: string;
   nome_ficha: string | null;
+  status?: string | null;
 }
 
 interface ClienteInfo {
@@ -26,6 +27,7 @@ interface ClienteInfo {
   cpf?: string | null;
   tags?: string[] | null;
   status_conversa?: string | null;
+  created_at?: string | null;
 }
 
 interface FichaDetalhes {
@@ -51,16 +53,22 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
   const [clienteInfo, setClienteInfo] = useState<ClienteInfo | null>(null);
   const [fichaDetalhes, setFichaDetalhes] = useState<FichaDetalhes | null>(null);
   const [categoriaNome, setCategoriaNome] = useState<string | null>(null);
-  const [showCoaching, setShowCoaching] = useState(true);
 
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
+
+  // Stats derived from fichas
+  const fichasStats = {
+    ativas: fichas.filter(f => !['Finalizado', 'Cancelado', 'Perdido', 'Não foi adiante'].includes(f.status || '')).length,
+    finalizado: fichas.filter(f => f.status === 'Finalizado').length,
+    semOrcamento: fichas.filter(f => f.status === 'Ficha Criada').length,
+  };
 
   // Fetch client info
   useEffect(() => {
     const fetchCliente = async () => {
       const { data } = await supabase
         .from('clientes')
-        .select('nome, telefone, bairro, cidade, endereco, cpf, tags, status_conversa')
+        .select('nome, telefone, bairro, cidade, endereco, cpf, tags, status_conversa, created_at')
         .eq('telefone', clienteTelefone)
         .maybeSingle();
       if (data) setClienteInfo(data as ClienteInfo);
@@ -103,7 +111,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
   const fetchFichas = async () => {
     const { data } = await supabase
       .from('fichas_de_servico')
-      .select('id, nome_ficha')
+      .select('id, nome_ficha, status')
       .eq('telefone_cliente', clienteTelefone)
       .order('created_at', { ascending: false });
 
@@ -167,112 +175,25 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* ── CLIENT PROFILE ── */}
+        {/* ── STATUS SUMMARY CARDS ── */}
         <div className="p-3 border-b border-border/40">
-          <div className="flex items-center gap-2.5 mb-2">
-            <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <User className="h-4 w-4 text-primary" />
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-primary/10 rounded-lg p-2 text-center">
+              <p className="text-lg font-bold text-primary">{fichasStats.ativas}</p>
+              <p className="text-[10px] text-muted-foreground">Ativas</p>
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">{clienteInfo?.nome || clienteNome}</p>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Phone className="h-3 w-3" />
-                <span className="truncate">{clienteTelefone}</span>
-              </div>
+            <div className="bg-emerald-500/10 rounded-lg p-2 text-center">
+              <p className="text-lg font-bold text-emerald-600">{fichasStats.finalizado}</p>
+              <p className="text-[10px] text-muted-foreground">Finalizado</p>
+            </div>
+            <div className="bg-amber-500/10 rounded-lg p-2 text-center">
+              <p className="text-lg font-bold text-amber-600">{fichasStats.semOrcamento}</p>
+              <p className="text-[10px] text-muted-foreground">S/ Orçamento</p>
             </div>
           </div>
-          {(clienteInfo?.cidade || clienteInfo?.bairro) && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground ml-11">
-              <MapPin className="h-3 w-3 shrink-0" />
-              <span className="truncate">
-                {[clienteInfo.bairro, clienteInfo.cidade].filter(Boolean).join(', ')}
-              </span>
-            </div>
-          )}
-          {clienteInfo?.cpf && (
-            <p className="text-xs text-muted-foreground ml-11 mt-0.5">
-              CPF: {clienteInfo.cpf}
-            </p>
-          )}
-          {clienteInfo?.tags && clienteInfo.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2 ml-11">
-              {clienteInfo.tags.slice(0, 5).map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* ── FICHA SUMMARY ── */}
-        {fichaDetalhes && (
-          <div className="p-3 border-b border-border/40">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-              Resumo da Ficha
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-muted/30 rounded p-2">
-                <p className="text-[10px] text-muted-foreground">Código</p>
-                <p className="text-xs font-semibold truncate">{fichaDetalhes.id}</p>
-              </div>
-              <div className="bg-muted/30 rounded p-2">
-                <p className="text-[10px] text-muted-foreground">Status</p>
-                <Badge variant="outline" className="text-[10px] mt-0.5">
-                  {fichaDetalhes.status || 'N/A'}
-                </Badge>
-              </div>
-              <div className="bg-muted/30 rounded p-2">
-                <p className="text-[10px] text-muted-foreground">Categoria</p>
-                <p className="text-xs font-medium">{categoriaNome || 'N/A'}</p>
-              </div>
-              <div className="bg-muted/30 rounded p-2">
-                <p className="text-[10px] text-muted-foreground">Valor</p>
-                <p className="text-xs font-semibold text-primary">
-                  {fichaDetalhes.valor_total ? `R$ ${fichaDetalhes.valor_total.toFixed(2)}` : 'N/A'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── COACHING SUGGESTION ── */}
-        {coaching && showCoaching && (
-          <div className="p-3 border-b border-border/40">
-            <div className="bg-accent/50 border border-border rounded-lg p-2.5">
-              <div className="flex items-start justify-between mb-1.5">
-                <div className="flex items-center gap-1">
-                  <Lightbulb className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-semibold text-foreground">
-                    {coaching.perfil}
-                  </span>
-                </div>
-                <button onClick={() => setShowCoaching(false)} className="text-muted-foreground hover:text-foreground">
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-              <p className="text-[10px] text-muted-foreground mb-1">
-                Meta: {(coaching.conversaoMeta * 100).toFixed(0)}% · Próximo: {coaching.proximoPassoLabel}
-              </p>
-              {coaching.prioridade === 'maxima' && (
-                <Badge variant="destructive" className="text-[9px] px-1 py-0 mb-1.5">
-                  🔴 PRIORIDADE MÁXIMA
-                </Badge>
-              )}
-              <div className="bg-muted/50 rounded p-2 mb-2">
-                <p className="text-[11px] text-foreground italic">
-                  &ldquo;{coaching.sugestaoMensagem}&rdquo;
-                </p>
-              </div>
-              <Button size="sm" variant="outline" className="h-6 text-[10px] w-full" onClick={copiarSugestao}>
-                <Copy className="h-3 w-3 mr-1" />
-                Copiar Sugestão
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ── FICHA TABS ── */}
+        {/* ── FICHA SELECTOR ── */}
         {fichas.length === 0 ? (
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="text-center space-y-3">
@@ -316,27 +237,200 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
               </div>
             </div>
 
-            <Tabs defaultValue="ficha" className="flex flex-col">
-              <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5">
-                <TabsTrigger value="ficha" className="flex-1 text-xs h-7">
-                  <FileText className="mr-1 h-3 w-3" />
+            {/* ── TABS ── */}
+            <Tabs defaultValue="cliente" className="flex flex-col">
+              <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid grid-cols-5">
+                <TabsTrigger value="cliente" className="text-[10px] h-7 px-1">
+                  <User className="mr-0.5 h-3 w-3" />
+                  Cliente
+                </TabsTrigger>
+                <TabsTrigger value="ficha" className="text-[10px] h-7 px-1">
+                  <FileText className="mr-0.5 h-3 w-3" />
                   Ficha
                 </TabsTrigger>
-                <TabsTrigger value="acompanhamento" className="flex-1 text-xs h-7">
-                  <ClipboardCheck className="mr-1 h-3 w-3" />
-                  Acompanhamento
+                <TabsTrigger value="insights" className="text-[10px] h-7 px-1">
+                  <Lightbulb className="mr-0.5 h-3 w-3" />
+                  Insights
                 </TabsTrigger>
-                <TabsTrigger value="orcamentos" className="flex-1 text-xs h-7">
-                  <DollarSign className="mr-1 h-3 w-3" />
-                  Orçamentos
+                <TabsTrigger value="acompanhamento" className="text-[10px] h-7 px-1">
+                  <ClipboardCheck className="mr-0.5 h-3 w-3" />
+                  Acomp.
+                </TabsTrigger>
+                <TabsTrigger value="orcamentos" className="text-[10px] h-7 px-1">
+                  <DollarSign className="mr-0.5 h-3 w-3" />
+                  Orçam.
                 </TabsTrigger>
               </TabsList>
+
+              {/* ── CLIENTE TAB ── */}
+              <TabsContent value="cliente" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{clienteInfo?.nome || clienteNome}</p>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        <span className="truncate">{clienteTelefone}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(clienteInfo?.cidade || clienteInfo?.bairro) && (
+                    <div className="bg-muted/30 rounded-lg p-2.5">
+                      <p className="text-[10px] text-muted-foreground mb-1">Localização</p>
+                      <div className="flex items-center gap-1 text-xs">
+                        <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span>{[clienteInfo.bairro, clienteInfo.cidade].filter(Boolean).join(', ')}</span>
+                      </div>
+                      {clienteInfo?.endereco && (
+                        <p className="text-xs text-muted-foreground mt-1 ml-4">{clienteInfo.endereco}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {clienteInfo?.cpf && (
+                    <div className="bg-muted/30 rounded-lg p-2.5">
+                      <p className="text-[10px] text-muted-foreground mb-1">CPF</p>
+                      <p className="text-xs font-medium">{clienteInfo.cpf}</p>
+                    </div>
+                  )}
+
+                  {clienteInfo?.created_at && (
+                    <div className="bg-muted/30 rounded-lg p-2.5">
+                      <p className="text-[10px] text-muted-foreground mb-1">Cliente desde</p>
+                      <p className="text-xs font-medium">
+                        {new Date(clienteInfo.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  )}
+
+                  {clienteInfo?.tags && clienteInfo.tags.length > 0 && (
+                    <div className="bg-muted/30 rounded-lg p-2.5">
+                      <p className="text-[10px] text-muted-foreground mb-1.5">Tags</p>
+                      <div className="flex flex-wrap gap-1">
+                        {clienteInfo.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* ── FICHA TAB ── */}
               <TabsContent value="ficha" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                {/* Ficha Summary */}
+                {fichaDetalhes && (
+                  <div className="mb-3">
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="bg-muted/30 rounded p-2">
+                        <p className="text-[10px] text-muted-foreground">Código</p>
+                        <p className="text-xs font-semibold truncate">{fichaDetalhes.id}</p>
+                      </div>
+                      <div className="bg-muted/30 rounded p-2">
+                        <p className="text-[10px] text-muted-foreground">Status</p>
+                        <Badge variant="outline" className="text-[10px] mt-0.5">
+                          {fichaDetalhes.status || 'N/A'}
+                        </Badge>
+                      </div>
+                      <div className="bg-muted/30 rounded p-2">
+                        <p className="text-[10px] text-muted-foreground">Categoria</p>
+                        <p className="text-xs font-medium">{categoriaNome || 'N/A'}</p>
+                      </div>
+                      <div className="bg-muted/30 rounded p-2">
+                        <p className="text-[10px] text-muted-foreground">Valor</p>
+                        <p className="text-xs font-semibold text-primary">
+                          {fichaDetalhes.valor_total ? `R$ ${fichaDetalhes.valor_total.toFixed(2)}` : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <FichaServicoTab fichaId={fichaAtual} />
               </TabsContent>
+
+              {/* ── INSIGHTS TAB ── */}
+              <TabsContent value="insights" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <div className="space-y-3">
+                  {/* Coaching Suggestion */}
+                  {coaching ? (
+                    <div className="bg-accent/50 border border-border rounded-lg p-2.5">
+                      <div className="flex items-center gap-1 mb-1.5">
+                        <Lightbulb className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs font-semibold text-foreground">
+                          {coaching.perfil}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mb-1">
+                        Meta: {(coaching.conversaoMeta * 100).toFixed(0)}% · Próximo: {coaching.proximoPassoLabel}
+                      </p>
+                      {coaching.prioridade === 'maxima' && (
+                        <Badge variant="destructive" className="text-[9px] px-1 py-0 mb-1.5">
+                          🔴 PRIORIDADE MÁXIMA
+                        </Badge>
+                      )}
+                      <div className="bg-muted/50 rounded p-2 mb-2">
+                        <p className="text-[11px] text-foreground italic">
+                          &ldquo;{coaching.sugestaoMensagem}&rdquo;
+                        </p>
+                      </div>
+                      <Button size="sm" variant="outline" className="h-6 text-[10px] w-full" onClick={copiarSugestao}>
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copiar Sugestão
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="bg-muted/30 rounded-lg p-3 text-center">
+                      <Lightbulb className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-xs text-muted-foreground">Sem sugestões disponíveis</p>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Ações Rápidas
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Button variant="outline" size="sm" className="h-8 text-[10px] justify-start">
+                        <Wrench className="h-3 w-3 mr-1" />
+                        Av. Prestador
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-8 text-[10px] justify-start">
+                        <Star className="h-3 w-3 mr-1" />
+                        Satisfação
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-8 text-[10px] justify-start">
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        Assumido
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-8 text-[10px] justify-start">
+                        <FileText className="h-3 w-3 mr-1" />
+                        Abrir Ficha
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Tip */}
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-2.5">
+                    <p className="text-[10px] text-muted-foreground">
+                      💡 Use as ações acima para manter o cliente informado e finalizar o atendimento com sucesso.
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* ── ACOMPANHAMENTO TAB ── */}
               <TabsContent value="acompanhamento" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
                 <AcompanhamentoTab fichaId={fichaAtual} />
               </TabsContent>
+
+              {/* ── ORÇAMENTOS TAB ── */}
               <TabsContent value="orcamentos" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
                 <OrcamentosTab fichaId={fichaAtual} />
               </TabsContent>
