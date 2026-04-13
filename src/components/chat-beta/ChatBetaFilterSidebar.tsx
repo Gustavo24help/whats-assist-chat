@@ -6,9 +6,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { FilterDropdown } from "@/components/FilterDropdown";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Input } from "@/components/ui/input";
-import { PanelLeftClose, PanelLeftOpen, User, Users, Search, AlertTriangle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PanelLeftClose, PanelLeftOpen, User, Users, Search, AlertTriangle, MessageCircle, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { NovaConversaDialog } from "@/components/NovaConversaDialog";
 
 export interface StatusCounts {
   byStatus: Record<string, number>;
@@ -16,6 +18,11 @@ export interface StatusCounts {
   totalCount: number;
   ativasCount: number;
   inativasCount: number;
+}
+
+interface Operador {
+  id: string;
+  nome: string;
 }
 
 interface ChatBetaFilterSidebarProps {
@@ -50,6 +57,14 @@ interface ChatBetaFilterSidebarProps {
   botDisabledCount: number;
   showBotDisabledOnly: boolean;
   onToggleBotDisabled: () => void;
+  // Operator filter
+  operadores: Operador[];
+  selectedOperadorId: string | null;
+  onSelectedOperadorChange: (id: string | null) => void;
+  // Tab navigation
+  activeTab: "conversas" | "contatos";
+  onActiveTabChange: (tab: "conversas" | "contatos") => void;
+  onContactCreated?: (cliente: any) => void;
 }
 
 const STATUS_ORDER = [
@@ -115,6 +130,12 @@ export const ChatBetaFilterSidebar = ({
   botDisabledCount,
   showBotDisabledOnly,
   onToggleBotDisabled,
+  operadores,
+  selectedOperadorId,
+  onSelectedOperadorChange,
+  activeTab,
+  onActiveTabChange,
+  onContactCreated,
 }: ChatBetaFilterSidebarProps) => {
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState("");
@@ -148,7 +169,7 @@ export const ChatBetaFilterSidebar = ({
   }
 
   return (
-    <div className="w-[240px] border-r border-border/60 bg-card flex flex-col shrink-0">
+    <div className="w-[260px] border-r border-border/60 bg-card flex flex-col shrink-0">
       {/* Header */}
       <div className="h-10 border-b border-border/40 flex items-center justify-between px-2.5 shrink-0">
         <span className="text-xs font-semibold text-foreground">Filtros</span>
@@ -159,6 +180,56 @@ export const ChatBetaFilterSidebar = ({
 
       <ScrollArea className="flex-1">
         <div className="p-2.5 space-y-3">
+
+          {/* Navigation: Conversas / Contatos / Nova */}
+          <div className="space-y-1.5">
+            <Button
+              variant={activeTab === "conversas" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => onActiveTabChange("conversas")}
+              className="w-full justify-start gap-2 h-8 text-[11px]"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Conversas
+              <Badge variant="secondary" className="ml-auto h-4 px-1 text-[9px]">
+                {counts.totalCount}
+              </Badge>
+            </Button>
+            <Button
+              variant={activeTab === "contatos" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => onActiveTabChange("contatos")}
+              className="w-full justify-start gap-2 h-8 text-[11px]"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Contatos
+            </Button>
+            <NovaConversaDialog onContactCreated={(cliente) => onContactCreated?.(cliente)} />
+          </div>
+
+          <div className="h-px bg-border/60" />
+
+          {/* Filtro por Operador */}
+          <div>
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Operador</span>
+            <Select
+              value={selectedOperadorId || "todos"}
+              onValueChange={(v) => onSelectedOperadorChange(v === "todos" ? null : v)}
+            >
+              <SelectTrigger className="h-7 text-[11px] mt-1">
+                <SelectValue placeholder="Todos os operadores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos" className="text-xs">Todos os operadores</SelectItem>
+                {operadores.map(op => (
+                  <SelectItem key={op.id} value={op.id} className="text-xs">
+                    {op.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Meus / Todos */}
           <ToggleGroup
             type="single"

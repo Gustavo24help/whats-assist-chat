@@ -61,6 +61,7 @@ interface ConversationListProps {
   externalFichaFilter?: "todas" | "com_ficha" | "sem_ficha";
   externalPagamentoFilter?: "todos" | "pago" | "nao_pago" | "pendente_finalizado";
   externalShowBotDisabledOnly?: boolean;
+  externalSelectedOperadorId?: string | null;
   // Callback to report counts
   onStatusCounts?: (counts: { byStatus: Record<string, number>; unreadCount: number; totalCount: number; ativasCount: number; inativasCount: number; allTags: string[]; tagsWithColors: Map<string, string>; botDisabledCount: number }) => void;
 }
@@ -83,6 +84,7 @@ export const ConversationListBeta = ({
   externalFichaFilter,
   externalPagamentoFilter,
   externalShowBotDisabledOnly,
+  externalSelectedOperadorId,
   onStatusCounts,
 }: ConversationListProps) => {
   const { user, isSupervisor } = useAuth();
@@ -298,6 +300,11 @@ export const ConversationListBeta = ({
       }
     }
 
+    // Filtro por operador específico
+    if (externalSelectedOperadorId && !ignorarFiltrosBuscaId) {
+      filtered = filtered.filter(c => c.atendente_id === externalSelectedOperadorId);
+    }
+
     if (effectiveConversaStatusFilter === "ativas" && !ignorarFiltrosBuscaId) {
       filtered = filtered.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha));
     } else if (effectiveConversaStatusFilter === "inativas" && !ignorarFiltrosBuscaId) {
@@ -423,7 +430,7 @@ export const ConversationListBeta = ({
     });
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS, externalSelectedOperadorId]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -1225,8 +1232,23 @@ export const ConversationListBeta = ({
         {!isCollapsed && (
           <>
             {/* Search bar - always visible */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
+            <div className="space-y-1.5">
+              <Select
+                value={searchMode}
+                onValueChange={(v) => setSearchMode(v as any)}
+              >
+                <SelectTrigger className="h-7 text-[11px]">
+                  <SelectValue placeholder="Buscar por..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ficha" className="text-xs">Nome / Telefone / Ficha</SelectItem>
+                  <SelectItem value="prestador" className="text-xs">Prestador</SelectItem>
+                  <SelectItem value="descricao" className="text-xs">Descrição</SelectItem>
+                  <SelectItem value="id_ficha" className="text-xs">Nº da Ficha</SelectItem>
+                  <SelectItem value="mensagem" className="text-xs">Mensagens</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder={
@@ -1241,37 +1263,6 @@ export const ConversationListBeta = ({
                   className="pl-8 h-9 text-sm"
                 />
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setSearchMode(
-                  searchMode === 'ficha' ? 'prestador' : 
-                  searchMode === 'prestador' ? 'descricao' : 
-                  searchMode === 'descricao' ? 'id_ficha' : 
-                  searchMode === 'id_ficha' ? 'mensagem' :
-                  'ficha'
-                )}
-                className="h-9 w-9 shrink-0"
-                title={
-                  searchMode === 'ficha' ? "Clique: Buscar por prestador" : 
-                  searchMode === 'prestador' ? "Clique: Buscar por descrição" : 
-                  searchMode === 'descricao' ? "Clique: Buscar por nº ficha" :
-                  searchMode === 'id_ficha' ? "Clique: Buscar nas mensagens" :
-                  "Clique: Buscar geral"
-                }
-              >
-                {searchMode === 'ficha' ? (
-                  <User className="h-4 w-4" />
-                ) : searchMode === 'prestador' ? (
-                  <HardHat className="h-4 w-4" />
-                ) : searchMode === 'descricao' ? (
-                  <BookOpen className="h-4 w-4" />
-                ) : searchMode === 'id_ficha' ? (
-                  <Hash className="h-4 w-4" />
-                ) : (
-                  <MessageSquareText className="h-4 w-4" />
-                )}
-              </Button>
             </div>
 
             {/* Filter controls - only when NOT externalized */}
