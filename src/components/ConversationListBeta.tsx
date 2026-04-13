@@ -97,66 +97,7 @@ export const ConversationListBeta = ({
   const { user, isSupervisor } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
 
-  // 🆕 BETA: Per-operator unread tracking
-  const [operatorReadMap, setOperatorReadMap] = useState<Map<string, { nao_lidos: number; outro_op_leu_nome: string | null; outro_op_leu_em: string | null }>>(new Map());
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const fetchOperatorReadData = async () => {
-      const { data } = await supabase
-        .from('conversa_operador_leitura')
-        .select('cliente_telefone, mensagens_nao_lidas, outro_operador_leu_id, outro_operador_leu_em')
-        .eq('operador_id', user.id);
-
-      if (data) {
-        // Fetch profile names for outro_operador_leu_id
-        const outroIds = [...new Set(data.filter(r => r.outro_operador_leu_id).map(r => r.outro_operador_leu_id!))];
-        let profileMap: Record<string, string> = {};
-        if (outroIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, full_name')
-            .in('id', outroIds);
-          if (profiles) {
-            profiles.forEach(p => { profileMap[p.id] = p.full_name || 'Operador'; });
-          }
-        }
-
-        const map = new Map<string, { nao_lidos: number; outro_op_leu_nome: string | null; outro_op_leu_em: string | null }>();
-        data.forEach(row => {
-          map.set(row.cliente_telefone, {
-            nao_lidos: row.mensagens_nao_lidas || 0,
-            outro_op_leu_nome: row.outro_operador_leu_id ? (profileMap[row.outro_operador_leu_id] || null) : null,
-            outro_op_leu_em: row.outro_operador_leu_em
-          });
-        });
-        setOperatorReadMap(map);
-      }
-    };
-
-    fetchOperatorReadData();
-
-    const subscription = supabase
-      .channel('operador-leitura-beta')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversa_operador_leitura',
-          filter: `operador_id=eq.${user.id}`
-        },
-        () => {
-          fetchOperatorReadData();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [user?.id]);
+  // Old conversa_operador_leitura system removed — unread now fully tracked via mensagem_leitura_operador
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -1069,7 +1010,7 @@ export const ConversationListBeta = ({
           perOperatorUnread = true;
         } else if (lastClientMsg) {
           if (!readRecord) {
-            perOperatorUnread = false;
+            perOperatorUnread = !!lastClientMsg;
           } else if (new Date(lastClientMsg) > new Date(readRecord.last_read_at)) {
             perOperatorUnread = true;
           }
@@ -1664,7 +1605,7 @@ export const ConversationListBeta = ({
                       statusConversa={cliente.status_conversa}
                       ultimaInteracao={cliente.ultima_interacao}
                       isSelected={selectedClienteTelefone === cliente.telefone}
-                      unreadCount={operatorReadMap.get(cliente.telefone)?.nao_lidos || 0}
+                      unreadCount={cliente.marcado_nao_lido ? 1 : 0}
                       onClick={() => {
                         if (selectionMode) {
                           toggleClienteSelection(cliente.telefone);
