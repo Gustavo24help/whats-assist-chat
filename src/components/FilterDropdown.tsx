@@ -155,20 +155,14 @@ export const FilterDropdown = ({
                     {[
                       { value: "all", label: "Todos" },
                       { value: "Ficha Criada", label: "Ficha Criada" },
-                      { value: "Contato Inicial", label: "Contato Inicial" },
                       { value: "Dúvida Prestador", label: "Dúvida Prestador" },
                       { value: "Orçamento Enviado", label: "Orçamento Enviado" },
-                      { value: "Negociação", label: "Negociação" },
                       { value: "Visita Técnica", label: "Visita Técnica" },
-                      { value: "Orçamento Aprovado / Agendamento", label: "Orç. Aprovado / Agendamento" },
-                      { value: "Orçamento Não Aprovado", label: "Orçamento Não Aprovado" },
                       { value: "Agendado", label: "Agendado" },
-                      { value: "Em andamento", label: "Em Andamento" },
                       { value: "Retorno", label: "Retorno" },
                       { value: "Finalizado", label: "Finalizado" },
                       { value: "Garantia", label: "Garantia" },
                       { value: "Perdido", label: "Perdido" },
-                      { value: "Não foi adiante", label: "Não foi adiante" },
                     ].map((s) => (
                       <div key={s.value} className="flex items-center space-x-2">
                         <RadioGroupItem value={s.value} id={`status-${s.value}`} />
