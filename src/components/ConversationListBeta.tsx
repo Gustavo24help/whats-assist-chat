@@ -833,8 +833,7 @@ export const ConversationListBeta = ({
         .select('cliente_id, data_hora')
         .in('cliente_id', telefones)
         .neq('remetente', 'whatsapp:+554138911555')
-        .order('data_hora', { ascending: false })
-        .limit(1000);
+        .order('data_hora', { ascending: false });
 
       // Criar mapa de última mensagem por cliente
       const mensagensMap = new Map();
@@ -945,8 +944,7 @@ export const ConversationListBeta = ({
         .select('cliente_id, data_hora')
         .in('cliente_id', telefones)
         .eq('remetente', 'cliente')
-        .order('data_hora', { ascending: false })
-        .limit(1000);
+        .order('data_hora', { ascending: false });
 
       const ultimaMsgClienteMap = new Map<string, string>();
       ultimasMensagensCliente?.forEach(msg => {
