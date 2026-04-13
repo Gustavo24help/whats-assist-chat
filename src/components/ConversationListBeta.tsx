@@ -412,10 +412,17 @@ export const ConversationListBeta = ({
       });
     }
 
+    // Filtro de aguardando resposta
+    if (showAguardandoRespostaOnly) {
+      filtered = filtered.filter(c => 
+        c.bot_habilitado === false && c.marcado_nao_lido === true
+      );
+    }
+
     // Manter ordem original do banco (ultima_interacao DESC)
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS, externalSelectedOperadorId]);
+  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, showAguardandoRespostaOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS, externalSelectedOperadorId]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
