@@ -62,6 +62,10 @@ interface ConversationListProps {
   externalPagamentoFilter?: "todos" | "pago" | "nao_pago" | "pendente_finalizado";
   externalShowBotDisabledOnly?: boolean;
   externalSelectedOperadorId?: string | null;
+  // Callbacks for filters rendered in conversation list (hideFilters mode)
+  onConversaStatusFilterChange?: (v: "ativas" | "inativas" | "todas") => void;
+  onUnreadFilterChange?: (v: "todas" | "lidas" | "nao_lidas") => void;
+  unreadCount?: number;
   // Callback to report counts
   onStatusCounts?: (counts: { byStatus: Record<string, number>; unreadCount: number; totalCount: number; ativasCount: number; inativasCount: number; allTags: string[]; tagsWithColors: Map<string, string>; botDisabledCount: number }) => void;
 }
