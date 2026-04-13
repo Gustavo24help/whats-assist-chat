@@ -29,10 +29,6 @@ interface ChatBetaFilterSidebarProps {
   counts: StatusCounts;
   conversaStatusFilter: "ativas" | "inativas" | "todas";
   onConversaStatusFilterChange: (v: "ativas" | "inativas" | "todas") => void;
-  unreadFilter: "todas" | "lidas" | "nao_lidas";
-  onUnreadFilterChange: (v: "todas" | "lidas" | "nao_lidas") => void;
-  ticketView: "meus" | "todos";
-  onTicketViewChange: (v: "meus" | "todos") => void;
   statusFilter: string;
   onStatusFilterChange: (v: string) => void;
   conversaFilter: "todas" | "aberta" | "fechada";
