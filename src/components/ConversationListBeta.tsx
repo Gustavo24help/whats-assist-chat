@@ -130,6 +130,9 @@ export const ConversationListBeta = ({
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
   const isFirstLoadRef = useRef(true);
   
+  // 🆕 Rastrear orçamentos recém-chegados (ficha_id → Set)
+  const [recentOrcamentoFichas, setRecentOrcamentoFichas] = useState<Set<string>>(new Set());
+  
   // Toggle "Meus Tickets" / "Todos" - padrão em "todos" para evitar perda de sincronização visual
   const [ticketView, setTicketView] = useState<"meus" | "todos">("todos");
   
