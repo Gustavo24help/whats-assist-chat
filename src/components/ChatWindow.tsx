@@ -2892,6 +2892,22 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           setPendingAtribuicao(null);
         }}
       />
+
+      {/* Dialog de confirmação de takeover ao enviar mensagem */}
+      <AlertDialog open={takeoverConfirmOpen} onOpenChange={setTakeoverConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conversa delegada</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa conversa está delegada para <strong>{atendenteAtual?.nome}</strong>. Você deseja assumir essa conversa? A mensagem só será enviada se você optar por assumir a conversa.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTakeoverConfirmOpen(false)}>Não</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmTakeoverAndSend}>Sim, vou assumir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
