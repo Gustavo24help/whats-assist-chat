@@ -1,38 +1,51 @@
 
 
-# Plan: Chat BETA Filter Reorganization + Finalization Confirmation
+# Fix: Unread Indicators in Chat BETA
 
-## 1. Move conversation filters from sidebar to conversation list column
+## Problem
 
-**Current state**: The dropdowns for "Ativas/Inativas/Todas" and "Todas/Não Lidas" live in `ChatBetaFilterSidebar.tsx`.
+Three issues prevent unread indicators from working:
 
-**Change**: Move these two Select dropdowns into the top of `ConversationListBeta.tsx` (above the search bar). The sidebar keeps only: Operador, FilterDropdown (advanced), Tags, and Status counts.
+1. **Seeding marks everything as read**: When a conversation has no `mensagem_leitura_operador` record (line 1072), it's set to `perOperatorUnread = false`. Then the seeding block (lines 1099-1118) immediately creates records with `last_read_at = now()`, so even genuinely unread conversations get marked as read.
 
-**Files**: `ChatBetaFilterSidebar.tsx`, `ConversationListBeta.tsx`
+2. **`unreadCount` uses the wrong data source**: Line 1667 passes `operatorReadMap.get(...)?.nao_lidos` from the OLD `conversa_operador_leitura` table (state on line 101), which has `nao_lidos` always at 0. The correct unread state is in `marcado_nao_lido` (from `mensagem_leitura_operador`).
 
-**Behavior when operator filter is selected**: The status counts in the sidebar filter by operator, but the "Ativas/Inativas/Todas" dropdown (now in the conversation list) applies independently. When an operator is selected, the conversation status filter auto-switches to "todas" so all that operator's conversations appear.
+3. **Badge never shows**: Since `unreadCount` is always 0 and `marcadoNaoLido` is always false (due to seeding), the blue badge condition `(marcadoNaoLido || unreadCount > 0)` is never true.
 
-**Default selection**: Ativas + Todas pre-selected.
+## Desired Behavior
 
-## 2. Finalization confirmation dialog (both chats)
+- Every operator sees ALL conversations' unread state independently
+- A conversation is "unread" if the latest client message arrived AFTER the operator's `last_read_at`, OR if manually marked unread
+- Reading a conversation (selecting it) updates only THAT operator's read timestamp
+- Unread state is independent of ticket assignment
 
-**Current state**: In `FichaServicoTab.tsx` line 1108, changing the status Select immediately calls `updateFicha({ status: value })`, which triggers auto-save and NPS/payment flows.
+## Plan
 
-**Change**: Intercept the `onValueChange` of the status Select. When the new value is "Finalizado", show an AlertDialog with:
-- Message: "Você quer Finalizar essa Ficha de Serviço? Se você prosseguir será gerado o pagamento de forma automática"
-- Buttons: "Prosseguir" / "Não Prosseguir"
-- Only call `updateFicha({ status: 'Finalizado' })` if the user confirms
+### Step 1: Fix the seeding logic
 
-Since `FichaServicoTab.tsx` is shared by both chats, this single change covers both.
+Change line 1072 from `perOperatorUnread = false` to `perOperatorUnread = !!lastClientMsg`. When there's no read record but a client message exists, the conversation should show as unread. The seeding will still create records, but only AFTER `perOperatorUnread` has been computed — so the first render shows unread correctly.
 
-**File**: `FichaServicoTab.tsx`
+### Step 2: Remove the old `conversa_operador_leitura` state system
 
-## Summary of file changes
+Remove the state-level `operatorReadMap` (lines 101-159) that reads from `conversa_operador_leitura` table. This table is unused/stale and causes confusion with the local variable of the same name inside `fetchClientes`.
 
-| File | Change |
-|------|--------|
-| `ChatBetaFilterSidebar.tsx` | Remove the two Select dropdowns (Ativas/Inativas/Todas and Todas/Não Lidas). Remove related props. |
-| `ConversationListBeta.tsx` | Add two Select dropdowns at the top of the list (when `hideFilters` is true, use external values but render the dropdowns). |
-| `ChatBeta.tsx` | Update prop passing to reflect the filter relocation. |
-| `FichaServicoTab.tsx` | Add AlertDialog state. Wrap status change in confirmation when target is "Finalizado". |
+### Step 3: Pass correct unread count to ConversationCard
+
+Change line 1667 from:
+```
+unreadCount={operatorReadMap.get(cliente.telefone)?.nao_lidos || 0}
+```
+to:
+```
+unreadCount={cliente.marcado_nao_lido ? 1 : 0}
+```
+
+This ensures the badge renders whenever `marcado_nao_lido` is true (either from new client messages or manual marking).
+
+### Step 4: Ensure realtime refresh works
+
+The existing realtime channels for `mensagens` and `mensagem_leitura_operador` already call `fetchClientes()`. Verify they remain after removing the old `conversa_operador_leitura` channel.
+
+### Files Modified
+- `src/components/ConversationListBeta.tsx` — all changes in one file
 
