@@ -79,3 +79,6 @@ verify_jwt = false
 
 [functions.auto-finalizacao]
 verify_jwt = false
+
+[functions.check-unanswered-clients]
+verify_jwt = false
