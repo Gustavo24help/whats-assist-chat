@@ -260,7 +260,7 @@ export const ConversationCard = memo(({
             </div>
           )}
           {(marcadoNaoLido || unreadCount > 0) && (
-            <div className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-green-500 shrink-0">
+            <div className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-blue-600 shrink-0">
               <span className="text-white text-xs font-bold">{unreadCount > 0 ? unreadCount : '•'}</span>
             </div>
           )}
