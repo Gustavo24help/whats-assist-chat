@@ -40,6 +40,7 @@ interface Cliente {
   atendente_id?: string | null;
   tempoNoStatusMinutos?: number;
   statusAlertColor?: string | null;
+  ficha_id_real?: string | null;
 }
 
 interface ConversationListProps {
@@ -1060,7 +1061,8 @@ export const ConversationListBeta = ({
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
           atendente_id: cliente.atendente_id || null,
           tempoNoStatusMinutos: minutosNoStatus,
-          statusAlertColor: escalatedAlertColor
+          statusAlertColor: escalatedAlertColor,
+          ficha_id_real: fichaIdParaOrcamentos || null
         };
       });
 
@@ -1639,6 +1641,14 @@ export const ConversationListBeta = ({
                         if (selectionMode) {
                           toggleClienteSelection(cliente.telefone);
                         } else {
+                          // Limpar destaque de orçamento ao abrir conversa
+                          if (cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)) {
+                            setRecentOrcamentoFichas(prev => {
+                              const next = new Set(prev);
+                              next.delete(cliente.ficha_id_real!);
+                              return next;
+                            });
+                          }
                           onSelectCliente(cliente);
                         }
                       }}
@@ -1660,6 +1670,7 @@ export const ConversationListBeta = ({
                       pagamentoRealizado={cliente.pagamento_realizado}
                       statusAlertColor={cliente.statusAlertColor}
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
+                      hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
                     />
                   </div>
                 </div>
