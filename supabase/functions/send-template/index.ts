@@ -175,10 +175,14 @@ serve(async (req) => {
       console.log("✅ Mensagem do template salva no banco");
     }
 
-    // Atualizar última interação do cliente
+    // Atualizar última interação e atribuir operador (se userId fornecido)
+    const clienteUpdate: Record<string, unknown> = { ultima_interacao: new Date().toISOString() };
+    if (userId) {
+      clienteUpdate.atendente_id = userId;
+    }
     const { error: updateError } = await supabase
       .from('clientes')
-      .update({ ultima_interacao: new Date().toISOString() })
+      .update(clienteUpdate)
       .eq('telefone', whatsappNumber);
 
     if (updateError) {
