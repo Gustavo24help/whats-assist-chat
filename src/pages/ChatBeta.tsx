@@ -131,6 +131,7 @@ const ChatBeta = () => {
 
   const handleSelectCliente = async (cliente: any) => {
     setSelectedCliente(cliente);
+    setSelectedFichaId(null); // Reset ficha selection when changing client
     setUnreadMessages(prev => ({ ...prev, [cliente.telefone]: 0 }));
     if (cliente.bot_habilitado === false) {
       setBotDisabledAcknowledged(prev => new Set(prev).add(cliente.telefone));
