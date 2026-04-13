@@ -275,9 +275,10 @@ export const ConversationListBeta = ({
     }
 
     if (effectiveConversaStatusFilter === "ativas" && !ignorarFiltrosBuscaId) {
-      filtered = filtered.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha));
+      // Usa status_conversa (aberta/fechada) como fonte principal — reflete nova mensagem recebida
+      filtered = filtered.filter(c => c.status_conversa === "aberta");
     } else if (effectiveConversaStatusFilter === "inativas" && !ignorarFiltrosBuscaId) {
-      filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha);
+      filtered = filtered.filter(c => c.status_conversa === "fechada" || !c.status_conversa);
     }
 
     if (showServicosParaFinalizarOnly) {
@@ -435,8 +436,8 @@ export const ConversationListBeta = ({
       const status = c.status_ficha || 'Sem ficha';
       byStatus[status] = (byStatus[status] || 0) + 1;
     });
-    const ativasCount = baseClientes.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha)).length;
-    const inativasCount = baseClientes.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha).length;
+    const ativasCount = baseClientes.filter(c => c.status_conversa === "aberta").length;
+    const inativasCount = baseClientes.filter(c => c.status_conversa === "fechada" || !c.status_conversa).length;
     const botDisabledCount = baseClientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length;
     const filteredUnreadCount = baseClientes.filter(c => {
       const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
@@ -942,15 +943,24 @@ export const ConversationListBeta = ({
       }
 
       // ✅ Buscar última mensagem de CLIENTE por telefone para comparar com leitura
-      const ultimasMensagensCliente = await chunkedIn(
+      // Mensagens do cliente podem ter remetente='cliente' (legado) OU tipo_remetente='cliente' (webhook/Twilio)
+      // Buscamos ambos os casos para compatibilidade
+      const ultimasMensagensClienteLegado = await chunkedIn(
         'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
         (q) => q.eq('remetente', 'cliente'),
         'data_hora'
       );
+      const ultimasMensagensClienteTipo = await chunkedIn(
+        'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
+        (q) => q.eq('tipo_remetente', 'cliente'),
+        'data_hora'
+      );
 
       const ultimaMsgClienteMap = new Map<string, string>();
-      ultimasMensagensCliente?.forEach(msg => {
-        if (!ultimaMsgClienteMap.has(msg.cliente_id)) {
+      // Merge both result sets, keeping the most recent date per client
+      [...(ultimasMensagensClienteLegado || []), ...(ultimasMensagensClienteTipo || [])].forEach(msg => {
+        const existing = ultimaMsgClienteMap.get(msg.cliente_id);
+        if (!existing || new Date(msg.data_hora) > new Date(existing)) {
           ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
         }
       });
