@@ -428,13 +428,7 @@ export const ConversationListBeta = ({
       });
     }
 
-    // Ordenar: clientes sem orçamento no topo
-    filtered.sort((a, b) => {
-      const aSem = clientesSemOrcamento.has(a.telefone) ? 1 : 0;
-      const bSem = clientesSemOrcamento.has(b.telefone) ? 1 : 0;
-      if (aSem !== bSem) return bSem - aSem; // sem orçamento primeiro
-      return 0; // manter ordem original (ultima_interacao) para o resto
-    });
+    // Manter ordem original do banco (ultima_interacao DESC)
 
     return filtered;
   }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS, externalSelectedOperadorId]);
