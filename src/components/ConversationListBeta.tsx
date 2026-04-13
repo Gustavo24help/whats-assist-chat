@@ -61,6 +61,7 @@ interface ConversationListProps {
   externalFichaFilter?: "todas" | "com_ficha" | "sem_ficha";
   externalPagamentoFilter?: "todos" | "pago" | "nao_pago" | "pendente_finalizado";
   externalShowBotDisabledOnly?: boolean;
+  externalSelectedOperadorId?: string | null;
   // Callback to report counts
   onStatusCounts?: (counts: { byStatus: Record<string, number>; unreadCount: number; totalCount: number; ativasCount: number; inativasCount: number; allTags: string[]; tagsWithColors: Map<string, string>; botDisabledCount: number }) => void;
 }

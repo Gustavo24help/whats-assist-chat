@@ -204,16 +204,7 @@ export const ChatBetaFilterSidebar = ({
               <Users className="h-3.5 w-3.5" />
               Contatos
             </Button>
-            <NovaConversaDialog onContactCreated={(cliente) => onContactCreated?.(cliente)}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start gap-2 h-8 text-[11px]"
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                Nova Conversa
-              </Button>
-            </NovaConversaDialog>
+            <NovaConversaDialog onContactCreated={(cliente) => onContactCreated?.(cliente)} />
           </div>
 
           <div className="h-px bg-border/60" />
