@@ -330,9 +330,14 @@ serve(async (req) => {
         throw new Error(`Erro ao salvar mensagem: ${insertError.message}`);
       }
 
+      // Atualizar última interação e atribuir operador (se não for bot)
+      const clienteUpdate: Record<string, unknown> = { ultima_interacao: new Date().toISOString() };
+      if (remetente !== 'bot') {
+        clienteUpdate.atendente_id = userData.user.id;
+      }
       await supabase
         .from('clientes')
-        .update({ ultima_interacao: new Date().toISOString() })
+        .update(clienteUpdate)
         .eq('telefone', to);
     }
 

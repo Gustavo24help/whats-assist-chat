@@ -1637,19 +1637,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     const mensagemTexto = novaMsg;
 
     try {
-      // Auto-atribuir operador se ainda não atribuído
-      if (!atendenteAtual) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', user.id)
-            .single();
-          
-          await atribuirOperador(user.id, profile?.full_name || 'Você', undefined, true);
-        }
-      }
+      // Atribuição agora é feita server-side na edge function send-whatsapp
       
       console.log('📤 [enviarMensagem] Preparando envio:', {
         texto: mensagemTexto.substring(0, 50)
