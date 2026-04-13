@@ -148,7 +148,7 @@ export const ChatBetaFilterSidebar = ({
   }
 
   return (
-    <div className="w-[200px] border-r border-border/60 bg-card flex flex-col shrink-0">
+    <div className="w-[240px] border-r border-border/60 bg-card flex flex-col shrink-0">
       {/* Header */}
       <div className="h-10 border-b border-border/40 flex items-center justify-between px-2.5 shrink-0">
         <span className="text-xs font-semibold text-foreground">Filtros</span>
