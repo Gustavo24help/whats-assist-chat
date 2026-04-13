@@ -1019,9 +1019,12 @@ export const ConversationListBeta = ({
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
         if (lastClientMsg) {
-          if (!lastRead || new Date(lastClientMsg) > new Date(lastRead)) {
-            // Only mark unread if bot was already disabled at some point (same logic as trigger)
-            perOperatorUnread = cliente.bot_ja_desligado_alguma_vez === true;
+          if (!lastRead) {
+            // No read record = never read. Only mark unread from "now" onward (no legacy).
+            // We'll create a read record on first load so future messages appear as unread.
+            perOperatorUnread = false;
+          } else if (new Date(lastClientMsg) > new Date(lastRead)) {
+            perOperatorUnread = true;
           }
         }
 
