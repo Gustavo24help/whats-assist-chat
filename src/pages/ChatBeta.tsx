@@ -1,18 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ConversationListBeta as ConversationList } from "@/components/ConversationListBeta";
 import { ContactsTab } from "@/components/ContactsTab";
 import { ChatWindowBeta as ChatWindow } from "@/components/ChatWindowBeta";
 import { FichaPanelBeta as FichaPanel } from "@/components/FichaPanelBeta";
+import { ChatBetaFilterSidebar, type StatusCounts } from "@/components/chat-beta/ChatBetaFilterSidebar";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, Settings, Home, MessageCircle, Users, ChevronLeft } from "lucide-react";
+import { LogOut, Settings, Home, MessageCircle, Users, PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { PageLayout } from "@/components/PageLayout";
-import { OrcamentosSemFichaNotification } from "@/components/OrcamentosSemFichaNotification";
 import { BotSemFichaNotification } from "@/components/BotSemFichaNotification";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +27,47 @@ const ChatBeta = () => {
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [botDisabledAcknowledged, setBotDisabledAcknowledged] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"conversas" | "contatos">("conversas");
+
+  // ═══ Collapsible columns ═══
+  const [filterSidebarOpen, setFilterSidebarOpen] = useState(true);
+  const [conversationListOpen, setConversationListOpen] = useState(true);
+
+  // ═══ Filter state (lifted from ConversationListBeta for sidebar) ═══
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [conversaStatusFilter, setConversaStatusFilter] = useState<"ativas" | "inativas" | "todas">("ativas");
+  const [unreadFilter, setUnreadFilter] = useState<"todas" | "lidas" | "nao_lidas">("todas");
+  const [ticketView, setTicketView] = useState<"meus" | "todos">("todos");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [conversaFilter, setConversaFilter] = useState<"todas" | "aberta" | "fechada">("todas");
+  const [botFilter, setBotFilter] = useState<"todos" | "ativo" | "desativado">("todos");
+  const [fichaFilter, setFichaFilter] = useState<"todas" | "com_ficha" | "sem_ficha">("todas");
+  const [pagamentoFilter, setPagamentoFilter] = useState<"todos" | "pago" | "nao_pago" | "pendente_finalizado">("todos");
+  const [showBotDisabledOnly, setShowBotDisabledOnly] = useState(false);
+
+  // ═══ Status counts from ConversationListBeta ═══
+  const [statusCounts, setStatusCounts] = useState<StatusCounts>({
+    byStatus: {},
+    unreadCount: 0,
+    totalCount: 0,
+    ativasCount: 0,
+    inativasCount: 0,
+  });
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
+  const [botDisabledCount, setBotDisabledCount] = useState(0);
+
+  const handleStatusCounts = useCallback((counts: any) => {
+    setStatusCounts({
+      byStatus: counts.byStatus,
+      unreadCount: counts.unreadCount,
+      totalCount: counts.totalCount,
+      ativasCount: counts.ativasCount,
+      inativasCount: counts.inativasCount,
+    });
+    setAllTags(counts.allTags || []);
+    setTagsWithColors(counts.tagsWithColors || new Map());
+    setBotDisabledCount(counts.botDisabledCount || 0);
+  }, []);
 
   useEffect(() => {
     const telefone = searchParams.get("telefone");
@@ -102,6 +143,12 @@ const ChatBeta = () => {
     }
   };
 
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
+
   return (
     <PageLayout fullHeight>
       <NotificationSystem
@@ -109,7 +156,7 @@ const ChatBeta = () => {
         currentClienteId={selectedCliente?.telefone || null}
       />
 
-      {/* ═══ HEADER — estilo Intercom ═══ */}
+      {/* ═══ HEADER ═══ */}
       <header className="h-11 border-b border-border/60 bg-card flex items-center justify-between px-3 shrink-0">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="h-7 w-7">
@@ -121,7 +168,6 @@ const ChatBeta = () => {
           </span>
         </div>
 
-        {/* Centro: info do cliente selecionado */}
         <div className="hidden md:block text-center">
           {selectedCliente ? (
             <span className="text-xs font-medium text-foreground">
@@ -136,7 +182,6 @@ const ChatBeta = () => {
         <div className="flex items-center gap-1">
           <BotSemFichaNotification onSelectCliente={handleSelectCliente} />
           <OrcamentoNotification onSelectFicha={handleOrcamentoNotification} />
-          <OrcamentosSemFichaNotification />
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate("/settings")}>
             <Settings className="h-3.5 w-3.5" />
           </Button>
@@ -146,47 +191,99 @@ const ChatBeta = () => {
         </div>
       </header>
 
-      {/* ═══ MAIN 3-COLUMN LAYOUT — Intercom style ═══ */}
+      {/* ═══ MAIN 4-COLUMN LAYOUT ═══ */}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ─── LEFT: Conversation List ─── */}
-        <div className={cn(
-          "border-r border-border/60 bg-card shrink-0 flex flex-col w-full md:w-[280px] lg:w-[300px]",
-          selectedCliente && "max-md:hidden"
-        )}>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "conversas" | "contatos")} className="h-full flex flex-col">
-            <div className="border-b border-border/40 px-2 pt-1 pb-0.5">
-              <TabsList className="w-full grid grid-cols-2 h-7 bg-muted/50">
-                <TabsTrigger value="conversas" className="gap-1 text-[11px] h-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                  <MessageCircle className="h-3 w-3" />
-                  Conversas
-                </TabsTrigger>
-                <TabsTrigger value="contatos" className="gap-1 text-[11px] h-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                  <Users className="h-3 w-3" />
-                  Contatos
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="conversas" className="flex-1 m-0 overflow-hidden">
-              <ConversationList
-                selectedClienteTelefone={selectedCliente?.telefone || null}
-                onSelectCliente={handleSelectCliente}
-                unreadMessages={unreadMessages}
-                isCollapsed={false}
-                onToggleCollapse={() => {}}
-                botDisabledAcknowledged={botDisabledAcknowledged}
-              />
-            </TabsContent>
-            <TabsContent value="contatos" className="flex-1 m-0 overflow-hidden">
-              <ContactsTab
-                selectedClienteTelefone={selectedCliente?.telefone || null}
-                onSelectCliente={handleSelectCliente}
-              />
-            </TabsContent>
-          </Tabs>
-        </div>
+        {/* ─── COL 1: Filter Sidebar (collapsible) ─── */}
+        <ChatBetaFilterSidebar
+          isCollapsed={!filterSidebarOpen}
+          onToggleCollapse={() => setFilterSidebarOpen(!filterSidebarOpen)}
+          counts={statusCounts}
+          conversaStatusFilter={conversaStatusFilter}
+          onConversaStatusFilterChange={setConversaStatusFilter}
+          unreadFilter={unreadFilter}
+          onUnreadFilterChange={setUnreadFilter}
+          ticketView={ticketView}
+          onTicketViewChange={setTicketView}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          conversaFilter={conversaFilter}
+          onConversaFilterChange={setConversaFilter}
+          botFilter={botFilter}
+          onBotFilterChange={setBotFilter}
+          fichaFilter={fichaFilter}
+          onFichaFilterChange={setFichaFilter}
+          pagamentoFilter={pagamentoFilter}
+          onPagamentoFilterChange={setPagamentoFilter}
+          allTags={allTags}
+          selectedTags={selectedTags}
+          onToggleTag={toggleTag}
+          onClearTags={() => setSelectedTags([])}
+          tagsWithColors={tagsWithColors}
+          botDisabledCount={botDisabledCount}
+          showBotDisabledOnly={showBotDisabledOnly}
+          onToggleBotDisabled={() => setShowBotDisabledOnly(!showBotDisabledOnly)}
+        />
 
-        {/* ─── CENTER: Chat Area ─── */}
+        {/* ─── COL 2: Conversation List (collapsible) ─── */}
+        {conversationListOpen ? (
+          <div className={cn(
+            "border-r border-border/60 bg-card shrink-0 flex flex-col w-full md:w-[280px] lg:w-[300px]",
+            selectedCliente && "max-md:hidden"
+          )}>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "conversas" | "contatos")} className="h-full flex flex-col">
+              <div className="border-b border-border/40 px-2 pt-1 pb-0.5">
+                <TabsList className="w-full grid grid-cols-2 h-7 bg-muted/50">
+                  <TabsTrigger value="conversas" className="gap-1 text-[11px] h-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                    <MessageCircle className="h-3 w-3" />
+                    Conversas
+                  </TabsTrigger>
+                  <TabsTrigger value="contatos" className="gap-1 text-[11px] h-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                    <Users className="h-3 w-3" />
+                    Contatos
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="conversas" className="flex-1 m-0 overflow-hidden">
+                <ConversationList
+                  selectedClienteTelefone={selectedCliente?.telefone || null}
+                  onSelectCliente={handleSelectCliente}
+                  unreadMessages={unreadMessages}
+                  isCollapsed={false}
+                  onToggleCollapse={() => setConversationListOpen(false)}
+                  botDisabledAcknowledged={botDisabledAcknowledged}
+                  hideFilters
+                  externalStatusFilter={statusFilter}
+                  externalConversaStatusFilter={conversaStatusFilter}
+                  externalUnreadFilter={unreadFilter}
+                  externalSelectedTags={selectedTags}
+                  externalTicketView={ticketView}
+                  externalConversaFilter={conversaFilter}
+                  externalBotFilter={botFilter}
+                  externalFichaFilter={fichaFilter}
+                  externalPagamentoFilter={pagamentoFilter}
+                  externalShowBotDisabledOnly={showBotDisabledOnly}
+                  onStatusCounts={handleStatusCounts}
+                />
+              </TabsContent>
+              <TabsContent value="contatos" className="flex-1 m-0 overflow-hidden">
+                <ContactsTab
+                  selectedClienteTelefone={selectedCliente?.telefone || null}
+                  onSelectCliente={handleSelectCliente}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        ) : (
+          <div className="border-r border-border/60 bg-card shrink-0 flex flex-col items-center py-2 w-10">
+            <Button variant="ghost" size="icon" onClick={() => setConversationListOpen(true)} className="h-7 w-7">
+              <PanelLeftOpen className="h-3.5 w-3.5" />
+            </Button>
+            <span className="text-[10px] text-muted-foreground mt-2 [writing-mode:vertical-lr]">Conversas</span>
+          </div>
+        )}
+
+        {/* ─── COL 3: Chat Area ─── */}
         {selectedCliente ? (
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
             <ChatWindow
@@ -212,16 +309,25 @@ const ChatBeta = () => {
           </div>
         )}
 
-        {/* ─── RIGHT: Info Panel (Intercom-style inline) ─── */}
-        {selectedCliente && infoPanelOpen && (
-          <div className="hidden lg:flex w-[380px] xl:w-[420px] border-l border-border/60 bg-card shrink-0 flex-col overflow-hidden">
-            <FichaPanel
-              key={selectedCliente.telefone}
-              clienteTelefone={selectedCliente.telefone}
-              clienteNome={selectedCliente.nome}
-              onClose={() => setInfoPanelOpen(false)}
-            />
-          </div>
+        {/* ─── COL 4: Info Panel (collapsible) ─── */}
+        {selectedCliente && (
+          infoPanelOpen ? (
+            <div className="hidden lg:flex w-[380px] xl:w-[420px] border-l border-border/60 bg-card shrink-0 flex-col overflow-hidden">
+              <FichaPanel
+                key={selectedCliente.telefone}
+                clienteTelefone={selectedCliente.telefone}
+                clienteNome={selectedCliente.nome}
+                onClose={() => setInfoPanelOpen(false)}
+              />
+            </div>
+          ) : (
+            <div className="hidden lg:flex border-l border-border/60 bg-card shrink-0 flex-col items-center py-2 w-10">
+              <Button variant="ghost" size="icon" onClick={() => setInfoPanelOpen(true)} className="h-7 w-7">
+                <PanelRightOpen className="h-3.5 w-3.5" />
+              </Button>
+              <span className="text-[10px] text-muted-foreground mt-2 [writing-mode:vertical-lr]">Info</span>
+            </div>
+          )
         )}
       </div>
     </PageLayout>
