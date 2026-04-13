@@ -2635,6 +2635,24 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           onAjustado={() => fetchFicha()}
         />
       )}
+
+      {/* Confirmação de Finalização */}
+      <AlertDialog open={showFinalizarConfirm} onOpenChange={setShowFinalizarConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finalizar Ficha de Serviço</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você quer Finalizar essa Ficha de Serviço? Se você prosseguir será gerado o pagamento de forma automática.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não Prosseguir</AlertDialogCancel>
+            <AlertDialogAction onClick={() => updateFicha({ status: "Finalizado" })}>
+              Prosseguir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
