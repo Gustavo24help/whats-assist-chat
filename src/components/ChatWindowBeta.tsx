@@ -1624,7 +1624,7 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
     }
   };
 
-  const enviarMensagem = async () => {
+  const enviarMensagemReal = async () => {
     // Se tem arquivo pendente, enviar o arquivo
     if (pendingFile) {
       await uploadAndSendFile();

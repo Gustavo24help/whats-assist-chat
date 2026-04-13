@@ -1620,7 +1620,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
-  const enviarMensagem = async () => {
+  const enviarMensagemReal = async () => {
     // Se tem arquivo pendente, enviar o arquivo
     if (pendingFile) {
       await uploadAndSendFile();
