@@ -40,6 +40,7 @@ interface Cliente {
   atendente_id?: string | null;
   tempoNoStatusMinutos?: number;
   statusAlertColor?: string | null;
+  ficha_id_real?: string | null;
 }
 
 interface ConversationListProps {
@@ -92,6 +93,9 @@ export const ConversationList = ({
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
   const isFirstLoadRef = useRef(true);
+  
+  // 🆕 Rastrear orçamentos recém-chegados
+  const [recentOrcamentoFichas, setRecentOrcamentoFichas] = useState<Set<string>>(new Set());
   
   // Toggle "Meus Tickets" / "Todos" - padrão em "todos" para evitar perda de sincronização visual
   const [ticketView, setTicketView] = useState<"meus" | "todos">("todos");
@@ -941,7 +945,8 @@ export const ConversationList = ({
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
           atendente_id: cliente.atendente_id || null,
           tempoNoStatusMinutos: minutosNoStatus,
-          statusAlertColor: escalatedAlertColor
+          statusAlertColor: escalatedAlertColor,
+          ficha_id_real: fichaIdParaOrcamentos || null
         };
       });
 
