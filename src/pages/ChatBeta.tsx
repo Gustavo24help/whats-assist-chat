@@ -23,6 +23,7 @@ const ChatBeta = () => {
   const { openRoute } = useOpenInNewTab();
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [infoPanelOpen, setInfoPanelOpen] = useState(true);
+  const [selectedFichaId, setSelectedFichaId] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [botDisabledAcknowledged, setBotDisabledAcknowledged] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"conversas" | "contatos">("conversas");
@@ -307,6 +308,7 @@ const ChatBeta = () => {
               onBack={handleBackToEmpty}
               fichaOpen={infoPanelOpen}
               onToggleFicha={() => setInfoPanelOpen(!infoPanelOpen)}
+              fichaFilterId={selectedFichaId}
             />
           </div>
         ) : (
@@ -330,6 +332,7 @@ const ChatBeta = () => {
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
                 onClose={() => setInfoPanelOpen(false)}
+                onFichaChange={setSelectedFichaId}
               />
             </div>
           ) : (

@@ -113,7 +113,7 @@ export const ConversationCard = memo(({
       className={cn(
         "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
-        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && "bg-emerald-50 dark:bg-emerald-950/30 border-l-4 border-l-green-500",
+        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && "bg-blue-100 dark:bg-blue-950/40 border-l-4 border-l-blue-600 dark:border-l-blue-400",
         statusAlertColor && !isSelected && "border-l-4"
       )}
       style={alertBackgroundStyle}
