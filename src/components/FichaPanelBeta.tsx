@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus, ClipboardCheck, MapPin, Phone, User, Copy, Lightbulb, Wrench, Star, UserCheck } from "lucide-react";
+import { X, FileText, DollarSign, Plus, ClipboardCheck, MapPin, Phone, User, Copy, Lightbulb, Wrench, Star, UserCheck, History } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
@@ -10,6 +10,9 @@ import { AcompanhamentoTab } from "./AcompanhamentoTab";
 import { CriarFichaDialog } from "./CriarFichaDialog";
 import { useClienteSignalsBeta } from "@/hooks/useClienteSignalsBeta";
 import { Badge } from "@/components/ui/badge";
+import { AbrirConversaDialog } from "./AbrirConversaDialog";
+import { AvaliacaoPrestadorFlowPanel } from "./AvaliacaoPrestadorFlowPanel";
+import { NPSFlowPanel } from "./NPSFlowPanel";
 import { toast } from "sonner";
 
 interface Ficha {
@@ -43,7 +46,7 @@ interface FichaDetalhes {
 interface FichaPanelProps {
   clienteTelefone: string;
   clienteNome: string;
-  onClose: () => void;
+  onClose?: () => void;
   onFichaChange?: (fichaId: string | null) => void;
 }
 
@@ -164,17 +167,27 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
     }
   };
 
+  const handleCopyGeneratedMessage = async (message: string) => {
+    try {
+      await navigator.clipboard.writeText(message);
+      toast.success("Mensagem copiada!");
+    } catch {
+      toast.error("Erro ao copiar mensagem");
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
-      {/* Header */}
       <div className="h-10 flex items-center justify-between px-3 border-b bg-card/50 backdrop-blur-sm shrink-0">
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-semibold truncate">{clienteNome}</h2>
           <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0 h-7 w-7 hover:scale-[0.98] active:scale-95 transition-transform">
-          <X className="h-3.5 w-3.5" />
-        </Button>
+        {onClose ? (
+          <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0 h-7 w-7 hover:scale-[0.98] active:scale-95 transition-transform">
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -209,7 +222,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
           </div>
         ) : (
           <div className="flex flex-col">
-            <div className="p-2.5 space-y-1.5 border-b shrink-0">
+            <div className="p-2.5 space-y-2 border-b shrink-0">
               <div className="flex items-center gap-1.5">
                 <Select
                   value={fichaAtual || ''}
@@ -237,6 +250,26 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
                   className="shrink-0 h-8 w-8 hover:scale-[0.98] active:scale-95 transition-transform"
                 >
                   <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5">
+                <AbrirConversaDialog clienteTelefone={clienteTelefone} clienteNome={clienteNome} />
+                <AvaliacaoPrestadorFlowPanel
+                  clienteTelefone={clienteTelefone}
+                  clienteNome={clienteNome}
+                  fichaId={fichaAtual || undefined}
+                  onCopyMessage={handleCopyGeneratedMessage}
+                />
+                <NPSFlowPanel
+                  clienteTelefone={clienteTelefone}
+                  clienteNome={clienteNome}
+                  fichaId={fichaAtual || undefined}
+                  onCopyMessage={handleCopyGeneratedMessage}
+                />
+                <Button variant="outline" size="sm" className="h-9 justify-start text-xs" onClick={() => window.dispatchEvent(new CustomEvent('chat-beta-open-assumir'))}>
+                  <UserCheck className="h-3.5 w-3.5 mr-1.5" />
+                  Assumido
                 </Button>
               </div>
             </div>
@@ -395,35 +428,9 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
                     </div>
                   )}
 
-                  {/* Action Buttons */}
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Ações Rápidas
-                    </p>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <Button variant="outline" size="sm" className="h-8 text-[10px] justify-start">
-                        <Wrench className="h-3 w-3 mr-1" />
-                        Av. Prestador
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-8 text-[10px] justify-start">
-                        <Star className="h-3 w-3 mr-1" />
-                        Satisfação
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-8 text-[10px] justify-start">
-                        <UserCheck className="h-3 w-3 mr-1" />
-                        Assumido
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-8 text-[10px] justify-start">
-                        <FileText className="h-3 w-3 mr-1" />
-                        Abrir Ficha
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Tip */}
                   <div className="bg-primary/5 border border-primary/20 rounded-lg p-2.5">
                     <p className="text-[10px] text-muted-foreground">
-                      💡 Use as ações acima para manter o cliente informado e finalizar o atendimento com sucesso.
+                      💡 As ações principais do atendimento ficam fixas no topo desta coluna para manter o chat mais limpo.
                     </p>
                   </div>
                 </div>
