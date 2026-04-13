@@ -2574,9 +2574,13 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
               />
             )}
 
-            {mensagens.map((msg, index) => {
-          const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
-          const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
+            {(() => {
+              const filteredMsgs = (!showAllMessages && fichaFilterId) 
+                ? mensagens.filter(m => m.ficha_id === fichaFilterId || !m.ficha_id)
+                : mensagens;
+              return filteredMsgs.map((msg, index) => {
+              const previousMsg = index > 0 ? filteredMsgs[index - 1] : undefined;
+              const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
           
           return (
             <div 
