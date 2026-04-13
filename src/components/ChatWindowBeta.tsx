@@ -259,12 +259,16 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const canReassign = !atendenteAtual || isSupervisor || isMyTicket;
   
   // 🔐 Controle de permissão de ESCRITA
-  // - Meu ticket: pode escrever
+  // - Meu ticket: pode escrever diretamente
   // - Supervisor/Admin: pode escrever em qualquer ticket
-  // - Ticket sem dono E não é supervisor: NÃO pode escrever (precisa assumir primeiro)
-  // - Ticket de outro: NÃO pode escrever
-  const canWrite = isMyTicket || isSupervisor;
+  // - Ticket sem dono: precisa assumir primeiro
+  // - Ticket de outro: pode escrever, mas com confirmação de takeover
+  const isOtherOperatorTicket = atendenteAtual && !isMyTicket && !isSupervisor;
+  const canWrite = isMyTicket || isSupervisor || isOtherOperatorTicket;
   const needsToAssume = !atendenteAtual && !isSupervisor;
+  
+  // Estado para popup de confirmação de takeover ao enviar
+  const [takeoverConfirmOpen, setTakeoverConfirmOpen] = useState(false);
 
   // Handlers para editar/apagar mensagens
   const handleEditMessage = async (messageId: string, newText: string) => {
@@ -1620,7 +1624,7 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
     }
   };
 
-  const enviarMensagem = async () => {
+  const enviarMensagemReal = async () => {
     // Se tem arquivo pendente, enviar o arquivo
     if (pendingFile) {
       await uploadAndSendFile();
@@ -1731,6 +1735,32 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
     } finally {
       setIsSending(false);
     }
+  };
+
+  // Wrapper que intercepta envio quando conversa é de outro operador
+  const enviarMensagem = () => {
+    if (isOtherOperatorTicket) {
+      setTakeoverConfirmOpen(true);
+      return;
+    }
+    enviarMensagemReal();
+  };
+
+  // Handler quando confirma assumir conversa de outro operador
+  const handleConfirmTakeoverAndSend = async () => {
+    setTakeoverConfirmOpen(false);
+    // Assumir conversa para o operador atual
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', currentUser.id)
+        .single();
+      await atribuirOperador(currentUser.id, profile?.full_name || 'Você', undefined, true);
+    }
+    // Enviar a mensagem
+    await enviarMensagemReal();
   };
 
   // Função para verificar estado atual e abrir dialog
@@ -2722,28 +2752,14 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
           {/* Bloqueio de escrita para conversas não atribuídas ou de outros usuários */}
           {!canWrite ? (
             <div className="p-4 bg-muted/50 rounded-lg text-center">
-              {needsToAssume ? (
-                <>
-                  <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Esta conversa não está atribuída a você
-                  </p>
-                  <Button onClick={assumirParaMim} size="sm">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Assumir para mim
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Atribuído a {atendenteAtual?.nome}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Você pode ler, mas não pode responder
-                  </p>
-                </>
-              )}
+              <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mb-3">
+                Esta conversa não está atribuída a você
+              </p>
+              <Button onClick={assumirParaMim} size="sm">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Assumir para mim
+              </Button>
             </div>
           ) : (
             <>
@@ -2890,6 +2906,22 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
           setPendingAtribuicao(null);
         }}
       />
+
+      {/* Dialog de confirmação de takeover ao enviar mensagem */}
+      <AlertDialog open={takeoverConfirmOpen} onOpenChange={setTakeoverConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conversa delegada</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa conversa está delegada para <strong>{atendenteAtual?.nome}</strong>. Você deseja assumir essa conversa? A mensagem só será enviada se você optar por assumir a conversa.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTakeoverConfirmOpen(false)}>Não</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmTakeoverAndSend}>Sim, vou assumir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

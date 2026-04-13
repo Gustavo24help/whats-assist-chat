@@ -462,16 +462,25 @@ export const ConversationListBeta = ({
   // ═══ Report status counts to parent ═══
   useEffect(() => {
     if (!onStatusCounts) return;
+    // Filtrar por operador se selecionado, para que os contadores reflitam o filtro
+    let baseClientes = clientes;
+    if (externalSelectedOperadorId) {
+      baseClientes = clientes.filter(c => c.atendente_id === externalSelectedOperadorId);
+    }
     const byStatus: Record<string, number> = {};
-    clientes.forEach(c => {
+    baseClientes.forEach(c => {
       const status = c.status_ficha || 'Sem ficha';
       byStatus[status] = (byStatus[status] || 0) + 1;
     });
-    const ativasCount = clientes.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha)).length;
-    const inativasCount = clientes.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha).length;
-    const botDisabledCount = clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length;
-    onStatusCounts({ byStatus, unreadCount, totalCount: clientes.length, ativasCount, inativasCount, allTags, tagsWithColors, botDisabledCount });
-  }, [clientes, unreadCount, allTags, tagsWithColors]);
+    const ativasCount = baseClientes.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha)).length;
+    const inativasCount = baseClientes.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha).length;
+    const botDisabledCount = baseClientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length;
+    const filteredUnreadCount = baseClientes.filter(c => {
+      const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
+      return hasUnread;
+    }).length;
+    onStatusCounts({ byStatus, unreadCount: filteredUnreadCount, totalCount: baseClientes.length, ativasCount, inativasCount, allTags, tagsWithColors, botDisabledCount });
+  }, [clientes, unreadCount, allTags, tagsWithColors, externalSelectedOperadorId]);
 
   // Auto-limpar filtro de bot desativado quando não houver mais conversas com aviso
   useEffect(() => {
