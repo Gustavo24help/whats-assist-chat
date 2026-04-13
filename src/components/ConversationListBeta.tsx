@@ -1103,6 +1103,13 @@ export const ConversationListBeta = ({
     }
   };
 
+  // Contagem de atendimentos aguardando resposta (bot desabilitado + não lido pelo operador)
+  const aguardandoRespostaCount = useMemo(() => {
+    return clientes.filter(c => 
+      c.bot_habilitado === false && c.marcado_nao_lido === true
+    ).length;
+  }, [clientes]);
+
 
   const fetchStatusAlertRules = async (): Promise<StatusAlertRule[]> => {
     const { data } = await supabase
