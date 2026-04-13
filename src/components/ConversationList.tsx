@@ -174,6 +174,21 @@ export const ConversationList = ({
       )
       .subscribe();
 
+    // 🆕 Canal realtime para novos orçamentos
+    const orcamentosChannel = supabase
+      .channel('orcamentos-new-classic')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orcamentos' },
+        async (payload) => {
+          const fichaId = (payload.new as any)?.ficha_nome;
+          if (fichaId) {
+            setRecentOrcamentoFichas(prev => new Set(prev).add(fichaId));
+          }
+        }
+      )
+      .subscribe();
+
     // Fallback para ambientes onde websocket/realtime é bloqueado (ex.: firewall/rede corporativa)
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
@@ -185,6 +200,7 @@ export const ConversationList = ({
       supabase.removeChannel(channel);
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(fichasChannel);
+      supabase.removeChannel(orcamentosChannel);
       window.clearInterval(pollingInterval);
     };
   }, []);
