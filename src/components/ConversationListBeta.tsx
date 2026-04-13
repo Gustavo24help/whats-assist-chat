@@ -880,7 +880,7 @@ export const ConversationListBeta = ({
       };
 
       // ✅ Query 2: Buscar últimas mensagens
-      const ultimasMensagens = await chunkedIn<{ cliente_id: string; data_hora: string }>(
+      const ultimasMensagens = await chunkedIn(
         'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
         (q) => q.neq('remetente', 'whatsapp:+554138911555'),
         'data_hora'
@@ -898,7 +898,7 @@ export const ConversationListBeta = ({
         .filter(c => c.ficha_ativa_id)
         .map(c => c.ficha_ativa_id);
       
-      const fichasAtivas = await chunkedIn<any>(
+      const fichasAtivas = await chunkedIn(
         'fichas_de_servico', 'id, nome_ficha, status, pagamento_link, pagamento_realizado, created_at, updated_at',
         'id', fichasAtivasIds
       );
@@ -911,7 +911,7 @@ export const ConversationListBeta = ({
         .filter(c => !c.ficha_ativa_id)
         .map(c => c.telefone);
       
-      const ultimasFichas = await chunkedIn<any>(
+      const ultimasFichas = await chunkedIn(
         'fichas_de_servico', 'id, telefone_cliente, nome_ficha, status, created_at, updated_at, pagamento_link, pagamento_realizado',
         'telefone_cliente', telefonesSeficha,
         undefined,
@@ -943,7 +943,7 @@ export const ConversationListBeta = ({
         ...Array.from(ultimasFichasMap.values()).map((f: any) => f.id).filter(Boolean)
       ].filter(Boolean);
 
-      const orcamentosData = await chunkedIn<{ ficha_nome: string }>(
+      const orcamentosData = await chunkedIn(
         'orcamentos', 'ficha_nome', 'ficha_nome', todasFichasIds
       );
 
@@ -956,7 +956,7 @@ export const ConversationListBeta = ({
       const statusHistoricoAtivoMap = new Map();
       const statusHistoricoFallbackMap = new Map();
       if (todasFichasIds.length > 0) {
-        const statusHistoricoData = await chunkedIn<any>(
+        const statusHistoricoData = await chunkedIn(
           'ficha_status_historico', 'ficha_id, data_inicio, status_novo, data_fim',
           'ficha_id', todasFichasIds,
           undefined,
@@ -986,7 +986,7 @@ export const ConversationListBeta = ({
       }
 
       // ✅ Buscar última mensagem de CLIENTE por telefone para comparar com leitura
-      const ultimasMensagensCliente = await chunkedIn<{ cliente_id: string; data_hora: string }>(
+      const ultimasMensagensCliente = await chunkedIn(
         'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
         (q) => q.eq('remetente', 'cliente'),
         'data_hora'
