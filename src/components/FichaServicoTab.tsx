@@ -159,6 +159,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [linkDialogData, setLinkDialogData] = useState<{ url: string; nome: string; valor: number } | null>(null);
   const [envioAutomatico, setEnvioAutomatico] = useState(true);
   const [editarManualmente, setEditarManualmente] = useState(false);
+  const [showFinalizarConfirm, setShowFinalizarConfirm] = useState(false);
 
   const formatMoeda = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -1106,7 +1107,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           <Label htmlFor="status" className="text-xs font-medium text-gray-600">Status do Serviço</Label>
           <Select
             value={ficha?.status || "Ficha Criada"}
-            onValueChange={(value) => updateFicha({ status: value })}
+            onValueChange={(value) => {
+              if (value === "Finalizado") {
+                setShowFinalizarConfirm(true);
+              } else {
+                updateFicha({ status: value });
+              }
+            }}
           >
             <SelectTrigger id="status" className="mt-1.5 h-9 text-sm focus:ring-2 focus:ring-primary/20">
               <SelectValue placeholder="Selecione o status" />
