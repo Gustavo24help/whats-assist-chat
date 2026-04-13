@@ -1500,6 +1500,13 @@ export const ConversationList = ({
                         if (selectionMode) {
                           toggleClienteSelection(cliente.telefone);
                         } else {
+                          if (cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)) {
+                            setRecentOrcamentoFichas(prev => {
+                              const next = new Set(prev);
+                              next.delete(cliente.ficha_id_real!);
+                              return next;
+                            });
+                          }
                           onSelectCliente(cliente);
                         }
                       }}
@@ -1521,6 +1528,7 @@ export const ConversationList = ({
                       pagamentoRealizado={cliente.pagamento_realizado}
                       statusAlertColor={cliente.statusAlertColor}
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
+                      hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
                     />
                   </div>
                 </div>
