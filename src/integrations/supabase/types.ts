@@ -1384,18 +1384,21 @@ export type Database = {
           cliente_telefone: string
           id: string
           last_read_at: string | null
+          manual_unread_at: string | null
           user_id: string
         }
         Insert: {
           cliente_telefone: string
           id?: string
           last_read_at?: string | null
+          manual_unread_at?: string | null
           user_id: string
         }
         Update: {
           cliente_telefone?: string
           id?: string
           last_read_at?: string | null
+          manual_unread_at?: string | null
           user_id?: string
         }
         Relationships: []
