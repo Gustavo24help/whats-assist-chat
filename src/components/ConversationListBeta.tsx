@@ -828,17 +828,30 @@ export const ConversationListBeta = ({
     
     setArchivedCount(count || 0);
 
-    // ✅ Query 1: Buscar clientes baseado no estado atual (com atendente)
-    const { data: clientesData, error } = await supabase
-      .from('clientes')
-      .select(`
-        *,
-        atendente:profiles!atendente_id (
-          full_name
-        )
-      `)
-      .eq('arquivado', showArchived)
-      .order('ultima_interacao', { ascending: false });
+    // ✅ Query 1: Buscar TODOS os clientes com paginação para ultrapassar o limite de 1000
+    let allClientesData: any[] = [];
+    let from = 0;
+    const PAGE_SIZE = 1000;
+    while (true) {
+      const { data: page, error } = await supabase
+        .from('clientes')
+        .select(`
+          *,
+          atendente:profiles!atendente_id (
+            full_name
+          )
+        `)
+        .eq('arquivado', showArchived)
+        .order('ultima_interacao', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      
+      if (error || !page) break;
+      allClientesData = allClientesData.concat(page);
+      if (page.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+
+    const clientesData = allClientesData;
 
     if (!error && clientesData) {
       const telefones = clientesData.map(c => c.telefone);
