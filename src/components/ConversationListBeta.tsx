@@ -49,6 +49,20 @@ interface ConversationListProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   botDisabledAcknowledged?: Set<string>;
+  hideFilters?: boolean;
+  // External filter overrides
+  externalStatusFilter?: string;
+  externalConversaStatusFilter?: "ativas" | "inativas" | "todas";
+  externalUnreadFilter?: "todas" | "lidas" | "nao_lidas";
+  externalSelectedTags?: string[];
+  externalTicketView?: "meus" | "todos";
+  externalConversaFilter?: "todas" | "aberta" | "fechada";
+  externalBotFilter?: "todos" | "ativo" | "desativado";
+  externalFichaFilter?: "todas" | "com_ficha" | "sem_ficha";
+  externalPagamentoFilter?: "todos" | "pago" | "nao_pago" | "pendente_finalizado";
+  externalShowBotDisabledOnly?: boolean;
+  // Callback to report counts
+  onStatusCounts?: (counts: { byStatus: Record<string, number>; unreadCount: number; totalCount: number; ativasCount: number; inativasCount: number; allTags: string[]; tagsWithColors: Map<string, string>; botDisabledCount: number }) => void;
 }
 
 export const ConversationListBeta = ({ 
@@ -57,7 +71,19 @@ export const ConversationListBeta = ({
   unreadMessages,
   isCollapsed = false,
   onToggleCollapse,
-  botDisabledAcknowledged = new Set()
+  botDisabledAcknowledged = new Set(),
+  hideFilters = false,
+  externalStatusFilter,
+  externalConversaStatusFilter,
+  externalUnreadFilter,
+  externalSelectedTags,
+  externalTicketView,
+  externalConversaFilter,
+  externalBotFilter,
+  externalFichaFilter,
+  externalPagamentoFilter,
+  externalShowBotDisabledOnly,
+  onStatusCounts,
 }: ConversationListProps) => {
   const { user, isSupervisor } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
