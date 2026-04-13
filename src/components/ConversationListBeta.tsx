@@ -1142,22 +1142,40 @@ export const ConversationListBeta = ({
   };
 
   const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
-    const { error } = await supabase
-      .from('clientes')
-      .update({ marcado_nao_lido: !currentState })
-      .eq('telefone', telefone);
+    if (!user?.id) return;
 
-    if (error) {
-      toast.error("Erro ao marcar conversa");
+    if (currentState) {
+      // Mark as read: update last_read_at to now
+      const { error } = await (supabase as any)
+        .from('mensagem_leitura_operador')
+        .upsert(
+          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString() },
+          { onConflict: 'cliente_telefone,user_id' }
+        );
+      if (error) {
+        toast.error("Erro ao marcar conversa");
+        return;
+      }
     } else {
-      toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
-      // Atualizar localmente sem refetch completo
-      setClientes(prev => prev.map(c => 
-        c.telefone === telefone 
-          ? { ...c, marcado_nao_lido: !currentState }
-          : c
-      ));
+      // Mark as unread: delete the read record so perOperatorUnread becomes true
+      const { error } = await (supabase as any)
+        .from('mensagem_leitura_operador')
+        .delete()
+        .eq('cliente_telefone', telefone)
+        .eq('user_id', user.id);
+      if (error) {
+        toast.error("Erro ao marcar conversa");
+        return;
+      }
     }
+
+    toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
+    // Atualizar localmente sem refetch completo
+    setClientes(prev => prev.map(c => 
+      c.telefone === telefone 
+        ? { ...c, marcado_nao_lido: !currentState }
+        : c
+    ));
   };
 
   const getStatusColor = (status?: string) => {
@@ -1533,7 +1551,7 @@ export const ConversationListBeta = ({
                       statusConversa={cliente.status_conversa}
                       ultimaInteracao={cliente.ultima_interacao}
                       isSelected={selectedClienteTelefone === cliente.telefone}
-                      unreadCount={unreadMessages[cliente.telefone] || 0}
+                      unreadCount={operatorReadMap.get(cliente.telefone)?.nao_lidos || 0}
                       onClick={() => {
                         if (selectionMode) {
                           toggleClienteSelection(cliente.telefone);
@@ -1560,19 +1578,6 @@ export const ConversationListBeta = ({
                       statusAlertColor={cliente.statusAlertColor}
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
                     />
-                    {/* 🆕 BETA: Per-operator unread badge */}
-                    {(operatorReadMap.get(cliente.telefone)?.nao_lidos || 0) > 0 && (
-                      <div className="absolute top-1 right-1 z-10">
-                        <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-green-500 text-white text-xs font-bold">
-                          {operatorReadMap.get(cliente.telefone)?.nao_lidos}
-                        </span>
-                      </div>
-                    )}
-                    {operatorReadMap.get(cliente.telefone)?.outro_op_leu_nome && operatorReadMap.get(cliente.telefone)?.outro_op_leu_em && (
-                      <div className="px-2 pb-1 text-[10px] text-muted-foreground">
-                        ℹ️ Lida por {operatorReadMap.get(cliente.telefone)?.outro_op_leu_nome}
-                      </div>
-                    )}
                   </div>
                 </div>
               ))

@@ -1042,22 +1042,37 @@ export const ConversationList = ({
   };
 
   const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
-    const { error } = await supabase
-      .from('clientes')
-      .update({ marcado_nao_lido: !currentState })
-      .eq('telefone', telefone);
+    if (!user?.id) return;
 
-    if (error) {
-      toast.error("Erro ao marcar conversa");
+    if (currentState) {
+      const { error } = await (supabase as any)
+        .from('mensagem_leitura_operador')
+        .upsert(
+          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString() },
+          { onConflict: 'cliente_telefone,user_id' }
+        );
+      if (error) {
+        toast.error("Erro ao marcar conversa");
+        return;
+      }
     } else {
-      toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
-      // Atualizar localmente sem refetch completo
-      setClientes(prev => prev.map(c => 
-        c.telefone === telefone 
-          ? { ...c, marcado_nao_lido: !currentState }
-          : c
-      ));
+      const { error } = await (supabase as any)
+        .from('mensagem_leitura_operador')
+        .delete()
+        .eq('cliente_telefone', telefone)
+        .eq('user_id', user.id);
+      if (error) {
+        toast.error("Erro ao marcar conversa");
+        return;
+      }
     }
+
+    toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
+    setClientes(prev => prev.map(c => 
+      c.telefone === telefone 
+        ? { ...c, marcado_nao_lido: !currentState }
+        : c
+    ));
   };
 
   const getStatusColor = (status?: string) => {
