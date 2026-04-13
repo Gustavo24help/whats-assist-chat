@@ -44,9 +44,10 @@ interface FichaPanelProps {
   clienteTelefone: string;
   clienteNome: string;
   onClose: () => void;
+  onFichaChange?: (fichaId: string | null) => void;
 }
 
-export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaPanelProps) => {
+export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaChange }: FichaPanelProps) => {
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [fichaAtual, setFichaAtual] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -131,6 +132,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
         : data[0].id;
       
       setFichaAtual(fichaInicial);
+      onFichaChange?.(fichaInicial);
       
       if (!fichaAtivaValida) {
         marcarFichaComoAtiva(data[0].id);
@@ -138,6 +140,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
     } else {
       setFichas([]);
       setFichaAtual(null);
+      onFichaChange?.(null);
     }
   };
 
@@ -213,6 +216,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
                   onValueChange={(value) => {
                     setFichaAtual(value);
                     marcarFichaComoAtiva(value);
+                    onFichaChange?.(value);
                   }}
                 >
                   <SelectTrigger className="flex-1 h-9 text-sm bg-muted/30">
@@ -238,7 +242,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
             </div>
 
             {/* ── TABS ── */}
-            <Tabs defaultValue="cliente" className="flex flex-col">
+            <Tabs defaultValue="ficha" className="flex flex-col">
               <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid grid-cols-5">
                 <TabsTrigger value="cliente" className="text-[10px] h-7 px-1">
                   <User className="mr-0.5 h-3 w-3" />
