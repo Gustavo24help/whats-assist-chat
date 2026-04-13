@@ -288,42 +288,29 @@ export const ConversationListBeta = ({
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
 
-    // 🔍 Variável que indica se deve ignorar filtros de atendente e status para busca especial
-    // Quando buscando por ID de ficha ou mensagem, mostramos o resultado independente do dono ou status
     const ignorarFiltrosBuscaId = (searchMode === 'id_ficha' || searchMode === 'mensagem') && debouncedSearchTerm;
 
-    // 🔐 Filtro por atendente baseado na role do usuário
-    // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
     if (user && !ignorarFiltrosBuscaId) {
-      // "Meus" = conversas atribuídas ao operador atual + sem dono
-      // "Todos" = visão global independente de role
-      if (ticketView === "meus") {
+      if (effectiveTicketView === "meus") {
         filtered = filtered.filter(c => 
           c.atendente_id === user.id || c.atendente_id === null
         );
       }
     }
 
-    // 🆕 Filtro de conversas ativas/inativas por status da ficha
-    // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
-    if (conversaStatusFilter === "ativas" && !ignorarFiltrosBuscaId) {
-      // Ativas: tem ficha E status não é inativo
+    if (effectiveConversaStatusFilter === "ativas" && !ignorarFiltrosBuscaId) {
       filtered = filtered.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha));
-    } else if (conversaStatusFilter === "inativas" && !ignorarFiltrosBuscaId) {
-      // Inativas: status inativo OU sem ficha vinculada
+    } else if (effectiveConversaStatusFilter === "inativas" && !ignorarFiltrosBuscaId) {
       filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha);
     }
-    // Se "todas" ou buscando por ID, não filtra por status
 
-    // Filtro de serviços para finalizar (tem prioridade junto com bot desabilitado)
     if (showServicosParaFinalizarOnly) {
       filtered = filtered.filter(c => 
         clientesComServicoParaFinalizar.has(c.telefone)
       );
     }
 
-    // Filtro de bot desabilitado (tem prioridade) - só mostra se não foi manual
-    if (showBotDisabledOnly) {
+    if (effectiveShowBotDisabledOnly) {
       filtered = filtered.filter(c => 
         c.bot_habilitado === false && 
         c.bot_desativado_notificacao_vista === false &&
@@ -331,49 +318,41 @@ export const ConversationListBeta = ({
       );
     }
 
-    // Filtro por busca de texto (usando debounced term)
     if (debouncedSearchTerm) {
       if (searchMode === 'ficha') {
-        // Modo ficha: busca por nome do cliente, nome da ficha (TODAS as fichas, não só a ativa), tags
         filtered = filtered.filter(c => 
           c.nome.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
           c.telefone.includes(debouncedSearchTerm) ||
           (c.nome_ficha && c.nome_ficha.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
           (c.tags && c.tags.some(tag => tag.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))) ||
-          clientesTelefonesPorFicha.includes(c.telefone) // Inclui clientes que têm QUALQUER ficha com o nome buscado
+          clientesTelefonesPorFicha.includes(c.telefone)
         );
       } else if (searchMode === 'prestador') {
-        // Modo prestador: busca apenas por prestadores vinculados
         filtered = filtered.filter(c => 
           clientesTelefonesPorPrestador.includes(c.telefone)
         );
       } else if (searchMode === 'descricao') {
-        // Modo descrição: busca por descrição do serviço
         filtered = filtered.filter(c => 
           clientesTelefonesPorPrestador.includes(c.telefone)
         );
       } else if (searchMode === 'id_ficha') {
-        // Modo ID ficha: busca pelo ID/número da ficha de serviço
         filtered = filtered.filter(c => 
           clientesTelefonesPorIdFicha.includes(c.telefone)
         );
       } else if (searchMode === 'mensagem') {
-        // Modo mensagem: busca por texto das mensagens
         filtered = filtered.filter(c => 
           clientesTelefonesPorMensagem.includes(c.telefone)
         );
       }
     }
 
-    // Filtro por status da ficha
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(c => c.status_ficha === statusFilter);
+    if (effectiveStatusFilter !== "all") {
+      filtered = filtered.filter(c => c.status_ficha === effectiveStatusFilter);
     }
 
-    // Filtro por status da conversa (baseado na janela de 24h)
-    if (conversaFilter !== "todas") {
+    if (effectiveConversaFilter !== "todas") {
       filtered = filtered.filter(c => {
-        if (conversaFilter === "aberta") {
+        if (effectiveConversaFilter === "aberta") {
           return c.dentroJanela === true;
         } else {
           return c.dentroJanela === false;
@@ -381,11 +360,10 @@ export const ConversationListBeta = ({
       });
     }
 
-    // Filtro por mensagens não lidas
-    if (unreadFilter !== "todas") {
+    if (effectiveUnreadFilter !== "todas") {
       filtered = filtered.filter(c => {
         const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
-        if (unreadFilter === "nao_lidas") {
+        if (effectiveUnreadFilter === "nao_lidas") {
           return hasUnread;
         } else {
           return !hasUnread;
@@ -393,17 +371,15 @@ export const ConversationListBeta = ({
       });
     }
 
-    // Filtro por tags selecionadas
-    if (selectedTags.length > 0) {
+    if (effectiveSelectedTags.length > 0) {
       filtered = filtered.filter(c => 
-        c.tags && selectedTags.some(tag => c.tags.includes(tag))
+        c.tags && effectiveSelectedTags.some(tag => c.tags.includes(tag))
       );
     }
 
-    // Filtro por status do bot
-    if (botFilter !== "todos") {
+    if (effectiveBotFilter !== "todos") {
       filtered = filtered.filter(c => {
-        if (botFilter === "ativo") {
+        if (effectiveBotFilter === "ativo") {
           return c.bot_habilitado !== false;
         } else {
           return c.bot_habilitado === false;
@@ -411,10 +387,9 @@ export const ConversationListBeta = ({
       });
     }
 
-    // Filtro por ficha vinculada
-    if (fichaFilter !== "todas") {
+    if (effectiveFichaFilter !== "todas") {
       filtered = filtered.filter(c => {
-        if (fichaFilter === "com_ficha") {
+        if (effectiveFichaFilter === "com_ficha") {
           return !!c.nome_ficha;
         } else {
           return !c.nome_ficha;
@@ -422,19 +397,17 @@ export const ConversationListBeta = ({
       });
     }
 
-    // Filtro por pagamento
-    if (pagamentoFilter !== "todos") {
+    if (effectivePagamentoFilter !== "todos") {
       filtered = filtered.filter(c => {
-        // Só aplica filtro se tem link de pagamento
         if (!c.pagamento_link) {
-          return false; // Sem link não aparece em nenhum filtro específico
+          return false;
         }
         
-        if (pagamentoFilter === "pago") {
+        if (effectivePagamentoFilter === "pago") {
           return c.pagamento_realizado === true;
-        } else if (pagamentoFilter === "nao_pago") {
+        } else if (effectivePagamentoFilter === "nao_pago") {
           return c.pagamento_realizado === false;
-        } else if (pagamentoFilter === "pendente_finalizado") {
+        } else if (effectivePagamentoFilter === "pendente_finalizado") {
           return c.status_ficha === "Finalizado" && c.pagamento_realizado === false;
         }
         return true;
