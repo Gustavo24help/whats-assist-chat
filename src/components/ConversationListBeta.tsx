@@ -84,6 +84,7 @@ export const ConversationListBeta = ({
   externalFichaFilter,
   externalPagamentoFilter,
   externalShowBotDisabledOnly,
+  externalSelectedOperadorId,
   onStatusCounts,
 }: ConversationListProps) => {
   const { user, isSupervisor } = useAuth();
