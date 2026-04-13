@@ -244,6 +244,9 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   
+  // Estado para filtro de mensagens por ficha
+  const [showAllMessages, setShowAllMessages] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
   const latestMessageDateRef = useRef<string | null>(null);
