@@ -40,6 +40,7 @@ interface Cliente {
   atendente_id?: string | null;
   tempoNoStatusMinutos?: number;
   statusAlertColor?: string | null;
+  ficha_id_real?: string | null;
 }
 
 interface ConversationListProps {
@@ -92,6 +93,9 @@ export const ConversationList = ({
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
   const isFirstLoadRef = useRef(true);
+  
+  // 🆕 Rastrear orçamentos recém-chegados
+  const [recentOrcamentoFichas, setRecentOrcamentoFichas] = useState<Set<string>>(new Set());
   
   // Toggle "Meus Tickets" / "Todos" - padrão em "todos" para evitar perda de sincronização visual
   const [ticketView, setTicketView] = useState<"meus" | "todos">("todos");
@@ -170,6 +174,21 @@ export const ConversationList = ({
       )
       .subscribe();
 
+    // 🆕 Canal realtime para novos orçamentos
+    const orcamentosChannel = supabase
+      .channel('orcamentos-new-classic')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orcamentos' },
+        async (payload) => {
+          const fichaId = (payload.new as any)?.ficha_nome;
+          if (fichaId) {
+            setRecentOrcamentoFichas(prev => new Set(prev).add(fichaId));
+          }
+        }
+      )
+      .subscribe();
+
     // Fallback para ambientes onde websocket/realtime é bloqueado (ex.: firewall/rede corporativa)
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
@@ -181,6 +200,7 @@ export const ConversationList = ({
       supabase.removeChannel(channel);
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(fichasChannel);
+      supabase.removeChannel(orcamentosChannel);
       window.clearInterval(pollingInterval);
     };
   }, []);
@@ -941,7 +961,8 @@ export const ConversationList = ({
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
           atendente_id: cliente.atendente_id || null,
           tempoNoStatusMinutos: minutosNoStatus,
-          statusAlertColor: escalatedAlertColor
+          statusAlertColor: escalatedAlertColor,
+          ficha_id_real: fichaIdParaOrcamentos || null
         };
       });
 
@@ -1479,6 +1500,13 @@ export const ConversationList = ({
                         if (selectionMode) {
                           toggleClienteSelection(cliente.telefone);
                         } else {
+                          if (cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)) {
+                            setRecentOrcamentoFichas(prev => {
+                              const next = new Set(prev);
+                              next.delete(cliente.ficha_id_real!);
+                              return next;
+                            });
+                          }
                           onSelectCliente(cliente);
                         }
                       }}
@@ -1500,6 +1528,7 @@ export const ConversationList = ({
                       pagamentoRealizado={cliente.pagamento_realizado}
                       statusAlertColor={cliente.statusAlertColor}
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
+                      hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
                     />
                   </div>
                 </div>
