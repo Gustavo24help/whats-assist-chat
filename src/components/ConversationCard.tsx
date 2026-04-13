@@ -102,7 +102,12 @@ export const ConversationCard = memo(({
     onDelete();
   };
 
-  const alertBackgroundStyle = statusAlertColor
+  const alertBackgroundStyle = hasNewOrcamento
+    ? {
+        background: 'rgba(239, 68, 68, 0.12)',
+        borderLeftColor: '#ef4444',
+      }
+    : statusAlertColor
     ? {
         background: `${statusAlertColor}18`,
         borderLeftColor: statusAlertColor,
@@ -115,12 +120,21 @@ export const ConversationCard = memo(({
       className={cn(
         "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
-        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && "bg-blue-100 dark:bg-blue-950/40 border-l-4 border-l-blue-600 dark:border-l-blue-400",
-        statusAlertColor && !isSelected && "border-l-4"
+        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && !hasNewOrcamento && "bg-blue-100 dark:bg-blue-950/40 border-l-4 border-l-blue-600 dark:border-l-blue-400",
+        statusAlertColor && !isSelected && !hasNewOrcamento && "border-l-4",
+        hasNewOrcamento && !isSelected && "border-l-4"
       )}
       style={alertBackgroundStyle}
       onClick={onClick}
     >
+      {/* Overlay de Novo Orçamento */}
+      {hasNewOrcamento && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+          <span className="text-lg font-bold text-red-600 dark:text-red-400 animate-pulse drop-shadow-sm">
+            💰 Chegou novo orçamento!
+          </span>
+        </div>
+      )}
       {/* Linha 1: Tag e Menu */}
       <div className="flex items-start justify-between mb-1.5 gap-2 overflow-hidden">
         <div className="flex gap-1 flex-wrap flex-1 min-h-[18px] min-w-0 overflow-hidden">
