@@ -126,6 +126,7 @@ export const ConversationListBeta = ({
   const [showServicosParaFinalizarOnly, setShowServicosParaFinalizarOnly] = useState(false);
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [clientesSemOrcamento, setClientesSemOrcamento] = useState<Set<string>>(new Set());
+  const [showAguardandoRespostaOnly, setShowAguardandoRespostaOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
