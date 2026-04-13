@@ -423,7 +423,7 @@ export const ConversationListBeta = ({
     });
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -451,6 +451,20 @@ export const ConversationListBeta = ({
       tag.toLowerCase().includes(tagSearchTerm.toLowerCase())
     );
   }, [allTags, tagSearchTerm]);
+
+  // ═══ Report status counts to parent ═══
+  useEffect(() => {
+    if (!onStatusCounts) return;
+    const byStatus: Record<string, number> = {};
+    clientes.forEach(c => {
+      const status = c.status_ficha || 'Sem ficha';
+      byStatus[status] = (byStatus[status] || 0) + 1;
+    });
+    const ativasCount = clientes.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha)).length;
+    const inativasCount = clientes.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha).length;
+    const botDisabledCount = clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length;
+    onStatusCounts({ byStatus, unreadCount, totalCount: clientes.length, ativasCount, inativasCount, allTags, tagsWithColors, botDisabledCount });
+  }, [clientes, unreadCount, allTags, tagsWithColors]);
 
   // Auto-limpar filtro de bot desativado quando não houver mais conversas com aviso
   useEffect(() => {
