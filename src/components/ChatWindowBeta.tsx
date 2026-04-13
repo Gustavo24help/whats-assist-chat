@@ -2741,7 +2741,8 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
                 </MessageContextMenu>
               </div>
             );
-          })}
+           });
+            })()}
           </>
         )}
         <div ref={messagesEndRef} />
