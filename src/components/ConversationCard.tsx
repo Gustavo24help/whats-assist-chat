@@ -113,7 +113,7 @@ export const ConversationCard = memo(({
       className={cn(
         "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
-        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && "bg-emerald-50 dark:bg-emerald-950/30 border-l-4 border-l-green-500",
+        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && "bg-blue-100 dark:bg-blue-950/40 border-l-4 border-l-blue-600 dark:border-l-blue-400",
         statusAlertColor && !isSelected && "border-l-4"
       )}
       style={alertBackgroundStyle}
@@ -260,7 +260,7 @@ export const ConversationCard = memo(({
             </div>
           )}
           {(marcadoNaoLido || unreadCount > 0) && (
-            <div className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-green-500 shrink-0">
+            <div className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-blue-600 shrink-0">
               <span className="text-white text-xs font-bold">{unreadCount > 0 ? unreadCount : '•'}</span>
             </div>
           )}

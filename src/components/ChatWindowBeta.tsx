@@ -67,6 +67,7 @@ interface Mensagem {
   tipo_remetente?: string | null;
   operador_nome?: string | null;
   transcricao_texto?: string | null;
+  ficha_id?: string | null;
 }
 
 const QuotedMessage = React.memo(({ 
@@ -166,9 +167,10 @@ interface ChatWindowProps {
   onBack?: () => void;
   fichaOpen?: boolean;
   onToggleFicha?: () => void;
+  fichaFilterId?: string | null;
 }
 
-export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha }: ChatWindowProps) => {
+export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, fichaFilterId }: ChatWindowProps) => {
   const { user, userProfile, isSupervisor } = useAuth();
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
   const [coachingVisible, setCoachingVisible] = useState(true);
@@ -241,6 +243,9 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   // Estados para edição de mensagem
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  
+  // Estado para filtro de mensagens por ficha
+  const [showAllMessages, setShowAllMessages] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
@@ -2321,6 +2326,31 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
         </div>
       </header>
 
+      {/* Barra de filtro por ficha */}
+      {fichaFilterId && (
+        <div className="px-4 py-1.5 border-b bg-muted/20 flex items-center gap-2 text-xs shrink-0">
+          <FileText className="h-3 w-3 text-muted-foreground" />
+          <button
+            onClick={() => setShowAllMessages(false)}
+            className={cn(
+              "px-2 py-0.5 rounded transition-colors",
+              !showAllMessages ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Mensagens da Ficha
+          </button>
+          <button
+            onClick={() => setShowAllMessages(true)}
+            className={cn(
+              "px-2 py-0.5 rounded transition-colors",
+              showAllMessages ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Todas
+          </button>
+        </div>
+      )}
+
       {/* Barra de busca no chat */}
       {chatSearchOpen && (
         <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2">
@@ -2569,9 +2599,13 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
               />
             )}
 
-            {mensagens.map((msg, index) => {
-          const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
-          const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
+            {(() => {
+              const filteredMsgs = (!showAllMessages && fichaFilterId) 
+                ? mensagens.filter(m => m.ficha_id === fichaFilterId || !m.ficha_id)
+                : mensagens;
+              return filteredMsgs.map((msg, index) => {
+              const previousMsg = index > 0 ? filteredMsgs[index - 1] : undefined;
+              const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
           
           return (
             <div 
@@ -2732,7 +2766,8 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
                 </MessageContextMenu>
               </div>
             );
-          })}
+           });
+            })()}
           </>
         )}
         <div ref={messagesEndRef} />
