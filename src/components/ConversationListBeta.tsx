@@ -857,24 +857,24 @@ export const ConversationListBeta = ({
       const telefones = clientesData.map(c => c.telefone);
 
       // Helper to chunk .in() queries that might exceed URL length limits
-      const chunkedQuery = async <T,>(
+      const chunkedIn = async (
         table: string,
         selectCols: string,
         filterCol: string,
         filterValues: string[],
         extraFilters?: (q: any) => any,
         orderCol?: string
-      ): Promise<T[]> => {
+      ): Promise<any[]> => {
         if (filterValues.length === 0) return [];
         const CHUNK = 500;
-        const results: T[] = [];
+        const results: any[] = [];
         for (let i = 0; i < filterValues.length; i += CHUNK) {
           const chunk = filterValues.slice(i, i + CHUNK);
-          let q = supabase.from(table).select(selectCols).in(filterCol, chunk);
+          let q = (supabase as any).from(table).select(selectCols).in(filterCol, chunk);
           if (extraFilters) q = extraFilters(q);
           if (orderCol) q = q.order(orderCol, { ascending: false });
           const { data } = await q;
-          if (data) results.push(...(data as T[]));
+          if (data) results.push(...data);
         }
         return results;
       };
