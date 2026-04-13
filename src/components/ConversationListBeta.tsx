@@ -300,6 +300,11 @@ export const ConversationListBeta = ({
       }
     }
 
+    // Filtro por operador específico
+    if (externalSelectedOperadorId && !ignorarFiltrosBuscaId) {
+      filtered = filtered.filter(c => c.atendente_id === externalSelectedOperadorId);
+    }
+
     if (effectiveConversaStatusFilter === "ativas" && !ignorarFiltrosBuscaId) {
       filtered = filtered.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha));
     } else if (effectiveConversaStatusFilter === "inativas" && !ignorarFiltrosBuscaId) {
