@@ -49,6 +49,20 @@ interface ConversationListProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   botDisabledAcknowledged?: Set<string>;
+  hideFilters?: boolean;
+  // External filter overrides
+  externalStatusFilter?: string;
+  externalConversaStatusFilter?: "ativas" | "inativas" | "todas";
+  externalUnreadFilter?: "todas" | "lidas" | "nao_lidas";
+  externalSelectedTags?: string[];
+  externalTicketView?: "meus" | "todos";
+  externalConversaFilter?: "todas" | "aberta" | "fechada";
+  externalBotFilter?: "todos" | "ativo" | "desativado";
+  externalFichaFilter?: "todas" | "com_ficha" | "sem_ficha";
+  externalPagamentoFilter?: "todos" | "pago" | "nao_pago" | "pendente_finalizado";
+  externalShowBotDisabledOnly?: boolean;
+  // Callback to report counts
+  onStatusCounts?: (counts: { byStatus: Record<string, number>; unreadCount: number; totalCount: number; ativasCount: number; inativasCount: number; allTags: string[]; tagsWithColors: Map<string, string>; botDisabledCount: number }) => void;
 }
 
 export const ConversationListBeta = ({ 
@@ -57,7 +71,19 @@ export const ConversationListBeta = ({
   unreadMessages,
   isCollapsed = false,
   onToggleCollapse,
-  botDisabledAcknowledged = new Set()
+  botDisabledAcknowledged = new Set(),
+  hideFilters = false,
+  externalStatusFilter,
+  externalConversaStatusFilter,
+  externalUnreadFilter,
+  externalSelectedTags,
+  externalTicketView,
+  externalConversaFilter,
+  externalBotFilter,
+  externalFichaFilter,
+  externalPagamentoFilter,
+  externalShowBotDisabledOnly,
+  onStatusCounts,
 }: ConversationListProps) => {
   const { user, isSupervisor } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -168,6 +194,18 @@ export const ConversationListBeta = ({
   // Status que indicam conversa inativa
   const STATUS_INATIVOS = ["Finalizado", "Perdido", "Não foi adiante"];
 
+  // ═══ Computed filter values: use external overrides when provided ═══
+  const effectiveStatusFilter = externalStatusFilter ?? statusFilter;
+  const effectiveConversaStatusFilter = externalConversaStatusFilter ?? conversaStatusFilter;
+  const effectiveUnreadFilter = externalUnreadFilter ?? unreadFilter;
+  const effectiveSelectedTags = externalSelectedTags ?? selectedTags;
+  const effectiveTicketView = externalTicketView ?? ticketView;
+  const effectiveConversaFilter = externalConversaFilter ?? conversaFilter;
+  const effectiveBotFilter = externalBotFilter ?? botFilter;
+  const effectiveFichaFilter = externalFichaFilter ?? fichaFilter;
+  const effectivePagamentoFilter = externalPagamentoFilter ?? pagamentoFilter;
+  const effectiveShowBotDisabledOnly = externalShowBotDisabledOnly ?? showBotDisabledOnly;
+
   // ✅ Debounce do termo de busca (300ms)
   const debouncedSetSearch = useMemo(
     () => debounce((term: string) => {
@@ -250,42 +288,29 @@ export const ConversationListBeta = ({
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
 
-    // 🔍 Variável que indica se deve ignorar filtros de atendente e status para busca especial
-    // Quando buscando por ID de ficha ou mensagem, mostramos o resultado independente do dono ou status
     const ignorarFiltrosBuscaId = (searchMode === 'id_ficha' || searchMode === 'mensagem') && debouncedSearchTerm;
 
-    // 🔐 Filtro por atendente baseado na role do usuário
-    // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
     if (user && !ignorarFiltrosBuscaId) {
-      // "Meus" = conversas atribuídas ao operador atual + sem dono
-      // "Todos" = visão global independente de role
-      if (ticketView === "meus") {
+      if (effectiveTicketView === "meus") {
         filtered = filtered.filter(c => 
           c.atendente_id === user.id || c.atendente_id === null
         );
       }
     }
 
-    // 🆕 Filtro de conversas ativas/inativas por status da ficha
-    // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
-    if (conversaStatusFilter === "ativas" && !ignorarFiltrosBuscaId) {
-      // Ativas: tem ficha E status não é inativo
+    if (effectiveConversaStatusFilter === "ativas" && !ignorarFiltrosBuscaId) {
       filtered = filtered.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha));
-    } else if (conversaStatusFilter === "inativas" && !ignorarFiltrosBuscaId) {
-      // Inativas: status inativo OU sem ficha vinculada
+    } else if (effectiveConversaStatusFilter === "inativas" && !ignorarFiltrosBuscaId) {
       filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha);
     }
-    // Se "todas" ou buscando por ID, não filtra por status
 
-    // Filtro de serviços para finalizar (tem prioridade junto com bot desabilitado)
     if (showServicosParaFinalizarOnly) {
       filtered = filtered.filter(c => 
         clientesComServicoParaFinalizar.has(c.telefone)
       );
     }
 
-    // Filtro de bot desabilitado (tem prioridade) - só mostra se não foi manual
-    if (showBotDisabledOnly) {
+    if (effectiveShowBotDisabledOnly) {
       filtered = filtered.filter(c => 
         c.bot_habilitado === false && 
         c.bot_desativado_notificacao_vista === false &&
@@ -293,49 +318,41 @@ export const ConversationListBeta = ({
       );
     }
 
-    // Filtro por busca de texto (usando debounced term)
     if (debouncedSearchTerm) {
       if (searchMode === 'ficha') {
-        // Modo ficha: busca por nome do cliente, nome da ficha (TODAS as fichas, não só a ativa), tags
         filtered = filtered.filter(c => 
           c.nome.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
           c.telefone.includes(debouncedSearchTerm) ||
           (c.nome_ficha && c.nome_ficha.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
           (c.tags && c.tags.some(tag => tag.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))) ||
-          clientesTelefonesPorFicha.includes(c.telefone) // Inclui clientes que têm QUALQUER ficha com o nome buscado
+          clientesTelefonesPorFicha.includes(c.telefone)
         );
       } else if (searchMode === 'prestador') {
-        // Modo prestador: busca apenas por prestadores vinculados
         filtered = filtered.filter(c => 
           clientesTelefonesPorPrestador.includes(c.telefone)
         );
       } else if (searchMode === 'descricao') {
-        // Modo descrição: busca por descrição do serviço
         filtered = filtered.filter(c => 
           clientesTelefonesPorPrestador.includes(c.telefone)
         );
       } else if (searchMode === 'id_ficha') {
-        // Modo ID ficha: busca pelo ID/número da ficha de serviço
         filtered = filtered.filter(c => 
           clientesTelefonesPorIdFicha.includes(c.telefone)
         );
       } else if (searchMode === 'mensagem') {
-        // Modo mensagem: busca por texto das mensagens
         filtered = filtered.filter(c => 
           clientesTelefonesPorMensagem.includes(c.telefone)
         );
       }
     }
 
-    // Filtro por status da ficha
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(c => c.status_ficha === statusFilter);
+    if (effectiveStatusFilter !== "all") {
+      filtered = filtered.filter(c => c.status_ficha === effectiveStatusFilter);
     }
 
-    // Filtro por status da conversa (baseado na janela de 24h)
-    if (conversaFilter !== "todas") {
+    if (effectiveConversaFilter !== "todas") {
       filtered = filtered.filter(c => {
-        if (conversaFilter === "aberta") {
+        if (effectiveConversaFilter === "aberta") {
           return c.dentroJanela === true;
         } else {
           return c.dentroJanela === false;
@@ -343,11 +360,10 @@ export const ConversationListBeta = ({
       });
     }
 
-    // Filtro por mensagens não lidas
-    if (unreadFilter !== "todas") {
+    if (effectiveUnreadFilter !== "todas") {
       filtered = filtered.filter(c => {
         const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
-        if (unreadFilter === "nao_lidas") {
+        if (effectiveUnreadFilter === "nao_lidas") {
           return hasUnread;
         } else {
           return !hasUnread;
@@ -355,17 +371,15 @@ export const ConversationListBeta = ({
       });
     }
 
-    // Filtro por tags selecionadas
-    if (selectedTags.length > 0) {
+    if (effectiveSelectedTags.length > 0) {
       filtered = filtered.filter(c => 
-        c.tags && selectedTags.some(tag => c.tags.includes(tag))
+        c.tags && effectiveSelectedTags.some(tag => c.tags.includes(tag))
       );
     }
 
-    // Filtro por status do bot
-    if (botFilter !== "todos") {
+    if (effectiveBotFilter !== "todos") {
       filtered = filtered.filter(c => {
-        if (botFilter === "ativo") {
+        if (effectiveBotFilter === "ativo") {
           return c.bot_habilitado !== false;
         } else {
           return c.bot_habilitado === false;
@@ -373,10 +387,9 @@ export const ConversationListBeta = ({
       });
     }
 
-    // Filtro por ficha vinculada
-    if (fichaFilter !== "todas") {
+    if (effectiveFichaFilter !== "todas") {
       filtered = filtered.filter(c => {
-        if (fichaFilter === "com_ficha") {
+        if (effectiveFichaFilter === "com_ficha") {
           return !!c.nome_ficha;
         } else {
           return !c.nome_ficha;
@@ -384,19 +397,17 @@ export const ConversationListBeta = ({
       });
     }
 
-    // Filtro por pagamento
-    if (pagamentoFilter !== "todos") {
+    if (effectivePagamentoFilter !== "todos") {
       filtered = filtered.filter(c => {
-        // Só aplica filtro se tem link de pagamento
         if (!c.pagamento_link) {
-          return false; // Sem link não aparece em nenhum filtro específico
+          return false;
         }
         
-        if (pagamentoFilter === "pago") {
+        if (effectivePagamentoFilter === "pago") {
           return c.pagamento_realizado === true;
-        } else if (pagamentoFilter === "nao_pago") {
+        } else if (effectivePagamentoFilter === "nao_pago") {
           return c.pagamento_realizado === false;
-        } else if (pagamentoFilter === "pendente_finalizado") {
+        } else if (effectivePagamentoFilter === "pendente_finalizado") {
           return c.status_ficha === "Finalizado" && c.pagamento_realizado === false;
         }
         return true;
@@ -412,7 +423,7 @@ export const ConversationListBeta = ({
     });
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -440,6 +451,20 @@ export const ConversationListBeta = ({
       tag.toLowerCase().includes(tagSearchTerm.toLowerCase())
     );
   }, [allTags, tagSearchTerm]);
+
+  // ═══ Report status counts to parent ═══
+  useEffect(() => {
+    if (!onStatusCounts) return;
+    const byStatus: Record<string, number> = {};
+    clientes.forEach(c => {
+      const status = c.status_ficha || 'Sem ficha';
+      byStatus[status] = (byStatus[status] || 0) + 1;
+    });
+    const ativasCount = clientes.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha)).length;
+    const inativasCount = clientes.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha).length;
+    const botDisabledCount = clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length;
+    onStatusCounts({ byStatus, unreadCount, totalCount: clientes.length, ativasCount, inativasCount, allTags, tagsWithColors, botDisabledCount });
+  }, [clientes, unreadCount, allTags, tagsWithColors]);
 
   // Auto-limpar filtro de bot desativado quando não houver mais conversas com aviso
   useEffect(() => {
@@ -1157,11 +1182,11 @@ export const ConversationListBeta = ({
               <h2 className="font-semibold text-base md:text-lg">
                 {showArchived ? "Arquivadas" : "Conversas"}
               </h2>
-              {/* Toggle Meus/Todos para todos os operadores */}
-              {!showArchived && (
+              {/* Toggle Meus/Todos - only show when filters are NOT externalized */}
+              {!hideFilters && !showArchived && (
                 <ToggleGroup 
                   type="single" 
-                  value={ticketView} 
+                  value={effectiveTicketView} 
                   onValueChange={(value) => value && setTicketView(value as "meus" | "todos")}
                   className="h-7"
                 >
@@ -1180,7 +1205,6 @@ export const ConversationListBeta = ({
           <div className="flex items-center gap-1">
             {!isCollapsed && (
               <NovaConversaDialog onContactCreated={(cliente) => {
-                // Refresh list after new contact
                 fetchClientes();
               }} />
             )}
@@ -1200,6 +1224,7 @@ export const ConversationListBeta = ({
 
         {!isCollapsed && (
           <>
+            {/* Search bar - always visible */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1249,205 +1274,203 @@ export const ConversationListBeta = ({
               </Button>
             </div>
 
-            {/* Indicador de bots desabilitados (só mostra se não foi manual) */}
-            {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length > 0 && (
-              <Button
-                variant={showBotDisabledOnly ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowBotDisabledOnly(!showBotDisabledOnly)}
-                className="w-full justify-start gap-2"
-              >
-                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 shrink-0">
-                  <AlertTriangle className="h-3 w-3 text-white" />
-                </div>
-                <span className="text-sm">
-                  {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length} {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length === 1 ? 'conversa precisa' : 'conversas precisam'} de atendimento
-                </span>
-              </Button>
-            )}
-
-            {/* Indicador de serviços para finalizar ou reagendar */}
-            {clientesComServicoParaFinalizar.size > 0 && (
-              <Button
-                variant={showServicosParaFinalizarOnly ? "destructive" : "outline"}
-                size="sm"
-                onClick={() => setShowServicosParaFinalizarOnly(!showServicosParaFinalizarOnly)}
-                className="w-full justify-start gap-2 border-red-300"
-              >
-                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 shrink-0">
-                  <span className="text-white text-xs font-bold">!</span>
-                </div>
-                <span className="text-sm">
-                  {clientesComServicoParaFinalizar.size} {clientesComServicoParaFinalizar.size === 1 ? 'serviço precisa' : 'serviços precisam'} de atualização
-                </span>
-              </Button>
-            )}
-
-            {/* Indicador de fichas sem orçamento há mais de 15 min */}
-            {clientesSemOrcamento.size > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-start gap-2 border-amber-300 animate-pulse"
-              >
-                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 shrink-0">
-                  <span className="text-white text-xs font-bold">💰</span>
-                </div>
-                <span className="text-sm text-amber-700 dark:text-amber-300">
-                  {clientesSemOrcamento.size} {clientesSemOrcamento.size === 1 ? 'ficha sem' : 'fichas sem'} orçamento
-                </span>
-              </Button>
-            )}
-
-            {/* Linha 1: Filtros + Tags lado a lado */}
-            <div className="flex gap-1.5">
-              <FilterDropdown
-                statusFilter={statusFilter}
-                conversaFilter={conversaFilter}
-                botFilter={botFilter}
-                fichaFilter={fichaFilter}
-                pagamentoFilter={pagamentoFilter}
-                onStatusFilterChange={setStatusFilter}
-                onConversaFilterChange={setConversaFilter}
-                onBotFilterChange={setBotFilter}
-                onFichaFilterChange={setFichaFilter}
-                onPagamentoFilterChange={setPagamentoFilter}
-              />
-              
-              {allTags.length > 0 && (
-                <Popover open={tagsExpanded} onOpenChange={setTagsExpanded}>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 h-8 justify-start text-xs gap-1.5"
-                    >
-                      <span>🏷️</span>
-                      <span>Tags</span>
-                      {selectedTags.length > 0 ? (
-                        <Badge variant="default" className="ml-auto h-4 px-1 text-[10px]">
-                          {selectedTags.length}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="ml-auto h-4 px-1 text-[10px]">
-                          {allTags.length}
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-3 bg-popover z-50" align="start">
-                    <div className="space-y-3">
-                      <div className="relative">
-                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                        <Input
-                          placeholder="Buscar tags..."
-                          value={tagSearchTerm}
-                          onChange={(e) => setTagSearchTerm(e.target.value)}
-                          className="pl-7 h-7 text-xs"
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                        {filteredTags.map((tag) => {
-                          const tagColor = tagsWithColors.get(tag) || '#6B7280';
-                          return (
-                            <Badge
-                              key={tag}
-                              variant={selectedTags.includes(tag) ? "default" : "outline"}
-                              className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
-                              onClick={() => toggleTag(tag)}
-                              style={{
-                                backgroundColor: selectedTags.includes(tag) ? tagColor : 'transparent',
-                                borderColor: tagColor,
-                                color: selectedTags.includes(tag) ? '#FFFFFF' : tagColor
-                              }}
-                            >
-                              {tag}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                      {selectedTags.length > 0 && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="w-full h-7 text-xs"
-                          onClick={() => setSelectedTags([])}
-                        >
-                          Limpar seleção
-                        </Button>
-                      )}
+            {/* Filter controls - only when NOT externalized */}
+            {!hideFilters && (
+              <>
+                {/* Indicador de bots desabilitados */}
+                {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length > 0 && (
+                  <Button
+                    variant={effectiveShowBotDisabledOnly ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowBotDisabledOnly(!showBotDisabledOnly)}
+                    className="w-full justify-start gap-2"
+                  >
+                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 shrink-0">
+                      <AlertTriangle className="h-3 w-3 text-white" />
                     </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
-
-            {/* Linha 2: Ativas / Inativas / Todas + Botão Selecionar */}
-            <div className="flex gap-1">
-              <ToggleGroup 
-                type="single" 
-                value={conversaStatusFilter} 
-                onValueChange={(value) => value && setConversaStatusFilter(value as "ativas" | "inativas" | "todas")}
-                className="flex-1"
-              >
-                <ToggleGroupItem value="ativas" aria-label="Ativas" className="flex-1 h-7 text-xs">
-                  Ativas
-                </ToggleGroupItem>
-                <ToggleGroupItem value="inativas" aria-label="Inativas" className="flex-1 h-7 text-xs">
-                  Inativas
-                </ToggleGroupItem>
-                <ToggleGroupItem value="todas" aria-label="Todas" className="flex-1 h-7 text-xs">
-                  Todas
-                </ToggleGroupItem>
-              </ToggleGroup>
-              
-              {/* Botão de seleção em massa */}
-              <Button
-                variant={selectionMode ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  if (selectionMode) {
-                    setSelectionMode(false);
-                    setSelectedClientes(new Set());
-                  } else {
-                    setSelectionMode(true);
-                  }
-                }}
-                className="h-7 px-2"
-                title={selectionMode ? "Cancelar seleção" : "Selecionar múltiplos"}
-              >
-                {selectionMode ? (
-                  <X className="h-3.5 w-3.5" />
-                ) : (
-                  <CheckSquare className="h-3.5 w-3.5" />
+                    <span className="text-sm">
+                      {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length} {clientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length === 1 ? 'conversa precisa' : 'conversas precisam'} de atendimento
+                    </span>
+                  </Button>
                 )}
-              </Button>
-            </div>
 
-            {/* Linha 3: Todas / Não Lidas */}
-            <div className="flex gap-1">
-              <Button
-                variant={unreadFilter === "todas" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setUnreadFilter("todas")}
-                className="flex-1 h-7 text-xs"
-              >
-                Todas
-              </Button>
-              <Button
-                variant={unreadFilter === "nao_lidas" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setUnreadFilter("nao_lidas")}
-                className="flex-1 h-7 text-xs gap-1"
-              >
-                Não Lidas
-                {unreadCount > 0 && (
-                  <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">
-                    {unreadCount}
-                  </Badge>
-                )}
-              </Button>
-            </div>
+                {/* Filtros + Tags */}
+                <div className="flex gap-1.5">
+                  <FilterDropdown
+                    statusFilter={effectiveStatusFilter}
+                    conversaFilter={effectiveConversaFilter}
+                    botFilter={effectiveBotFilter}
+                    fichaFilter={effectiveFichaFilter}
+                    pagamentoFilter={effectivePagamentoFilter}
+                    onStatusFilterChange={setStatusFilter}
+                    onConversaFilterChange={setConversaFilter}
+                    onBotFilterChange={setBotFilter}
+                    onFichaFilterChange={setFichaFilter}
+                    onPagamentoFilterChange={setPagamentoFilter}
+                  />
+                  
+                  {allTags.length > 0 && (
+                    <Popover open={tagsExpanded} onOpenChange={setTagsExpanded}>
+                      <PopoverTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1 h-8 justify-start text-xs gap-1.5"
+                        >
+                          <span>🏷️</span>
+                          <span>Tags</span>
+                          {effectiveSelectedTags.length > 0 ? (
+                            <Badge variant="default" className="ml-auto h-4 px-1 text-[10px]">
+                              {effectiveSelectedTags.length}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="ml-auto h-4 px-1 text-[10px]">
+                              {allTags.length}
+                            </Badge>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-3 bg-popover z-50" align="start">
+                        <div className="space-y-3">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Buscar tags..."
+                              value={tagSearchTerm}
+                              onChange={(e) => setTagSearchTerm(e.target.value)}
+                              className="pl-7 h-7 text-xs"
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                            {filteredTags.map((tag) => {
+                              const tagColor = tagsWithColors.get(tag) || '#6B7280';
+                              return (
+                                <Badge
+                                  key={tag}
+                                  variant={effectiveSelectedTags.includes(tag) ? "default" : "outline"}
+                                  className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
+                                  onClick={() => toggleTag(tag)}
+                                  style={{
+                                    backgroundColor: effectiveSelectedTags.includes(tag) ? tagColor : 'transparent',
+                                    borderColor: tagColor,
+                                    color: effectiveSelectedTags.includes(tag) ? '#FFFFFF' : tagColor
+                                  }}
+                                >
+                                  {tag}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                          {effectiveSelectedTags.length > 0 && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="w-full h-7 text-xs"
+                              onClick={() => setSelectedTags([])}
+                            >
+                              Limpar seleção
+                            </Button>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
+
+                {/* Ativas / Inativas / Todas + Botão Selecionar */}
+                <div className="flex gap-1">
+                  <ToggleGroup 
+                    type="single" 
+                    value={effectiveConversaStatusFilter} 
+                    onValueChange={(value) => value && setConversaStatusFilter(value as "ativas" | "inativas" | "todas")}
+                    className="flex-1"
+                  >
+                    <ToggleGroupItem value="ativas" aria-label="Ativas" className="flex-1 h-7 text-xs">
+                      Ativas
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="inativas" aria-label="Inativas" className="flex-1 h-7 text-xs">
+                      Inativas
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="todas" aria-label="Todas" className="flex-1 h-7 text-xs">
+                      Todas
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                  
+                  <Button
+                    variant={selectionMode ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      if (selectionMode) {
+                        setSelectionMode(false);
+                        setSelectedClientes(new Set());
+                      } else {
+                        setSelectionMode(true);
+                      }
+                    }}
+                    className="h-7 px-2"
+                    title={selectionMode ? "Cancelar seleção" : "Selecionar múltiplos"}
+                  >
+                    {selectionMode ? (
+                      <X className="h-3.5 w-3.5" />
+                    ) : (
+                      <CheckSquare className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
+
+                {/* Todas / Não Lidas */}
+                <div className="flex gap-1">
+                  <Button
+                    variant={effectiveUnreadFilter === "todas" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setUnreadFilter("todas")}
+                    className="flex-1 h-7 text-xs"
+                  >
+                    Todas
+                  </Button>
+                  <Button
+                    variant={effectiveUnreadFilter === "nao_lidas" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setUnreadFilter("nao_lidas")}
+                    className="flex-1 h-7 text-xs gap-1"
+                  >
+                    Não Lidas
+                    {unreadCount > 0 && (
+                      <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">
+                        {unreadCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {/* Selection mode controls when hideFilters - keep selection button */}
+            {hideFilters && (
+              <div className="flex gap-1">
+                <Button
+                  variant={selectionMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (selectionMode) {
+                      setSelectionMode(false);
+                      setSelectedClientes(new Set());
+                    } else {
+                      setSelectionMode(true);
+                    }
+                  }}
+                  className="h-7 px-2"
+                  title={selectionMode ? "Cancelar seleção" : "Selecionar múltiplos"}
+                >
+                  {selectionMode ? (
+                    <X className="h-3.5 w-3.5 mr-1" />
+                  ) : (
+                    <CheckSquare className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  <span className="text-xs">{selectionMode ? "Cancelar" : "Selecionar"}</span>
+                </Button>
+              </div>
+            )}
           </>
         )}
       </div>
