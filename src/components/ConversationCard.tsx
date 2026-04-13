@@ -113,14 +113,14 @@ export const ConversationCard = memo(({
       className={cn(
         "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
-        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && !semOrcamento && "bg-destructive/5 dark:bg-destructive/10 border-l-4 border-l-destructive",
-        semOrcamento && !isSelected && !statusAlertColor && "bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-400 animate-pulse",
+        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && !semOrcamento && "bg-emerald-50 dark:bg-emerald-950/30 border-l-4 border-l-green-500",
+        semOrcamento && !isSelected && !statusAlertColor && "bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-400",
         statusAlertColor && !isSelected && "border-l-4"
       )}
       style={alertBackgroundStyle}
       onClick={onClick}
     >
-      {/* Linha 1: Tag, Avatar do Atendente e Menu */}
+      {/* Linha 1: Tag e Menu */}
       <div className="flex items-start justify-between mb-1.5 gap-2 overflow-hidden">
         <div className="flex gap-1 flex-wrap flex-1 min-h-[18px] min-w-0 overflow-hidden">
           {tags.map((tag, idx) => {
@@ -143,21 +143,6 @@ export const ConversationCard = memo(({
         </div>
         
         <div className="flex items-center gap-1">
-          {atendenteNome && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow-sm cursor-help">
-                    {atendenteNome.charAt(0).toUpperCase()}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">Atendente: {atendenteNome}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          
           <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 -mt-1">
@@ -210,13 +195,20 @@ export const ConversationCard = memo(({
         </div>
       </div>
 
-      {/* Linha 2: Nome e Telefone */}
+      {/* Operador (acima do nome do cliente) */}
+      {atendenteNome && (
+        <p className="text-[10px] italic text-muted-foreground truncate mb-0.5">
+          Operador: {atendenteNome}
+        </p>
+      )}
+
+      {/* Nome e Telefone */}
       <div className="flex items-center justify-between mb-1 gap-2 w-full overflow-hidden">
         <h3 className="font-semibold text-sm truncate w-0 flex-1">{nome}</h3>
         <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">{telefone}</span>
       </div>
 
-      {/* Linha 3: Ficha Ativa e Status */}
+      {/* Ficha Ativa e Status */}
       {fichaId && (
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className="text-xs font-medium text-primary">📋 {fichaId}</span>
@@ -226,7 +218,6 @@ export const ConversationCard = memo(({
               <span className="text-xs text-muted-foreground truncate">{fichaStatus}</span>
             </div>
           )}
-          {/* Indicador de pagamento - só mostra se tem link de pagamento */}
           {pagamentoLink && fichaStatus === "Finalizado" && (
             pagamentoRealizado ? (
               <Check className="h-4 w-4 text-green-600 shrink-0" />
@@ -242,7 +233,7 @@ export const ConversationCard = memo(({
         </div>
       )}
 
-      {/* Linha 4: Horário e Badge de Não Lidas */}
+      {/* Horário e Badge de Não Lidas */}
       <div className="flex items-center justify-between mt-1.5 gap-2 overflow-hidden">
         <span className="text-xs text-muted-foreground truncate">
           {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
@@ -270,7 +261,9 @@ export const ConversationCard = memo(({
             </div>
           )}
           {(marcadoNaoLido || unreadCount > 0) && (
-            <div className="w-2 h-2 rounded-full bg-destructive shrink-0" />
+            <div className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-green-500 shrink-0">
+              <span className="text-white text-xs font-bold">{unreadCount > 0 ? unreadCount : '•'}</span>
+            </div>
           )}
         </div>
       </div>
