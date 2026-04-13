@@ -255,12 +255,16 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const canReassign = !atendenteAtual || isSupervisor || isMyTicket;
   
   // 🔐 Controle de permissão de ESCRITA
-  // - Meu ticket: pode escrever
+  // - Meu ticket: pode escrever diretamente
   // - Supervisor/Admin: pode escrever em qualquer ticket
-  // - Ticket sem dono E não é supervisor: NÃO pode escrever (precisa assumir primeiro)
-  // - Ticket de outro: NÃO pode escrever
-  const canWrite = isMyTicket || isSupervisor;
+  // - Ticket sem dono: precisa assumir primeiro
+  // - Ticket de outro: pode escrever, mas com confirmação de takeover
+  const isOtherOperatorTicket = atendenteAtual && !isMyTicket && !isSupervisor;
+  const canWrite = isMyTicket || isSupervisor || isOtherOperatorTicket;
   const needsToAssume = !atendenteAtual && !isSupervisor;
+  
+  // Estado para popup de confirmação de takeover ao enviar
+  const [takeoverConfirmOpen, setTakeoverConfirmOpen] = useState(false);
 
   // Handlers para editar/apagar mensagens
   const handleEditMessage = async (messageId: string, newText: string) => {
