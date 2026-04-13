@@ -1,42 +1,58 @@
 
+Diagnóstico objetivo:
 
-# Plan: Centralize Attribution on Last Operator Who Sent a Message
+- O problema de “não lido” no Chat BETA não está no banco disparando errado; está na leitura do frontend.
+- As mensagens novas do cliente estão sendo salvas com `remetente = telefone do cliente` e `tipo_remetente = 'cliente'`.
+- O Chat BETA hoje procura “última mensagem do cliente” com `remetente = 'cliente'`, então ele simplesmente ignora várias mensagens reais recebidas via webhook/Twilio.
+- O problema de “inativo → ativo” também não está no trigger principal: no banco a conversa do teste já ficou `status_conversa = 'aberta'`.
+- O que está errado é o critério visual do Chat BETA: o filtro “Ativas/Inativas” usa `status_ficha` da última ficha, não `status_conversa`. Então se a última ficha estiver `Perdido`/`Finalizado`, a conversa continua aparecendo como inativa mesmo após nova mensagem.
+- Também encontrei um risco adicional: existem dois telefones muito parecidos no banco (`+554198751600` com atividade recente e `+5541998751600` antigo). Não vou propor mesclar nada automaticamente para não quebrar histórico, mas isso precisa entrar como salvaguarda de normalização.
 
-## Problem
+Plano de correção:
 
-Currently, `atendente_id` is only set in the frontend (ChatWindow/ChatWindowBeta) when sending a message AND no operator is assigned yet. Multiple flows bypass this:
+1. Corrigir a detecção de mensagem de cliente no Chat BETA
+- Atualizar `ConversationListBeta.tsx` para considerar mensagem do cliente quando:
+  - `tipo_remetente = 'cliente'`, ou
+  - `remetente = telefone do cliente`, ou
+  - legado `remetente = 'cliente'`
+- Isso será compatível com dados antigos e novos, sem reescrever mensagens já salvas.
 
-- **AprovacaoOrcamentoDialog** — sends via `send-whatsapp` without updating `atendente_id`
-- **EnviarLinkPagamentoDialog** — same issue
-- **FichaServicoTab** — same issue  
-- **ReciboGenerator** — same issue
-- **ContasReceber** — same issue
-- **send-template** edge function — no attribution at all
-- Bot messages should NOT change attribution
+2. Corrigir o critério de “Ativas/Inativas”
+- Trocar a lógica do bloco “Ativas / Inativas / Todas” no Chat BETA para usar `clientes.status_conversa` como fonte principal.
+- Manter `status_ficha` apenas para filtros e contagens de status da ficha.
+- Resultado esperado: entrou mensagem nova, `status_conversa` voltou para `aberta`, então a conversa volta para “Ativas”.
 
-## Solution
+3. Alinhar contagens e filtros à mesma regra
+- Ajustar lista, badge, contadores laterais e filtros para usarem a mesma definição de:
+  - conversa ativa/inativa
+  - conversa não lida/lida
+- Isso evita o cenário em que o card fica azul mas some da lista, ou o banco está “aberto” e a UI mostra “inativa”.
 
-Centralize the attribution logic in the **`send-whatsapp` edge function** (server-side), so that every message sent by a real operator automatically updates `atendente_id`. This guarantees attribution regardless of which UI component triggered the send.
+4. Preservar dados existentes
+- Não fazer migração destrutiva nem alterar timestamps/históricos já gravados.
+- A correção será de leitura/compatibilidade, justamente para evitar repetir problemas de alteração indevida em dados antigos.
+- Se eu precisar tratar a divergência dos dois telefones parecidos, será só como validação/normalização futura, nunca mesclando registros automaticamente agora.
 
-### Step 1: Update `send-whatsapp` edge function
+5. Aplicar a mesma compatibilidade no chat clássico
+- Como o chat antigo tem a mesma dependência de `remetente = 'cliente'`, vou replicar a correção ali também para não continuar existindo dois comportamentos diferentes no sistema.
 
-After successfully saving the message to the `mensagens` table (for client messages only, not prestador), add logic to update `clientes.atendente_id`:
+6. Fechar com validação real, não só “resposta positiva”
+- Antes de considerar concluído, vou validar estes critérios:
+  - nova mensagem recebida marca o card como não lido
+  - isso acontece por usuário, de forma independente
+  - ao abrir a conversa, o “não lido” sai só para quem abriu
+  - conversa com última ficha `Perdido/Finalizado` volta para “Ativas” ao receber nova mensagem
+  - nada do histórico existente é regravado ou deslocado
 
-- Only update if `remetente !== 'bot'` (skip bot messages)
-- Set `atendente_id` to `userData.user.id` (the authenticated user who invoked the function)
-- This covers ALL flows: direct messages, templates via fallback, payment links, receipts, etc.
+Como evitar você precisar repetir 8 vezes:
+- A partir daqui, a correção precisa ser tratada com “critério de aceite verificável”, não só “implementei”.
+- Ou seja: corrigir, conferir no banco qual registro mudou, conferir no preview se a conversa reapareceu em “Ativas”, e só então dar como finalizado.
+- Nesta análise eu já identifiquei a causa real, então o próximo passo é implementar exatamente nesses pontos, em vez de tentar ajustes genéricos.
 
-### Step 2: Update `send-template` edge function
+Arquivos que entram na correção:
+- `src/components/ConversationListBeta.tsx`
+- `src/components/ConversationList.tsx`
+- possivelmente um pequeno helper compartilhado de identificação de mensagem do cliente, se fizer sentido para evitar regressão
 
-The `send-template` function receives a `userId` parameter. After successfully sending the template, update `clientes.atendente_id` to that `userId` (if provided and not a bot).
-
-### Step 3: Remove redundant frontend auto-assignment
-
-In `ChatWindowBeta.tsx` and `ChatWindow.tsx`, remove the `if (!atendenteAtual)` auto-assignment block inside `enviarMensagemReal()`, since the edge function now handles it. Keep the `atribuirOperador` function for manual assignment and the takeover flow.
-
-### Files Modified
-- `supabase/functions/send-whatsapp/index.ts` — add `atendente_id` update after message insert
-- `supabase/functions/send-template/index.ts` — add `atendente_id` update after template send
-- `src/components/ChatWindowBeta.tsx` — remove redundant auto-assign in `enviarMensagemReal`
-- `src/components/ChatWindow.tsx` — remove redundant auto-assign in `enviarMensagemReal`
-
+Observação importante:
+- Para o caso do seu teste, o banco mostra que a conversa recente está em `status_conversa = 'aberta'`; então o bug principal do “não voltou para ativo” é visual/regra de filtro no Chat BETA, não falta de trigger.
