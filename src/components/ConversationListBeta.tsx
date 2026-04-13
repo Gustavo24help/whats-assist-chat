@@ -194,6 +194,18 @@ export const ConversationListBeta = ({
   // Status que indicam conversa inativa
   const STATUS_INATIVOS = ["Finalizado", "Perdido", "Não foi adiante"];
 
+  // ═══ Computed filter values: use external overrides when provided ═══
+  const effectiveStatusFilter = externalStatusFilter ?? statusFilter;
+  const effectiveConversaStatusFilter = externalConversaStatusFilter ?? conversaStatusFilter;
+  const effectiveUnreadFilter = externalUnreadFilter ?? unreadFilter;
+  const effectiveSelectedTags = externalSelectedTags ?? selectedTags;
+  const effectiveTicketView = externalTicketView ?? ticketView;
+  const effectiveConversaFilter = externalConversaFilter ?? conversaFilter;
+  const effectiveBotFilter = externalBotFilter ?? botFilter;
+  const effectiveFichaFilter = externalFichaFilter ?? fichaFilter;
+  const effectivePagamentoFilter = externalPagamentoFilter ?? pagamentoFilter;
+  const effectiveShowBotDisabledOnly = externalShowBotDisabledOnly ?? showBotDisabledOnly;
+
   // ✅ Debounce do termo de busca (300ms)
   const debouncedSetSearch = useMemo(
     () => debounce((term: string) => {
