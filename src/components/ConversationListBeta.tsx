@@ -1079,7 +1079,7 @@ export const ConversationListBeta = ({
             }));
             await supabase
               .from('mensagem_leitura_operador')
-              .upsert(rows, { onConflict: 'user_id,cliente_telefone', ignoreDuplicates: true });
+              .upsert(rows, { onConflict: 'cliente_telefone,user_id', ignoreDuplicates: true });
           }
         }
       }
