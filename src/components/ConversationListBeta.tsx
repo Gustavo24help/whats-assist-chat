@@ -126,6 +126,7 @@ export const ConversationListBeta = ({
   const [showServicosParaFinalizarOnly, setShowServicosParaFinalizarOnly] = useState(false);
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [clientesSemOrcamento, setClientesSemOrcamento] = useState<Set<string>>(new Set());
+  const [showAguardandoRespostaOnly, setShowAguardandoRespostaOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
@@ -411,10 +412,17 @@ export const ConversationListBeta = ({
       });
     }
 
+    // Filtro de aguardando resposta
+    if (showAguardandoRespostaOnly) {
+      filtered = filtered.filter(c => 
+        c.bot_habilitado === false && c.marcado_nao_lido === true
+      );
+    }
+
     // Manter ordem original do banco (ultima_interacao DESC)
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS, externalSelectedOperadorId]);
+  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, showAguardandoRespostaOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS, externalSelectedOperadorId]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -1095,6 +1103,13 @@ export const ConversationListBeta = ({
     }
   };
 
+  // Contagem de atendimentos aguardando resposta (bot desabilitado + não lido pelo operador)
+  const aguardandoRespostaCount = useMemo(() => {
+    return clientes.filter(c => 
+      c.bot_habilitado === false && c.marcado_nao_lido === true
+    ).length;
+  }, [clientes]);
+
 
   const fetchStatusAlertRules = async (): Promise<StatusAlertRule[]> => {
     const { data } = await supabase
@@ -1576,6 +1591,25 @@ export const ConversationListBeta = ({
         )}
       </div>
 
+      {/* 🆕 Alerta de atendimentos aguardando resposta */}
+      {!isCollapsed && aguardandoRespostaCount > 0 && (
+        <button
+          onClick={() => setShowAguardandoRespostaOnly(!showAguardandoRespostaOnly)}
+          className={cn(
+            "w-full px-3 py-2 flex items-center gap-2 text-sm font-medium border-b transition-colors shrink-0",
+            showAguardandoRespostaOnly
+              ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15"
+          )}
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{aguardandoRespostaCount} atendimento{aguardandoRespostaCount !== 1 ? 's' : ''} precisando de resposta</span>
+          {showAguardandoRespostaOnly && (
+            <X className="h-3.5 w-3.5 ml-auto shrink-0" />
+          )}
+        </button>
+      )}
+
       <ScrollArea className="flex-1">
         {!isCollapsed && (
           // Vista expandida - mostra cards completos
@@ -1649,6 +1683,12 @@ export const ConversationListBeta = ({
                               return next;
                             });
                           }
+                          // ✅ Limpar marcado_nao_lido localmente de imediato
+                          setClientes(prev => prev.map(c => 
+                            c.telefone === cliente.telefone 
+                              ? { ...c, marcado_nao_lido: false }
+                              : c
+                          ));
                           onSelectCliente(cliente);
                         }
                       }}

@@ -60,12 +60,30 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
 
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
 
+  const [fichasSemOrcamentoIds, setFichasSemOrcamentoIds] = useState<Set<string>>(new Set());
+
   // Stats derived from fichas
   const fichasStats = {
-    ativas: fichas.filter(f => !['Finalizado', 'Cancelado', 'Perdido', 'Não foi adiante'].includes(f.status || '')).length,
-    finalizado: fichas.filter(f => f.status === 'Finalizado').length,
-    semOrcamento: fichas.filter(f => f.status === 'Ficha Criada').length,
+    fichaCriada: fichas.filter(f => f.status === 'Ficha Criada').length,
+    finalizadas: fichas.filter(f => f.status === 'Finalizado').length,
+    perdidas: fichas.filter(f => ['Perdido', 'Não foi adiante'].includes(f.status || '')).length,
+    semOrcamento: fichas.filter(f => fichasSemOrcamentoIds.has(f.id)).length,
   };
+
+  // Fetch fichas sem orçamento
+  useEffect(() => {
+    const fetchSemOrcamento = async () => {
+      if (fichas.length === 0) { setFichasSemOrcamentoIds(new Set()); return; }
+      const fichaIds = fichas.map(f => f.id);
+      const { data: orcamentos } = await supabase
+        .from('orcamentos')
+        .select('ficha_nome')
+        .in('ficha_nome', fichaIds);
+      const comOrcamento = new Set((orcamentos || []).map(o => o.ficha_nome));
+      setFichasSemOrcamentoIds(new Set(fichaIds.filter(id => !comOrcamento.has(id))));
+    };
+    fetchSemOrcamento();
+  }, [fichas]);
 
   // Fetch client info
   useEffect(() => {
@@ -193,18 +211,22 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
       <div className="flex-1 overflow-y-auto">
         {/* ── STATUS SUMMARY CARDS ── */}
         <div className="p-3 border-b border-border/40">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             <div className="bg-primary/10 rounded-lg p-2 text-center">
-              <p className="text-lg font-bold text-primary">{fichasStats.ativas}</p>
-              <p className="text-[10px] text-muted-foreground">Ativas</p>
+              <p className="text-lg font-bold text-primary">{fichasStats.fichaCriada}</p>
+              <p className="text-[9px] text-muted-foreground leading-tight">Ficha Criada</p>
             </div>
             <div className="bg-emerald-500/10 rounded-lg p-2 text-center">
-              <p className="text-lg font-bold text-emerald-600">{fichasStats.finalizado}</p>
-              <p className="text-[10px] text-muted-foreground">Finalizado</p>
+              <p className="text-lg font-bold text-emerald-600">{fichasStats.finalizadas}</p>
+              <p className="text-[9px] text-muted-foreground leading-tight">Finalizadas</p>
+            </div>
+            <div className="bg-red-500/10 rounded-lg p-2 text-center">
+              <p className="text-lg font-bold text-red-600">{fichasStats.perdidas}</p>
+              <p className="text-[9px] text-muted-foreground leading-tight">Perdidas</p>
             </div>
             <div className="bg-amber-500/10 rounded-lg p-2 text-center">
               <p className="text-lg font-bold text-amber-600">{fichasStats.semOrcamento}</p>
-              <p className="text-[10px] text-muted-foreground">S/ Orçamento</p>
+              <p className="text-[9px] text-muted-foreground leading-tight">S/ Orçamento</p>
             </div>
           </div>
         </div>
