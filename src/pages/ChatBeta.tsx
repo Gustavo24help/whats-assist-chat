@@ -8,14 +8,13 @@ import { FichaPanelBeta as FichaPanel } from "@/components/FichaPanelBeta";
 import { ChatBetaFilterSidebar, type StatusCounts } from "@/components/chat-beta/ChatBetaFilterSidebar";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, Settings, Home, MessageCircle, Users, PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LogOut, Settings, Home, MessageCircle, PanelRightOpen, PanelLeftOpen } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { PageLayout } from "@/components/PageLayout";
 import { BotSemFichaNotification } from "@/components/BotSemFichaNotification";
 import { cn } from "@/lib/utils";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
 
 const ChatBeta = () => {
@@ -44,6 +43,10 @@ const ChatBeta = () => {
   const [pagamentoFilter, setPagamentoFilter] = useState<"todos" | "pago" | "nao_pago" | "pendente_finalizado">("todos");
   const [showBotDisabledOnly, setShowBotDisabledOnly] = useState(false);
 
+  // ═══ Operator filter ═══
+  const [selectedOperadorId, setSelectedOperadorId] = useState<string | null>(null);
+  const [operadores, setOperadores] = useState<Array<{ id: string; nome: string }>>([]);
+
   // ═══ Status counts from ConversationListBeta ═══
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({
     byStatus: {},
@@ -55,6 +58,20 @@ const ChatBeta = () => {
   const [allTags, setAllTags] = useState<string[]>([]);
   const [tagsWithColors, setTagsWithColors] = useState<Map<string, string>>(new Map());
   const [botDisabledCount, setBotDisabledCount] = useState(0);
+
+  // Fetch operators list
+  useEffect(() => {
+    const fetchOperadores = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .order('full_name');
+      if (data) {
+        setOperadores(data.map(p => ({ id: p.id, nome: p.full_name || 'Sem nome' })));
+      }
+    };
+    fetchOperadores();
+  }, []);
 
   const handleStatusCounts = useCallback((counts: any) => {
     setStatusCounts({
@@ -149,6 +166,10 @@ const ChatBeta = () => {
     );
   };
 
+  const handleContactCreated = (cliente: any) => {
+    // Refresh is handled by realtime subscription in ConversationListBeta
+  };
+
   return (
     <PageLayout fullHeight>
       <NotificationSystem
@@ -223,6 +244,12 @@ const ChatBeta = () => {
           botDisabledCount={botDisabledCount}
           showBotDisabledOnly={showBotDisabledOnly}
           onToggleBotDisabled={() => setShowBotDisabledOnly(!showBotDisabledOnly)}
+          operadores={operadores}
+          selectedOperadorId={selectedOperadorId}
+          onSelectedOperadorChange={setSelectedOperadorId}
+          activeTab={activeTab}
+          onActiveTabChange={setActiveTab}
+          onContactCreated={handleContactCreated}
         />
 
         {/* ─── COL 2: Conversation List (collapsible) ─── */}
@@ -231,48 +258,34 @@ const ChatBeta = () => {
             "border-r border-border/60 bg-card shrink-0 flex flex-col w-full md:w-[280px] lg:w-[300px]",
             selectedCliente && "max-md:hidden"
           )}>
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "conversas" | "contatos")} className="h-full flex flex-col">
-              <div className="border-b border-border/40 px-2 pt-1 pb-0.5">
-                <TabsList className="w-full grid grid-cols-2 h-7 bg-muted/50">
-                  <TabsTrigger value="conversas" className="gap-1 text-[11px] h-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    <MessageCircle className="h-3 w-3" />
-                    Conversas
-                  </TabsTrigger>
-                  <TabsTrigger value="contatos" className="gap-1 text-[11px] h-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    <Users className="h-3 w-3" />
-                    Contatos
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-              <TabsContent value="conversas" className="flex-1 m-0 overflow-hidden">
-                <ConversationList
-                  selectedClienteTelefone={selectedCliente?.telefone || null}
-                  onSelectCliente={handleSelectCliente}
-                  unreadMessages={unreadMessages}
-                  isCollapsed={false}
-                  onToggleCollapse={() => setConversationListOpen(false)}
-                  botDisabledAcknowledged={botDisabledAcknowledged}
-                  hideFilters
-                  externalStatusFilter={statusFilter}
-                  externalConversaStatusFilter={conversaStatusFilter}
-                  externalUnreadFilter={unreadFilter}
-                  externalSelectedTags={selectedTags}
-                  externalTicketView={ticketView}
-                  externalConversaFilter={conversaFilter}
-                  externalBotFilter={botFilter}
-                  externalFichaFilter={fichaFilter}
-                  externalPagamentoFilter={pagamentoFilter}
-                  externalShowBotDisabledOnly={showBotDisabledOnly}
-                  onStatusCounts={handleStatusCounts}
-                />
-              </TabsContent>
-              <TabsContent value="contatos" className="flex-1 m-0 overflow-hidden">
-                <ContactsTab
-                  selectedClienteTelefone={selectedCliente?.telefone || null}
-                  onSelectCliente={handleSelectCliente}
-                />
-              </TabsContent>
-            </Tabs>
+            {activeTab === "conversas" ? (
+              <ConversationList
+                selectedClienteTelefone={selectedCliente?.telefone || null}
+                onSelectCliente={handleSelectCliente}
+                unreadMessages={unreadMessages}
+                isCollapsed={false}
+                onToggleCollapse={() => setConversationListOpen(false)}
+                botDisabledAcknowledged={botDisabledAcknowledged}
+                hideFilters
+                externalStatusFilter={statusFilter}
+                externalConversaStatusFilter={conversaStatusFilter}
+                externalUnreadFilter={unreadFilter}
+                externalSelectedTags={selectedTags}
+                externalTicketView={ticketView}
+                externalConversaFilter={conversaFilter}
+                externalBotFilter={botFilter}
+                externalFichaFilter={fichaFilter}
+                externalPagamentoFilter={pagamentoFilter}
+                externalShowBotDisabledOnly={showBotDisabledOnly}
+                externalSelectedOperadorId={selectedOperadorId}
+                onStatusCounts={handleStatusCounts}
+              />
+            ) : (
+              <ContactsTab
+                selectedClienteTelefone={selectedCliente?.telefone || null}
+                onSelectCliente={handleSelectCliente}
+              />
+            )}
           </div>
         ) : (
           <div className="border-r border-border/60 bg-card shrink-0 flex flex-col items-center py-2 w-10">
