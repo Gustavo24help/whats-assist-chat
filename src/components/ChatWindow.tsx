@@ -256,10 +256,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   
   // 🔐 Controle de permissão de ESCRITA
   // - Meu ticket: pode escrever diretamente
-  // - Supervisor/Admin: pode escrever em qualquer ticket
   // - Ticket sem dono: precisa assumir primeiro
-  // - Ticket de outro: pode escrever, mas com confirmação de takeover
-  const isOtherOperatorTicket = atendenteAtual && !isMyTicket && !isSupervisor;
+  // - Ticket de outro: popup de confirmação para TODOS os perfis (inclusive admin)
+  const isOtherOperatorTicket = atendenteAtual && !isMyTicket;
   const canWrite = isMyTicket || isSupervisor || isOtherOperatorTicket;
   const needsToAssume = !atendenteAtual && !isSupervisor;
   
