@@ -1737,6 +1737,32 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
     }
   };
 
+  // Wrapper que intercepta envio quando conversa é de outro operador
+  const enviarMensagem = () => {
+    if (isOtherOperatorTicket) {
+      setTakeoverConfirmOpen(true);
+      return;
+    }
+    enviarMensagemReal();
+  };
+
+  // Handler quando confirma assumir conversa de outro operador
+  const handleConfirmTakeoverAndSend = async () => {
+    setTakeoverConfirmOpen(false);
+    // Assumir conversa para o operador atual
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', currentUser.id)
+        .single();
+      await atribuirOperador(currentUser.id, profile?.full_name || 'Você', undefined, true);
+    }
+    // Enviar a mensagem
+    await enviarMensagemReal();
+  };
+
   // Função para verificar estado atual e abrir dialog
   const handleAssumirClick = async () => {
     // Buscar estado atual do banco antes de abrir o dialog para garantir sincronização
