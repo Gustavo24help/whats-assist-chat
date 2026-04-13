@@ -1232,8 +1232,23 @@ export const ConversationListBeta = ({
         {!isCollapsed && (
           <>
             {/* Search bar - always visible */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
+            <div className="space-y-1.5">
+              <Select
+                value={searchMode}
+                onValueChange={(v) => setSearchMode(v as any)}
+              >
+                <SelectTrigger className="h-7 text-[11px]">
+                  <SelectValue placeholder="Buscar por..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ficha" className="text-xs">Nome / Telefone / Ficha</SelectItem>
+                  <SelectItem value="prestador" className="text-xs">Prestador</SelectItem>
+                  <SelectItem value="descricao" className="text-xs">Descrição</SelectItem>
+                  <SelectItem value="id_ficha" className="text-xs">Nº da Ficha</SelectItem>
+                  <SelectItem value="mensagem" className="text-xs">Mensagens</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder={
@@ -1248,37 +1263,6 @@ export const ConversationListBeta = ({
                   className="pl-8 h-9 text-sm"
                 />
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setSearchMode(
-                  searchMode === 'ficha' ? 'prestador' : 
-                  searchMode === 'prestador' ? 'descricao' : 
-                  searchMode === 'descricao' ? 'id_ficha' : 
-                  searchMode === 'id_ficha' ? 'mensagem' :
-                  'ficha'
-                )}
-                className="h-9 w-9 shrink-0"
-                title={
-                  searchMode === 'ficha' ? "Clique: Buscar por prestador" : 
-                  searchMode === 'prestador' ? "Clique: Buscar por descrição" : 
-                  searchMode === 'descricao' ? "Clique: Buscar por nº ficha" :
-                  searchMode === 'id_ficha' ? "Clique: Buscar nas mensagens" :
-                  "Clique: Buscar geral"
-                }
-              >
-                {searchMode === 'ficha' ? (
-                  <User className="h-4 w-4" />
-                ) : searchMode === 'prestador' ? (
-                  <HardHat className="h-4 w-4" />
-                ) : searchMode === 'descricao' ? (
-                  <BookOpen className="h-4 w-4" />
-                ) : searchMode === 'id_ficha' ? (
-                  <Hash className="h-4 w-4" />
-                ) : (
-                  <MessageSquareText className="h-4 w-4" />
-                )}
-              </Button>
             </div>
 
             {/* Filter controls - only when NOT externalized */}
