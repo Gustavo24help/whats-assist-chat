@@ -1591,6 +1591,25 @@ export const ConversationListBeta = ({
         )}
       </div>
 
+      {/* 🆕 Alerta de atendimentos aguardando resposta */}
+      {!isCollapsed && aguardandoRespostaCount > 0 && (
+        <button
+          onClick={() => setShowAguardandoRespostaOnly(!showAguardandoRespostaOnly)}
+          className={cn(
+            "w-full px-3 py-2 flex items-center gap-2 text-sm font-medium border-b transition-colors shrink-0",
+            showAguardandoRespostaOnly
+              ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15"
+          )}
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{aguardandoRespostaCount} atendimento{aguardandoRespostaCount !== 1 ? 's' : ''} precisando de resposta</span>
+          {showAguardandoRespostaOnly && (
+            <X className="h-3.5 w-3.5 ml-auto shrink-0" />
+          )}
+        </button>
+      )}
+
       <ScrollArea className="flex-1">
         {!isCollapsed && (
           // Vista expandida - mostra cards completos
