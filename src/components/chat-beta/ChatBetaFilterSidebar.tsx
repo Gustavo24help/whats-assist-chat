@@ -362,7 +362,17 @@ export const ChatBetaFilterSidebar = ({
             {sortedStatuses.map(([status, count]) => (
               <button
                 key={status}
-                onClick={() => onStatusFilterChange(statusFilter === status ? "all" : status)}
+                onClick={() => {
+                  if (statusFilter === status) {
+                    onStatusFilterChange("all");
+                  } else {
+                    onStatusFilterChange(status);
+                    // Auto-switch to "todas" so the status filter doesn't hide results
+                    if (conversaStatusFilter !== "todas") {
+                      onConversaStatusFilterChange("todas");
+                    }
+                  }
+                }}
                 className={cn(
                   "w-full flex items-center justify-between px-2 py-1 rounded text-[11px] transition-colors",
                   statusFilter === status
