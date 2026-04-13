@@ -231,6 +231,21 @@ export const ConversationListBeta = ({
       )
       .subscribe();
 
+    // 🆕 Canal realtime para novos orçamentos
+    const orcamentosChannel = supabase
+      .channel('orcamentos-new-beta')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orcamentos' },
+        async (payload) => {
+          const fichaId = (payload.new as any)?.ficha_nome;
+          if (fichaId) {
+            setRecentOrcamentoFichas(prev => new Set(prev).add(fichaId));
+          }
+        }
+      )
+      .subscribe();
+
     const leituraChannel = user?.id
       ? supabase
           .channel(`mensagem-leitura-beta-${user.id}`)
@@ -253,6 +268,7 @@ export const ConversationListBeta = ({
       supabase.removeChannel(mensagensChannel);
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(fichasChannel);
+      supabase.removeChannel(orcamentosChannel);
       if (leituraChannel) supabase.removeChannel(leituraChannel);
       window.clearInterval(pollingInterval);
     };
