@@ -828,32 +828,66 @@ export const ConversationListBeta = ({
     
     setArchivedCount(count || 0);
 
-    // ✅ Query 1: Buscar clientes baseado no estado atual (com atendente)
-    const { data: clientesData, error } = await supabase
-      .from('clientes')
-      .select(`
-        *,
-        atendente:profiles!atendente_id (
-          full_name
-        )
-      `)
-      .eq('arquivado', showArchived)
-      .order('ultima_interacao', { ascending: false });
+    // ✅ Query 1: Buscar TODOS os clientes com paginação para ultrapassar o limite de 1000
+    let allClientesData: any[] = [];
+    let from = 0;
+    const PAGE_SIZE = 1000;
+    while (true) {
+      const { data: page, error } = await supabase
+        .from('clientes')
+        .select(`
+          *,
+          atendente:profiles!atendente_id (
+            full_name
+          )
+        `)
+        .eq('arquivado', showArchived)
+        .order('ultima_interacao', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      
+      if (error || !page) break;
+      allClientesData = allClientesData.concat(page);
+      if (page.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
 
-    if (!error && clientesData) {
+    const clientesData = allClientesData;
+
+    if (clientesData.length > 0) {
       const telefones = clientesData.map(c => c.telefone);
 
-      // ✅ Query 2: Buscar últimas mensagens com limite
-      const { data: ultimasMensagens } = await supabase
-        .from('mensagens')
-        .select('cliente_id, data_hora')
-        .in('cliente_id', telefones)
-        .neq('remetente', 'whatsapp:+554138911555')
-        .order('data_hora', { ascending: false });
+      // Helper to chunk .in() queries that might exceed URL length limits
+      const chunkedIn = async (
+        table: string,
+        selectCols: string,
+        filterCol: string,
+        filterValues: string[],
+        extraFilters?: (q: any) => any,
+        orderCol?: string
+      ): Promise<any[]> => {
+        if (filterValues.length === 0) return [];
+        const CHUNK = 500;
+        const results: any[] = [];
+        for (let i = 0; i < filterValues.length; i += CHUNK) {
+          const chunk = filterValues.slice(i, i + CHUNK);
+          let q = (supabase as any).from(table).select(selectCols).in(filterCol, chunk);
+          if (extraFilters) q = extraFilters(q);
+          if (orderCol) q = q.order(orderCol, { ascending: false });
+          const { data } = await q;
+          if (data) results.push(...data);
+        }
+        return results;
+      };
 
-      // Criar mapa de última mensagem por cliente
+      // ✅ Query 2: Buscar últimas mensagens
+      const ultimasMensagens = await chunkedQuery<{ cliente_id: string; data_hora: string }>(
+        'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
+        (q) => q.neq('remetente', 'whatsapp:+554138911555'),
+        'data_hora'
+      );
+
       const mensagensMap = new Map();
-      ultimasMensagens?.forEach(msg => {
+      ultimasMensagens.forEach(msg => {
         if (!mensagensMap.has(msg.cliente_id)) {
           mensagensMap.set(msg.cliente_id, msg.data_hora);
         }
@@ -864,29 +898,28 @@ export const ConversationListBeta = ({
         .filter(c => c.ficha_ativa_id)
         .map(c => c.ficha_ativa_id);
       
-      const { data: fichasAtivas } = await supabase
-        .from('fichas_de_servico')
-        .select('id, nome_ficha, status, pagamento_link, pagamento_realizado, created_at, updated_at')
-        .in('id', fichasAtivasIds);
+      const fichasAtivas = await chunkedQuery<any>(
+        'fichas_de_servico', 'id, nome_ficha, status, pagamento_link, pagamento_realizado, created_at, updated_at',
+        'id', fichasAtivasIds
+      );
 
       const fichasAtivasMap = new Map();
-      fichasAtivas?.forEach(f => fichasAtivasMap.set(f.id, f));
+      fichasAtivas.forEach(f => fichasAtivasMap.set(f.id, f));
 
       // ✅ Query 4: Buscar últimas fichas para quem não tem ativa (em batch)
       const telefonesSeficha = clientesData
         .filter(c => !c.ficha_ativa_id)
         .map(c => c.telefone);
       
-      const { data: ultimasFichas } = await supabase
-        .from('fichas_de_servico')
-        .select('id, telefone_cliente, nome_ficha, status, created_at, updated_at, pagamento_link, pagamento_realizado')
-        .in('telefone_cliente', telefonesSeficha)
-        .order('created_at', { ascending: false })
-        .limit(500);
+      const ultimasFichas = await chunkedQuery<any>(
+        'fichas_de_servico', 'id, telefone_cliente, nome_ficha, status, created_at, updated_at, pagamento_link, pagamento_realizado',
+        'telefone_cliente', telefonesSeficha,
+        undefined,
+        'created_at'
+      );
 
-      // Criar mapa de última ficha por telefone
       const ultimasFichasMap = new Map();
-      ultimasFichas?.forEach(f => {
+      ultimasFichas.forEach(f => {
         if (!ultimasFichasMap.has(f.telefone_cliente)) {
           ultimasFichasMap.set(f.telefone_cliente, f);
         }
@@ -910,15 +943,12 @@ export const ConversationListBeta = ({
         ...Array.from(ultimasFichasMap.values()).map((f: any) => f.id).filter(Boolean)
       ].filter(Boolean);
 
-      // Buscar orçamentos para todas essas fichas
-      const { data: orcamentosData } = await supabase
-        .from('orcamentos')
-        .select('ficha_nome')
-        .in('ficha_nome', todasFichasIds);
+      const orcamentosData = await chunkedQuery<{ ficha_nome: string }>(
+        'orcamentos', 'ficha_nome', 'ficha_nome', todasFichasIds
+      );
 
-      // Criar mapa de contagem de orçamentos por ficha
       const orcamentosCountMap = new Map();
-      orcamentosData?.forEach(orc => {
+      orcamentosData.forEach(orc => {
         const count = orcamentosCountMap.get(orc.ficha_nome) || 0;
         orcamentosCountMap.set(orc.ficha_nome, count + 1);
       });
@@ -926,13 +956,14 @@ export const ConversationListBeta = ({
       const statusHistoricoAtivoMap = new Map();
       const statusHistoricoFallbackMap = new Map();
       if (todasFichasIds.length > 0) {
-        const { data: statusHistoricoData } = await supabase
-          .from('ficha_status_historico')
-          .select('ficha_id, data_inicio, status_novo, data_fim')
-          .in('ficha_id', todasFichasIds)
-          .order('data_inicio', { ascending: false });
+        const statusHistoricoData = await chunkedQuery<any>(
+          'ficha_status_historico', 'ficha_id, data_inicio, status_novo, data_fim',
+          'ficha_id', todasFichasIds,
+          undefined,
+          'data_inicio'
+        );
 
-        statusHistoricoData?.forEach((item) => {
+        statusHistoricoData.forEach((item) => {
           if (!statusHistoricoFallbackMap.has(item.ficha_id)) {
             statusHistoricoFallbackMap.set(item.ficha_id, item);
           }
@@ -955,12 +986,11 @@ export const ConversationListBeta = ({
       }
 
       // ✅ Buscar última mensagem de CLIENTE por telefone para comparar com leitura
-      const { data: ultimasMensagensCliente } = await supabase
-        .from('mensagens')
-        .select('cliente_id, data_hora')
-        .in('cliente_id', telefones)
-        .eq('remetente', 'cliente')
-        .order('data_hora', { ascending: false });
+      const ultimasMensagensCliente = await chunkedQuery<{ cliente_id: string; data_hora: string }>(
+        'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
+        (q) => q.eq('remetente', 'cliente'),
+        'data_hora'
+      );
 
       const ultimaMsgClienteMap = new Map<string, string>();
       ultimasMensagensCliente?.forEach(msg => {
@@ -1019,9 +1049,12 @@ export const ConversationListBeta = ({
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
         if (lastClientMsg) {
-          if (!lastRead || new Date(lastClientMsg) > new Date(lastRead)) {
-            // Only mark unread if bot was already disabled at some point (same logic as trigger)
-            perOperatorUnread = cliente.bot_ja_desligado_alguma_vez === true;
+          if (!lastRead) {
+            // No read record = never read. Only mark unread from "now" onward (no legacy).
+            // We'll create a read record on first load so future messages appear as unread.
+            perOperatorUnread = false;
+          } else if (new Date(lastClientMsg) > new Date(lastRead)) {
+            perOperatorUnread = true;
           }
         }
 
@@ -1045,6 +1078,28 @@ export const ConversationListBeta = ({
       });
 
       setClientes(clientesComFicha);
+
+      // Seed read records for conversations that don't have one yet (avoid legacy showing as unread)
+      if (user?.id) {
+        const telefonesSemLeitura = clientesData
+          .filter(c => !operatorReadMap.has(c.telefone))
+          .map(c => c.telefone);
+        
+        if (telefonesSemLeitura.length > 0) {
+          // Batch insert in chunks of 100
+          for (let i = 0; i < telefonesSemLeitura.length; i += 100) {
+            const chunk = telefonesSemLeitura.slice(i, i + 100);
+            const rows = chunk.map(tel => ({
+              user_id: user.id,
+              cliente_telefone: tel,
+              last_read_at: new Date().toISOString()
+            }));
+            await supabase
+              .from('mensagem_leitura_operador')
+              .upsert(rows, { onConflict: 'cliente_telefone,user_id', ignoreDuplicates: true });
+          }
+        }
+      }
     }
     } catch (err) {
       console.error('Erro ao buscar clientes:', err);
