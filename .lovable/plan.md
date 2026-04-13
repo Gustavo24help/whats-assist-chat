@@ -1,42 +1,38 @@
 
 
-# Diagnóstico e Correções: Contas a Receber / Contas a Pagar + Build Error
+# Plan: Chat BETA Filter Reorganization + Finalization Confirmation
 
-## Problema Identificado
+## 1. Move conversation filters from sidebar to conversation list column
 
-### 1. Fichas "fantasma" inflando as listas
-Uma atualização em massa em 06/04/2026 (todas com `updated_at: 2026-04-06 14:51:55`) fez com que 18 fichas antigas (criadas entre Nov/2025 e Mar/2026) passassem o filtro `FINANCEIRO_CUTOFF` (`2026-03-13`). Essas fichas:
-- Não têm link de pagamento (nunca tiveram cobrança Asaas)
-- Estão como `pagamento_realizado = false/null`
-- Aparecem na lista de "Pendentes" sem link, sem sentido real de cobrança
+**Current state**: The dropdowns for "Ativas/Inativas/Todas" and "Todas/Não Lidas" live in `ChatBetaFilterSidebar.tsx`.
 
-São 19 fichas sem link dos 42 "pendentes" — quase metade da lista não deveria estar ali.
+**Change**: Move these two Select dropdowns into the top of `ConversationListBeta.tsx` (above the search bar). The sidebar keeps only: Operador, FilterDropdown (advanced), Tags, and Status counts.
 
-### 2. Asaas está funcionando
-Os links Asaas existem nas fichas recentes (abril). O webhook Asaas não tem logs recentes, mas isso é normal se não houve pagamentos confirmados hoje. A integração em si está OK.
+**Files**: `ChatBetaFilterSidebar.tsx`, `ConversationListBeta.tsx`
 
-### 3. Build error em `sync-twilio-messages`
-Erros de TypeScript por tipos implícitos `any` e tipo `never` em queries. Pré-existente, não relacionado às mudanças recentes.
+**Behavior when operator filter is selected**: The status counts in the sidebar filter by operator, but the "Ativas/Inativas/Todas" dropdown (now in the conversation list) applies independently. When an operator is selected, the conversation status filter auto-switches to "todas" so all that operator's conversations appear.
 
-## Solução
+**Default selection**: Ativas + Todas pre-selected.
 
-### Contas a Receber (`PagamentoClientesTabV2.tsx`)
-- Adicionar filtro baseado em `created_at` além do `updated_at`: fichas com `created_at` anterior ao cutoff E sem `pagamento_link` serão excluídas da lista de pendentes
-- Isso remove as fichas antigas que foram "arrastadas" pelo bulk update sem afetar fichas legítimas
+## 2. Finalization confirmation dialog (both chats)
 
-### Contas a Pagar (`PagamentoPrestadoresTabV2.tsx`)
-- Mesmo problema: a query busca todas as fichas Finalizadas com `valor > 0` e prestador, sem filtro de cutoff. Fichas muito antigas sem transação financeira aparecem como "pendentes de pagamento ao prestador"
-- Adicionar filtro equivalente para excluir fichas antigas sem relevância financeira
+**Current state**: In `FichaServicoTab.tsx` line 1108, changing the status Select immediately calls `updateFicha({ status: value })`, which triggers auto-save and NPS/payment flows.
 
-### Build error (`sync-twilio-messages/index.ts`)
-- Adicionar tipagem explícita para `response: Response` e `data: any`
-- Tipar o retorno de `findOutgoingPlaceholder` e o parâmetro `supabase`
+**Change**: Intercept the `onValueChange` of the status Select. When the new value is "Finalizado", show an AlertDialog with:
+- Message: "Você quer Finalizar essa Ficha de Serviço? Se você prosseguir será gerado o pagamento de forma automática"
+- Buttons: "Prosseguir" / "Não Prosseguir"
+- Only call `updateFicha({ status: 'Finalizado' })` if the user confirms
 
-## Arquivos alterados
+Since `FichaServicoTab.tsx` is shared by both chats, this single change covers both.
 
-| Arquivo | Alteração |
-|---|---|
-| `src/components/financeiro/PagamentoClientesTabV2.tsx` | Filtrar fichas antigas sem link de pagamento |
-| `src/components/financeiro/PagamentoPrestadoresTabV2.tsx` | Filtrar fichas antigas sem transação financeira relevante |
-| `supabase/functions/sync-twilio-messages/index.ts` | Corrigir erros de tipagem TypeScript |
+**File**: `FichaServicoTab.tsx`
+
+## Summary of file changes
+
+| File | Change |
+|------|--------|
+| `ChatBetaFilterSidebar.tsx` | Remove the two Select dropdowns (Ativas/Inativas/Todas and Todas/Não Lidas). Remove related props. |
+| `ConversationListBeta.tsx` | Add two Select dropdowns at the top of the list (when `hideFilters` is true, use external values but render the dropdowns). |
+| `ChatBeta.tsx` | Update prop passing to reflect the filter relocation. |
+| `FichaServicoTab.tsx` | Add AlertDialog state. Wrap status change in confirmation when target is "Finalizado". |
 
