@@ -39,6 +39,7 @@ interface ConversationCardProps {
   semOrcamento?: boolean;
   statusAlertColor?: string | null;
   tempoNoStatusMinutos?: number;
+  hasNewOrcamento?: boolean;
 }
 
 const getStatusColor = (status: string) => {
