@@ -1209,11 +1209,11 @@ export const ConversationListBeta = ({
     if (!user?.id) return;
 
     if (currentState) {
-      // Mark as read: update last_read_at to now
+      // Mark as read: clear manual_unread_at and set last_read_at to now
       const { error } = await (supabase as any)
         .from('mensagem_leitura_operador')
         .upsert(
-          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString() },
+          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString(), manual_unread_at: null },
           { onConflict: 'cliente_telefone,user_id' }
         );
       if (error) {
@@ -1221,12 +1221,13 @@ export const ConversationListBeta = ({
         return;
       }
     } else {
-      // Mark as unread: delete the read record so perOperatorUnread becomes true
+      // Mark as unread: set manual_unread_at to now
       const { error } = await (supabase as any)
         .from('mensagem_leitura_operador')
-        .delete()
-        .eq('cliente_telefone', telefone)
-        .eq('user_id', user.id);
+        .upsert(
+          { cliente_telefone: telefone, user_id: user.id, manual_unread_at: new Date().toISOString() },
+          { onConflict: 'cliente_telefone,user_id' }
+        );
       if (error) {
         toast.error("Erro ao marcar conversa");
         return;
@@ -1234,7 +1235,6 @@ export const ConversationListBeta = ({
     }
 
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
-    // Atualizar localmente sem refetch completo
     setClientes(prev => prev.map(c => 
       c.telefone === telefone 
         ? { ...c, marcado_nao_lido: !currentState }
