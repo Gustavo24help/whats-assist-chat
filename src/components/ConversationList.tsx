@@ -208,11 +208,9 @@ export const ConversationList = ({
     // 🆕 Filtro de conversas ativas/inativas por status da ficha
     // IGNORAR quando buscando por ID de ficha para garantir que resultado apareça
     if (conversaStatusFilter === "ativas" && !ignorarFiltrosBuscaId) {
-      // Ativas: tem ficha E status não é inativo
-      filtered = filtered.filter(c => c.status_ficha && !STATUS_INATIVOS.includes(c.status_ficha));
+      filtered = filtered.filter(c => c.status_conversa === "aberta");
     } else if (conversaStatusFilter === "inativas" && !ignorarFiltrosBuscaId) {
-      // Inativas: status inativo OU sem ficha vinculada
-      filtered = filtered.filter(c => STATUS_INATIVOS.includes(c.status_ficha || "") || !c.status_ficha);
+      filtered = filtered.filter(c => c.status_conversa === "fechada" || !c.status_conversa);
     }
     // Se "todas" ou buscando por ID, não filtra por status
 
@@ -847,7 +845,8 @@ export const ConversationList = ({
       }
 
       // ✅ Buscar última mensagem de CLIENTE por telefone para comparar com leitura
-      const { data: ultimasMensagensCliente } = await supabase
+      // Mensagens do cliente podem ter remetente='cliente' (legado) OU tipo_remetente='cliente' (webhook/Twilio)
+      const { data: ultimasMensagensClienteLegado } = await supabase
         .from('mensagens')
         .select('cliente_id, data_hora')
         .in('cliente_id', telefones)
@@ -855,9 +854,18 @@ export const ConversationList = ({
         .order('data_hora', { ascending: false })
         .limit(1000);
 
+      const { data: ultimasMensagensClienteTipo } = await supabase
+        .from('mensagens')
+        .select('cliente_id, data_hora')
+        .in('cliente_id', telefones)
+        .eq('tipo_remetente', 'cliente')
+        .order('data_hora', { ascending: false })
+        .limit(1000);
+
       const ultimaMsgClienteMap = new Map<string, string>();
-      ultimasMensagensCliente?.forEach(msg => {
-        if (!ultimaMsgClienteMap.has(msg.cliente_id)) {
+      [...(ultimasMensagensClienteLegado || []), ...(ultimasMensagensClienteTipo || [])].forEach(msg => {
+        const existing = ultimaMsgClienteMap.get(msg.cliente_id);
+        if (!existing || new Date(msg.data_hora) > new Date(existing)) {
           ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
         }
       });
