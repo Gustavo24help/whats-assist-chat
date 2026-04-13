@@ -2738,28 +2738,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           {/* Bloqueio de escrita para conversas não atribuídas ou de outros usuários */}
           {!canWrite ? (
             <div className="p-4 bg-muted/50 rounded-lg text-center">
-              {needsToAssume ? (
-                <>
-                  <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Esta conversa não está atribuída a você
-                  </p>
-                  <Button onClick={assumirParaMim} size="sm">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Assumir para mim
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Atribuído a {atendenteAtual?.nome}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Você pode ler, mas não pode responder
-                  </p>
-                </>
-              )}
+              <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mb-3">
+                Esta conversa não está atribuída a você
+              </p>
+              <Button onClick={assumirParaMim} size="sm">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Assumir para mim
+              </Button>
             </div>
           ) : (
             <>
