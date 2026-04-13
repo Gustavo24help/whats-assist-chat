@@ -1,51 +1,42 @@
 
 
-# Fix: Unread Indicators in Chat BETA
+# Plan: Centralize Attribution on Last Operator Who Sent a Message
 
 ## Problem
 
-Three issues prevent unread indicators from working:
+Currently, `atendente_id` is only set in the frontend (ChatWindow/ChatWindowBeta) when sending a message AND no operator is assigned yet. Multiple flows bypass this:
 
-1. **Seeding marks everything as read**: When a conversation has no `mensagem_leitura_operador` record (line 1072), it's set to `perOperatorUnread = false`. Then the seeding block (lines 1099-1118) immediately creates records with `last_read_at = now()`, so even genuinely unread conversations get marked as read.
+- **AprovacaoOrcamentoDialog** — sends via `send-whatsapp` without updating `atendente_id`
+- **EnviarLinkPagamentoDialog** — same issue
+- **FichaServicoTab** — same issue  
+- **ReciboGenerator** — same issue
+- **ContasReceber** — same issue
+- **send-template** edge function — no attribution at all
+- Bot messages should NOT change attribution
 
-2. **`unreadCount` uses the wrong data source**: Line 1667 passes `operatorReadMap.get(...)?.nao_lidos` from the OLD `conversa_operador_leitura` table (state on line 101), which has `nao_lidos` always at 0. The correct unread state is in `marcado_nao_lido` (from `mensagem_leitura_operador`).
+## Solution
 
-3. **Badge never shows**: Since `unreadCount` is always 0 and `marcadoNaoLido` is always false (due to seeding), the blue badge condition `(marcadoNaoLido || unreadCount > 0)` is never true.
+Centralize the attribution logic in the **`send-whatsapp` edge function** (server-side), so that every message sent by a real operator automatically updates `atendente_id`. This guarantees attribution regardless of which UI component triggered the send.
 
-## Desired Behavior
+### Step 1: Update `send-whatsapp` edge function
 
-- Every operator sees ALL conversations' unread state independently
-- A conversation is "unread" if the latest client message arrived AFTER the operator's `last_read_at`, OR if manually marked unread
-- Reading a conversation (selecting it) updates only THAT operator's read timestamp
-- Unread state is independent of ticket assignment
+After successfully saving the message to the `mensagens` table (for client messages only, not prestador), add logic to update `clientes.atendente_id`:
 
-## Plan
+- Only update if `remetente !== 'bot'` (skip bot messages)
+- Set `atendente_id` to `userData.user.id` (the authenticated user who invoked the function)
+- This covers ALL flows: direct messages, templates via fallback, payment links, receipts, etc.
 
-### Step 1: Fix the seeding logic
+### Step 2: Update `send-template` edge function
 
-Change line 1072 from `perOperatorUnread = false` to `perOperatorUnread = !!lastClientMsg`. When there's no read record but a client message exists, the conversation should show as unread. The seeding will still create records, but only AFTER `perOperatorUnread` has been computed — so the first render shows unread correctly.
+The `send-template` function receives a `userId` parameter. After successfully sending the template, update `clientes.atendente_id` to that `userId` (if provided and not a bot).
 
-### Step 2: Remove the old `conversa_operador_leitura` state system
+### Step 3: Remove redundant frontend auto-assignment
 
-Remove the state-level `operatorReadMap` (lines 101-159) that reads from `conversa_operador_leitura` table. This table is unused/stale and causes confusion with the local variable of the same name inside `fetchClientes`.
-
-### Step 3: Pass correct unread count to ConversationCard
-
-Change line 1667 from:
-```
-unreadCount={operatorReadMap.get(cliente.telefone)?.nao_lidos || 0}
-```
-to:
-```
-unreadCount={cliente.marcado_nao_lido ? 1 : 0}
-```
-
-This ensures the badge renders whenever `marcado_nao_lido` is true (either from new client messages or manual marking).
-
-### Step 4: Ensure realtime refresh works
-
-The existing realtime channels for `mensagens` and `mensagem_leitura_operador` already call `fetchClientes()`. Verify they remain after removing the old `conversa_operador_leitura` channel.
+In `ChatWindowBeta.tsx` and `ChatWindow.tsx`, remove the `if (!atendenteAtual)` auto-assignment block inside `enviarMensagemReal()`, since the edge function now handles it. Keep the `atribuirOperador` function for manual assignment and the takeover flow.
 
 ### Files Modified
-- `src/components/ConversationListBeta.tsx` — all changes in one file
+- `supabase/functions/send-whatsapp/index.ts` — add `atendente_id` update after message insert
+- `supabase/functions/send-template/index.ts` — add `atendente_id` update after template send
+- `src/components/ChatWindowBeta.tsx` — remove redundant auto-assign in `enviarMensagemReal`
+- `src/components/ChatWindow.tsx` — remove redundant auto-assign in `enviarMensagemReal`
 
