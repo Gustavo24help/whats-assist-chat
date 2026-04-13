@@ -880,7 +880,7 @@ export const ConversationListBeta = ({
       };
 
       // ✅ Query 2: Buscar últimas mensagens
-      const ultimasMensagens = await chunkedIn<{ cliente_id: string; data_hora: string }>(
+      const ultimasMensagens = await chunkedIn(
         'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
         (q) => q.neq('remetente', 'whatsapp:+554138911555'),
         'data_hora'
@@ -898,7 +898,7 @@ export const ConversationListBeta = ({
         .filter(c => c.ficha_ativa_id)
         .map(c => c.ficha_ativa_id);
       
-      const fichasAtivas = await chunkedIn<any>(
+      const fichasAtivas = await chunkedIn(
         'fichas_de_servico', 'id, nome_ficha, status, pagamento_link, pagamento_realizado, created_at, updated_at',
         'id', fichasAtivasIds
       );
@@ -911,7 +911,7 @@ export const ConversationListBeta = ({
         .filter(c => !c.ficha_ativa_id)
         .map(c => c.telefone);
       
-      const ultimasFichas = await chunkedIn<any>(
+      const ultimasFichas = await chunkedIn(
         'fichas_de_servico', 'id, telefone_cliente, nome_ficha, status, created_at, updated_at, pagamento_link, pagamento_realizado',
         'telefone_cliente', telefonesSeficha,
         undefined,
@@ -943,7 +943,7 @@ export const ConversationListBeta = ({
         ...Array.from(ultimasFichasMap.values()).map((f: any) => f.id).filter(Boolean)
       ].filter(Boolean);
 
-      const orcamentosData = await chunkedIn<{ ficha_nome: string }>(
+      const orcamentosData = await chunkedIn(
         'orcamentos', 'ficha_nome', 'ficha_nome', todasFichasIds
       );
 
@@ -956,7 +956,7 @@ export const ConversationListBeta = ({
       const statusHistoricoAtivoMap = new Map();
       const statusHistoricoFallbackMap = new Map();
       if (todasFichasIds.length > 0) {
-        const statusHistoricoData = await chunkedIn<any>(
+        const statusHistoricoData = await chunkedIn(
           'ficha_status_historico', 'ficha_id, data_inicio, status_novo, data_fim',
           'ficha_id', todasFichasIds,
           undefined,
@@ -974,19 +974,19 @@ export const ConversationListBeta = ({
       }
 
       // ✅ Query extra: Buscar leitura per-operator para determinar não lido
-      let operatorReadMap = new Map<string, string>(); // telefone -> last_read_at
+      let operatorReadMap = new Map<string, { last_read_at: string; manual_unread_at: string | null }>(); 
       if (user?.id) {
         const { data: readData } = await (supabase as any)
           .from('mensagem_leitura_operador')
-          .select('cliente_telefone, last_read_at')
+          .select('cliente_telefone, last_read_at, manual_unread_at')
           .eq('user_id', user.id);
         readData?.forEach((r: any) => {
-          operatorReadMap.set(r.cliente_telefone, r.last_read_at);
+          operatorReadMap.set(r.cliente_telefone, { last_read_at: r.last_read_at, manual_unread_at: r.manual_unread_at });
         });
       }
 
       // ✅ Buscar última mensagem de CLIENTE por telefone para comparar com leitura
-      const ultimasMensagensCliente = await chunkedIn<{ cliente_id: string; data_hora: string }>(
+      const ultimasMensagensCliente = await chunkedIn(
         'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
         (q) => q.eq('remetente', 'cliente'),
         'data_hora'
@@ -1045,15 +1045,17 @@ export const ConversationListBeta = ({
           : null;
 
         // Per-operator unread: compare last_read_at with latest client message
-        const lastRead = operatorReadMap.get(cliente.telefone);
+        const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
-        if (lastClientMsg) {
-          if (!lastRead) {
-            // No read record = never read. Only mark unread from "now" onward (no legacy).
-            // We'll create a read record on first load so future messages appear as unread.
+        
+        // Manual unread takes priority
+        if (readRecord?.manual_unread_at) {
+          perOperatorUnread = true;
+        } else if (lastClientMsg) {
+          if (!readRecord) {
             perOperatorUnread = false;
-          } else if (new Date(lastClientMsg) > new Date(lastRead)) {
+          } else if (new Date(lastClientMsg) > new Date(readRecord.last_read_at)) {
             perOperatorUnread = true;
           }
         }
@@ -1207,11 +1209,11 @@ export const ConversationListBeta = ({
     if (!user?.id) return;
 
     if (currentState) {
-      // Mark as read: update last_read_at to now
+      // Mark as read: clear manual_unread_at and set last_read_at to now
       const { error } = await (supabase as any)
         .from('mensagem_leitura_operador')
         .upsert(
-          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString() },
+          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString(), manual_unread_at: null },
           { onConflict: 'cliente_telefone,user_id' }
         );
       if (error) {
@@ -1219,12 +1221,13 @@ export const ConversationListBeta = ({
         return;
       }
     } else {
-      // Mark as unread: delete the read record so perOperatorUnread becomes true
+      // Mark as unread: set manual_unread_at to now
       const { error } = await (supabase as any)
         .from('mensagem_leitura_operador')
-        .delete()
-        .eq('cliente_telefone', telefone)
-        .eq('user_id', user.id);
+        .upsert(
+          { cliente_telefone: telefone, user_id: user.id, manual_unread_at: new Date().toISOString() },
+          { onConflict: 'cliente_telefone,user_id' }
+        );
       if (error) {
         toast.error("Erro ao marcar conversa");
         return;
@@ -1232,7 +1235,6 @@ export const ConversationListBeta = ({
     }
 
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
-    // Atualizar localmente sem refetch completo
     setClientes(prev => prev.map(c => 
       c.telefone === telefone 
         ? { ...c, marcado_nao_lido: !currentState }
