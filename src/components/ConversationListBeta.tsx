@@ -1061,6 +1061,28 @@ export const ConversationListBeta = ({
       });
 
       setClientes(clientesComFicha);
+
+      // Seed read records for conversations that don't have one yet (avoid legacy showing as unread)
+      if (user?.id) {
+        const telefonesSemLeitura = clientesData
+          .filter(c => !operatorReadMap.has(c.telefone))
+          .map(c => c.telefone);
+        
+        if (telefonesSemLeitura.length > 0) {
+          // Batch insert in chunks of 100
+          for (let i = 0; i < telefonesSemLeitura.length; i += 100) {
+            const chunk = telefonesSemLeitura.slice(i, i + 100);
+            const rows = chunk.map(tel => ({
+              user_id: user.id,
+              cliente_telefone: tel,
+              last_read_at: new Date().toISOString()
+            }));
+            await supabase
+              .from('mensagem_leitura_operador')
+              .upsert(rows, { onConflict: 'user_id,cliente_telefone', ignoreDuplicates: true });
+          }
+        }
+      }
     }
     } catch (err) {
       console.error('Erro ao buscar clientes:', err);
