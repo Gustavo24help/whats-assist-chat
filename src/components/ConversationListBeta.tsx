@@ -1045,15 +1045,17 @@ export const ConversationListBeta = ({
           : null;
 
         // Per-operator unread: compare last_read_at with latest client message
-        const lastRead = operatorReadMap.get(cliente.telefone);
+        const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
-        if (lastClientMsg) {
-          if (!lastRead) {
-            // No read record = never read. Only mark unread from "now" onward (no legacy).
-            // We'll create a read record on first load so future messages appear as unread.
+        
+        // Manual unread takes priority
+        if (readRecord?.manual_unread_at) {
+          perOperatorUnread = true;
+        } else if (lastClientMsg) {
+          if (!readRecord) {
             perOperatorUnread = false;
-          } else if (new Date(lastClientMsg) > new Date(lastRead)) {
+          } else if (new Date(lastClientMsg) > new Date(readRecord.last_read_at)) {
             perOperatorUnread = true;
           }
         }
