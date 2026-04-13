@@ -1468,31 +1468,65 @@ export const ConversationListBeta = ({
               </>
             )}
 
-            {/* Selection mode controls when hideFilters - keep selection button */}
+            {/* Filters + Selection when hideFilters (Chat BETA mode) */}
             {hideFilters && (
-              <div className="flex gap-1">
-                <Button
-                  variant={selectionMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    if (selectionMode) {
-                      setSelectionMode(false);
-                      setSelectedClientes(new Set());
-                    } else {
-                      setSelectionMode(true);
-                    }
-                  }}
-                  className="h-7 px-2"
-                  title={selectionMode ? "Cancelar seleção" : "Selecionar múltiplos"}
-                >
-                  {selectionMode ? (
-                    <X className="h-3.5 w-3.5 mr-1" />
-                  ) : (
-                    <CheckSquare className="h-3.5 w-3.5 mr-1" />
-                  )}
-                  <span className="text-xs">{selectionMode ? "Cancelar" : "Selecionar"}</span>
-                </Button>
-              </div>
+              <>
+                {/* Ativas / Inativas / Todas + Todas / Não Lidas */}
+                <div className="flex gap-1.5">
+                  <Select
+                    value={effectiveConversaStatusFilter}
+                    onValueChange={(v) => onExternalConversaStatusFilterChange?.(v as "ativas" | "inativas" | "todas")}
+                  >
+                    <SelectTrigger className="h-7 text-[11px] flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ativas" className="text-xs">Ativas</SelectItem>
+                      <SelectItem value="inativas" className="text-xs">Inativas</SelectItem>
+                      <SelectItem value="todas" className="text-xs">Todas</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={effectiveUnreadFilter}
+                    onValueChange={(v) => onExternalUnreadFilterChange?.(v as "todas" | "lidas" | "nao_lidas")}
+                  >
+                    <SelectTrigger className="h-7 text-[11px] flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas" className="text-xs">Todas</SelectItem>
+                      <SelectItem value="nao_lidas" className="text-xs">
+                        Não Lidas {(externalUnreadCount ?? unreadCount) > 0 ? `(${externalUnreadCount ?? unreadCount})` : ''}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex gap-1">
+                  <Button
+                    variant={selectionMode ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      if (selectionMode) {
+                        setSelectionMode(false);
+                        setSelectedClientes(new Set());
+                      } else {
+                        setSelectionMode(true);
+                      }
+                    }}
+                    className="h-7 px-2"
+                    title={selectionMode ? "Cancelar seleção" : "Selecionar múltiplos"}
+                  >
+                    {selectionMode ? (
+                      <X className="h-3.5 w-3.5 mr-1" />
+                    ) : (
+                      <CheckSquare className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    <span className="text-xs">{selectionMode ? "Cancelar" : "Selecionar"}</span>
+                  </Button>
+                </div>
+              </>
             )}
           </>
         )}
