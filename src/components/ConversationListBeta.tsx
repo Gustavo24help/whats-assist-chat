@@ -853,7 +853,7 @@ export const ConversationListBeta = ({
 
     const clientesData = allClientesData;
 
-    if (!error && clientesData) {
+    if (clientesData.length > 0) {
       const telefones = clientesData.map(c => c.telefone);
 
       // ✅ Query 2: Buscar últimas mensagens com limite
