@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { calcularJanelaPrestador } from "@/lib/janelaHorarioPrestador";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
