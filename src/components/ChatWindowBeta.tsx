@@ -2568,7 +2568,7 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
 
             {(() => {
               const filteredMsgs = (!showAllMessages && fichaFilterId) 
-                ? mensagens.filter(m => m.ficha_id === fichaFilterId || !m.ficha_id)
+                ? mensagens.filter(m => m.ficha_id === fichaFilterId)
                 : mensagens;
               return filteredMsgs.map((msg, index) => {
               const previousMsg = index > 0 ? filteredMsgs[index - 1] : undefined;

@@ -1649,6 +1649,12 @@ export const ConversationListBeta = ({
                               return next;
                             });
                           }
+                          // ✅ Limpar marcado_nao_lido localmente de imediato
+                          setClientes(prev => prev.map(c => 
+                            c.telefone === cliente.telefone 
+                              ? { ...c, marcado_nao_lido: false }
+                              : c
+                          ));
                           onSelectCliente(cliente);
                         }
                       }}

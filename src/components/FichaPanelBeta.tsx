@@ -60,12 +60,30 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
 
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
 
+  const [fichasSemOrcamentoIds, setFichasSemOrcamentoIds] = useState<Set<string>>(new Set());
+
   // Stats derived from fichas
   const fichasStats = {
-    ativas: fichas.filter(f => !['Finalizado', 'Cancelado', 'Perdido', 'Não foi adiante'].includes(f.status || '')).length,
-    finalizado: fichas.filter(f => f.status === 'Finalizado').length,
-    semOrcamento: fichas.filter(f => f.status === 'Ficha Criada').length,
+    fichaCriada: fichas.filter(f => f.status === 'Ficha Criada').length,
+    finalizadas: fichas.filter(f => f.status === 'Finalizado').length,
+    perdidas: fichas.filter(f => ['Perdido', 'Não foi adiante'].includes(f.status || '')).length,
+    semOrcamento: fichas.filter(f => fichasSemOrcamentoIds.has(f.id)).length,
   };
+
+  // Fetch fichas sem orçamento
+  useEffect(() => {
+    const fetchSemOrcamento = async () => {
+      if (fichas.length === 0) { setFichasSemOrcamentoIds(new Set()); return; }
+      const fichaIds = fichas.map(f => f.id);
+      const { data: orcamentos } = await supabase
+        .from('orcamentos')
+        .select('ficha_nome')
+        .in('ficha_nome', fichaIds);
+      const comOrcamento = new Set((orcamentos || []).map(o => o.ficha_nome));
+      setFichasSemOrcamentoIds(new Set(fichaIds.filter(id => !comOrcamento.has(id))));
+    };
+    fetchSemOrcamento();
+  }, [fichas]);
 
   // Fetch client info
   useEffect(() => {
