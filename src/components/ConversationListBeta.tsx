@@ -260,6 +260,15 @@ export const ConversationListBeta = ({
       )
       .subscribe();
 
+    const mensagensChannel = supabase
+      .channel('mensagens-beta-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'mensagens' },
+        () => fetchClientes()
+      )
+      .subscribe();
+
     const tagsChannel = supabase
       .channel('tags-changes')
       .on(
@@ -278,7 +287,17 @@ export const ConversationListBeta = ({
       )
       .subscribe();
 
-    // Fallback para ambientes onde websocket/realtime é bloqueado (ex.: firewall/rede corporativa)
+    const leituraChannel = user?.id
+      ? supabase
+          .channel(`mensagem-leitura-beta-${user.id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'mensagem_leitura_operador', filter: `user_id=eq.${user.id}` },
+            () => fetchClientes()
+          )
+          .subscribe()
+      : null;
+
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
       fetchServicosParaFinalizar();
@@ -287,11 +306,13 @@ export const ConversationListBeta = ({
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(mensagensChannel);
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(fichasChannel);
+      if (leituraChannel) supabase.removeChannel(leituraChannel);
       window.clearInterval(pollingInterval);
     };
-  }, []);
+  }, [user?.id]);
 
   // ✅ Memoizar filtros pesados para melhor performance
   const filteredClientes = useMemo(() => {

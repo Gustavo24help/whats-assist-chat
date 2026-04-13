@@ -1768,9 +1768,17 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
     await enviarMensagemReal();
   };
 
+  useEffect(() => {
+    const openAssumir = () => {
+      handleAssumirClick();
+    };
+
+    window.addEventListener('chat-beta-open-assumir', openAssumir);
+    return () => window.removeEventListener('chat-beta-open-assumir', openAssumir);
+  }, [clienteTelefone]);
+
   // Função para verificar estado atual e abrir dialog
   const handleAssumirClick = async () => {
-    // Buscar estado atual do banco antes de abrir o dialog para garantir sincronização
     const { data } = await supabase
       .from('clientes')
       .select('bot_habilitado')
@@ -1780,8 +1788,6 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
     if (data) {
       const botDesativado = data.bot_habilitado === false;
       setBotDesabilitado(botDesativado);
-      // 🔒 Capturar estado FIXO para uso durante toda a interação do dialog
-      // Este valor NÃO será atualizado pelo realtime, prevenindo race conditions
       setBotStatusNoDialog(botDesativado);
     }
     setAssumirDialogOpen(true);

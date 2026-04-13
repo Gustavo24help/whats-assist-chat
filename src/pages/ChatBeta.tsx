@@ -307,8 +307,7 @@ const ChatBeta = () => {
               statusConversa={selectedCliente.status_conversa}
               onOpenFicha={() => setInfoPanelOpen(true)}
               onBack={handleBackToEmpty}
-              fichaOpen={infoPanelOpen}
-              onToggleFicha={() => setInfoPanelOpen(!infoPanelOpen)}
+              fichaOpen={true}
               fichaFilterId={selectedFichaId}
             />
           </div>
@@ -324,26 +323,16 @@ const ChatBeta = () => {
           </div>
         )}
 
-        {/* ─── COL 4: Info Panel (collapsible) ─── */}
+        {/* ─── COL 4: Info Panel ─── */}
         {selectedCliente && (
-          infoPanelOpen ? (
-            <div className="hidden lg:flex w-[380px] xl:w-[420px] border-l border-border/60 bg-card shrink-0 flex-col overflow-hidden">
-              <FichaPanel
-                key={selectedCliente.telefone}
-                clienteTelefone={selectedCliente.telefone}
-                clienteNome={selectedCliente.nome}
-                onClose={() => setInfoPanelOpen(false)}
-                onFichaChange={setSelectedFichaId}
-              />
-            </div>
-          ) : (
-            <div className="hidden lg:flex border-l border-border/60 bg-card shrink-0 flex-col items-center py-2 w-10">
-              <Button variant="ghost" size="icon" onClick={() => setInfoPanelOpen(true)} className="h-7 w-7">
-                <PanelRightOpen className="h-3.5 w-3.5" />
-              </Button>
-              <span className="text-[10px] text-muted-foreground mt-2 [writing-mode:vertical-lr]">Info</span>
-            </div>
-          )
+          <div className="hidden lg:flex w-[380px] xl:w-[420px] border-l border-border/60 bg-card shrink-0 flex-col overflow-hidden">
+            <FichaPanel
+              key={selectedCliente.telefone}
+              clienteTelefone={selectedCliente.telefone}
+              clienteNome={selectedCliente.nome}
+              onFichaChange={setSelectedFichaId}
+            />
+          </div>
         )}
       </div>
     </PageLayout>
