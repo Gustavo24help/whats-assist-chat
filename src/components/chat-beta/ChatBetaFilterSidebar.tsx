@@ -29,10 +29,6 @@ interface ChatBetaFilterSidebarProps {
   counts: StatusCounts;
   conversaStatusFilter: "ativas" | "inativas" | "todas";
   onConversaStatusFilterChange: (v: "ativas" | "inativas" | "todas") => void;
-  unreadFilter: "todas" | "lidas" | "nao_lidas";
-  onUnreadFilterChange: (v: "todas" | "lidas" | "nao_lidas") => void;
-  ticketView: "meus" | "todos";
-  onTicketViewChange: (v: "meus" | "todos") => void;
   statusFilter: string;
   onStatusFilterChange: (v: string) => void;
   conversaFilter: "todas" | "aberta" | "fechada";
@@ -100,8 +96,6 @@ export const ChatBetaFilterSidebar = ({
   counts,
   conversaStatusFilter,
   onConversaStatusFilterChange,
-  unreadFilter,
-  onUnreadFilterChange,
   statusFilter,
   onStatusFilterChange,
   conversaFilter,
@@ -216,38 +210,6 @@ export const ChatBetaFilterSidebar = ({
                   {op.nome}
                 </SelectItem>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Status (dropdown) + Todas/Não Lidas (dropdown) lado a lado */}
-        <div className="flex gap-1.5">
-          <Select
-            value={conversaStatusFilter}
-            onValueChange={(v) => onConversaStatusFilterChange(v as "ativas" | "inativas" | "todas")}
-          >
-            <SelectTrigger className="h-7 text-[11px] flex-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ativas" className="text-xs">Ativas</SelectItem>
-              <SelectItem value="inativas" className="text-xs">Inativas</SelectItem>
-              <SelectItem value="todas" className="text-xs">Todas</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={unreadFilter}
-            onValueChange={(v) => onUnreadFilterChange(v as "todas" | "lidas" | "nao_lidas")}
-          >
-            <SelectTrigger className="h-7 text-[11px] flex-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas" className="text-xs">Todas</SelectItem>
-              <SelectItem value="nao_lidas" className="text-xs">
-                Não Lidas {counts.unreadCount > 0 ? `(${counts.unreadCount})` : ''}
-              </SelectItem>
             </SelectContent>
           </Select>
         </div>

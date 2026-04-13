@@ -222,10 +222,6 @@ const ChatBeta = () => {
           counts={statusCounts}
           conversaStatusFilter={conversaStatusFilter}
           onConversaStatusFilterChange={setConversaStatusFilter}
-          unreadFilter={unreadFilter}
-          onUnreadFilterChange={setUnreadFilter}
-          ticketView={ticketView}
-          onTicketViewChange={setTicketView}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
           conversaFilter={conversaFilter}
@@ -269,7 +265,10 @@ const ChatBeta = () => {
                 hideFilters
                 externalStatusFilter={statusFilter}
                 externalConversaStatusFilter={conversaStatusFilter}
+                onConversaStatusFilterChange={setConversaStatusFilter}
                 externalUnreadFilter={unreadFilter}
+                onUnreadFilterChange={setUnreadFilter}
+                unreadCount={statusCounts.unreadCount}
                 externalSelectedTags={selectedTags}
                 externalTicketView={ticketView}
                 externalConversaFilter={conversaFilter}

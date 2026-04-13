@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { calcularJanelaPrestador } from "@/lib/janelaHorarioPrestador";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -158,6 +159,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [linkDialogData, setLinkDialogData] = useState<{ url: string; nome: string; valor: number } | null>(null);
   const [envioAutomatico, setEnvioAutomatico] = useState(true);
   const [editarManualmente, setEditarManualmente] = useState(false);
+  const [showFinalizarConfirm, setShowFinalizarConfirm] = useState(false);
 
   const formatMoeda = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -1105,7 +1107,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           <Label htmlFor="status" className="text-xs font-medium text-gray-600">Status do Serviço</Label>
           <Select
             value={ficha?.status || "Ficha Criada"}
-            onValueChange={(value) => updateFicha({ status: value })}
+            onValueChange={(value) => {
+              if (value === "Finalizado") {
+                setShowFinalizarConfirm(true);
+              } else {
+                updateFicha({ status: value });
+              }
+            }}
           >
             <SelectTrigger id="status" className="mt-1.5 h-9 text-sm focus:ring-2 focus:ring-primary/20">
               <SelectValue placeholder="Selecione o status" />
@@ -2627,6 +2635,24 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           onAjustado={() => fetchFicha()}
         />
       )}
+
+      {/* Confirmação de Finalização */}
+      <AlertDialog open={showFinalizarConfirm} onOpenChange={setShowFinalizarConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finalizar Ficha de Serviço</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você quer Finalizar essa Ficha de Serviço? Se você prosseguir será gerado o pagamento de forma automática.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não Prosseguir</AlertDialogCancel>
+            <AlertDialogAction onClick={() => updateFicha({ status: "Finalizado" })}>
+              Prosseguir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
