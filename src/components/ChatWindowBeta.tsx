@@ -168,9 +168,10 @@ interface ChatWindowProps {
   fichaOpen?: boolean;
   onToggleFicha?: () => void;
   fichaFilterId?: string | null;
+  onSuggestionReady?: (telefone: string) => void;
 }
 
-export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, fichaFilterId }: ChatWindowProps) => {
+export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, fichaFilterId, onSuggestionReady }: ChatWindowProps) => {
   const { user, userProfile, isSupervisor } = useAuth();
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
   const [coachingVisible, setCoachingVisible] = useState(true);
@@ -247,11 +248,13 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   // Estado para filtro de mensagens por ficha
   const [showAllMessages, setShowAllMessages] = useState(false);
   
-  // IA Suggestion states
+   // IA Suggestion states
   const [suggestion, setSuggestion] = useState("");
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   const [suggestionEnabled, setSuggestionEnabled] = useState(true);
   const [fichaStatus, setFichaStatus] = useState<string | null>(null);
+  const [totalOrcamentos, setTotalOrcamentos] = useState(0);
+  const suggestionGeneratedRef = useRef(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
