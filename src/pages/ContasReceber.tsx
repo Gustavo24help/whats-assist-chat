@@ -159,10 +159,43 @@ export default function ContasReceber() {
 
   const marcarComoPago = async (conta: ContaReceber) => {
     try {
+      const agora = new Date().toISOString();
+      
+      // 1. Atualizar conta a receber
       await supabase
         .from("contas_receber")
-        .update({ status: "pago", data_pagamento: new Date().toISOString().split("T")[0] } as any)
+        .update({ status: "pago", data_pagamento: agora.split("T")[0] } as any)
         .eq("id", conta.id);
+
+      // 2. Atualizar ficha de serviço (se vinculada)
+      if (conta.ficha_id) {
+        await supabase
+          .from("fichas_de_servico")
+          .update({ pagamento_realizado: true } as any)
+          .eq("id", conta.ficha_id);
+
+        // 3. Atualizar transação financeira
+        await supabase
+          .from("transacoes_financeiras")
+          .update({
+            status_pagamento_cliente: "pago",
+            data_pagamento_realizada: agora,
+          } as any)
+          .eq("ficha_id", conta.ficha_id);
+
+        // 4. Disparar recibo (non-blocking)
+        try {
+          await supabase.functions.invoke("send-recibo", {
+            body: {
+              ficha_id: conta.ficha_id,
+              telefone_cliente: conta.cliente_telefone,
+            },
+          });
+        } catch (reciboErr) {
+          console.warn("send-recibo error:", reciboErr);
+        }
+      }
+
       toast.success("Conta marcada como paga!");
       setModalAberto(false);
       carregarContas();

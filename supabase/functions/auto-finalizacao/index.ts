@@ -7,6 +7,27 @@ const corsHeaders = {
 
 const ASAAS_API_URL = "https://api.asaas.com/v3";
 
+async function logAudit(
+  supabase: any,
+  fichaId: string,
+  etapa: string,
+  status: string,
+  detalhe?: string,
+  paymentId?: string
+) {
+  try {
+    await supabase.from("automation_audit").insert({
+      ficha_id: fichaId,
+      etapa,
+      status,
+      detalhe: detalhe?.substring(0, 1000),
+      payment_id: paymentId,
+    });
+  } catch (e) {
+    console.warn("[auto-finalizacao] ⚠️ Erro ao registrar audit:", e);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -36,6 +57,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[auto-finalizacao] 📋 Processando ficha: ${ficha_id}`);
+    await logAudit(supabase, ficha_id, "auto_finalizacao", "started");
 
     // Buscar dados da ficha
     const { data: ficha, error: fichaError } = await supabase
@@ -46,16 +68,18 @@ Deno.serve(async (req) => {
 
     if (fichaError || !ficha) {
       console.error(`[auto-finalizacao] ❌ Ficha ${ficha_id} não encontrada:`, fichaError?.message);
+      await logAudit(supabase, ficha_id, "auto_finalizacao", "error", "Ficha não encontrada");
       return new Response(
         JSON.stringify({ error: "Ficha não encontrada" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Verificar se status é Agendado ou Finalizado (proteção contra chamadas indevidas)
+    // Verificar se status é Agendado ou Finalizado
     const statusPermitidos = ["Agendado", "Finalizado"];
     if (!statusPermitidos.includes(ficha.status)) {
       console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} não está em status permitido (status: ${ficha.status})`);
+      await logAudit(supabase, ficha_id, "auto_finalizacao", "skipped", `Status não permitido: ${ficha.status}`);
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "status_nao_permitido" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -65,6 +89,7 @@ Deno.serve(async (req) => {
     // Se pagamento já realizado, pular
     if (ficha.pagamento_realizado) {
       console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} já tem pagamento realizado`);
+      await logAudit(supabase, ficha_id, "auto_finalizacao", "skipped", "Já pago");
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "ja_pago" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -74,6 +99,7 @@ Deno.serve(async (req) => {
     const valorTotal = Number(ficha.valor_total || 0);
     if (valorTotal <= 0) {
       console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} sem valor total definido`);
+      await logAudit(supabase, ficha_id, "auto_finalizacao", "skipped", "Sem valor total");
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "sem_valor" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -83,7 +109,7 @@ Deno.serve(async (req) => {
     let paymentUrl = ficha.pagamento_link;
     let asaasLinkCreated = false;
 
-    // ========== ETAPA 1: Criar link de pagamento (se não existe e gerar_link = true) ==========
+    // ========== ETAPA 1: Criar link de pagamento (se não existe) ==========
     if (!paymentUrl && ficha.pagamento_gerar_link !== false && asaasApiKey) {
       console.log(`[auto-finalizacao] 💳 Criando link de pagamento no Asaas...`);
 
@@ -122,21 +148,23 @@ Deno.serve(async (req) => {
           asaasLinkCreated = true;
           console.log(`[auto-finalizacao] ✅ Link Asaas criado: ${paymentUrl}`);
 
-          // Salvar link na ficha
           await supabase
             .from("fichas_de_servico")
             .update({ pagamento_link: paymentUrl })
             .eq("id", ficha_id);
         } else {
           console.error(`[auto-finalizacao] ⚠️ Erro Asaas:`, JSON.stringify(asaasData));
+          await logAudit(supabase, ficha_id, "auto_finalizacao", "error", `Erro Asaas: ${JSON.stringify(asaasData).substring(0, 500)}`);
         }
       } catch (asaasErr) {
         console.error(`[auto-finalizacao] ⚠️ Exceção Asaas:`, asaasErr);
+        await logAudit(supabase, ficha_id, "auto_finalizacao", "error", `Exceção Asaas: ${asaasErr}`);
       }
     }
 
     if (!paymentUrl) {
       console.log(`[auto-finalizacao] ⏭️ Sem link de pagamento para enviar`);
+      await logAudit(supabase, ficha_id, "auto_finalizacao", "skipped", "Sem link de pagamento");
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "sem_link_pagamento" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -154,7 +182,7 @@ Deno.serve(async (req) => {
       .limit(20);
 
     const ultimaMsgCliente = recentMsgs?.find(
-      (msg) => msg.data_hora && (msg.remetente === "cliente" || msg.remetente === telefone)
+      (msg: any) => msg.data_hora && (msg.remetente === "cliente" || msg.remetente === telefone)
     );
 
     const now = new Date();
@@ -175,7 +203,6 @@ Deno.serve(async (req) => {
 
     // ========== ETAPA 3: Enviar mensagem ==========
     if (dentroJanela) {
-      // Mensagem livre com o link
       const mensagem = `Segue o link para pagamento do serviço ${ficha.nome_ficha || ficha_id} no valor de ${valorFormatado}:\n\n${paymentUrl}\n\nQualquer dúvida estamos à disposição! 😊`;
 
       const body = new URLSearchParams();
@@ -196,11 +223,11 @@ Deno.serve(async (req) => {
       const resData = await res.json();
       if (!res.ok) {
         console.error("[auto-finalizacao] ❌ Erro Twilio (livre):", resData);
+        await logAudit(supabase, ficha_id, "auto_finalizacao", "error", `Erro Twilio: ${resData.message}`);
         throw new Error(resData.message || "Erro Twilio");
       }
       messageSid = resData.sid;
 
-      // Salvar mensagem na tabela
       await supabase.from("mensagens").insert({
         cliente_id: telefone,
         remetente: whatsappFrom,
@@ -216,7 +243,6 @@ Deno.serve(async (req) => {
 
       console.log(`[auto-finalizacao] ✅ Link enviado via mensagem livre: ${messageSid}`);
     } else {
-      // Fora da janela — usar template aviso_pagamento_3
       console.log(`[auto-finalizacao] ⏰ Fora da janela 24h (${diffHoras.toFixed(1)}h). Usando template.`);
 
       const { data: template } = await supabase
@@ -227,7 +253,6 @@ Deno.serve(async (req) => {
 
       if (!template?.content_sid) {
         console.warn("[auto-finalizacao] ⚠️ Template 'aviso_pagamento_3' não encontrado");
-        // Registrar que precisa envio manual
         const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] ⚠️ Auto-envio de link de pagamento falhou: fora da janela 24h e template não configurado. Link: ${paymentUrl}`;
         const { data: fichaNotas } = await supabase
           .from("fichas_de_servico")
@@ -260,11 +285,11 @@ Deno.serve(async (req) => {
         const resData = await res.json();
         if (!res.ok) {
           console.error("[auto-finalizacao] ❌ Erro Twilio (template):", resData);
+          await logAudit(supabase, ficha_id, "auto_finalizacao", "error", `Erro Twilio template: ${resData.message}`);
           throw new Error(resData.message || "Erro Twilio template");
         }
         messageSid = resData.sid;
 
-        // Salvar mensagem
         await supabase.from("mensagens").insert({
           cliente_id: telefone,
           remetente: whatsappFrom,
@@ -282,19 +307,44 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Registrar na tabela contas_receber
-    const { error: contaError } = await supabase.from("contas_receber").insert({
-      ficha_id: ficha_id,
-      cliente_telefone: telefone,
-      cliente_nome: nomeCliente,
-      valor_total: valorTotal,
-      pagamento_link: paymentUrl,
-      status: "aguardando",
-      requer_template: !dentroJanela,
-      link_enviado_em: new Date().toISOString(),
-    });
-    if (contaError) {
-      console.warn("[auto-finalizacao] ⚠️ Erro ao criar conta a receber:", contaError.message);
+    // ========== ETAPA 4: Registrar conta a receber (UPSERT por ficha_id) ==========
+    // Check if conta already exists for this ficha
+    const { data: contaExistente } = await supabase
+      .from("contas_receber")
+      .select("id")
+      .eq("ficha_id", ficha_id)
+      .maybeSingle();
+
+    if (contaExistente) {
+      // Update existing
+      await supabase
+        .from("contas_receber")
+        .update({
+          valor_total: valorTotal,
+          pagamento_link: paymentUrl,
+          status: "aguardando",
+          requer_template: !dentroJanela,
+          link_enviado_em: new Date().toISOString(),
+          cliente_nome: nomeCliente,
+        })
+        .eq("id", contaExistente.id);
+      console.log(`[auto-finalizacao] ✅ Conta a receber atualizada (existente): ${contaExistente.id}`);
+    } else {
+      const { error: contaError } = await supabase.from("contas_receber").insert({
+        ficha_id: ficha_id,
+        cliente_telefone: telefone,
+        cliente_nome: nomeCliente,
+        valor_total: valorTotal,
+        pagamento_link: paymentUrl,
+        status: "aguardando",
+        requer_template: !dentroJanela,
+        link_enviado_em: new Date().toISOString(),
+      });
+      if (contaError) {
+        console.warn("[auto-finalizacao] ⚠️ Erro ao criar conta a receber:", contaError.message);
+      } else {
+        console.log(`[auto-finalizacao] ✅ Conta a receber criada`);
+      }
     }
 
     // Log nas notas da ficha
@@ -311,6 +361,7 @@ Deno.serve(async (req) => {
       .eq("id", ficha_id);
 
     const duration = Date.now() - startTime;
+    await logAudit(supabase, ficha_id, "auto_finalizacao", "success", `Link: ${paymentUrl}, SID: ${messageSid}, Janela: ${dentroJanela}`);
     console.log(`[auto-finalizacao] ✅ Concluído em ${duration}ms — Ficha: ${ficha_id}`);
 
     return new Response(

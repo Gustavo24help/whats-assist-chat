@@ -124,6 +124,36 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_audit: {
+        Row: {
+          created_at: string
+          detalhe: string | null
+          etapa: string
+          ficha_id: string
+          id: string
+          payment_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          detalhe?: string | null
+          etapa: string
+          ficha_id: string
+          id?: string
+          payment_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          detalhe?: string | null
+          etapa?: string
+          ficha_id?: string
+          id?: string
+          payment_id?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       avaliacao_prestador: {
         Row: {
           classificacao: string | null
