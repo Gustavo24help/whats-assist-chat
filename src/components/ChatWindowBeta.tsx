@@ -277,6 +277,60 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const canWrite = isMyTicket || isSupervisor || isOtherOperatorTicket;
   const needsToAssume = !atendenteAtual && !isSupervisor;
   
+  // IA Suggestion logic
+  const STATUS_ENCERRA_SUGESTAO = ["Agendado", "Em andamento", "Visita Técnica", "Finalizado", "Perdido"];
+  const isVendaAtiva = botDesabilitado && !STATUS_ENCERRA_SUGESTAO.includes(fichaStatus || "");
+
+  const generateSuggestion = useCallback(async (msgs: Mensagem[]) => {
+    if (!suggestionEnabled || !isVendaAtiva) return;
+    const lastMsg = msgs[msgs.length - 1];
+    if (!lastMsg) return;
+    // Only trigger on client messages
+    const isClientMsg = lastMsg.remetente === 'cliente' || lastMsg.tipo_remetente === 'cliente';
+    if (!isClientMsg) return;
+
+    setLoadingSuggestion(true);
+    setSuggestion("");
+
+    const formatted = msgs.slice(-10).map(m => ({
+      role: (m.remetente === 'cliente' || m.tipo_remetente === 'cliente') ? "user" as const : "assistant" as const,
+      content: m.texto || ""
+    }));
+
+    formatted.push({
+      role: "user",
+      content: "⚡ MODO TEMPO REAL: Com base nessa conversa, qual é a melhor próxima mensagem para o operador enviar agora? Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefixo."
+    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("vendas-assistant", {
+        body: { messages: formatted }
+      });
+      if (!error) {
+        const text = data?.content?.[0]?.text || data?.choices?.[0]?.message?.content;
+        if (text) setSuggestion(text.trim());
+      }
+    } catch {
+      // silent - suggestion is optional
+    } finally {
+      setLoadingSuggestion(false);
+    }
+  }, [suggestionEnabled, isVendaAtiva]);
+
+  // Trigger suggestion on new messages
+  useEffect(() => {
+    if (mensagens?.length > 0) {
+      generateSuggestion(mensagens);
+    }
+  }, [mensagens.length]);
+
+  // Reset suggestion on conversation change
+  useEffect(() => {
+    setSuggestion("");
+    setSuggestionEnabled(true);
+    setFichaStatus(null);
+  }, [clienteTelefone]);
+
   // Estado para popup de confirmação de takeover ao enviar
   const [takeoverConfirmOpen, setTakeoverConfirmOpen] = useState(false);
 
