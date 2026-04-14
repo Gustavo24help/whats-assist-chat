@@ -2613,6 +2613,31 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Aviso: link deveria ser automático */}
+      <AlertDialog open={showAutoLinkWarning} onOpenChange={setShowAutoLinkWarning}>
+        <AlertDialogContent className="border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/80">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+              <Zap className="h-5 w-5" />
+              Link de Pagamento Automático
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-amber-700 dark:text-amber-400 text-sm leading-relaxed">
+              <strong>O sistema gera e envia o link de pagamento automaticamente</strong> quando a ficha é marcada como <strong>Agendado</strong> ou <strong>Finalizado</strong> e possui valor total preenchido.
+              <br /><br />
+              Se o link ainda não foi gerado, verifique se o <strong>valor total</strong> já estava preenchido no momento da mudança de status. O sistema tenta novamente quando o valor é atualizado.
+              <br /><br />
+              Deseja gerar manualmente mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowAutoLinkWarning(false); handleGerarLinkManual(); }}>
+              Gerar Manualmente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
