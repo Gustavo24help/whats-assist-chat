@@ -160,6 +160,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [envioAutomatico, setEnvioAutomatico] = useState(true);
   const [editarManualmente, setEditarManualmente] = useState(false);
   const [showFinalizarConfirm, setShowFinalizarConfirm] = useState(false);
+  const [showAutoLinkWarning, setShowAutoLinkWarning] = useState(false);
 
   const formatMoeda = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
