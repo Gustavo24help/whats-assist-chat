@@ -52,11 +52,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar se status realmente é Finalizado (proteção contra chamadas duplicadas)
-    if (ficha.status !== "Finalizado") {
-      console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} não está Finalizado (status: ${ficha.status})`);
+    // Verificar se status é Agendado ou Finalizado (proteção contra chamadas indevidas)
+    const statusPermitidos = ["Agendado", "Finalizado"];
+    if (!statusPermitidos.includes(ficha.status)) {
+      console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} não está em status permitido (status: ${ficha.status})`);
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: "status_nao_finalizado" }),
+        JSON.stringify({ ok: true, skipped: true, reason: "status_nao_permitido" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
