@@ -254,32 +254,9 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const [suggestionEnabled, setSuggestionEnabled] = useState(true);
   const [fichaStatus, setFichaStatus] = useState<string | null>(null);
   const [totalOrcamentos, setTotalOrcamentos] = useState(0);
-  const suggestionGeneratedRef = useRef(false);
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesStartRef = useRef<HTMLDivElement>(null);
-  const latestMessageDateRef = useRef<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const dropZoneRef = useRef<HTMLDivElement>(null);
-  const { dentroJanela } = useConversationTimer(clienteTelefone);
-  
-  const isMyTicket = atendenteAtual?.id === user?.id;
-  
-  // 🔐 Controle de permissão para reatribuição
-  // - Ticket sem dono: qualquer um pode assumir
-  // - Ticket com dono: dono atual OU supervisor/admin pode reatribuir/transferir
-  const canReassign = !atendenteAtual || isSupervisor || isMyTicket;
-  
-  // 🔐 Controle de permissão de ESCRITA
-  // - Meu ticket: pode escrever diretamente
-  // - Ticket sem dono: precisa assumir primeiro
-  // - Ticket de outro: popup de confirmação para TODOS os perfis (inclusive admin)
-  const isOtherOperatorTicket = atendenteAtual && !isMyTicket;
-  const canWrite = isMyTicket || isSupervisor || isOtherOperatorTicket;
-  const needsToAssume = !atendenteAtual && !isSupervisor;
-  
+  const suggestionGeneratedRef = useRef<string>("");
+  const [contextReady, setContextReady] = useState(false);
+
   // IA Suggestion logic
   const STATUS_ENCERRA_SUGESTAO = ["Agendado", "Em andamento", "Visita Técnica", "Finalizado", "Perdido"];
   const isVendaAtiva = botDesabilitado && !STATUS_ENCERRA_SUGESTAO.includes(fichaStatus || "");
@@ -295,6 +272,11 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const generateSuggestion = useCallback(async (msgs: Mensagem[], trigger: "cliente_respondeu" | "operador_aguardando") => {
     if (!suggestionEnabled || !isVendaAtiva) return;
     if (trigger === "operador_aguardando" && minutosDesdeUltimaMsg < 3) return;
+
+    // Deduplication: avoid generating the same suggestion twice
+    const lastMsg = msgs[msgs.length - 1];
+    const signature = `${clienteTelefone}:${lastMsg?.id || ""}:${trigger}`;
+    if (suggestionGeneratedRef.current === signature) return;
 
     setLoadingSuggestion(true);
     setSuggestion("");
@@ -336,6 +318,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         const text = data?.content?.[0]?.text || data?.choices?.[0]?.message?.content;
         if (text) {
           setSuggestion(text.trim());
+          suggestionGeneratedRef.current = signature;
           onSuggestionReady?.(clienteTelefone);
         }
       }
@@ -346,9 +329,29 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
   }, [suggestionEnabled, isVendaAtiva, fichaStatus, totalOrcamentos, minutosDesdeUltimaMsg, clienteTelefone, onSuggestionReady]);
 
-  // Trigger 1 — cliente respondeu
+  // Mark context as ready once we have messages + bot status + ficha status loaded
   useEffect(() => {
+    if (mensagens.length > 0 && fichaStatus !== null) {
+      setContextReady(true);
+    }
+  }, [mensagens.length, fichaStatus]);
+
+  // Hydration trigger — evaluate suggestion immediately when context is ready on conversation open
+  useEffect(() => {
+    if (!contextReady || !isVendaAtiva || !suggestionEnabled) return;
     if (!mensagens?.length) return;
+    const lastMsg = mensagens[mensagens.length - 1];
+    const isClienteLast = lastMsg?.remetente === 'cliente' || lastMsg?.tipo_remetente === 'cliente';
+    if (isClienteLast) {
+      generateSuggestion(mensagens, "cliente_respondeu");
+    } else if (minutosDesdeUltimaMsg >= 3) {
+      generateSuggestion(mensagens, "operador_aguardando");
+    }
+  }, [contextReady]); // Only run on hydration
+
+  // Trigger 1 — cliente respondeu (new messages arriving via realtime)
+  useEffect(() => {
+    if (!contextReady || !mensagens?.length) return;
     const lastMsg = mensagens[mensagens.length - 1];
     if (lastMsg?.remetente === 'cliente' || lastMsg?.tipo_remetente === 'cliente') {
       generateSuggestion(mensagens, "cliente_respondeu");
@@ -357,26 +360,27 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
   // Trigger 2 — operador aguardando (checa a cada 60s)
   useEffect(() => {
-    if (!isVendaAtiva || !suggestionEnabled) return;
+    if (!isVendaAtiva || !suggestionEnabled || !contextReady) return;
     const interval = setInterval(() => {
       if (!mensagens?.length) return;
       const lastMsg = mensagens[mensagens.length - 1];
       if (lastMsg?.remetente !== 'cliente' && lastMsg?.tipo_remetente !== 'cliente') {
+        // Reset dedup signature so interval can re-evaluate with updated minutosDesdeUltimaMsg
+        suggestionGeneratedRef.current = "";
         generateSuggestion(mensagens, "operador_aguardando");
       }
     }, 60_000);
     return () => clearInterval(interval);
-  }, [isVendaAtiva, mensagens, generateSuggestion, suggestionEnabled]);
+  }, [isVendaAtiva, mensagens, generateSuggestion, suggestionEnabled, contextReady]);
 
-  // Fetch totalOrcamentos when fichaId changes
+  // Fetch totalOrcamentos from orcamentos table when fichaId changes
   useEffect(() => {
     if (!fichaId) { setTotalOrcamentos(0); return; }
     const fetchOrcamentos = async () => {
       const { count } = await supabase
-        .from('fichas_de_servico')
+        .from('orcamentos')
         .select('id', { count: 'exact', head: true })
-        .eq('id', fichaId);
-      // Use orcamentos from ficha context - approximate with ficha existence
+        .eq('ficha_nome', fichaId);
       setTotalOrcamentos(count || 0);
     };
     fetchOrcamentos();
@@ -388,7 +392,25 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     setSuggestionEnabled(true);
     setFichaStatus(null);
     setTotalOrcamentos(0);
+    setContextReady(false);
+    suggestionGeneratedRef.current = "";
   }, [clienteTelefone]);
+
+  // Refs
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesStartRef = useRef<HTMLDivElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const latestMessageDateRef = useRef<string | null>(null);
+
+  // Ticket ownership
+  const isMyTicket = atendenteAtual?.id === user?.id;
+  const isOtherOperatorTicket = atendenteAtual && atendenteAtual.id !== user?.id;
+  const canReassign = isSupervisor || isMyTicket;
+  const canWrite = isMyTicket || isSupervisor || isOtherOperatorTicket;
+  const needsToAssume = !atendenteAtual && !isSupervisor;
 
   // Estado para popup de confirmação de takeover ao enviar
   const [takeoverConfirmOpen, setTakeoverConfirmOpen] = useState(false);
