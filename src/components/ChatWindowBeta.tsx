@@ -978,13 +978,14 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
         // Validar que a ficha ativa realmente existe
         const { data: fichaAtivaData } = await supabase
           .from('fichas_de_servico')
-          .select('id')
+          .select('id, status')
           .eq('id', clienteData.ficha_ativa_id)
           .eq('telefone_cliente', clienteTelefone)
           .maybeSingle();
 
         if (fichaAtivaData) {
           setFichaId(fichaAtivaData.id);
+          setFichaStatus(fichaAtivaData.status);
         } else {
           // ficha_ativa_id inválida, buscar última e corrigir
           const { data: ultimaFicha } = await supabase
