@@ -1,64 +1,43 @@
 
 
-# Plano: Vendas Assistant no Chat Beta
+# Plano: Sugestão IA automática aprimorada no Chat Beta
 
-## O que será feito
+## Resumo
 
-Criar um assistente de vendas com IA integrado ao Chat Beta, com painel de chat interativo onde o operador pode colar conversas e receber orientações de vendas em tempo real.
+Atualizar a lógica de sugestão automática existente no `ChatWindowBeta.tsx` para: (1) gerar sugestões também quando o operador foi o último a falar e o cliente está inativo há 3+ min, (2) passar contexto completo da ficha na chamada à Edge Function, (3) piscar a conversa na lista quando uma nova sugestão é gerada.
 
-## Mudanças importantes no prompt do usuário
+## Arquivos a editar
 
-- **Não usaremos Anthropic/Claude** — usaremos Lovable AI (gateway já disponível, `LOVABLE_API_KEY` já configurado). Isso evita precisar de uma API key externa.
-- O modelo será `google/gemini-3-flash-preview` (rápido e eficiente para coaching de vendas).
-- A integração será no **Chat Beta** (não no Chat antigo), como painel colapsável na COL 4 (ao lado da FichaPanel) ou como aba/drawer.
+### 1. `src/components/ChatWindowBeta.tsx`
+- Adicionar prop `onSuggestionReady?: (telefone: string) => void`
+- Adicionar estados `totalOrcamentos` e `minutosDesdeUltimaMsg` (derivados das mensagens e da ficha)
+- Calcular `minutosDesdeUltimaMsg` a partir do timestamp da última mensagem do cliente
+- Buscar `totalOrcamentos` da ficha ativa (query ao `orcamentos` table filtrado por `ficha_nome`)
+- Refatorar `generateSuggestion` para aceitar `trigger: "cliente_respondeu" | "operador_aguardando"` e incluir contexto rico (fichaStatus, totalOrcamentos, minutosDesdeUltimaMsg, quem falou por último)
+- Adicionar useEffect de intervalo (60s) que verifica se o operador foi o último a falar e gera sugestão de reengajamento quando inatividade >= 3 min
+- Chamar `onSuggestionReady?.(clienteTelefone)` quando uma sugestão é gerada com sucesso
 
-## Arquitetura
+### 2. `src/pages/ChatBeta.tsx`
+- Adicionar estado `conversasComSugestao: Set<string>` para rastrear quais conversas têm sugestão pendente
+- Passar callback `onSuggestionReady` ao `ChatWindow` que adiciona o telefone ao Set
+- Ao selecionar um cliente (`handleSelectCliente`), remover do Set
+- Passar `conversasComSugestao` para o `ConversationList`
 
-```text
-┌──────────────┬────────────┬──────────────┬────────────────┐
-│ FilterSidebar│ ConvList   │ ChatWindow   │ FichaPanel     │
-│              │            │              │ + VendasAssist │
-│              │            │              │   (aba/toggle) │
-└──────────────┴────────────┴──────────────┴────────────────┘
-```
+### 3. `src/components/ConversationListBeta.tsx`
+- Adicionar prop `conversasComSugestao?: Set<string>`
+- Passar para o `ConversationCard` como `hasSuggestion` boolean
 
-## Etapas
-
-### 1. Criar Edge Function `vendas-assistant`
-- `supabase/functions/vendas-assistant/index.ts`
-- Usa Lovable AI gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`)
-- System prompt com instruções de vendas da 24help (baseado no contexto do `useClienteSignalsBeta` e no perfil da empresa)
-- CORS, validação de input, tratamento de erros 429/402
-- Sem streaming (resposta direta via `supabase.functions.invoke`)
-
-### 2. Criar componente `VendasAssistant.tsx`
-- `src/components/chat-beta/VendasAssistant.tsx`
-- Chat simples: lista de mensagens user/assistant + textarea + botão enviar
-- Botão "Colar conversa atual" que puxa as últimas mensagens do cliente automaticamente
-- Indicador de loading
-- Estilização consistente com o tema do Chat Beta
-
-### 3. Integrar no ChatBeta
-- Adicionar como aba ou toggle dentro do painel da COL 4 (junto com FichaPanel)
-- Ou como drawer/coluna adicional colapsável
-- Acessível apenas quando há um cliente selecionado
-
-### 4. Remover/manter SkillVendasCoach
-- Manter o `SkillVendasCoach` existente (heurística rápida, sem custo de IA)
-- O `VendasAssistant` será complementar — o operador usa quando quer orientação mais profunda
+### 4. `src/components/ConversationCard.tsx`
+- Adicionar prop `hasSuggestion?: boolean`
+- Quando `true`, mostrar ícone `Sparkles` e classe `animate-pulse ring-1 ring-primary/40 bg-primary/5`
 
 ## Detalhes técnicos
 
-**Edge Function** usará:
-```typescript
-fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` },
-  body: JSON.stringify({
-    model: "google/gemini-3-flash-preview",
-    messages: [{ role: "system", content: VENDAS_PROMPT }, ...userMessages]
-  })
-})
-```
+**Cálculo de `minutosDesdeUltimaMsg`**: derivado do array `mensagens` já carregado — pegar a `data_hora` da última mensagem do cliente e calcular a diferença com `Date.now()`.
 
-**System prompt** incluirá contexto de vendas de serviços residenciais (elétrica, hidráulica, etc.), técnicas de qualificação, urgência, e scripts de fechamento adaptados ao perfil 24help.
+**Cálculo de `totalOrcamentos`**: query simples ao carregar a ficha — `supabase.from('orcamentos').select('id', { count: 'exact' }).eq('ficha_nome', fichaId)`. Reutilizar o `fichaId` já disponível no componente.
+
+**Contexto na chamada**: o body da Edge Function já aceita campos extras (`contexto`) que são ignorados pela function — apenas as `messages` são processadas. O contexto será injetado como a última mensagem `user` no array `formatted`.
+
+**Sem mudanças na Edge Function** — toda a lógica é no frontend.
 
