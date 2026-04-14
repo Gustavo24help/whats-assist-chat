@@ -162,6 +162,53 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [showFinalizarConfirm, setShowFinalizarConfirm] = useState(false);
   const [showAutoLinkWarning, setShowAutoLinkWarning] = useState(false);
 
+  const handleGerarLinkManual = useCallback(async () => {
+    if (!ficha) return;
+    if (ficha.pagamento_link) {
+      const confirmReplace = window.confirm('Já existe um link de pagamento. Deseja gerar um novo link? O anterior será substituído.');
+      if (!confirmReplace) return;
+    }
+    try {
+      await supabase.from('fichas_de_servico').update({
+        valor_total: ficha.valor_total, valor_mao_obra: ficha.valor_mao_obra,
+        valor_pecas: ficha.valor_pecas, pagamento_tipo: ficha.pagamento_tipo as any,
+        pagamento_parcelas: ficha.pagamento_parcelas,
+      }).eq('id', fichaId);
+    } catch {
+      toast.error('Erro ao salvar valores. Tente novamente.');
+      return;
+    }
+    setGerandoLink(true);
+    try {
+      const clienteNomeResolvido = nomeCliente || ficha.nome_cliente || 'Cliente';
+      const { data, error } = await supabase.functions.invoke('create-payment-link', {
+        body: { ficha_id: ficha.id, nome_cliente: clienteNomeResolvido, valor: ficha.valor_total, descricao: ficha.descricao || `Serviço ${ficha.id}`, forma_pagamento: ficha.pagamento_tipo, parcelas: ficha.pagamento_parcelas },
+      });
+      if (error) {
+        let msg = error.message;
+        try { if (error.context?.json) { const ctx = await error.context.json(); msg = ctx?.error || msg; } } catch {}
+        throw new Error(msg);
+      }
+      if (data?.payment_url) {
+        setFicha(prev => prev ? { ...prev, pagamento_link: data.payment_url } : prev);
+        if (envioAutomatico && ficha.telefone_cliente) {
+          toast.info('Enviando link ao cliente...');
+          const resultado = await enviarLinkAutomatico(data.payment_url, clienteNomeResolvido, ficha.valor_total, ficha.telefone_cliente, ficha.id);
+          if (resultado.success) { toast.success('✅ Link gerado e enviado automaticamente ao cliente!'); }
+          else {
+            toast.warning(resultado.reason === 'FORA_JANELA_24H' ? 'Fora da janela 24h. Revise e envie manualmente.' : 'Envio automático falhou. Revise e envie manualmente.');
+            setLinkDialogData({ url: data.payment_url, nome: clienteNomeResolvido, valor: ficha.valor_total });
+          }
+        } else {
+          setLinkDialogData({ url: data.payment_url, nome: clienteNomeResolvido, valor: ficha.valor_total });
+        }
+      } else { throw new Error(data?.error || 'Resposta inesperada'); }
+    } catch (err: any) {
+      console.error('Erro ao gerar link Asaas:', err);
+      toast.error(`Erro ao gerar link: ${err.message || 'Erro desconhecido'}`);
+    } finally { setGerandoLink(false); }
+  }, [ficha, fichaId, nomeCliente, envioAutomatico]);
+
   const formatMoeda = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
