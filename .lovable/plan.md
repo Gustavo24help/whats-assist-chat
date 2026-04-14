@@ -1,49 +1,74 @@
 
 
-# Correções no Chat BETA: Filtro de Ficha, Não Lido, Resumo de Fichas e Alerta de Atendimento
+# Revisão Completa: Lógica de Dados em /prestadores
 
-## Problemas identificados
+## Problemas Identificados
 
-### 1. Filtro por ficha mostra mensagens erradas
-**Causa**: Na linha 2571 do `ChatWindowBeta.tsx`, o filtro permite mensagens sem `ficha_id` (`|| !m.ficha_id`). Isso faz com que qualquer mensagem antiga (antes do sistema de vinculação por ficha) apareça junto. O correto é: quando filtrando por ficha, mostrar APENAS mensagens dessa ficha, sem incluir mensagens sem ficha.
+### 1. Ticket Médio usa `valor_total` (inclui margem da empresa) — deveria usar Mão de Obra + Peças
 
-### 2. Notificação de não lido não desaparece ao ler
-**Causa**: O `clearUnreadMark` é chamado ao montar o `ChatWindowBeta` (linha 425), mas o `ConversationListBeta` atualiza via polling (60s). O problema é que ao selecionar um cliente, `handleSelectCliente` no `ChatBeta.tsx` faz `setUnreadMessages(prev => ({ ...prev, [cliente.telefone]: 0 }))` — porém o `ConversationCard` usa `cliente.marcado_nao_lido` (calculado pelo `perOperatorUnread` dentro de `fetchClientes`), não o `unreadMessages` do pai. A atualização de `last_read_at` no banco ocorre via `clearUnreadMark`, mas o `fetchClientes` só roda no próximo polling ou evento realtime. O canal realtime para `mensagem_leitura_operador` já existe (linha 254), mas pode não disparar imediatamente pois o filtro `user_id=eq.${user.id}` exige que o registro já exista antes do subscribe.
+O relatório calcula ticket médio como `valor_total / fichas com valor`. Mas o `valor_total` inclui a margem da empresa. Conforme a documentação do sistema (Portal do Prestador), o ticket médio deve ser baseado estritamente em **Mão de Obra + Peças**.
 
-**Correção**: Forçar atualização local imediata do `marcado_nao_lido` quando o operador seleciona uma conversa, sem esperar o polling.
+**Exemplo real (Maycon):**
+- Ticket médio atual (valor_total): R$ 318,75
+- Ticket médio correto (MO + Peças): R$ 246,33
+- Diferença: ~30% a mais
 
-### 3. Resumo de fichas no painel direito não bate
-**Causa**: O `FichaPanelBeta` mostra apenas 3 quadros (Ativas, Finalizado, S/ Orçamento). Faltam os quadros de "Perdidas". Além disso, "S/ Orçamento" está filtrando por `status === 'Ficha Criada'` que pode não representar corretamente fichas sem orçamento enviado.
+**Correção:** Trocar `valor_total` por `valor_mao_obra + valor_pecas` no cálculo de ticket médio e no valor total exibido.
 
-**Correção**: Adicionar 4 quadros conforme solicitado: Finalizadas, Perdidas, Ficha Criada, S/ Orçamento (fichas sem orçamento na tabela `orcamentos`).
+### 2. "Executados" conta apenas fichas `Finalizado` — ignora outros status ativos
 
-### 4. Alerta de clientes aguardando resposta no frontend
-**Causa**: A edge function `check-unanswered-clients` já faz a análise por IA mas só notifica via WhatsApp. Precisa replicar essa lógica no frontend como indicador visual na lista de conversas.
+A coluna "Executados" na tabela e nos KPIs (`totalServicos`) usa apenas `fichasFinalizadas.length`. Mas o fetch traz fichas com status `Finalizado`, `Agendado`, `Em andamento` e `Perdido`. "Executados" só mostra finalizadas, enquanto o ranking por orçamentos mistura dados de todos os status.
 
-## Plano de implementação
+**Impacto:** Se a planilha conta fichas em todos os status, os números não batem.
 
-### Passo 1: Corrigir filtro por ficha (ChatWindowBeta.tsx)
-- Linha 2571: mudar `m.ficha_id === fichaFilterId || !m.ficha_id` para `m.ficha_id === fichaFilterId` apenas
-- Mensagens sem `ficha_id` não devem aparecer quando o filtro por ficha está ativo
+**Correção:** Renomear "Executados" para "Finalizados" para deixar claro, ou adicionar uma coluna separada com o total de fichas atribuídas no período (incluindo todos os status).
 
-### Passo 2: Corrigir não lido ao abrir conversa (ConversationListBeta.tsx)
-- Quando `onSelectCliente` é chamado, atualizar localmente o `marcado_nao_lido` do cliente para `false` imediatamente no estado `clientes`, sem esperar o polling
-- Adicionar um `useEffect` ou callback que, ao mudar `selectedClienteTelefone`, seta o `marcado_nao_lido` local para `false` no array `clientes`
+### 3. Filtro de fichas por período usa `horario_agendamento || created_at` — inconsistente com filtro de orçamentos
 
-### Passo 3: Corrigir resumo de fichas (FichaPanelBeta.tsx)
-- Trocar os 3 quadros atuais por 4: **Ficha Criada**, **Finalizadas**, **Perdidas**, **S/ Orçamento**
-- "S/ Orçamento" será calculado buscando na tabela `orcamentos` quais fichas do cliente têm ou não orçamento vinculado
-- "Perdidas" = fichas com status `Perdido` ou `Não foi adiante`
-- Layout: `grid-cols-4` com quadros menores
+- Fichas: filtradas por `horario_agendamento` (fallback para `created_at`)
+- Orçamentos: filtrados por `data_criacao`
 
-### Passo 4: Alerta de clientes aguardando resposta (ConversationListBeta.tsx)
-- Reutilizar a lógica do `check-unanswered-clients` no frontend: buscar clientes com bot desabilitado, onde a última mensagem é do cliente e tem mais de 30 minutos
-- Não precisa chamar IA no frontend — basta a heurística simples: última mensagem é do cliente + mais de 30 min sem resposta + bot desabilitado
-- Exibir um indicador amarelo (estilo do botão de "atendimento" existente) mostrando: "XX atendimentos precisando de resposta"
-- Ao clicar, filtrar a lista para mostrar apenas essas conversas
+Se uma ficha foi criada em março mas agendada para abril, ela aparece em abril. Mas o orçamento dessa ficha (criado em março) pode ficar fora do filtro de abril. Isso causa divergência entre orçamentos enviados/aceitos e fichas executadas no mesmo período.
 
-### Arquivos modificados
-- `src/components/ChatWindowBeta.tsx` — fix filtro ficha (1 linha)
-- `src/components/ConversationListBeta.tsx` — fix não lido ao selecionar + alerta aguardando resposta
-- `src/components/FichaPanelBeta.tsx` — 4 quadros de resumo com busca de orçamentos
+### 4. Status `Orçamento Enviado` excluído do fetch de fichas
+
+O fetch filtra fichas com `.in("status", ["Finalizado", "Agendado", "Em andamento", "Perdido"])`. Existem 11 fichas com status `Orçamento Enviado`, 12 com `pendente`, e outras em `Ficha Criada`, `Garantia`, `Retorno`, etc. — todas excluídas. Se a planilha considera esses status, os totais divergem.
+
+### 5. Contagem de "Aceitos" com lógica estrita correta, mas "Rejeitados" pode contar aprovados de outro
+
+A lógica de aceitos (status `aprovado` + ficha atribuída ao mesmo CPF) está correta. Mas "Rejeitados" inclui:
+- Orçamentos com status `rejeitado`
+- Orçamentos `aprovado` onde outro prestador foi escolhido
+
+Isso está tecnicamente correto ("Não Aprovados"), mas pode confundir se a planilha separa "rejeitados pelo cliente" de "outro prestador escolhido".
+
+### 6. "Baixa Atividade" usa threshold fixo por período — pode não bater com critérios da planilha
+
+O threshold é: 0 para hoje, 1 para semana, 2 para mês, 3 para período total. Se a planilha usa outro critério, os prestadores listados serão diferentes.
+
+## Plano de Correção
+
+### Arquivo: `src/pages/PrestadoresReport.tsx`
+
+1. **Ticket Médio** — Mudar cálculo para `(valor_mao_obra + valor_pecas)` em vez de `valor_total`. Ajustar nos KPIs, na tabela ranking, e no card de detalhes.
+
+2. **Incluir mais status no fetch** — Adicionar `Orçamento Enviado`, `Ficha Criada`, `Garantia`, `Retorno`, `Visita Técnica`, `Contato Inicial`, `pendente`, `Não foi adiante` ao filtro de fichas. Ou remover o filtro de status completamente (trazer todas com `prestador_id`).
+
+3. **Separar colunas na tabela** — Adicionar coluna "Total Fichas" (todos os status) além de "Finalizados". Renomear "Executados" para "Finalizados".
+
+4. **Consistência de período** — Usar a mesma base de data para fichas e orçamentos. Sugestão: filtrar fichas por `created_at` (data de criação da ficha), igual ao `data_criacao` dos orçamentos, para que o período cubra os mesmos registros.
+
+5. **KPIs de valor** — "Total" e "Mão de Obra" e "Peças" nos detalhes do prestador já estão separados, mas o "Total" mostrado é `valor_total` da ficha (com margem). Ajustar para exibir soma de MO + Peças como total do prestador.
+
+### Resumo de Impacto
+
+| Métrica | Hoje | Correção |
+|---------|------|----------|
+| Ticket Médio | valor_total / fichas | (MO + Peças) / fichas |
+| Executados | só Finalizado | Renomear + adicionar Total |
+| Fichas consideradas | 4 status | Todos com prestador_id |
+| Filtro período fichas | horario_agendamento | created_at (consistente com orçamentos) |
+| Valor Total prestador | valor_total (com margem) | MO + Peças |
+
+Nenhum dado existente será alterado — apenas a leitura/exibição no frontend.
 
