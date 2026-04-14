@@ -396,6 +396,22 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     suggestionGeneratedRef.current = "";
   }, [clienteTelefone]);
 
+  // Refs
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesStartRef = useRef<HTMLDivElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const latestMessageDateRef = useRef<string | null>(null);
+
+  // Ticket ownership
+  const isMyTicket = atendenteAtual?.id === user?.id;
+  const isOtherOperatorTicket = atendenteAtual && atendenteAtual.id !== user?.id;
+  const canReassign = isSupervisor || isMyTicket;
+  const canWrite = isMyTicket || isSupervisor || isOtherOperatorTicket;
+  const needsToAssume = !atendenteAtual && !isSupervisor;
+
   // Estado para popup de confirmação de takeover ao enviar
   const [takeoverConfirmOpen, setTakeoverConfirmOpen] = useState(false);
 
