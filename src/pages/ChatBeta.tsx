@@ -329,12 +329,46 @@ const ChatBeta = () => {
         {/* ─── COL 4: Info Panel ─── */}
         {selectedCliente && (
           <div className="hidden lg:flex w-[380px] xl:w-[420px] border-l border-border/60 bg-card shrink-0 flex-col overflow-hidden">
-            <FichaPanel
-              key={selectedCliente.telefone}
-              clienteTelefone={selectedCliente.telefone}
-              clienteNome={selectedCliente.nome}
-              onFichaChange={setSelectedFichaId}
-            />
+            {/* Tab toggle */}
+            <div className="flex border-b border-border/60 shrink-0">
+              <button
+                onClick={() => setCol4Tab("ficha")}
+                className={cn(
+                  "flex-1 text-[10px] font-medium py-1.5 transition-colors",
+                  col4Tab === "ficha"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Ficha
+              </button>
+              <button
+                onClick={() => setCol4Tab("coach")}
+                className={cn(
+                  "flex-1 text-[10px] font-medium py-1.5 transition-colors flex items-center justify-center gap-1",
+                  col4Tab === "coach"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Bot className="h-3 w-3" />
+                Coach IA
+              </button>
+            </div>
+
+            {col4Tab === "ficha" ? (
+              <FichaPanel
+                key={selectedCliente.telefone}
+                clienteTelefone={selectedCliente.telefone}
+                clienteNome={selectedCliente.nome}
+                onFichaChange={setSelectedFichaId}
+              />
+            ) : (
+              <VendasAssistant
+                clienteTelefone={selectedCliente.telefone}
+                clienteNome={selectedCliente.nome}
+              />
+            )}
           </div>
         )}
       </div>
