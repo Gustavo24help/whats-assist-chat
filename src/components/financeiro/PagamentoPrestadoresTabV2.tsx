@@ -41,7 +41,7 @@ function addBusinessDays(date: Date | string, n: number): Date {
 function calcFinanceiro(ficha: any) {
   const maoObra = ficha.valor_mao_obra || 0;
   const pecas = ficha.valor_pecas || 0;
-  const taxaVisita = 0;
+  const taxaVisita = ficha.taxa_visita_padrao || 0;
   const adiantCliente = 0;
   const adiantPrestador = 0;
   const subtotal = maoObra + pecas + taxaVisita;
@@ -180,7 +180,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     }
 
     const [prestRes, clienteRes, transRes, npsRes, profilesRes] = await Promise.all([
-      supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix, banco").in("cpf", prestadorIds),
+      supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix, banco, agencia, conta, taxa_visita_padrao").in("cpf", prestadorIds),
       supabase.from("clientes").select("telefone, nome").in("telefone", phones),
       supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_prevista, data_pagamento_realizada, tipo_troca, justificativa_troca").in("ficha_id", fichaIds),
       supabase.from("nps_respostas").select("ficha_id, nota").in("ficha_id", fichaIds),
