@@ -69,6 +69,8 @@ interface ConversationListProps {
   unreadCount?: number;
   // Callback to report counts
   onStatusCounts?: (counts: { byStatus: Record<string, number>; unreadCount: number; totalCount: number; ativasCount: number; inativasCount: number; allTags: string[]; tagsWithColors: Map<string, string>; botDisabledCount: number }) => void;
+  // Suggestion highlight
+  conversasComSugestao?: Set<string>;
 }
 
 export const ConversationListBeta = ({ 

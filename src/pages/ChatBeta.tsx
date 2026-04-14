@@ -29,6 +29,7 @@ const ChatBeta = () => {
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [botDisabledAcknowledged, setBotDisabledAcknowledged] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"conversas" | "contatos">("conversas");
+  const [conversasComSugestao, setConversasComSugestao] = useState<Set<string>>(new Set());
 
   // ═══ Collapsible columns ═══
   const [filterSidebarOpen, setFilterSidebarOpen] = useState(true);
@@ -136,6 +137,12 @@ const ChatBeta = () => {
     setSelectedCliente(cliente);
     setSelectedFichaId(null); // Reset ficha selection when changing client
     setUnreadMessages(prev => ({ ...prev, [cliente.telefone]: 0 }));
+    // Clear suggestion highlight when opening conversation
+    setConversasComSugestao(prev => {
+      const next = new Set(prev);
+      next.delete(cliente.telefone);
+      return next;
+    });
     if (cliente.bot_habilitado === false) {
       setBotDisabledAcknowledged(prev => new Set(prev).add(cliente.telefone));
       await supabase
@@ -283,6 +290,7 @@ const ChatBeta = () => {
                 externalShowBotDisabledOnly={showBotDisabledOnly}
                 externalSelectedOperadorId={selectedOperadorId}
                 onStatusCounts={handleStatusCounts}
+                conversasComSugestao={conversasComSugestao}
               />
             ) : (
               <ContactsTab
@@ -312,6 +320,9 @@ const ChatBeta = () => {
               onBack={handleBackToEmpty}
               fichaOpen={true}
               fichaFilterId={selectedFichaId}
+              onSuggestionReady={(telefone) => {
+                setConversasComSugestao(prev => new Set(prev).add(telefone));
+              }}
             />
           </div>
         ) : (
