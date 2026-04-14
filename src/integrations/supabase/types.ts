@@ -1905,48 +1905,63 @@ export type Database = {
       }
       prestadores: {
         Row: {
+          agencia: string | null
           ativo: boolean
           banco: string | null
           categoria: string | null
           chave_pix: string | null
           cnpj: string | null
+          conta: string | null
           cpf: string
           created_at: string | null
+          email: string | null
           especialidade: string | null
           id_azure: string | null
           id_crm: string | null
           nome: string
           nome_pix: string | null
+          regiao_atuacao: string | null
+          taxa_visita_padrao: number | null
           telefone: string
         }
         Insert: {
+          agencia?: string | null
           ativo?: boolean
           banco?: string | null
           categoria?: string | null
           chave_pix?: string | null
           cnpj?: string | null
+          conta?: string | null
           cpf: string
           created_at?: string | null
+          email?: string | null
           especialidade?: string | null
           id_azure?: string | null
           id_crm?: string | null
           nome: string
           nome_pix?: string | null
+          regiao_atuacao?: string | null
+          taxa_visita_padrao?: number | null
           telefone: string
         }
         Update: {
+          agencia?: string | null
           ativo?: boolean
           banco?: string | null
           categoria?: string | null
           chave_pix?: string | null
           cnpj?: string | null
+          conta?: string | null
           cpf?: string
           created_at?: string | null
+          email?: string | null
           especialidade?: string | null
           id_azure?: string | null
           id_crm?: string | null
           nome?: string
           nome_pix?: string | null
+          regiao_atuacao?: string | null
+          taxa_visita_padrao?: number | null
           telefone?: string
         }
         Relationships: []

@@ -41,7 +41,7 @@ function addBusinessDays(date: Date | string, n: number): Date {
 function calcFinanceiro(ficha: any) {
   const maoObra = ficha.valor_mao_obra || 0;
   const pecas = ficha.valor_pecas || 0;
-  const taxaVisita = 0;
+  const taxaVisita = ficha.taxa_visita_padrao || 0;
   const adiantCliente = 0;
   const adiantPrestador = 0;
   const subtotal = maoObra + pecas + taxaVisita;
@@ -77,6 +77,8 @@ interface FichaFinanceira {
   chave_pix: string | null;
   nome_pix: string | null;
   banco: string | null;
+  agencia: string | null;
+  conta: string | null;
   pagamento_realizado: boolean;
   pagamento_link: string | null;
   updated_at: string;
@@ -180,7 +182,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     }
 
     const [prestRes, clienteRes, transRes, npsRes, profilesRes] = await Promise.all([
-      supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix, banco").in("cpf", prestadorIds),
+      supabase.from("prestadores").select("cpf, nome, chave_pix, nome_pix, banco, agencia, conta, taxa_visita_padrao").in("cpf", prestadorIds),
       supabase.from("clientes").select("telefone, nome").in("telefone", phones),
       supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_prevista, data_pagamento_realizada, tipo_troca, justificativa_troca").in("ficha_id", fichaIds),
       supabase.from("nps_respostas").select("ficha_id, nota").in("ficha_id", fichaIds),
@@ -198,7 +200,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     const items: FichaFinanceira[] = fichas.map((f: any) => {
       const prest = prestMap.get(f.prestador_id);
       const trans = transMap.get(f.id);
-      const fin = calcFinanceiro(f);
+      const fin = calcFinanceiro({ ...f, taxa_visita_padrao: prest?.taxa_visita_padrao || 0 });
       return {
         id: f.id,
         nome_cliente_resolved: f.nome_cliente || clienteMap.get(f.telefone_cliente) || f.telefone_cliente.replace("whatsapp:+55", ""),
@@ -213,6 +215,8 @@ export const PagamentoPrestadoresTabV2 = () => {
         chave_pix: prest?.chave_pix || null,
         nome_pix: prest?.nome_pix || null,
         banco: prest?.banco || null,
+        agencia: prest?.agencia || null,
+        conta: prest?.conta || null,
         pagamento_realizado: f.pagamento_realizado,
         pagamento_link: f.pagamento_link,
         updated_at: f.updated_at,
@@ -780,6 +784,18 @@ export const PagamentoPrestadoresTabV2 = () => {
                     <div>{detalhesSel.banco}</div>
                   </>
                 )}
+                {detalhesSel.agencia && (
+                  <>
+                    <div className="text-muted-foreground">Agência</div>
+                    <div>{detalhesSel.agencia}</div>
+                  </>
+                )}
+                {detalhesSel.conta && (
+                  <>
+                    <div className="text-muted-foreground">Conta</div>
+                    <div>{detalhesSel.conta}</div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -839,6 +855,18 @@ export const PagamentoPrestadoresTabV2 = () => {
                         <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                         {pagamentoConfirm.banco}
                       </span>
+                    </>
+                  )}
+                  {pagamentoConfirm.agencia && (
+                    <>
+                      <span className="text-muted-foreground">Agência</span>
+                      <span className="font-medium">{pagamentoConfirm.agencia}</span>
+                    </>
+                  )}
+                  {pagamentoConfirm.conta && (
+                    <>
+                      <span className="text-muted-foreground">Conta</span>
+                      <span className="font-medium">{pagamentoConfirm.conta}</span>
                     </>
                   )}
                   {!pagamentoConfirm.chave_pix && !pagamentoConfirm.nome_pix && !pagamentoConfirm.banco && (

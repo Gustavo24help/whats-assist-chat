@@ -24,6 +24,12 @@ type Prestador = {
   cnpj: string | null;
   nome_pix: string | null;
   chave_pix: string | null;
+  banco: string | null;
+  email: string | null;
+  agencia: string | null;
+  conta: string | null;
+  taxa_visita_padrao: number | null;
+  regiao_atuacao: string | null;
   ativo: boolean;
   created_at: string | null;
 };
@@ -68,6 +74,12 @@ const buildPrestadorPayload = (formData: Omit<Prestador, "created_at">) => {
     cnpj: cnpjLimpo,
     nome_pix: formData.nome_pix || null,
     chave_pix: formData.chave_pix || null,
+    banco: formData.banco || null,
+    email: formData.email || null,
+    agencia: formData.agencia || null,
+    conta: formData.conta || null,
+    taxa_visita_padrao: formData.taxa_visita_padrao ?? 0,
+    regiao_atuacao: formData.regiao_atuacao || null,
     ativo: formData.ativo ?? true,
   };
 };
@@ -116,6 +128,12 @@ const PrestadorDetalhes = () => {
         cnpj: data.cnpj,
         nome_pix: data.nome_pix ?? null,
         chave_pix: data.chave_pix ?? null,
+        banco: data.banco ?? null,
+        email: data.email ?? null,
+        agencia: data.agencia ?? null,
+        conta: data.conta ?? null,
+        taxa_visita_padrao: data.taxa_visita_padrao ?? null,
+        regiao_atuacao: data.regiao_atuacao ?? null,
         ativo: data.ativo ?? true,
       });
       setLoading(false);
@@ -448,6 +466,36 @@ const PrestadorDetalhes = () => {
               <div className="space-y-2">
                 <Label htmlFor="chave_pix">Chave Pix</Label>
                 <Input id="chave_pix" value={formData.chave_pix || ""} onChange={(e) => setFormData({ ...formData, chave_pix: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="banco">Banco</Label>
+                <Input id="banco" value={(formData as any).banco || ""} onChange={(e) => setFormData({ ...formData, banco: e.target.value })} placeholder="Ex: Nubank, Bradesco" />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="agencia">Agência</Label>
+                <Input id="agencia" value={(formData as any).agencia || ""} onChange={(e) => setFormData({ ...formData, agencia: e.target.value })} placeholder="Nº da agência" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="conta">Conta</Label>
+                <Input id="conta" value={(formData as any).conta || ""} onChange={(e) => setFormData({ ...formData, conta: e.target.value })} placeholder="Nº da conta" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input id="email" type="email" value={(formData as any).email || ""} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@exemplo.com" />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="taxa_visita_padrao">Taxa de Visita Padrão (R$)</Label>
+                <Input id="taxa_visita_padrao" type="number" step="0.01" value={(formData as any).taxa_visita_padrao ?? ""} onChange={(e) => setFormData({ ...formData, taxa_visita_padrao: e.target.value ? parseFloat(e.target.value) : null })} placeholder="0.00" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="regiao_atuacao">Região de Atuação</Label>
+                <Input id="regiao_atuacao" value={(formData as any).regiao_atuacao || ""} onChange={(e) => setFormData({ ...formData, regiao_atuacao: e.target.value })} placeholder="Ex: Zona Sul, Grande BH" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ativo">Prestador ativo</Label>
