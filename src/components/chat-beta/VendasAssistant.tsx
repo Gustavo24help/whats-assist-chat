@@ -82,8 +82,11 @@ export function VendasAssistant({ clienteTelefone, clienteNome }: VendasAssistan
         return;
       }
 
+      // Support both Anthropic (content[0].text) and OpenAI (choices[0].message.content) formats
       const assistantText =
-        data?.choices?.[0]?.message?.content || "Sem resposta da IA.";
+        data?.content?.[0]?.text ||
+        data?.choices?.[0]?.message?.content ||
+        "Sem resposta da IA.";
 
       setMessages([...newMessages, { role: "assistant", content: assistantText }]);
     } catch (e) {

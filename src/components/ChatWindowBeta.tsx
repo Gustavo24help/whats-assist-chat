@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus, ScrollText, ClipboardList } from "lucide-react";
+import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus, ScrollText, ClipboardList, Sparkles, CornerDownLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
@@ -247,6 +247,12 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   // Estado para filtro de mensagens por ficha
   const [showAllMessages, setShowAllMessages] = useState(false);
   
+  // IA Suggestion states
+  const [suggestion, setSuggestion] = useState("");
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
+  const [suggestionEnabled, setSuggestionEnabled] = useState(true);
+  const [fichaStatus, setFichaStatus] = useState<string | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
   const latestMessageDateRef = useRef<string | null>(null);
@@ -271,6 +277,60 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const canWrite = isMyTicket || isSupervisor || isOtherOperatorTicket;
   const needsToAssume = !atendenteAtual && !isSupervisor;
   
+  // IA Suggestion logic
+  const STATUS_ENCERRA_SUGESTAO = ["Agendado", "Em andamento", "Visita Técnica", "Finalizado", "Perdido"];
+  const isVendaAtiva = botDesabilitado && !STATUS_ENCERRA_SUGESTAO.includes(fichaStatus || "");
+
+  const generateSuggestion = useCallback(async (msgs: Mensagem[]) => {
+    if (!suggestionEnabled || !isVendaAtiva) return;
+    const lastMsg = msgs[msgs.length - 1];
+    if (!lastMsg) return;
+    // Only trigger on client messages
+    const isClientMsg = lastMsg.remetente === 'cliente' || lastMsg.tipo_remetente === 'cliente';
+    if (!isClientMsg) return;
+
+    setLoadingSuggestion(true);
+    setSuggestion("");
+
+    const formatted = msgs.slice(-10).map(m => ({
+      role: (m.remetente === 'cliente' || m.tipo_remetente === 'cliente') ? "user" as const : "assistant" as const,
+      content: m.texto || ""
+    }));
+
+    formatted.push({
+      role: "user",
+      content: "⚡ MODO TEMPO REAL: Com base nessa conversa, qual é a melhor próxima mensagem para o operador enviar agora? Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefixo."
+    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("vendas-assistant", {
+        body: { messages: formatted }
+      });
+      if (!error) {
+        const text = data?.content?.[0]?.text || data?.choices?.[0]?.message?.content;
+        if (text) setSuggestion(text.trim());
+      }
+    } catch {
+      // silent - suggestion is optional
+    } finally {
+      setLoadingSuggestion(false);
+    }
+  }, [suggestionEnabled, isVendaAtiva]);
+
+  // Trigger suggestion on new messages
+  useEffect(() => {
+    if (mensagens?.length > 0) {
+      generateSuggestion(mensagens);
+    }
+  }, [mensagens.length]);
+
+  // Reset suggestion on conversation change
+  useEffect(() => {
+    setSuggestion("");
+    setSuggestionEnabled(true);
+    setFichaStatus(null);
+  }, [clienteTelefone]);
+
   // Estado para popup de confirmação de takeover ao enviar
   const [takeoverConfirmOpen, setTakeoverConfirmOpen] = useState(false);
 
@@ -972,13 +1032,14 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
         // Validar que a ficha ativa realmente existe
         const { data: fichaAtivaData } = await supabase
           .from('fichas_de_servico')
-          .select('id')
+          .select('id, status')
           .eq('id', clienteData.ficha_ativa_id)
           .eq('telefone_cliente', clienteTelefone)
           .maybeSingle();
 
         if (fichaAtivaData) {
           setFichaId(fichaAtivaData.id);
+          setFichaStatus(fichaAtivaData.status);
         } else {
           // ficha_ativa_id inválida, buscar última e corrigir
           const { data: ultimaFicha } = await supabase
@@ -2802,6 +2863,50 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
                   >
                     <X className="h-4 w-4" />
                   </Button>
+                </div>
+              )}
+
+              {/* IA Suggestion block */}
+              {isVendaAtiva && (suggestion || loadingSuggestion) && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3 text-primary" />
+                      <span className="text-[11px] font-semibold text-primary">Sugestão IA</span>
+                    </div>
+                    <button
+                      onClick={() => setSuggestionEnabled(prev => !prev)}
+                      className={cn(
+                        "text-[11px] font-medium transition-colors",
+                        suggestionEnabled
+                          ? "text-primary hover:text-primary/70"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {suggestionEnabled ? "Desligar" : "Desligado"}
+                    </button>
+                  </div>
+                  {loadingSuggestion ? (
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Gerando sugestão...
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2">
+                      <p className="text-xs text-foreground/80 flex-1 whitespace-pre-wrap">{suggestion}</p>
+                      <button
+                        onClick={() => {
+                          setNovaMsg(suggestion);
+                          setSuggestion("");
+                        }}
+                        className="shrink-0 flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium mt-0.5"
+                        title="Usar esta sugestão"
+                      >
+                        <CornerDownLeft className="h-3 w-3" />
+                        Usar
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
