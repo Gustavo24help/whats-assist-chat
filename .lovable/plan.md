@@ -1,74 +1,120 @@
+<final-text>Diagnóstico fechado
 
+O que eu confirmei no backend agora:
+- Hoje, a tabela `public.fichas_de_servico` está sem trigger ativa. A consulta em `information_schema.triggers` voltou vazia para essa tabela.
+- A função `public.trigger_auto_finalizacao()` existe no banco, mas não está conectada à tabela.
+- A ficha `FGM8@260414` já tem:
+  - `status = Agendado`
+  - `valor_total = 8`
+  - `pagamento_link` preenchido
+  - mensagem automática salva em `mensagens`
+  - registro em `contas_receber`
+  Isso mostra que a automação funcionou quando foi disparada manualmente/reprocessada, não automaticamente.
+- A ficha `FGM5@260413` está:
+  - `status = Garantia`
+  - `pagamento_realizado = true`
+  - `recibo_enviado = false`
+  - `recibo_url = null`
+  Ou seja: o pagamento foi marcado, mas o recibo automático não aconteceu.
+- Não há logs recentes de `asaas-webhook` nem de `send-recibo` para esse caso, então o backend não processou essa confirmação de pagamento.
 
-# Revisão Completa: Lógica de Dados em /prestadores
+Por que não funcionou
+1. Causa principal confirmada
+- A automação de cobrança não dispara sozinha porque a trigger não está anexada à tabela no banco real.
+- Por isso, mudar a ficha para `Agendado` ou `Finalizado` não chama `auto-finalizacao`.
 
-## Problemas Identificados
+2. Causa confirmada do caso “Asaas pago, ficha pendente”
+- O webhook de pagamento não processou esse pagamento no backend.
+- Resultado: a ficha não foi atualizada automaticamente pelo fluxo correto e o recibo também não foi enviado.
 
-### 1. Ticket Médio usa `valor_total` (inclui margem da empresa) — deveria usar Mão de Obra + Peças
+3. Problemas estruturais que também causam ou podem causar falhas
+- Há migrations conflitantes/inconsistentes:
+  - uma versão antiga cria trigger `AFTER UPDATE`
+  - outra cria `BEFORE UPDATE` com outro nome
+  - no estado atual do banco, nenhuma está ativa
+- Se as duas forem aplicadas em algum ambiente, pode haver disparo duplicado.
+- `auto-finalizacao` cria `contas_receber` com `insert`, não `upsert`:
+  - retries/reprocessamentos podem gerar duplicidade.
+- `asaas-webhook` não atualiza `contas_receber` para `pago` nem salva `asaas_id/asaas_status`:
+  - mesmo com webhook funcionando, a ficha pode ficar coerente e a conta a receber continuar “aguardando”.
+- Fluxos manuais do front quebram consistência:
+  - `ContasReceber -> Marcar Pago` atualiza só `contas_receber`
+  - `PagamentoClientesTab -> marcarClientePagou` atualiza ficha/transação, mas não fecha todo o fluxo nem envia recibo
+  - o checkbox `pagamento_realizado` na ficha permite mexer direto no dado sem passar pelo fluxo completo
+- `FGM5@260413` confirma isso: ficou paga, em Garantia, mas sem recibo.
+- Falta trilha de auditoria técnica da automação:
+  - hoje está difícil saber se falhou no trigger, no HTTP do banco, no webhook externo ou no envio do recibo.
 
-O relatório calcula ticket médio como `valor_total / fichas com valor`. Mas o `valor_total` inclui a margem da empresa. Conforme a documentação do sistema (Portal do Prestador), o ticket médio deve ser baseado estritamente em **Mão de Obra + Peças**.
+Plano para arrumar
+1. Corrigir a origem
+- Criar uma migration de saneamento que:
+  - remove qualquer trigger antiga/conflitante de cobrança
+  - recria uma única trigger oficial
+  - usa `AFTER UPDATE` (não `BEFORE`)
+  - opcionalmente cobre também `INSERT` para ficha criada já em status elegível
 
-**Exemplo real (Maycon):**
-- Ticket médio atual (valor_total): R$ 318,75
-- Ticket médio correto (MO + Peças): R$ 246,33
-- Diferença: ~30% a mais
+2. Tornar o disparo confiável
+- Ajustar `trigger_auto_finalizacao()` para:
+  - funcionar para `UPDATE` e, se necessário, `INSERT`
+  - registrar logs estruturados de disparo
+  - evitar duplicidade
+- Validar o retorno do `net.http_post` com rastreio melhor, para não ficar falha silenciosa.
 
-**Correção:** Trocar `valor_total` por `valor_mao_obra + valor_pecas` no cálculo de ticket médio e no valor total exibido.
+3. Tornar a cobrança idempotente
+- Em `auto-finalizacao`:
+  - trocar `insert` em `contas_receber` por `upsert`/atualização por `ficha_id`
+  - salvar também metadados do pagamento quando existirem
+  - impedir duplicação de conta e de envio em reprocessos
 
-### 2. "Executados" conta apenas fichas `Finalizado` — ignora outros status ativos
+4. Fechar corretamente o fluxo do pagamento
+- Em `asaas-webhook`:
+  - além de marcar `pagamento_realizado` e mover para `Garantia`
+  - atualizar `contas_receber.status = pago`
+  - preencher `data_pagamento`, `asaas_id`, `asaas_status`
+  - manter atualização de transação financeira
+  - disparar `send-recibo`
+  - registrar idempotência por `payment.id`/evento para evitar reprocesso duplo
 
-A coluna "Executados" na tabela e nos KPIs (`totalServicos`) usa apenas `fichasFinalizadas.length`. Mas o fetch traz fichas com status `Finalizado`, `Agendado`, `Em andamento` e `Perdido`. "Executados" só mostra finalizadas, enquanto o ranking por orçamentos mistura dados de todos os status.
+5. Fechar os buracos dos fluxos manuais
+- Substituir atualizações manuais espalhadas por um único fluxo backend de “confirmar pagamento”.
+- Fazer os pontos manuais do front chamarem esse fluxo único.
+- Interceptar também o checkbox `pagamento_realizado` com aviso forte e caminho correto, para não deixar o operador “marcar pago” pela metade.
 
-**Impacto:** Se a planilha conta fichas em todos os status, os números não batem.
+6. Recuperar os casos quebrados
+- Reprocessar `FGM5@260413`:
+  - garantir conta/estado financeiro coerentes
+  - gerar/enviar recibo faltante
+  - registrar auditoria correta
+- Validar `FGM8@260414`:
+  - confirmar que o disparo foi reprocessado e não veio do trigger
+  - deixar o histórico consistente
 
-**Correção:** Renomear "Executados" para "Finalizados" para deixar claro, ou adicionar uma coluna separada com o total de fichas atribuídas no período (incluindo todos os status).
+7. Adicionar observabilidade
+- Criar uma tabela simples de auditoria da automação, por exemplo:
+  - ficha_id
+  - etapa (`trigger`, `auto_finalizacao`, `webhook_pagamento`, `recibo`)
+  - status (`started`, `success`, `error`, `skipped`)
+  - detalhe/erro
+  - timestamps
+- Isso evita novo “não aconteceu nada” sem explicação.
 
-### 3. Filtro de fichas por período usa `horario_agendamento || created_at` — inconsistente com filtro de orçamentos
+8. Teste final
+- Testar ponta a ponta:
+  - ficha criada com valor
+  - mudar para `Agendado`
+  - link gerado
+  - mensagem enviada
+  - pagamento confirmado
+  - ficha vai para `Garantia`
+  - `contas_receber` vai para `pago`
+  - recibo enviado
+- Testar também:
+  - fora da janela de 24h
+  - retry por mudança de valor
+  - tentativa manual do operador
+  - reprocessamento sem duplicar
 
-- Fichas: filtradas por `horario_agendamento` (fallback para `created_at`)
-- Orçamentos: filtrados por `data_criacao`
-
-Se uma ficha foi criada em março mas agendada para abril, ela aparece em abril. Mas o orçamento dessa ficha (criado em março) pode ficar fora do filtro de abril. Isso causa divergência entre orçamentos enviados/aceitos e fichas executadas no mesmo período.
-
-### 4. Status `Orçamento Enviado` excluído do fetch de fichas
-
-O fetch filtra fichas com `.in("status", ["Finalizado", "Agendado", "Em andamento", "Perdido"])`. Existem 11 fichas com status `Orçamento Enviado`, 12 com `pendente`, e outras em `Ficha Criada`, `Garantia`, `Retorno`, etc. — todas excluídas. Se a planilha considera esses status, os totais divergem.
-
-### 5. Contagem de "Aceitos" com lógica estrita correta, mas "Rejeitados" pode contar aprovados de outro
-
-A lógica de aceitos (status `aprovado` + ficha atribuída ao mesmo CPF) está correta. Mas "Rejeitados" inclui:
-- Orçamentos com status `rejeitado`
-- Orçamentos `aprovado` onde outro prestador foi escolhido
-
-Isso está tecnicamente correto ("Não Aprovados"), mas pode confundir se a planilha separa "rejeitados pelo cliente" de "outro prestador escolhido".
-
-### 6. "Baixa Atividade" usa threshold fixo por período — pode não bater com critérios da planilha
-
-O threshold é: 0 para hoje, 1 para semana, 2 para mês, 3 para período total. Se a planilha usa outro critério, os prestadores listados serão diferentes.
-
-## Plano de Correção
-
-### Arquivo: `src/pages/PrestadoresReport.tsx`
-
-1. **Ticket Médio** — Mudar cálculo para `(valor_mao_obra + valor_pecas)` em vez de `valor_total`. Ajustar nos KPIs, na tabela ranking, e no card de detalhes.
-
-2. **Incluir mais status no fetch** — Adicionar `Orçamento Enviado`, `Ficha Criada`, `Garantia`, `Retorno`, `Visita Técnica`, `Contato Inicial`, `pendente`, `Não foi adiante` ao filtro de fichas. Ou remover o filtro de status completamente (trazer todas com `prestador_id`).
-
-3. **Separar colunas na tabela** — Adicionar coluna "Total Fichas" (todos os status) além de "Finalizados". Renomear "Executados" para "Finalizados".
-
-4. **Consistência de período** — Usar a mesma base de data para fichas e orçamentos. Sugestão: filtrar fichas por `created_at` (data de criação da ficha), igual ao `data_criacao` dos orçamentos, para que o período cubra os mesmos registros.
-
-5. **KPIs de valor** — "Total" e "Mão de Obra" e "Peças" nos detalhes do prestador já estão separados, mas o "Total" mostrado é `valor_total` da ficha (com margem). Ajustar para exibir soma de MO + Peças como total do prestador.
-
-### Resumo de Impacto
-
-| Métrica | Hoje | Correção |
-|---------|------|----------|
-| Ticket Médio | valor_total / fichas | (MO + Peças) / fichas |
-| Executados | só Finalizado | Renomear + adicionar Total |
-| Fichas consideradas | 4 status | Todos com prestador_id |
-| Filtro período fichas | horario_agendamento | created_at (consistente com orçamentos) |
-| Valor Total prestador | valor_total (com margem) | MO + Peças |
-
-Nenhum dado existente será alterado — apenas a leitura/exibição no frontend.
-
+Detalhes técnicos importantes
+- O principal erro não é “valor 0”; no estado atual, o problema raiz é ausência de trigger no banco real.
+- A migration recente com `BEFORE UPDATE` não é a forma ideal para esse caso; o correto aqui é disparar após a atualização estar persistida.
+- Vou implementar com salvaguarda para não alterar datas/horários existentes nem mexer em registros antigos além do necessário para corrigir inconsistências já quebradas.</final-text>
