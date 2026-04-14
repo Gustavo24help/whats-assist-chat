@@ -6,6 +6,27 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, asaas-access-token",
 };
 
+async function logAudit(
+  supabase: any,
+  fichaId: string,
+  etapa: string,
+  status: string,
+  detalhe?: string,
+  paymentId?: string
+) {
+  try {
+    await supabase.from("automation_audit").insert({
+      ficha_id: fichaId,
+      etapa,
+      status,
+      detalhe: detalhe?.substring(0, 1000),
+      payment_id: paymentId,
+    });
+  } catch (e) {
+    console.warn("[asaas-webhook] ⚠️ Erro ao registrar audit:", e);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -15,7 +36,7 @@ Deno.serve(async (req) => {
   console.log("[asaas-webhook] Nova requisição recebida");
 
   try {
-    // Validar token de autenticação do Asaas (opcional, mas recomendado)
+    // Validar token de autenticação do Asaas
     const asaasToken = req.headers.get("asaas-access-token");
     const expectedToken = Deno.env.get("ASAAS_WEBHOOK_TOKEN");
     
@@ -35,7 +56,7 @@ Deno.serve(async (req) => {
     // Apenas processar eventos de pagamento confirmado/recebido
     const paymentEvents = ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"];
     if (!paymentEvents.includes(event)) {
-      console.log(`[asaas-webhook] ⏭️ Evento ${event} ignorado (não é confirmação de pagamento)`);
+      console.log(`[asaas-webhook] ⏭️ Evento ${event} ignorado`);
       return new Response(
         JSON.stringify({ success: true, ignored: true, event }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -54,28 +75,43 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Estratégia 1: Extrair ficha_id do campo "description" ou "externalReference" do pagamento
-    // O create-payment-link salva com name: `${ficha_id} - ${nome_cliente}`
-    let fichaId: string | null = null;
+    // ========== IDEMPOTÊNCIA: verificar se já processamos este payment.id ==========
+    const { data: auditExistente } = await supabase
+      .from("automation_audit")
+      .select("id")
+      .eq("etapa", "webhook_pagamento")
+      .eq("status", "success")
+      .eq("payment_id", payment.id)
+      .maybeSingle();
 
-    // Tentar pelo externalReference (se configurado)
-    if (payment.externalReference) {
-      fichaId = payment.externalReference;
-      console.log(`[asaas-webhook] 🔍 Ficha encontrada via externalReference: ${fichaId}`);
+    if (auditExistente) {
+      console.log(`[asaas-webhook] ⏭️ Payment ${payment.id} já processado (idempotência)`);
+      return new Response(
+        JSON.stringify({ success: true, already_processed: true, payment_id: payment.id }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Tentar pelo nome do link de pagamento (formato: "FS1-250101 - Cliente")
+    // ========== Identificar ficha ==========
+    let fichaId: string | null = null;
+
+    // Estratégia 1: externalReference
+    if (payment.externalReference) {
+      fichaId = payment.externalReference;
+      console.log(`[asaas-webhook] 🔍 Ficha via externalReference: ${fichaId}`);
+    }
+
+    // Estratégia 2: description regex
     if (!fichaId && payment.description) {
       const match = payment.description.match(/^(F[A-Z0-9@\\-]+)\s*-/);
       if (match) {
         fichaId = match[1];
-        console.log(`[asaas-webhook] 🔍 Ficha extraída da description: ${fichaId}`);
+        console.log(`[asaas-webhook] 🔍 Ficha via description: ${fichaId}`);
       }
     }
 
-    // Estratégia 2: Buscar pela URL do link de pagamento no banco
+    // Estratégia 3: paymentLink API lookup
     if (!fichaId && payment.paymentLink) {
-      // O Asaas envia o ID do paymentLink, precisamos buscar pela URL
       const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
       if (asaasApiKey) {
         try {
@@ -85,27 +121,24 @@ Deno.serve(async (req) => {
           if (linkRes.ok) {
             const linkData = await linkRes.json();
             const linkUrl = linkData.url;
-            console.log(`[asaas-webhook] 🔍 URL do link: ${linkUrl}`);
-            
+
             if (linkUrl) {
               const { data: fichaByLink } = await supabase
                 .from("fichas_de_servico")
                 .select("id")
                 .eq("pagamento_link", linkUrl)
                 .maybeSingle();
-              
               if (fichaByLink) {
                 fichaId = fichaByLink.id;
-                console.log(`[asaas-webhook] 🔍 Ficha encontrada via link URL: ${fichaId}`);
+                console.log(`[asaas-webhook] 🔍 Ficha via link URL: ${fichaId}`);
               }
             }
 
-            // Tentar pelo name do link (formato: "FS1-250101 - Cliente")
             if (!fichaId && linkData.name) {
               const match = linkData.name.match(/^(F[A-Z0-9@\\-]+)\s*-/);
               if (match) {
                 fichaId = match[1];
-                console.log(`[asaas-webhook] 🔍 Ficha extraída do name do link: ${fichaId}`);
+                console.log(`[asaas-webhook] 🔍 Ficha via name do link: ${fichaId}`);
               }
             }
           }
@@ -116,7 +149,7 @@ Deno.serve(async (req) => {
     }
 
     if (!fichaId) {
-      console.error("[asaas-webhook] ❌ Não foi possível identificar a ficha de serviço");
+      console.error("[asaas-webhook] ❌ Ficha não identificada");
       console.error("[asaas-webhook] Payment data:", JSON.stringify(payment).substring(0, 500));
       return new Response(
         JSON.stringify({ error: "Ficha não identificada", payment_id: payment.id }),
@@ -124,15 +157,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar se a ficha existe e se já está paga
+    await logAudit(supabase, fichaId, "webhook_pagamento", "started", `Event: ${event}`, payment.id);
+
+    // ========== Verificar ficha ==========
     const { data: ficha, error: fichaError } = await supabase
       .from("fichas_de_servico")
-      .select("id, pagamento_realizado, notas, nome_cliente, valor_total, telefone_cliente")
+      .select("id, pagamento_realizado, notas, nome_cliente, valor_total, telefone_cliente, status")
       .eq("id", fichaId)
       .maybeSingle();
 
     if (fichaError || !ficha) {
       console.error(`[asaas-webhook] ❌ Ficha ${fichaId} não encontrada`);
+      await logAudit(supabase, fichaId, "webhook_pagamento", "error", "Ficha não encontrada", payment.id);
       return new Response(
         JSON.stringify({ error: "Ficha não encontrada", ficha_id: fichaId }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -141,35 +177,29 @@ Deno.serve(async (req) => {
 
     if (ficha.pagamento_realizado) {
       console.log(`[asaas-webhook] ⏭️ Ficha ${fichaId} já está marcada como paga`);
+      await logAudit(supabase, fichaId, "webhook_pagamento", "skipped", "Já pago", payment.id);
       return new Response(
         JSON.stringify({ success: true, already_paid: true, ficha_id: fichaId }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // ATUALIZAR: marcar pagamento como realizado e mudar status para Garantia
+    // ========== ATUALIZAR FICHA ==========
     const agora = new Date().toISOString();
     const valorPago = payment.value || ficha.valor_total || 0;
     const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] ✅ Pagamento confirmado automaticamente via Asaas (${event}) — Valor: R$ ${valorPago.toFixed(2)} — Payment ID: ${payment.id}`;
     const notasAtualizadas = ficha.notas ? `${ficha.notas}\n${logEntry}` : logEntry;
-
-    // Buscar status atual da ficha para decidir se muda para Garantia
-    const { data: fichaCompleta } = await supabase
-      .from("fichas_de_servico")
-      .select("status")
-      .eq("id", fichaId)
-      .single();
 
     const updatePayload: Record<string, unknown> = {
       pagamento_realizado: true,
       notas: notasAtualizadas,
     };
 
-    // Mudar para Garantia automaticamente se estiver em Finalizado ou Em andamento
+    // Mudar para Garantia se status elegível
     const statusParaGarantia = ['Finalizado', 'Em andamento', 'Agendado'];
-    if (fichaCompleta && statusParaGarantia.includes(fichaCompleta.status as string)) {
+    if (statusParaGarantia.includes(ficha.status as string)) {
       updatePayload.status = 'Garantia';
-      console.log(`[asaas-webhook] 🔄 Status mudado para Garantia (era: ${fichaCompleta.status})`);
+      console.log(`[asaas-webhook] 🔄 Status mudado para Garantia (era: ${ficha.status})`);
     }
 
     const { error: updateError } = await supabase
@@ -179,30 +209,43 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error(`[asaas-webhook] ❌ Erro ao atualizar ficha: ${updateError.message}`);
+      await logAudit(supabase, fichaId, "webhook_pagamento", "error", `Erro update ficha: ${updateError.message}`, payment.id);
       return new Response(
         JSON.stringify({ error: "Erro ao atualizar ficha", details: updateError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[asaas-webhook] ✅ Ficha ${fichaId} marcada como paga automaticamente`);
+    console.log(`[asaas-webhook] ✅ Ficha ${fichaId} marcada como paga`);
 
-    // Disparar envio de recibo via WhatsApp (fire-and-forget)
-    try {
-      const reciboRes = await fetch(`${supabaseUrl}/functions/v1/send-recibo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ficha_id: fichaId,
-          telefone_cliente: ficha.telefone_cliente,
-        }),
-      });
-      console.log(`[asaas-webhook] 📨 send-recibo status: ${reciboRes.status}`);
-    } catch (reciboErr) {
-      console.warn("[asaas-webhook] ⚠️ Erro ao disparar send-recibo:", reciboErr);
+    // ========== ATUALIZAR CONTAS A RECEBER ==========
+    const { data: contaReceber } = await supabase
+      .from("contas_receber")
+      .select("id")
+      .eq("ficha_id", fichaId)
+      .maybeSingle();
+
+    if (contaReceber) {
+      const { error: contaError } = await supabase
+        .from("contas_receber")
+        .update({
+          status: "pago",
+          data_pagamento: agora.split("T")[0],
+          asaas_id: payment.id,
+          asaas_status: event,
+        })
+        .eq("id", contaReceber.id);
+
+      if (contaError) {
+        console.warn(`[asaas-webhook] ⚠️ Erro ao atualizar conta a receber: ${contaError.message}`);
+      } else {
+        console.log(`[asaas-webhook] ✅ Conta a receber atualizada para pago`);
+      }
+    } else {
+      console.log(`[asaas-webhook] ℹ️ Nenhuma conta a receber encontrada para ficha ${fichaId}`);
     }
 
-    // Atualizar transação financeira (se existir)
+    // ========== ATUALIZAR TRANSAÇÃO FINANCEIRA ==========
     const { error: transError } = await supabase
       .from("transacoes_financeiras")
       .update({
@@ -212,12 +255,34 @@ Deno.serve(async (req) => {
       .eq("ficha_id", fichaId);
 
     if (transError) {
-      console.warn(`[asaas-webhook] ⚠️ Erro ao atualizar transação (pode não existir): ${transError.message}`);
+      console.warn(`[asaas-webhook] ⚠️ Erro ao atualizar transação: ${transError.message}`);
     } else {
-      console.log(`[asaas-webhook] ✅ Transação financeira atualizada para ficha ${fichaId}`);
+      console.log(`[asaas-webhook] ✅ Transação financeira atualizada`);
     }
 
-    // Disparar webhook para planilha (sync com Make.com)
+    // ========== DISPARAR ENVIO DE RECIBO ==========
+    try {
+      const reciboRes = await fetch(`${supabaseUrl}/functions/v1/send-recibo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          ficha_id: fichaId,
+          telefone_cliente: ficha.telefone_cliente,
+        }),
+      });
+      const reciboStatus = reciboRes.status;
+      const reciboBody = await reciboRes.text();
+      console.log(`[asaas-webhook] 📨 send-recibo status: ${reciboStatus}`);
+      await logAudit(supabase, fichaId, "recibo", reciboStatus < 300 ? "success" : "error", `Status: ${reciboStatus}, Body: ${reciboBody.substring(0, 300)}`, payment.id);
+    } catch (reciboErr) {
+      console.warn("[asaas-webhook] ⚠️ Erro ao disparar send-recibo:", reciboErr);
+      await logAudit(supabase, fichaId, "recibo", "error", `Exceção: ${reciboErr}`, payment.id);
+    }
+
+    // ========== WEBHOOK PLANILHA ==========
     try {
       const webhookUrl = Deno.env.get("MAKE_WEBHOOK_UPDATE_PLANILHA");
       if (webhookUrl) {
@@ -241,6 +306,7 @@ Deno.serve(async (req) => {
     }
 
     const duration = Date.now() - startTime;
+    await logAudit(supabase, fichaId, "webhook_pagamento", "success", `Valor: ${valorPago}, Event: ${event}, Duration: ${duration}ms`, payment.id);
     console.log(`[asaas-webhook] ✅ Concluído em ${duration}ms — Ficha: ${fichaId}`);
 
     return new Response(
