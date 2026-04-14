@@ -811,6 +811,31 @@ export const PrestadorManagement = () => {
                           }
                         />
                       </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="agencia">Agência</Label>
+                        <Input id="agencia" placeholder="Nº da agência" value={formData.agencia || ""} onChange={(e) => setFormData({ ...formData, agencia: e.target.value })} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="conta">Conta</Label>
+                        <Input id="conta" placeholder="Nº da conta" value={formData.conta || ""} onChange={(e) => setFormData({ ...formData, conta: e.target.value })} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="email">E-mail</Label>
+                        <Input id="email" type="email" placeholder="email@exemplo.com" value={formData.email || ""} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="taxa_visita_padrao">Taxa de Visita Padrão (R$)</Label>
+                        <Input id="taxa_visita_padrao" type="number" step="0.01" placeholder="0.00" value={formData.taxa_visita_padrao ?? ""} onChange={(e) => setFormData({ ...formData, taxa_visita_padrao: e.target.value ? parseFloat(e.target.value) : null })} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="regiao_atuacao">Região de Atuação</Label>
+                        <Input id="regiao_atuacao" placeholder="Ex: Zona Sul, Grande BH" value={formData.regiao_atuacao || ""} onChange={(e) => setFormData({ ...formData, regiao_atuacao: e.target.value })} />
+                      </div>
                     </div>
 
                     <div className="space-y-2">
