@@ -2866,6 +2866,50 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
                 </div>
               )}
 
+              {/* IA Suggestion block */}
+              {isVendaAtiva && (suggestion || loadingSuggestion) && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3 text-primary" />
+                      <span className="text-[11px] font-semibold text-primary">Sugestão IA</span>
+                    </div>
+                    <button
+                      onClick={() => setSuggestionEnabled(prev => !prev)}
+                      className={cn(
+                        "text-[11px] font-medium transition-colors",
+                        suggestionEnabled
+                          ? "text-primary hover:text-primary/70"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {suggestionEnabled ? "Desligar" : "Desligado"}
+                    </button>
+                  </div>
+                  {loadingSuggestion ? (
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Gerando sugestão...
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2">
+                      <p className="text-xs text-foreground/80 flex-1 whitespace-pre-wrap">{suggestion}</p>
+                      <button
+                        onClick={() => {
+                          setNovaMsg(suggestion);
+                          setSuggestion("");
+                        }}
+                        className="shrink-0 flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium mt-0.5"
+                        title="Usar esta sugestão"
+                      >
+                        <CornerDownLeft className="h-3 w-3" />
+                        Usar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-1.5 md:gap-2 items-center">
                 <input
                   ref={fileInputRef}
