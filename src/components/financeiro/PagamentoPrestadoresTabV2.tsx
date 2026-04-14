@@ -784,6 +784,18 @@ export const PagamentoPrestadoresTabV2 = () => {
                     <div>{detalhesSel.banco}</div>
                   </>
                 )}
+                {detalhesSel.agencia && (
+                  <>
+                    <div className="text-muted-foreground">Agência</div>
+                    <div>{detalhesSel.agencia}</div>
+                  </>
+                )}
+                {detalhesSel.conta && (
+                  <>
+                    <div className="text-muted-foreground">Conta</div>
+                    <div>{detalhesSel.conta}</div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -843,6 +855,18 @@ export const PagamentoPrestadoresTabV2 = () => {
                         <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                         {pagamentoConfirm.banco}
                       </span>
+                    </>
+                  )}
+                  {pagamentoConfirm.agencia && (
+                    <>
+                      <span className="text-muted-foreground">Agência</span>
+                      <span className="font-medium">{pagamentoConfirm.agencia}</span>
+                    </>
+                  )}
+                  {pagamentoConfirm.conta && (
+                    <>
+                      <span className="text-muted-foreground">Conta</span>
+                      <span className="font-medium">{pagamentoConfirm.conta}</span>
                     </>
                   )}
                   {!pagamentoConfirm.chave_pix && !pagamentoConfirm.nome_pix && !pagamentoConfirm.banco && (
