@@ -247,6 +247,12 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   // Estado para filtro de mensagens por ficha
   const [showAllMessages, setShowAllMessages] = useState(false);
   
+  // IA Suggestion states
+  const [suggestion, setSuggestion] = useState("");
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
+  const [suggestionEnabled, setSuggestionEnabled] = useState(true);
+  const [fichaStatus, setFichaStatus] = useState<string | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
   const latestMessageDateRef = useRef<string | null>(null);
