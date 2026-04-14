@@ -52,11 +52,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar se status realmente é Finalizado (proteção contra chamadas duplicadas)
-    if (ficha.status !== "Finalizado") {
-      console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} não está Finalizado (status: ${ficha.status})`);
+    // Verificar se status é Agendado ou Finalizado (proteção contra chamadas indevidas)
+    const statusPermitidos = ["Agendado", "Finalizado"];
+    if (!statusPermitidos.includes(ficha.status)) {
+      console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} não está em status permitido (status: ${ficha.status})`);
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: "status_nao_finalizado" }),
+        JSON.stringify({ ok: true, skipped: true, reason: "status_nao_permitido" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -297,7 +298,8 @@ Deno.serve(async (req) => {
     }
 
     // Log nas notas da ficha
-    const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] 🤖 Link de pagamento enviado automaticamente ao finalizar. ${dentroJanela ? "Via mensagem livre" : "Via template (fora 24h)"}. Link: ${paymentUrl}`;
+    const statusLabel = ficha.status === "Agendado" ? "ao agendar" : "ao finalizar";
+    const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] 🤖 Link de pagamento enviado automaticamente ${statusLabel}. ${dentroJanela ? "Via mensagem livre" : "Via template (fora 24h)"}. Link: ${paymentUrl}`;
     const { data: fichaAtual } = await supabase
       .from("fichas_de_servico")
       .select("notas")
