@@ -50,6 +50,11 @@ interface Prestador {
   nome_pix: string | null;
   chave_pix: string | null;
   banco: string | null;
+  email: string | null;
+  agencia: string | null;
+  conta: string | null;
+  taxa_visita_padrao: number | null;
+  regiao_atuacao: string | null;
   ativo: boolean;
   created_at?: string | null;
 }
@@ -81,6 +86,11 @@ export const PrestadorManagement = () => {
     nome_pix: "",
     chave_pix: "",
     banco: "",
+    email: "",
+    agencia: "",
+    conta: "",
+    taxa_visita_padrao: null,
+    regiao_atuacao: "",
     ativo: true,
   });
 
@@ -135,6 +145,11 @@ export const PrestadorManagement = () => {
         nome_pix: "",
         chave_pix: "",
         banco: "",
+        email: "",
+        agencia: "",
+        conta: "",
+        taxa_visita_padrao: null,
+        regiao_atuacao: "",
         ativo: true,
       });
     }
