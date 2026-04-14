@@ -191,6 +191,7 @@ export const PagamentoClientesTab = () => {
       setMarkingPaid(ficha.id);
       const agora = new Date().toISOString();
 
+      // 1. Atualizar ficha
       const { error } = await supabase
         .from("fichas_de_servico")
         .update({ pagamento_realizado: true } as any)
@@ -198,7 +199,7 @@ export const PagamentoClientesTab = () => {
 
       if (error) throw error;
 
-      // Also update transacao if exists
+      // 2. Atualizar transação financeira
       await supabase
         .from("transacoes_financeiras")
         .update({
@@ -207,7 +208,28 @@ export const PagamentoClientesTab = () => {
         } as any)
         .eq("ficha_id", ficha.id);
 
-      // Notify Make.com (non-blocking)
+      // 3. Atualizar conta a receber (se existir)
+      await supabase
+        .from("contas_receber")
+        .update({
+          status: "pago",
+          data_pagamento: agora.split("T")[0],
+        } as any)
+        .eq("ficha_id", ficha.id);
+
+      // 4. Disparar recibo (non-blocking)
+      try {
+        await supabase.functions.invoke("send-recibo", {
+          body: {
+            ficha_id: ficha.id,
+            telefone_cliente: ficha.telefone_cliente,
+          },
+        });
+      } catch (reciboErr) {
+        console.warn("send-recibo error (não bloqueante):", reciboErr);
+      }
+
+      // 5. Notify Make.com (non-blocking)
       try {
         await supabase.functions.invoke("webhook-update-planilha", {
           body: {
