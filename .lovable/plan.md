@@ -1,43 +1,56 @@
 
+Diagnóstico rápido: sim, do jeito que está hoje, existe uma boa chance de ele “pegar só daqui para frente” ou só depois do próximo ciclo de checagem.
 
-# Plano: Sugestão IA automática aprimorada no Chat Beta
+Motivo principal:
+- A sugestão automática depende de `isVendaAtiva` (`botDesabilitado` + `fichaStatus` válido).
+- Na abertura de uma conversa antiga, `mensagens` carregam em paralelo com `fetchClienteData()`.
+- Se o efeito dispara quando as mensagens chegam, mas `botDesabilitado`/`fichaStatus` ainda não foram preenchidos, `generateSuggestion()` sai cedo e não tenta de novo na mesma abertura.
+- No cenário “operador aguardando”, hoje ele só reavalia no `setInterval` de 60s, então pode parecer que não funcionou “na hora”.
+- Além disso, o `totalOrcamentos` está sendo calculado na tabela errada (`fichas_de_servico`), então o contexto enviado para a IA está incompleto.
 
-## Resumo
+Plano de ajuste final:
+1. Corrigir o gatilho de abertura da conversa em `src/components/ChatWindowBeta.tsx`
+- Adicionar um efeito de “hidratação pronta” que rode quando `mensagens`, `botDesabilitado` e `fichaStatus` já estiverem carregados.
+- Nesse momento:
+  - se a última mensagem for do cliente, gerar sugestão imediatamente;
+  - se a última mensagem for do operador e já passaram 3+ minutos sem resposta do cliente, gerar a sugestão imediatamente também, sem esperar o próximo minuto.
 
-Atualizar a lógica de sugestão automática existente no `ChatWindowBeta.tsx` para: (1) gerar sugestões também quando o operador foi o último a falar e o cliente está inativo há 3+ min, (2) passar contexto completo da ficha na chamada à Edge Function, (3) piscar a conversa na lista quando uma nova sugestão é gerada.
+2. Evitar perda por corrida assíncrona
+- Criar uma flag de contexto pronto (ex.: `contextReady`) ou derivar readiness a partir dos dados carregados.
+- Só permitir a primeira avaliação automática depois que o contexto da conversa estiver completo.
 
-## Arquivos a editar
+3. Evitar sugestões duplicadas
+- Reaproveitar `suggestionGeneratedRef` para guardar uma assinatura da última avaliação (ex.: telefone + último message id + trigger).
+- Isso impede gerar a mesma sugestão várias vezes em re-renders, polling e realtime.
 
-### 1. `src/components/ChatWindowBeta.tsx`
-- Adicionar prop `onSuggestionReady?: (telefone: string) => void`
-- Adicionar estados `totalOrcamentos` e `minutosDesdeUltimaMsg` (derivados das mensagens e da ficha)
-- Calcular `minutosDesdeUltimaMsg` a partir do timestamp da última mensagem do cliente
-- Buscar `totalOrcamentos` da ficha ativa (query ao `orcamentos` table filtrado por `ficha_nome`)
-- Refatorar `generateSuggestion` para aceitar `trigger: "cliente_respondeu" | "operador_aguardando"` e incluir contexto rico (fichaStatus, totalOrcamentos, minutosDesdeUltimaMsg, quem falou por último)
-- Adicionar useEffect de intervalo (60s) que verifica se o operador foi o último a falar e gera sugestão de reengajamento quando inatividade >= 3 min
-- Chamar `onSuggestionReady?.(clienteTelefone)` quando uma sugestão é gerada com sucesso
+4. Corrigir contexto enviado para a IA
+- Buscar `totalOrcamentos` na tabela `orcamentos`, filtrando pela ficha atual.
+- Continuar enviando `fichaStatus`, `totalOrcamentos`, `minutosDesdeUltimaMsg` e `trigger`.
 
-### 2. `src/pages/ChatBeta.tsx`
-- Adicionar estado `conversasComSugestao: Set<string>` para rastrear quais conversas têm sugestão pendente
-- Passar callback `onSuggestionReady` ao `ChatWindow` que adiciona o telefone ao Set
-- Ao selecionar um cliente (`handleSelectCliente`), remover do Set
-- Passar `conversasComSugestao` para o `ConversationList`
+5. Manter e validar o destaque na lista
+- O piscar da conversa já está conectado no pai (`ChatBeta.tsx`).
+- Vou apenas garantir que ele seja acionado também nessa geração imediata ao abrir uma conversa antiga elegível.
 
-### 3. `src/components/ConversationListBeta.tsx`
-- Adicionar prop `conversasComSugestao?: Set<string>`
-- Passar para o `ConversationCard` como `hasSuggestion` boolean
+Arquivos a ajustar:
+- `src/components/ChatWindowBeta.tsx`
+  - corrigir ordem/trigger da geração automática
+  - adicionar avaliação imediata na abertura
+  - corrigir query de `totalOrcamentos`
+  - adicionar deduplicação
+- `src/pages/ChatBeta.tsx`
+  - sem mudança estrutural; só conferir que o callback atual continua cobrindo o highlight
+- `src/components/ConversationListBeta.tsx`
+- `src/components/ConversationCard.tsx`
+  - provavelmente sem mudança adicional, só validar fluxo já existente
 
-### 4. `src/components/ConversationCard.tsx`
-- Adicionar prop `hasSuggestion?: boolean`
-- Quando `true`, mostrar ícone `Sparkles` e classe `animate-pulse ring-1 ring-primary/40 bg-primary/5`
+Comportamento esperado depois do ajuste:
+- Conversa antiga aberta + cliente foi o último a falar: sugestão aparece na hora.
+- Conversa antiga aberta + operador foi o último a falar há mais de 3 min: sugestão aparece na hora.
+- Conversa aberta + ainda não bateu 3 min: nada aparece até atingir o threshold.
+- Conversa nova chegando em realtime: continua funcionando normalmente.
+- Nova sugestão gerada: conversa pisca na lista.
+- Abrir a conversa ou usar a sugestão: destaque é limpo.
 
-## Detalhes técnicos
-
-**Cálculo de `minutosDesdeUltimaMsg`**: derivado do array `mensagens` já carregado — pegar a `data_hora` da última mensagem do cliente e calcular a diferença com `Date.now()`.
-
-**Cálculo de `totalOrcamentos`**: query simples ao carregar a ficha — `supabase.from('orcamentos').select('id', { count: 'exact' }).eq('ficha_nome', fichaId)`. Reutilizar o `fichaId` já disponível no componente.
-
-**Contexto na chamada**: o body da Edge Function já aceita campos extras (`contexto`) que são ignorados pela function — apenas as `messages` são processadas. O contexto será injetado como a última mensagem `user` no array `formatted`.
-
-**Sem mudanças na Edge Function** — toda a lógica é no frontend.
-
+Safeguards:
+- Nenhuma alteração de banco, timezone ou dados persistidos.
+- A mudança é só de frontend e só afeta quando a sugestão é exibida, não altera mensagens existentes nem fichas salvas.
