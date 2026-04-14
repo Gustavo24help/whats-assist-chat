@@ -215,6 +215,11 @@ export const PrestadorManagement = () => {
             nome_pix: formData.nome_pix || null,
             chave_pix: formData.chave_pix || null,
             banco: formData.banco || null,
+            email: formData.email || null,
+            agencia: formData.agencia || null,
+            conta: formData.conta || null,
+            taxa_visita_padrao: formData.taxa_visita_padrao ?? 0,
+            regiao_atuacao: formData.regiao_atuacao || null,
             ativo: formData.ativo ?? true,
           })
           .eq("cpf", editingPrestador.cpf);
@@ -238,6 +243,11 @@ export const PrestadorManagement = () => {
           nome_pix: formData.nome_pix || null,
           chave_pix: formData.chave_pix || null,
           banco: formData.banco || null,
+          email: formData.email || null,
+          agencia: formData.agencia || null,
+          conta: formData.conta || null,
+          taxa_visita_padrao: formData.taxa_visita_padrao ?? 0,
+          regiao_atuacao: formData.regiao_atuacao || null,
           ativo: formData.ativo ?? true,
         }, { onConflict: "cpf", ignoreDuplicates: false });
 
