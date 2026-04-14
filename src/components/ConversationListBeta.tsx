@@ -69,6 +69,8 @@ interface ConversationListProps {
   unreadCount?: number;
   // Callback to report counts
   onStatusCounts?: (counts: { byStatus: Record<string, number>; unreadCount: number; totalCount: number; ativasCount: number; inativasCount: number; allTags: string[]; tagsWithColors: Map<string, string>; botDisabledCount: number }) => void;
+  // Suggestion highlight
+  conversasComSugestao?: Set<string>;
 }
 
 export const ConversationListBeta = ({ 
@@ -94,6 +96,7 @@ export const ConversationListBeta = ({
   onUnreadFilterChange: onExternalUnreadFilterChange,
   unreadCount: externalUnreadCount,
   onStatusCounts,
+  conversasComSugestao = new Set(),
 }: ConversationListProps) => {
   const { user, isSupervisor } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -1711,6 +1714,7 @@ export const ConversationListBeta = ({
                       statusAlertColor={cliente.statusAlertColor}
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
                       hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
+                      hasSuggestion={conversasComSugestao.has(cliente.telefone)}
                     />
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useClienteSignalsBeta } from '@/hooks/useClienteSignalsBeta';
 import { SkillVendasCoach } from './SkillVendasCoach';
 import { supabase } from "@/integrations/supabase/client";
@@ -168,9 +168,10 @@ interface ChatWindowProps {
   fichaOpen?: boolean;
   onToggleFicha?: () => void;
   fichaFilterId?: string | null;
+  onSuggestionReady?: (telefone: string) => void;
 }
 
-export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, fichaFilterId }: ChatWindowProps) => {
+export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, fichaFilterId, onSuggestionReady }: ChatWindowProps) => {
   const { user, userProfile, isSupervisor } = useAuth();
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
   const [coachingVisible, setCoachingVisible] = useState(true);
@@ -247,11 +248,13 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   // Estado para filtro de mensagens por ficha
   const [showAllMessages, setShowAllMessages] = useState(false);
   
-  // IA Suggestion states
+   // IA Suggestion states
   const [suggestion, setSuggestion] = useState("");
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   const [suggestionEnabled, setSuggestionEnabled] = useState(true);
   const [fichaStatus, setFichaStatus] = useState<string | null>(null);
+  const [totalOrcamentos, setTotalOrcamentos] = useState(0);
+  const suggestionGeneratedRef = useRef(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesStartRef = useRef<HTMLDivElement>(null);
@@ -281,13 +284,17 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const STATUS_ENCERRA_SUGESTAO = ["Agendado", "Em andamento", "Visita Técnica", "Finalizado", "Perdido"];
   const isVendaAtiva = botDesabilitado && !STATUS_ENCERRA_SUGESTAO.includes(fichaStatus || "");
 
-  const generateSuggestion = useCallback(async (msgs: Mensagem[]) => {
+  // Calculate minutes since last client message
+  const minutosDesdeUltimaMsg = useMemo(() => {
+    if (!mensagens?.length) return 0;
+    const lastClientMsg = [...mensagens].reverse().find(m => m.remetente === 'cliente' || m.tipo_remetente === 'cliente');
+    if (!lastClientMsg?.data_hora) return 0;
+    return (Date.now() - new Date(lastClientMsg.data_hora).getTime()) / 60000;
+  }, [mensagens]);
+
+  const generateSuggestion = useCallback(async (msgs: Mensagem[], trigger: "cliente_respondeu" | "operador_aguardando") => {
     if (!suggestionEnabled || !isVendaAtiva) return;
-    const lastMsg = msgs[msgs.length - 1];
-    if (!lastMsg) return;
-    // Only trigger on client messages
-    const isClientMsg = lastMsg.remetente === 'cliente' || lastMsg.tipo_remetente === 'cliente';
-    if (!isClientMsg) return;
+    if (trigger === "operador_aguardando" && minutosDesdeUltimaMsg < 3) return;
 
     setLoadingSuggestion(true);
     setSuggestion("");
@@ -297,38 +304,90 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
       content: m.texto || ""
     }));
 
-    formatted.push({
-      role: "user",
-      content: "⚡ MODO TEMPO REAL: Com base nessa conversa, qual é a melhor próxima mensagem para o operador enviar agora? Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefixo."
-    });
+    const contexto = `
+⚡ MODO TEMPO REAL
+
+Contexto atual da ficha:
+- Status: ${fichaStatus || "Sem ficha"}
+- Orçamentos coletados: ${totalOrcamentos}
+- Minutos desde última mensagem do cliente: ${Math.round(minutosDesdeUltimaMsg)}
+- Quem falou por último: ${trigger === "cliente_respondeu" ? "cliente" : "operador"}
+
+${totalOrcamentos === 0 && trigger === "operador_aguardando"
+  ? "O operador ainda não encontrou orçamento de prestador. Sugira uma mensagem acolhedora que mantenha o cliente esperando com conforto, sem revelar que é falta de prestador disponível."
+  : trigger === "operador_aguardando"
+  ? "O cliente está demorando para responder. Sugira uma mensagem que instigue o cliente a responder, com urgência leve ou elemento novo."
+  : "Com base no histórico e contexto, sugira a melhor próxima mensagem para avançar para o fechamento."
+}
+
+Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefixo.
+    `.trim();
+
+    formatted.push({ role: "user", content: contexto });
 
     try {
       const { data, error } = await supabase.functions.invoke("vendas-assistant", {
-        body: { messages: formatted }
+        body: {
+          messages: formatted,
+          contexto: { fichaStatus, totalOrcamentos, minutosDesdeUltimaMsg: Math.round(minutosDesdeUltimaMsg), trigger }
+        }
       });
       if (!error) {
         const text = data?.content?.[0]?.text || data?.choices?.[0]?.message?.content;
-        if (text) setSuggestion(text.trim());
+        if (text) {
+          setSuggestion(text.trim());
+          onSuggestionReady?.(clienteTelefone);
+        }
       }
     } catch {
       // silent - suggestion is optional
     } finally {
       setLoadingSuggestion(false);
     }
-  }, [suggestionEnabled, isVendaAtiva]);
+  }, [suggestionEnabled, isVendaAtiva, fichaStatus, totalOrcamentos, minutosDesdeUltimaMsg, clienteTelefone, onSuggestionReady]);
 
-  // Trigger suggestion on new messages
+  // Trigger 1 — cliente respondeu
   useEffect(() => {
-    if (mensagens?.length > 0) {
-      generateSuggestion(mensagens);
+    if (!mensagens?.length) return;
+    const lastMsg = mensagens[mensagens.length - 1];
+    if (lastMsg?.remetente === 'cliente' || lastMsg?.tipo_remetente === 'cliente') {
+      generateSuggestion(mensagens, "cliente_respondeu");
     }
   }, [mensagens.length]);
+
+  // Trigger 2 — operador aguardando (checa a cada 60s)
+  useEffect(() => {
+    if (!isVendaAtiva || !suggestionEnabled) return;
+    const interval = setInterval(() => {
+      if (!mensagens?.length) return;
+      const lastMsg = mensagens[mensagens.length - 1];
+      if (lastMsg?.remetente !== 'cliente' && lastMsg?.tipo_remetente !== 'cliente') {
+        generateSuggestion(mensagens, "operador_aguardando");
+      }
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [isVendaAtiva, mensagens, generateSuggestion, suggestionEnabled]);
+
+  // Fetch totalOrcamentos when fichaId changes
+  useEffect(() => {
+    if (!fichaId) { setTotalOrcamentos(0); return; }
+    const fetchOrcamentos = async () => {
+      const { count } = await supabase
+        .from('fichas_de_servico')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', fichaId);
+      // Use orcamentos from ficha context - approximate with ficha existence
+      setTotalOrcamentos(count || 0);
+    };
+    fetchOrcamentos();
+  }, [fichaId]);
 
   // Reset suggestion on conversation change
   useEffect(() => {
     setSuggestion("");
     setSuggestionEnabled(true);
     setFichaStatus(null);
+    setTotalOrcamentos(0);
   }, [clienteTelefone]);
 
   // Estado para popup de confirmação de takeover ao enviar
