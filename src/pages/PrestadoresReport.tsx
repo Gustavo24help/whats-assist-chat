@@ -79,7 +79,8 @@ interface PrestadorMetrics {
   cpf: string;
   nome: string;
   categoria: string | null;
-  totalServicos: number;
+  totalFichas: number;
+  totalFinalizados: number;
   ticketMedio: number;
   valorTotalMaoObra: number;
   valorTotalPecas: number;
@@ -230,7 +231,6 @@ const PrestadoresReportPage = () => {
           .from("fichas_de_servico")
           .select("id, prestador_id, status, valor_total, valor_mao_obra, valor_pecas, horario_agendamento, bairro, categoria_id, created_at")
           .not("prestador_id", "is", null)
-          .in("status", ["Finalizado", "Agendado", "Em andamento", "Perdido"])
       );
 
       const orcamentosData = await fetchAllPaginated<Orcamento>(
@@ -271,7 +271,7 @@ const PrestadoresReportPage = () => {
     if (!range) return fichas;
     
     return fichas.filter(f => {
-      const data = f.horario_agendamento || f.created_at;
+      const data = f.created_at;
       if (!data) return false;
       const dataFicha = new Date(data);
       return dataFicha >= range.from && dataFicha <= range.to;
@@ -326,10 +326,10 @@ const PrestadoresReportPage = () => {
     
     const orcamentosPendentes = orcamentosDoPrestador.filter(o => o.status === "pendente").length;
 
-    const valorTotal = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_total || 0), 0);
     const valorTotalMaoObra = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_mao_obra || 0), 0);
     const valorTotalPecas = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_pecas || 0), 0);
-    const fichasComValor = fichasFinalizadas.filter(f => (f.valor_total || 0) > 0);
+    const valorTotal = valorTotalMaoObra + valorTotalPecas;
+    const fichasComValor = fichasFinalizadas.filter(f => ((f.valor_mao_obra || 0) + (f.valor_pecas || 0)) > 0);
     const ticketMedio = fichasComValor.length > 0 ? valorTotal / fichasComValor.length : 0;
 
     let temposResposta: number[] = [];
@@ -394,7 +394,8 @@ const PrestadoresReportPage = () => {
       cpf,
       nome: prestador.nome,
       categoria: prestador.categoria,
-      totalServicos: fichasFinalizadas.length,
+      totalFichas: fichasDoPrestador.length,
+      totalFinalizados: fichasFinalizadas.length,
       ticketMedio,
       valorTotalMaoObra,
       valorTotalPecas,
@@ -416,7 +417,7 @@ const PrestadoresReportPage = () => {
     return prestadores
       .map(p => calcularMetricasPrestador(p.cpf))
       .filter((m): m is PrestadorMetrics => m !== null)
-      .sort((a, b) => b.totalServicos - a.totalServicos);
+      .sort((a, b) => b.totalFinalizados - a.totalFinalizados);
   }, [prestadores, fichasFiltradas, orcamentosFiltrados, fichasParaOrcamentos, novosPrestadores]);
 
   // Ranking by orcamentos enviados (descending)
@@ -630,7 +631,7 @@ const PrestadoresReportPage = () => {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-bold">{m.orcamentosEnviados} orç.</p>
-                              <p className="text-xs text-muted-foreground">{m.totalServicos} exec.</p>
+                              <p className="text-xs text-muted-foreground">{m.totalFinalizados} finaliz.</p>
                             </div>
                           </div>
                         ))}
@@ -716,10 +717,11 @@ const PrestadoresReportPage = () => {
                       <Card>
                         <CardContent className="pt-4">
                           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                            <Wrench className="h-4 w-4" />
-                            Serviços
-                          </div>
-                          <p className="text-2xl font-bold mt-1">{selectedMetrics.totalServicos}</p>
+                             <Wrench className="h-4 w-4" />
+                             Finalizados
+                           </div>
+                           <p className="text-2xl font-bold mt-1">{selectedMetrics.totalFinalizados}</p>
+                           <p className="text-xs text-muted-foreground">{selectedMetrics.totalFichas} total</p>
                         </CardContent>
                       </Card>
                       <Card>
@@ -938,14 +940,14 @@ const PrestadoresReportPage = () => {
                       <TableRow>
                         <TableHead className="w-12">#</TableHead>
                         <TableHead>Prestador</TableHead>
-                        <TableHead className="text-center">Executados</TableHead>
+                        <TableHead className="text-center">Total Fichas</TableHead>
+                        <TableHead className="text-center">Finalizados</TableHead>
                         <TableHead className="text-right">Ticket Médio</TableHead>
                         <TableHead className="text-center">Tempo Resp.</TableHead>
-                        <TableHead className="text-right">Mão de Obra</TableHead>
-                        <TableHead className="text-right">Peças</TableHead>
+                        <TableHead className="text-right">MO + Peças</TableHead>
                         <TableHead className="text-center">Orç. Enviados</TableHead>
                         <TableHead className="text-center">Orç. Aceitos</TableHead>
-                        <TableHead className="text-center">Rejeitados</TableHead>
+                        <TableHead className="text-center">Não Aprov.</TableHead>
                         <TableHead className="w-12"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -971,11 +973,11 @@ const PrestadoresReportPage = () => {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-center">{m.totalServicos}</TableCell>
+                            <TableCell className="text-center">{m.totalFichas}</TableCell>
+                            <TableCell className="text-center">{m.totalFinalizados}</TableCell>
                             <TableCell className="text-right">{formatCurrency(m.ticketMedio)}</TableCell>
                             <TableCell className="text-center">{formatTempoResposta(m.mediaTempoResposta)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(m.valorTotalMaoObra)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(m.valorTotalPecas)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(m.valorTotal)}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant="secondary">
                                 {m.orcamentosEnviados}
@@ -1001,7 +1003,7 @@ const PrestadoresReportPage = () => {
                           </TableRow>
                           {expandedRows.has(m.cpf) && (
                             <TableRow key={`${m.cpf}-expanded`}>
-                              <TableCell colSpan={11} className="bg-muted/30 p-4">
+                              <TableCell colSpan={12} className="bg-muted/30 p-4">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                   <div>
                                     <h4 className="font-medium mb-2 flex items-center gap-2">
