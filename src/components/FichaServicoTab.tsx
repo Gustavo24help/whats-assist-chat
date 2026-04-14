@@ -2276,6 +2276,12 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       toast.error('O valor total da ficha é zero. Preencha o valor para gerar um link de pagamento.');
                       return;
                     }
+
+                    // Aviso: a automação deveria gerar o link sozinha
+                    if (ficha.status === 'Agendado' || ficha.status === 'Finalizado') {
+                      setShowAutoLinkWarning(true);
+                      return;
+                    }
                     
                     if (ficha.pagamento_link) {
                       const confirm = window.confirm('Já existe um link de pagamento. Deseja gerar um novo link? O anterior será substituído.');
