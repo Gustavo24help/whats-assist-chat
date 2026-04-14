@@ -96,6 +96,7 @@ export const ConversationListBeta = ({
   onUnreadFilterChange: onExternalUnreadFilterChange,
   unreadCount: externalUnreadCount,
   onStatusCounts,
+  conversasComSugestao = new Set(),
 }: ConversationListProps) => {
   const { user, isSupervisor } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -1713,6 +1714,7 @@ export const ConversationListBeta = ({
                       statusAlertColor={cliente.statusAlertColor}
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
                       hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
+                      hasSuggestion={conversasComSugestao.has(cliente.telefone)}
                     />
                   </div>
                 </div>

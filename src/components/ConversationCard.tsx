@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot, Check, XCircle } from "lucide-react";
+import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot, Check, XCircle, Sparkles } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,7 @@ interface ConversationCardProps {
   statusAlertColor?: string | null;
   tempoNoStatusMinutos?: number;
   hasNewOrcamento?: boolean;
+  hasSuggestion?: boolean;
 }
 
 const getStatusColor = (status: string) => {
@@ -93,7 +94,8 @@ export const ConversationCard = memo(({
   semOrcamento = false,
   statusAlertColor = null,
   tempoNoStatusMinutos,
-  hasNewOrcamento = false
+  hasNewOrcamento = false,
+  hasSuggestion = false
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
