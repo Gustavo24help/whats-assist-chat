@@ -198,7 +198,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     const items: FichaFinanceira[] = fichas.map((f: any) => {
       const prest = prestMap.get(f.prestador_id);
       const trans = transMap.get(f.id);
-      const fin = calcFinanceiro(f);
+      const fin = calcFinanceiro({ ...f, taxa_visita_padrao: prest?.taxa_visita_padrao || 0 });
       return {
         id: f.id,
         nome_cliente_resolved: f.nome_cliente || clienteMap.get(f.telefone_cliente) || f.telefone_cliente.replace("whatsapp:+55", ""),
