@@ -77,6 +77,8 @@ interface FichaFinanceira {
   chave_pix: string | null;
   nome_pix: string | null;
   banco: string | null;
+  agencia: string | null;
+  conta: string | null;
   pagamento_realizado: boolean;
   pagamento_link: string | null;
   updated_at: string;
@@ -213,6 +215,8 @@ export const PagamentoPrestadoresTabV2 = () => {
         chave_pix: prest?.chave_pix || null,
         nome_pix: prest?.nome_pix || null,
         banco: prest?.banco || null,
+        agencia: prest?.agencia || null,
+        conta: prest?.conta || null,
         pagamento_realizado: f.pagamento_realizado,
         pagamento_link: f.pagamento_link,
         updated_at: f.updated_at,
