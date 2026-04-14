@@ -33,6 +33,7 @@ const ChatBeta = () => {
   // ═══ Collapsible columns ═══
   const [filterSidebarOpen, setFilterSidebarOpen] = useState(true);
   const [conversationListOpen, setConversationListOpen] = useState(true);
+  const [col4Tab, setCol4Tab] = useState<"ficha" | "coach">("ficha");
 
   // ═══ Filter state (lifted from ConversationListBeta for sidebar) ═══
   const [statusFilter, setStatusFilter] = useState<string>("all");
