@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useClienteSignalsBeta } from '@/hooks/useClienteSignalsBeta';
 import { SkillVendasCoach } from './SkillVendasCoach';
 import { supabase } from "@/integrations/supabase/client";
