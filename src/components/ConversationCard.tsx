@@ -124,7 +124,8 @@ export const ConversationCard = memo(({
         isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
         (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && !hasNewOrcamento && "bg-blue-100 dark:bg-blue-950/40 border-l-4 border-l-blue-600 dark:border-l-blue-400",
         statusAlertColor && !isSelected && !hasNewOrcamento && "border-l-4",
-        hasNewOrcamento && !isSelected && "border-l-4"
+        hasNewOrcamento && !isSelected && "border-l-4",
+        hasSuggestion && !isSelected && !hasNewOrcamento && !statusAlertColor && "animate-pulse ring-1 ring-primary/40 bg-primary/5"
       )}
       style={alertBackgroundStyle}
       onClick={onClick}
@@ -281,6 +282,9 @@ export const ConversationCard = memo(({
             <div className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-blue-600 shrink-0">
               <span className="text-white text-xs font-bold">{unreadCount > 0 ? unreadCount : '•'}</span>
             </div>
+          )}
+          {hasSuggestion && (
+            <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
           )}
         </div>
       </div>
