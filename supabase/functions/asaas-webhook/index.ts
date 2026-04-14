@@ -282,6 +282,28 @@ Deno.serve(async (req) => {
       await logAudit(supabase, fichaId, "recibo", "error", `Exceção: ${reciboErr}`, payment.id);
     }
 
+    // ========== DISPARAR NPS ==========
+    try {
+      const npsRes = await fetch(`${supabaseUrl}/functions/v1/send-nps`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          ficha_id: fichaId,
+          telefone_cliente: ficha.telefone_cliente,
+        }),
+      });
+      const npsStatus = npsRes.status;
+      const npsBody = await npsRes.text();
+      console.log(`[asaas-webhook] 📊 send-nps status: ${npsStatus}`);
+      await logAudit(supabase, fichaId, "nps", npsStatus < 300 ? "success" : "error", `Status: ${npsStatus}, Body: ${npsBody.substring(0, 300)}`, payment.id);
+    } catch (npsErr) {
+      console.warn("[asaas-webhook] ⚠️ Erro ao disparar send-nps:", npsErr);
+      await logAudit(supabase, fichaId, "nps", "error", `Exceção: ${npsErr}`, payment.id);
+    }
+
     // ========== WEBHOOK PLANILHA ==========
     try {
       const webhookUrl = Deno.env.get("MAKE_WEBHOOK_UPDATE_PLANILHA");
