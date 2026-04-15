@@ -58,6 +58,7 @@ export default function Calendario() {
           clientes!fichas_de_servico_telefone_cliente_fkey(nome),
           categorias!fichas_de_servico_categoria_id_fkey(nome)
         `)
+        .in('status', ['Retorno', 'Visita Técnica Agendada', 'Agendado'])
         .or('horario_agendamento.not.is.null,data_retorno.not.is.null,horario_visita_tecnica.not.is.null,data_visita_tecnica.not.is.null');
 
       if (error) throw error;
