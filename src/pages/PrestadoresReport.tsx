@@ -725,7 +725,7 @@ const PrestadoresReportPage = () => {
                 {selectedMetrics && (
                   <div className="mt-6 space-y-6">
                     {/* KPIs */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-4">
                       <Card>
                         <CardContent className="pt-4">
                           <div className="flex items-center gap-2 text-muted-foreground text-sm">
