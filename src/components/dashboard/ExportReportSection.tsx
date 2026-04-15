@@ -361,7 +361,7 @@ export const ExportReportSection = () => {
               return formatCsvValue(ficha.valor_pecas || 0);
             // Colunas financeiras de transacoes_financeiras
             case "fin_valor_cliente":
-              return formatCsvValue(transacao?.valor_cliente_final ?? "");
+              return formatCsvValue((transacao?.valor_cliente_final && transacao.valor_cliente_final > 0) ? transacao.valor_cliente_final : (ficha.valor_total ?? ""));
             case "fin_valor_prestador":
               return formatCsvValue(transacao?.valor_a_pagar_prestador ?? "");
             case "fin_lucro_bruto":
