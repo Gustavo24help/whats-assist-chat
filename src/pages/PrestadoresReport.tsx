@@ -332,9 +332,13 @@ const PrestadoresReportPage = () => {
 
     const valorTotalMaoObra = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_mao_obra || 0), 0);
     const valorTotalPecas = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_pecas || 0), 0);
-    const valorTotal = valorTotalMaoObra + valorTotalPecas;
-    const fichasComValor = fichasFinalizadas.filter(f => ((f.valor_mao_obra || 0) + (f.valor_pecas || 0)) > 0);
-    const ticketMedio = fichasComValor.length > 0 ? valorTotal / fichasComValor.length : 0;
+    const liquidoPrestador = valorTotalMaoObra + valorTotalPecas;
+    const totalOS = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_total || 0), 0);
+    const lucroBruto = totalOS - liquidoPrestador;
+    const rentabilidade = totalOS > 0 ? (lucroBruto / totalOS) * 100 : 0;
+    const valorTotal = totalOS;
+    const fichasComValor = fichasFinalizadas.filter(f => (f.valor_total || 0) > 0);
+    const ticketMedio = fichasComValor.length > 0 ? totalOS / fichasComValor.length : 0;
 
     let temposResposta: number[] = [];
     orcamentosDoPrestador.forEach(orc => {
