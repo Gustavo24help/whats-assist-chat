@@ -1019,8 +1019,11 @@ const PrestadoresReportPage = () => {
                             <TableCell className="text-center">{m.totalFichas}</TableCell>
                             <TableCell className="text-center">{m.totalFinalizados}</TableCell>
                             <TableCell className="text-right">{formatCurrency(m.ticketMedio)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(m.totalOS)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(m.liquidoPrestador)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(m.lucroBruto)}</TableCell>
+                            <TableCell className="text-right">{m.rentabilidade.toFixed(1)}%</TableCell>
                             <TableCell className="text-center">{formatTempoResposta(m.mediaTempoResposta)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(m.valorTotal)}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant="secondary">
                                 {m.orcamentosEnviados}
