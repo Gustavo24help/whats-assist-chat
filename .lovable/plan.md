@@ -1,20 +1,10 @@
 
 
-# Filtrar calendário por status
+# Atualizar token do webhook Asaas
 
-## O que muda
+## O que está acontecendo
+O webhook do Asaas está enviando o token `whsec_aGtKk0SR3NwVGiKEG-OdxNnqS8XmkYpszkBqkOLVnic` no header, mas o secret armazenado no backend tem um valor diferente. Por isso retorna 401.
 
-Adicionar filtro na query do calendário para mostrar apenas fichas com status **"Retorno"**, **"Visita Técnica Agendada"** ou **"Agendado"**.
-
-## Arquivo: `src/pages/Calendario.tsx`
-
-Na query `fetchData`, adicionar `.in('status', ['Retorno', 'Visita Técnica Agendada', 'Agendado'])` para que apenas fichas nesses 3 status sejam retornadas do banco.
-
-Isso filtra direto na query SQL, reduzindo dados trafegados e garantindo que o calendário só exiba o que os operadores precisam ver.
-
-## Impacto
-
-- Nenhuma alteração de dados existentes — é apenas um filtro de leitura.
-- Os contadores de legenda (Serviço, Visita Técnica, Retorno) passarão a refletir apenas fichas nesses status.
-- Fichas com status como "Finalizado", "Perdido", "Negociação" etc. deixarão de aparecer no calendário.
+## Ação
+Atualizar o secret `ASAAS_WEBHOOK_TOKEN` com o novo valor fornecido. Nenhuma alteração de código é necessária — a Edge Function já lê esse secret corretamente.
 
