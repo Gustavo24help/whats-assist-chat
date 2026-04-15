@@ -1049,7 +1049,7 @@ const PrestadoresReportPage = () => {
                           </TableRow>
                           {expandedRows.has(m.cpf) && (
                             <TableRow key={`${m.cpf}-expanded`}>
-                              <TableCell colSpan={12} className="bg-muted/30 p-4">
+                              <TableCell colSpan={14} className="bg-muted/30 p-4">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                   <div>
                                     <h4 className="font-medium mb-2 flex items-center gap-2">
