@@ -980,12 +980,15 @@ const PrestadoresReportPage = () => {
                       <TableRow>
                         <TableHead className="w-12">#</TableHead>
                         <TableHead>Prestador</TableHead>
-                        <TableHead className="text-center">Total Fichas</TableHead>
-                        <TableHead className="text-center">Finalizados</TableHead>
+                        <TableHead className="text-center">Fichas</TableHead>
+                        <TableHead className="text-center">Finaliz.</TableHead>
                         <TableHead className="text-right">Ticket Médio</TableHead>
+                        <TableHead className="text-right">Total OS</TableHead>
+                        <TableHead className="text-right">Líquido Prest.</TableHead>
+                        <TableHead className="text-right">Lucro Bruto</TableHead>
+                        <TableHead className="text-right">Rentab.</TableHead>
                         <TableHead className="text-center">Tempo Resp.</TableHead>
-                        <TableHead className="text-right">MO + Peças</TableHead>
-                        <TableHead className="text-center">Orç. Enviados</TableHead>
+                        <TableHead className="text-center">Orç. Env.</TableHead>
                         <TableHead className="text-center">Orç. Aceitos</TableHead>
                         <TableHead className="text-center">Não Aprov.</TableHead>
                         <TableHead className="w-12"></TableHead>
