@@ -776,21 +776,39 @@ const PrestadoresReportPage = () => {
                         <CardContent className="pt-4">
                           <div className="flex items-center gap-2 text-muted-foreground text-sm">
                             <DollarSign className="h-4 w-4" />
-                            Total
+                            Líquido Prestador
                           </div>
-                          <p className="text-2xl font-bold mt-1">{formatCurrency(selectedMetrics.valorTotal)}</p>
+                          <p className="text-2xl font-bold mt-1">{formatCurrency(selectedMetrics.liquidoPrestador)}</p>
+                          <p className="text-xs text-muted-foreground">MO + Peças</p>
                         </CardContent>
                       </Card>
-                    </div>
-
-                    {/* Orçamentos */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <Card>
                         <CardContent className="pt-4">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="h-5 w-5 text-primary" />
-                            <span className="text-muted-foreground">Orçamentos Aceitos</span>
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <DollarSign className="h-4 w-4" />
+                            Total OS
                           </div>
+                          <p className="text-2xl font-bold mt-1">{formatCurrency(selectedMetrics.totalOS)}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <DollarSign className="h-4 w-4" />
+                            Lucro Bruto
+                          </div>
+                          <p className="text-2xl font-bold mt-1">{formatCurrency(selectedMetrics.lucroBruto)}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <BarChart3 className="h-4 w-4" />
+                            Rentabilidade
+                          </div>
+                          <p className="text-2xl font-bold mt-1">{selectedMetrics.rentabilidade.toFixed(1)}%</p>
+                        </CardContent>
+                      </Card>
                           <p className="text-3xl font-bold mt-2">{selectedMetrics.orcamentosAceitos}</p>
                           <p className="text-xs text-muted-foreground mt-1">Prestador foi escolhido</p>
                         </CardContent>
