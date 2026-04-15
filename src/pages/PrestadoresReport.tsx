@@ -85,6 +85,10 @@ interface PrestadorMetrics {
   valorTotalMaoObra: number;
   valorTotalPecas: number;
   valorTotal: number;
+  totalOS: number;
+  lucroBruto: number;
+  rentabilidade: number;
+  liquidoPrestador: number;
   orcamentosAceitos: number;
   orcamentosRejeitados: number;
   orcamentosPendentes: number;
@@ -328,9 +332,13 @@ const PrestadoresReportPage = () => {
 
     const valorTotalMaoObra = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_mao_obra || 0), 0);
     const valorTotalPecas = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_pecas || 0), 0);
-    const valorTotal = valorTotalMaoObra + valorTotalPecas;
-    const fichasComValor = fichasFinalizadas.filter(f => ((f.valor_mao_obra || 0) + (f.valor_pecas || 0)) > 0);
-    const ticketMedio = fichasComValor.length > 0 ? valorTotal / fichasComValor.length : 0;
+    const liquidoPrestador = valorTotalMaoObra + valorTotalPecas;
+    const totalOS = fichasFinalizadas.reduce((acc, f) => acc + (f.valor_total || 0), 0);
+    const lucroBruto = totalOS - liquidoPrestador;
+    const rentabilidade = totalOS > 0 ? (lucroBruto / totalOS) * 100 : 0;
+    const valorTotal = totalOS;
+    const fichasComValor = fichasFinalizadas.filter(f => (f.valor_total || 0) > 0);
+    const ticketMedio = fichasComValor.length > 0 ? totalOS / fichasComValor.length : 0;
 
     let temposResposta: number[] = [];
     orcamentosDoPrestador.forEach(orc => {
@@ -400,6 +408,10 @@ const PrestadoresReportPage = () => {
       valorTotalMaoObra,
       valorTotalPecas,
       valorTotal,
+      totalOS,
+      lucroBruto,
+      rentabilidade,
+      liquidoPrestador,
       orcamentosAceitos,
       orcamentosRejeitados,
       orcamentosPendentes,
@@ -713,7 +725,7 @@ const PrestadoresReportPage = () => {
                 {selectedMetrics && (
                   <div className="mt-6 space-y-6">
                     {/* KPIs */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-4">
                       <Card>
                         <CardContent className="pt-4">
                           <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -764,9 +776,37 @@ const PrestadoresReportPage = () => {
                         <CardContent className="pt-4">
                           <div className="flex items-center gap-2 text-muted-foreground text-sm">
                             <DollarSign className="h-4 w-4" />
-                            Total
+                            Líquido Prestador
                           </div>
-                          <p className="text-2xl font-bold mt-1">{formatCurrency(selectedMetrics.valorTotal)}</p>
+                          <p className="text-2xl font-bold mt-1">{formatCurrency(selectedMetrics.liquidoPrestador)}</p>
+                          <p className="text-xs text-muted-foreground">MO + Peças</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <DollarSign className="h-4 w-4" />
+                            Total OS
+                          </div>
+                          <p className="text-2xl font-bold mt-1">{formatCurrency(selectedMetrics.totalOS)}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <DollarSign className="h-4 w-4" />
+                            Lucro Bruto
+                          </div>
+                          <p className="text-2xl font-bold mt-1">{formatCurrency(selectedMetrics.lucroBruto)}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <BarChart3 className="h-4 w-4" />
+                            Rentabilidade
+                          </div>
+                          <p className="text-2xl font-bold mt-1">{selectedMetrics.rentabilidade.toFixed(1)}%</p>
                         </CardContent>
                       </Card>
                     </div>
@@ -940,12 +980,15 @@ const PrestadoresReportPage = () => {
                       <TableRow>
                         <TableHead className="w-12">#</TableHead>
                         <TableHead>Prestador</TableHead>
-                        <TableHead className="text-center">Total Fichas</TableHead>
-                        <TableHead className="text-center">Finalizados</TableHead>
+                        <TableHead className="text-center">Fichas</TableHead>
+                        <TableHead className="text-center">Finaliz.</TableHead>
                         <TableHead className="text-right">Ticket Médio</TableHead>
+                        <TableHead className="text-right">Total OS</TableHead>
+                        <TableHead className="text-right">Líquido Prest.</TableHead>
+                        <TableHead className="text-right">Lucro Bruto</TableHead>
+                        <TableHead className="text-right">Rentab.</TableHead>
                         <TableHead className="text-center">Tempo Resp.</TableHead>
-                        <TableHead className="text-right">MO + Peças</TableHead>
-                        <TableHead className="text-center">Orç. Enviados</TableHead>
+                        <TableHead className="text-center">Orç. Env.</TableHead>
                         <TableHead className="text-center">Orç. Aceitos</TableHead>
                         <TableHead className="text-center">Não Aprov.</TableHead>
                         <TableHead className="w-12"></TableHead>
@@ -976,8 +1019,11 @@ const PrestadoresReportPage = () => {
                             <TableCell className="text-center">{m.totalFichas}</TableCell>
                             <TableCell className="text-center">{m.totalFinalizados}</TableCell>
                             <TableCell className="text-right">{formatCurrency(m.ticketMedio)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(m.totalOS)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(m.liquidoPrestador)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(m.lucroBruto)}</TableCell>
+                            <TableCell className="text-right">{m.rentabilidade.toFixed(1)}%</TableCell>
                             <TableCell className="text-center">{formatTempoResposta(m.mediaTempoResposta)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(m.valorTotal)}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant="secondary">
                                 {m.orcamentosEnviados}
@@ -1003,7 +1049,7 @@ const PrestadoresReportPage = () => {
                           </TableRow>
                           {expandedRows.has(m.cpf) && (
                             <TableRow key={`${m.cpf}-expanded`}>
-                              <TableCell colSpan={12} className="bg-muted/30 p-4">
+                              <TableCell colSpan={14} className="bg-muted/30 p-4">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                   <div>
                                     <h4 className="font-medium mb-2 flex items-center gap-2">
