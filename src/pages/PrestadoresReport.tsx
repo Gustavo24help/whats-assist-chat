@@ -85,6 +85,10 @@ interface PrestadorMetrics {
   valorTotalMaoObra: number;
   valorTotalPecas: number;
   valorTotal: number;
+  totalOS: number;
+  lucroBruto: number;
+  rentabilidade: number;
+  liquidoPrestador: number;
   orcamentosAceitos: number;
   orcamentosRejeitados: number;
   orcamentosPendentes: number;
