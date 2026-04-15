@@ -193,16 +193,19 @@ export const ExportReportSection = () => {
     ficha: { status: string | null; pagamento_realizado: boolean | null },
     transacao?: { status_pagamento_cliente?: string | null } | null,
   ): "Pago" | "Pendente" | "" => {
+    // Ficha é a fonte de verdade para confirmação de pagamento
+    // Se a ficha marca como pago, prevalece sobre a transação
+    if (ficha.pagamento_realizado === true) {
+      return "Pago";
+    }
+
+    // Se a transação tem status definido e ficha não está paga, usar transação
     if (transacao?.status_pagamento_cliente) {
       return transacao.status_pagamento_cliente.toLowerCase() === "pago" ? "Pago" : "Pendente";
     }
 
     if (ficha.status !== "Finalizado") {
       return "";
-    }
-
-    if (ficha.pagamento_realizado === true) {
-      return "Pago";
     }
 
     if (ficha.pagamento_realizado === false) {
@@ -358,7 +361,7 @@ export const ExportReportSection = () => {
               return formatCsvValue(ficha.valor_pecas || 0);
             // Colunas financeiras de transacoes_financeiras
             case "fin_valor_cliente":
-              return formatCsvValue(transacao?.valor_cliente_final ?? "");
+              return formatCsvValue((transacao?.valor_cliente_final && transacao.valor_cliente_final > 0) ? transacao.valor_cliente_final : (ficha.valor_total ?? ""));
             case "fin_valor_prestador":
               return formatCsvValue(transacao?.valor_a_pagar_prestador ?? "");
             case "fin_lucro_bruto":

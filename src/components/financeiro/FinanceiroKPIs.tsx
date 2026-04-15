@@ -35,24 +35,28 @@ export const FinanceiroKPIs = () => {
         const fimMes = endOfMonth(now).toISOString();
 
         const [pagosRes, pendClientesRes, finalizadosRes, adiantRes] = await Promise.all([
-          // Fichas com pagamento realizado neste mês (after cutoff)
+          // Fichas com pagamento realizado neste mês
           supabase
             .from("fichas_de_servico")
             .select("valor_total")
             .eq("pagamento_realizado", true)
-            .gt("valor_total", 0),
-          // Fichas pendentes de pagamento do cliente (after cutoff)
+            .gt("valor_total", 0)
+            .gte("created_at", inicioMes)
+            .lte("created_at", fimMes),
+          // Fichas pendentes de pagamento do cliente (all time - shows outstanding)
           supabase
             .from("fichas_de_servico")
             .select("valor_total")
             .eq("pagamento_realizado", false)
             .eq("status", "Finalizado" as any)
             .gt("valor_total", 0),
-          // Fichas finalizadas neste mês (after cutoff)
+          // Fichas finalizadas neste mês
           supabase
             .from("fichas_de_servico")
             .select("id")
-            .eq("status", "Finalizado" as any),
+            .eq("status", "Finalizado" as any)
+            .gte("created_at", inicioMes)
+            .lte("created_at", fimMes),
           // Adiantamentos pendentes
           supabase
             .from("adiantamentos")
