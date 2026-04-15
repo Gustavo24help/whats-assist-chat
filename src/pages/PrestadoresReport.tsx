@@ -809,6 +809,16 @@ const PrestadoresReportPage = () => {
                           <p className="text-2xl font-bold mt-1">{selectedMetrics.rentabilidade.toFixed(1)}%</p>
                         </CardContent>
                       </Card>
+                    </div>
+
+                    {/* Orçamentos */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-primary" />
+                            <span className="text-muted-foreground">Orçamentos Aceitos</span>
+                          </div>
                           <p className="text-3xl font-bold mt-2">{selectedMetrics.orcamentosAceitos}</p>
                           <p className="text-xs text-muted-foreground mt-1">Prestador foi escolhido</p>
                         </CardContent>
