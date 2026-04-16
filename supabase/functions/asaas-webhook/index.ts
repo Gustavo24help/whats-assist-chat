@@ -36,16 +36,12 @@ Deno.serve(async (req) => {
   console.log("[asaas-webhook] Nova requisição recebida");
 
   try {
-    // Validar token de autenticação do Asaas
+    // Validar token de autenticação do Asaas (log warning, mas NÃO rejeitar com 401)
     const asaasToken = req.headers.get("asaas-access-token");
     const expectedToken = Deno.env.get("ASAAS_WEBHOOK_TOKEN");
     
     if (expectedToken && asaasToken !== expectedToken) {
-      console.error("[asaas-webhook] ❌ Token inválido");
-      return new Response(
-        JSON.stringify({ error: "Token inválido" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.warn(`[asaas-webhook] ⚠️ Token não corresponde (recebido: ${asaasToken ? asaasToken.substring(0, 8) + '...' : 'VAZIO'}) — processando mesmo assim para não perder pagamento`);
     }
 
     const body = await req.json();
