@@ -2712,6 +2712,22 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
               const filteredMsgs = (!showAllMessages && fichaFilterId) 
                 ? mensagens.filter(m => m.ficha_id === fichaFilterId)
                 : mensagens;
+              
+              if (filteredMsgs.length === 0 && !showAllMessages && fichaFilterId) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
+                    <FileText className="h-8 w-8 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">Nenhuma mensagem vinculada a esta ficha</p>
+                    <button
+                      onClick={() => setShowAllMessages(true)}
+                      className="text-xs text-primary hover:underline mt-1"
+                    >
+                      Ver todas as mensagens
+                    </button>
+                  </div>
+                );
+              }
+
               return filteredMsgs.map((msg, index) => {
               const previousMsg = index > 0 ? filteredMsgs[index - 1] : undefined;
               const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
