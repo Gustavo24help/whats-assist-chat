@@ -83,6 +83,111 @@ async function findFichaIdByStoredPaymentLink(supabase: any, paymentLinkValue?: 
   return null;
 }
 
+function normalizePhone(phone?: string | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return null;
+  // Mantém últimos 10-11 dígitos (DDD + número) para casar variações com/sem 55
+  return digits.slice(-11);
+}
+
+async function findFichaByCustomerAndValue(
+  supabase: any,
+  customerId?: string | null,
+  paymentValue?: number | null,
+): Promise<string | null> {
+  if (!customerId) return null;
+
+  const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
+  if (!asaasApiKey) {
+    console.warn("[asaas-webhook] ⚠️ ASAAS_API_KEY ausente — não é possível buscar customer");
+    return null;
+  }
+
+  let customerData: any = null;
+  try {
+    const res = await fetch(`https://api.asaas.com/v3/customers/${customerId}`, {
+      headers: { access_token: asaasApiKey },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.warn(`[asaas-webhook] ⚠️ Asaas customers lookup falhou (${res.status}): ${body.substring(0, 300)}`);
+      return null;
+    }
+    customerData = await res.json();
+  } catch (e) {
+    console.warn("[asaas-webhook] ⚠️ Erro ao buscar customer no Asaas:", e);
+    return null;
+  }
+
+  const candidatePhones = [customerData?.mobilePhone, customerData?.phone]
+    .map(normalizePhone)
+    .filter((p): p is string => Boolean(p));
+
+  if (!candidatePhones.length) {
+    console.warn(`[asaas-webhook] ⚠️ Customer ${customerId} sem telefone utilizável`);
+    return null;
+  }
+
+  // Busca fichas do cliente por sufixo de telefone (últimos 10-11 dígitos)
+  const orFilter = candidatePhones.map((p) => `telefone_cliente.ilike.%${p}`).join(",");
+
+  const { data: fichas, error } = await supabase
+    .from("fichas_de_servico")
+    .select("id, telefone_cliente, valor_total, status, pagamento_realizado, created_at")
+    .or(orFilter)
+    .eq("pagamento_realizado", false)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.warn("[asaas-webhook] ⚠️ Erro buscando fichas por telefone:", error.message);
+    return null;
+  }
+
+  if (!fichas?.length) {
+    console.warn(`[asaas-webhook] ⚠️ Nenhuma ficha não-paga encontrada para telefones ${candidatePhones.join(",")}`);
+    return null;
+  }
+
+  if (!paymentValue || paymentValue <= 0) {
+    if (fichas.length === 1) {
+      console.log(`[asaas-webhook] 🔍 Ficha única do cliente (sem valor): ${fichas[0].id}`);
+      return fichas[0].id as string;
+    }
+    console.warn(`[asaas-webhook] ⚠️ ${fichas.length} fichas candidatas e sem valor para desambiguar`);
+    return null;
+  }
+
+  // Casa por valor (tolerância 0.50). Para parcelas, considera valor total dividido por N parcelas (1..12)
+  const tolerancia = 0.5;
+  const matches = fichas.filter((f: any) => {
+    const total = Number(f.valor_total) || 0;
+    if (Math.abs(total - paymentValue) <= tolerancia) return true;
+    for (let n = 2; n <= 12; n++) {
+      if (Math.abs(total / n - paymentValue) <= tolerancia) return true;
+    }
+    return false;
+  });
+
+  if (matches.length === 1) {
+    console.log(`[asaas-webhook] 🔍 Ficha via cliente+valor: ${matches[0].id}`);
+    return matches[0].id as string;
+  }
+
+  if (matches.length > 1) {
+    console.warn(
+      `[asaas-webhook] ⚠️ ${matches.length} fichas casam com cliente+valor — ambíguo: ${matches.map((m: any) => m.id).join(",")}`,
+    );
+    return null;
+  }
+
+  console.warn(
+    `[asaas-webhook] ⚠️ Cliente tem ${fichas.length} fichas pendentes mas nenhuma casa com valor R$${paymentValue}`,
+  );
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -211,12 +316,30 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Estratégia 5: cliente Asaas + valor (fallback para links criados manualmente no painel)
+    if (!fichaId && payment.customer) {
+      fichaId = await findFichaByCustomerAndValue(supabase, payment.customer, payment.value);
+    }
+
     if (!fichaId) {
-      console.error("[asaas-webhook] ❌ Ficha não identificada");
+      console.error("[asaas-webhook] ❌ Ficha não identificada — respondendo 200 para evitar penalização");
       console.error("[asaas-webhook] Payment data:", JSON.stringify(payment).substring(0, 500));
+      await logAudit(
+        supabase,
+        "DESCONHECIDA",
+        "webhook_pagamento",
+        "unidentified",
+        `Payment ${payment.id} sem ficha identificável (customer: ${payment.customer}, link: ${payment.paymentLink}, value: ${payment.value})`,
+        payment.id,
+      );
       return new Response(
-        JSON.stringify({ error: "Ficha não identificada", payment_id: payment.id }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          success: false,
+          unidentified: true,
+          message: "Pagamento recebido mas não vinculado a nenhuma ficha. Registrado para revisão manual.",
+          payment_id: payment.id,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
