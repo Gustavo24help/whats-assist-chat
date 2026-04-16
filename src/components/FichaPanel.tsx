@@ -27,6 +27,8 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [fichaAtual, setFichaAtual] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [vincularOpen, setVincularOpen] = useState(false);
+  const grupo = useFichaGrupo(fichaAtual);
 
   useEffect(() => {
     console.log('[FichaPanel] Limpando fichas para:', clienteTelefone);
