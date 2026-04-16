@@ -156,15 +156,27 @@ serve(async (req) => {
       });
     }
 
-    // Buscar ficha ativa
-    const { data: ficha } = await supabase
-      .from("fichas_de_servico")
-      .select("id")
-      .eq("telefone_cliente", cliente.telefone)
-      .eq("status", "Agendado")
-      .order("created_at", { ascending: false })
-      .limit(1)
+    // Buscar ficha ativa (prioriza ficha_ativa_id do cliente)
+    const { data: clienteComFicha } = await supabase
+      .from("clientes")
+      .select("ficha_ativa_id")
+      .eq("telefone", cliente.telefone)
       .maybeSingle();
+
+    let fichaId = clienteComFicha?.ficha_ativa_id || null;
+
+    if (!fichaId) {
+      const { data: ficha } = await supabase
+        .from("fichas_de_servico")
+        .select("id")
+        .eq("telefone_cliente", cliente.telefone)
+        .eq("status", "Agendado")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      fichaId = ficha?.id || null;
+    }
+    console.log(`[${requestId}] 📋 ficha_id para mensagem: ${fichaId}`);
 
     // Buscar timestamp real da Twilio (quando a mensagem foi enviada de fato)
     const realDateSent = await fetchTwilioMessageDate(messageSid, requestId);
@@ -196,7 +208,7 @@ serve(async (req) => {
       arquivo_url: arquivoUrl,
       status: "enviado",
       data_hora: dataHora,
-      ficha_id: ficha?.id || null,
+      ficha_id: fichaId,
       message_sid: messageSid,
       reply_to_message_id: null,
     };

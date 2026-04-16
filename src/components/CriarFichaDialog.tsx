@@ -136,6 +136,19 @@ export const CriarFichaDialog = ({
         .update({ ficha_ativa_id: nomeFicha })
         .eq('telefone', clienteTelefone);
 
+      // 3. BACKFILL: vincular mensagens anteriores sem ficha_id à nova ficha
+      const { error: backfillError, count: backfillCount } = await supabase
+        .from('mensagens')
+        .update({ ficha_id: nomeFicha })
+        .eq('cliente_id', clienteTelefone)
+        .is('ficha_id', null);
+
+      if (backfillError) {
+        console.error('Erro ao vincular mensagens anteriores:', backfillError);
+      } else {
+        console.log(`✅ Backfill: ${backfillCount ?? '?'} mensagens vinculadas à ficha ${nomeFicha}`);
+      }
+
       toast.success("Ficha criada com sucesso!");
       onOpenChange(false);
 

@@ -319,15 +319,28 @@ serve(async (req) => {
         });
       }
 
-      // Buscar ficha ativa
-      const { data: ficha } = await supabase
-        .from("fichas_de_servico")
-        .select("id")
-        .eq("telefone_cliente", cliente.telefone)
-        .eq("status", "Agendado")
-        .order("created_at", { ascending: false })
-        .limit(1)
+      // Buscar ficha ativa do cliente (prioriza ficha_ativa_id)
+      const { data: clienteComFicha } = await supabase
+        .from("clientes")
+        .select("ficha_ativa_id")
+        .eq("telefone", cliente.telefone)
         .maybeSingle();
+
+      let fichaId = clienteComFicha?.ficha_ativa_id || null;
+
+      // Fallback: buscar ficha com status Agendado se não houver ficha_ativa_id
+      if (!fichaId) {
+        const { data: ficha } = await supabase
+          .from("fichas_de_servico")
+          .select("id")
+          .eq("telefone_cliente", cliente.telefone)
+          .eq("status", "Agendado")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        fichaId = ficha?.id || null;
+      }
+      console.log(`[${requestId}] 📋 ficha_id para mensagem: ${fichaId}`);
 
       // Determinar tipo de mídia
       let tipo = "texto";
@@ -359,7 +372,7 @@ serve(async (req) => {
         arquivo_url: arquivoUrl,
         status: isClientMessage ? "recebido" : "enviado",
         data_hora: dataHora,
-        ficha_id: ficha?.id || null,
+        ficha_id: fichaId,
         message_sid: messageSid,
         reply_to_message_id: null,
         tipo_remetente: isClientMessage ? 'cliente' : 'bot',
