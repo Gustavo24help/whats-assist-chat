@@ -1,62 +1,86 @@
 
 
-# Sessão persistente entre abas + inatividade de 4 horas
+# Correção: Grace period bloqueando SIGNED_OUT legítimo
 
-## Resumo
+## Diagnóstico
 
-Tornar o sistema de autenticação robusto como Gmail/Canva: abrir novas abas mantém a sessão ativa; deslogar apenas após **4 horas** de inatividade real (com aviso de 15 minutos).
+O problema está no grace period. A sequência no console (imagem 48):
 
-## Problemas atuais
+```text
+SIGNED_IN          ← sessão VELHA restaurada do localStorage
+SIGNED_OUT         ← token refresh FALHOU (sessão inválida) → 400 errors
+INITIAL_SESSION    ← tenta usar sessão inválida
+```
 
-1. **SIGNED_OUT transitório** — Após login, o Supabase emite `SIGNED_OUT` espúrio (token antigo expirado). O delay de `setTimeout(0)` é insuficiente para filtrar isso.
-2. **Novas abas deslogadas** — O `ProtectedRoute` vê `user=null` momentaneamente e redireciona para `/auth` antes da sessão ser restaurada do localStorage.
-3. **Timeout de 2 horas** — Atualmente configurado para 2h, precisa ser 4h.
+O `lastSignedInAtRef` é definido em **qualquer** SIGNED_IN, incluindo a restauração automática de sessão do localStorage. Quando o SIGNED_OUT vem 772ms depois para dizer "esses tokens são inválidos", o grace period bloqueia e mantém uma sessão corrupta. Resultado: 400 em todas as queries.
 
-## Plano de implementação
+Em aba anônima não há localStorage → não há sessão velha → login funciona.
 
-### 1. `src/contexts/AuthContext.tsx` — Grace period no SIGNED_OUT + retry no loadUserProfile
+## Solução
 
-- Adicionar `lastSignedInAtRef` e constante `SIGNED_OUT_GRACE_MS = 3000`
-- No evento `SIGNED_IN`: registrar `lastSignedInAtRef.current = Date.now()`
-- No evento `SIGNED_OUT`: se ocorreu < 3s após SIGNED_IN, ignorar completamente; caso contrário, aguardar 500ms e confirmar com `getSession()` antes de aceitar logout
-- No `loadUserProfile`: adicionar retry (3 tentativas, 300ms entre cada) na query de `user_roles` para cobrir o delay de propagação do JWT no RLS
+### 1. `AuthContext.tsx` — Grace period inteligente
 
-### 2. `src/components/ProtectedRoute.tsx` — Verificação dupla antes de redirecionar
+O grace period deve proteger apenas logins **reais** (via formulário), não restaurações de sessão do localStorage.
 
-- Quando `loading=false` e `user=null`, fazer `supabase.auth.getSession()` para confirmar
-- Mostrar spinner enquanto confirma; só redirecionar para `/auth` se a verificação também retornar sem sessão
-- Adicionar estado `verifyingSession` com `useState`
+- Mudar `lastSignedInAtRef` para só ser definido quando o SIGNED_IN vem **depois** do INITIAL_SESSION (login real do formulário)
+- Adicionar flag `initialSessionDoneRef` que fica true após INITIAL_SESSION
+- SIGNED_IN antes de INITIAL_SESSION = restauração de sessão → NÃO definir grace
+- SIGNED_IN depois de INITIAL_SESSION = login real → definir grace
+- No handler de SIGNED_OUT com grace period: em vez de apenas `return`, ainda fazer `getSession()` para confirmar — se a sessão for inválida, aceitar o logout
 
-### 3. `src/hooks/useInactivityLogout.tsx` — Timeout de 4 horas
+### 2. `AuthContext.tsx` — Detectar 400 no loadUserProfile
 
-- Alterar `INACTIVITY_TIMEOUT` de `2 * 60 * 60 * 1000` para `4 * 60 * 60 * 1000`
+- Se as queries de profile/role retornam erro 400 (PGRST), verificar se a sessão é válida com `getSession()`
+- Se `getSession()` retornar null, forçar `signOut()` para limpar tokens corrompidos do localStorage
 
-### 4. Atualizar memória
+### 3. Nenhuma outra mudança
 
-- Atualizar `mem://auth/inactivity-logout-policy` para refletir 4 horas
-- Atualizar `mem://technical/auth-initialization-stability` com as novas defesas
+ProtectedRoute e useInactivityLogout já estão corretos.
 
 ## Detalhes técnicos
 
 ```text
-Login ──▶ SIGNED_IN (registra timestamp)
-           │
-           ▼
-  SIGNED_OUT espúrio (< 3s)?
-    SIM ──▶ ignorar, manter sessão
-    NÃO ──▶ aguardar 500ms ──▶ getSession()
-              │
-              ├─ sessão existe ──▶ restaurar (transitório)
-              └─ sem sessão ──▶ logout real
+Restauração localStorage:
+  SIGNED_IN (stale) → NÃO define grace (initialSessionDone = false)
+  SIGNED_OUT (token inválido) → getSession() → null → aceitar logout, limpar localStorage
 
-Nova aba ──▶ ProtectedRoute ──▶ user=null?
-              │
-              ▼
-         getSession() direto
-           │
-           ├─ sessão existe ──▶ renderizar normalmente
-           └─ sem sessão ──▶ redirecionar /auth
+Login real (formulário):
+  INITIAL_SESSION (sem sessão) → SIGNED_IN (real) → define grace
+  SIGNED_OUT espúrio → grace period → getSession() → sessão válida → ignorar
 ```
 
-Nenhuma alteração no banco de dados. A política RLS de `user_roles` já está correta (`auth.uid() = user_id`).
+Mudança principal no SIGNED_IN handler:
+```typescript
+} else if (event === 'SIGNED_IN' && session?.user) {
+  // Só ativar grace period para logins reais (após INITIAL_SESSION)
+  if (initialSessionDoneRef.current) {
+    lastSignedInAtRef.current = Date.now();
+  }
+  applySessionUser(session.user);
+  queueProfileLoad(session.user);
+  ...
+}
+```
+
+Mudança no grace period handler — nunca ignorar cegamente:
+```typescript
+} else if (event === 'SIGNED_OUT') {
+  const timeSinceSignIn = Date.now() - lastSignedInAtRef.current;
+  if (lastSignedInAtRef.current > 0 && timeSinceSignIn < SIGNED_OUT_GRACE_MS) {
+    console.warn('⚠️ Grace period — verificando sessão...');
+    // Mesmo no grace, confirmar com getSession
+    setTimeout(() => {
+      supabase.auth.getSession().then(({ data: { session: s } }) => {
+        if (!s) {
+          console.warn('⚠️ Grace period mas sessão inválida — logout real');
+          applySessionUser(null);
+          setLoading(false);
+        }
+      });
+    }, 500);
+    return;
+  }
+  // ... resto do handler existente
+}
+```
 
