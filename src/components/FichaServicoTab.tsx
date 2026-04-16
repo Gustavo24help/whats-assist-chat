@@ -26,6 +26,8 @@ import { ResumoConversaDialog } from "@/components/ResumoConversaDialog";
 import { PopupConfirmacaoFinanceira } from "@/components/PopupConfirmacaoFinanceira";
 import { EnviarLinkPagamentoDialog } from "@/components/EnviarLinkPagamentoDialog";
 import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
+import { useFichaGrupo } from "@/hooks/useFichaGrupo";
+import { FichaVinculoBadge } from "./FichaVinculoBadge";
 
 interface FichaServicoTabProps {
   fichaId: string;
