@@ -75,10 +75,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar se status é Agendado ou Finalizado
-    const statusPermitidos = ["Agendado", "Finalizado"];
-    if (!statusPermitidos.includes(ficha.status)) {
-      console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} não está em status permitido (status: ${ficha.status})`);
+    // Verificar se status é Finalizado
+    if (ficha.status !== "Finalizado") {
+      console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} não está em status Finalizado (status: ${ficha.status})`);
       await logAudit(supabase, ficha_id, "auto_finalizacao", "skipped", `Status não permitido: ${ficha.status}`);
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "status_nao_permitido" }),
@@ -348,8 +347,7 @@ Deno.serve(async (req) => {
     }
 
     // Log nas notas da ficha
-    const statusLabel = ficha.status === "Agendado" ? "ao agendar" : "ao finalizar";
-    const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] 🤖 Link de pagamento enviado automaticamente ${statusLabel}. ${dentroJanela ? "Via mensagem livre" : "Via template (fora 24h)"}. Link: ${paymentUrl}`;
+    const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] 🤖 Link de pagamento enviado automaticamente ao finalizar. ${dentroJanela ? "Via mensagem livre" : "Via template (fora 24h)"}. Link: ${paymentUrl}`;
     const { data: fichaAtual } = await supabase
       .from("fichas_de_servico")
       .select("notas")
