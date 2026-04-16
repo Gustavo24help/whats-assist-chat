@@ -103,6 +103,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (isStaleRequest()) return null;
 
+      // Detectar erro 400 (sessão inválida/tokens corrompidos)
+      if (profileResult.error && (profileResult.error as any).code === '400') {
+        console.warn('⚠️ AuthContext - Erro 400 detectado, verificando sessão...');
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!s) {
+          console.warn('⚠️ AuthContext - Sessão inválida após erro 400, forçando signOut');
+          await supabase.auth.signOut();
+          applySessionUser(null);
+          setLoading(false);
+          return null;
+        }
+      }
+
       const profileData = buildProfile(profileResult.data?.full_name || 'Sem nome', role);
       setUserProfile(profileData);
 
