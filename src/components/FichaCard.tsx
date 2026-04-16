@@ -75,6 +75,7 @@ const getStatusConfig = (status: string | null) => {
 
 export const FichaCard = ({ ficha }: FichaCardProps) => {
   const { toast } = useToast();
+  const grupo = useFichaGrupo(ficha.id);
   const [isOpen, setIsOpen] = useState(false);
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [loadingOrcamentos, setLoadingOrcamentos] = useState(false);
