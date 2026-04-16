@@ -28,7 +28,7 @@ interface FichaResult {
   valor_total: number | null;
 }
 
-const STATUS_EXCLUIDOS = ["Finalizado", "Perdido", "Não foi adiante"];
+// Não filtramos por status — operador pode querer vincular a qualquer ficha (inclusive Finalizado).
 
 export const VincularFichaDialog = ({ open, onOpenChange, fichaAtualId, onSuccess }: VincularFichaDialogProps) => {
   const { user } = useAuth();
@@ -73,7 +73,7 @@ export const VincularFichaDialog = ({ open, onOpenChange, fichaAtualId, onSucces
       if (!map.has(f.id)) map.set(f.id, f);
     });
 
-    const merged = Array.from(map.values()).filter((f) => !STATUS_EXCLUIDOS.includes(f.status || ""));
+    const merged = Array.from(map.values());
     if (merged.length === 0) {
       console.log("[VincularFichaDialog] nenhum resultado para:", termRaw);
     }
@@ -129,7 +129,7 @@ export const VincularFichaDialog = ({ open, onOpenChange, fichaAtualId, onSucces
               </Button>
             </div>
 
-            <ScrollArea className="max-h-[300px]">
+            <ScrollArea className="h-[320px] pr-3">
               {results.length === 0 && !loading && search && (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma ficha encontrada</p>
               )}
