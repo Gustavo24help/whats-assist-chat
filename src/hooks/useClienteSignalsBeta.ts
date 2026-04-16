@@ -62,11 +62,11 @@ export function useClienteSignalsBeta(clienteTelefone: string) {
       // 4. Total de orçamentos coletados
       let totalOrcamentos = 0;
       if (ficha?.id) {
-        const { count } = await supabase
+        const { count } = await (supabase
           .from("orcamentos")
-          .select("*", { count: "exact", head: true })
+          .select("*", { count: "exact", head: true }) as any)
           .eq("ficha_id", ficha.id);
-        totalOrcamentos = count || 0;
+        totalOrcamentos = (count as number) || 0;
       }
 
       // 5. Quem mandou a última mensagem e há quanto tempo
