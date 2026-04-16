@@ -1152,6 +1152,20 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
   return (
     <div className="space-y-3 pb-20 px-3">
+      {grupo.isVinculada && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertDescription className="text-xs text-amber-800">
+            🔗 Esta ficha está vinculada à ficha principal <strong>{grupo.fichaPrincipalId}</strong>. Status, valores e pagamento são gerenciados na ficha principal.
+          </AlertDescription>
+        </Alert>
+      )}
+      {grupo.isPrincipal && grupo.outrosMembros.length > 0 && (
+        <Alert className="border-blue-300 bg-blue-50">
+          <AlertDescription className="text-xs text-blue-800">
+            🔗 Ficha principal — vinculada a {grupo.outrosMembros.length} outra(s) conversa(s): {grupo.outrosMembros.map(m => m.ficha_id).join(", ")}
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Header com Status e Botão Resumir */}
       <div className="flex items-start gap-2 w-full max-w-[380px]">
         <div className="bg-card border rounded-lg shadow-sm p-2.5 hover:bg-muted/20 transition-colors flex-1">
