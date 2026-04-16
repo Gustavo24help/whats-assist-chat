@@ -371,7 +371,6 @@ const ChatBeta = () => {
                 key={selectedCliente.telefone}
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
-                onFichaChange={setSelectedFichaId}
               />
             ) : (
               <VendasAssistant
