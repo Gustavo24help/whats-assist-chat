@@ -22,6 +22,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SIGNED_OUT_GRACE_MS = 3000;
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -40,6 +42,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
   const activeUserIdRef = useRef<string | null>(null);
   const profileRequestRef = useRef(0);
+  const lastSignedInAtRef = useRef(0);
 
   const applySessionUser = (sessionUser: User | null) => {
     activeUserIdRef.current = sessionUser?.id ?? null;
@@ -53,94 +56,68 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const loadUserProfile = async (userId: string, userEmail?: string) => {
     const requestId = ++profileRequestRef.current;
-    const isStaleRequest = () => activeUserIdRef.current !== userId || profileRequestRef.current !== requestId;
+    const isStaleRequest = () =>
+      activeUserIdRef.current !== userId || profileRequestRef.current !== requestId;
+
+    const validRoles: UserProfile['role'][] = ['admin', 'supervisor', 'chefe', 'admin_ti', 'user'];
+
+    const buildProfile = (fullName: string, role: UserProfile['role']): UserProfile => ({
+      id: userId,
+      email: userEmail || '',
+      fullName,
+      role,
+    });
+
+    const fetchRole = async (): Promise<UserProfile['role']> => {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!error && data?.role) {
+          const normalized = data.role.toLowerCase() as UserProfile['role'];
+          return validRoles.includes(normalized) ? normalized : 'user';
+        }
+
+        console.log(`⏳ AuthContext - Tentativa ${attempt}/3 para role do user ${userId}`, { error: error?.message, data });
+
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          if (isStaleRequest()) return 'user';
+        }
+      }
+      console.warn('⚠️ AuthContext - Todas as tentativas de buscar role falharam, usando fallback');
+      return 'user';
+    };
 
     try {
       console.log('🔍 AuthContext - Carregando perfil do usuário:', userId);
 
-      // Buscar perfil
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('❌ AuthContext - Erro ao buscar perfil:', profileError);
-      }
-
-      // Buscar role - FONTE DE VERDADE usando SDK do Supabase
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      // Tratamento elegante de erro - não quebrar o sistema
-      if (roleError) {
-        console.error('❌ AuthContext - Erro ao buscar role:', {
-          error: roleError,
-          code: roleError.code,
-          message: roleError.message
-        });
-        // Usar fallback seguro
-        const userProfileData: UserProfile = {
-          id: userId,
-          email: userEmail || user?.email || '',
-          fullName: profile?.full_name || 'Sem nome',
-          role: 'user' // Fallback seguro
-        };
-
-        if (isStaleRequest()) return null;
-
-        setUserProfile(userProfileData);
-        console.log('⚠️ AuthContext - Usando fallback devido a erro');
-        return userProfileData;
-      }
-
-      console.log('📊 AuthContext - Dados carregados:', {
-        userId,
-        profileName: profile?.full_name,
-        roleRaw: roleData?.role,
-        roleType: typeof roleData?.role
-      });
-
-      // Normalizar role para lowercase
-      const normalizedRole = roleData?.role?.toLowerCase() as 'admin' | 'supervisor' | 'user' | 'chefe' | 'admin_ti';
-      const finalRole = normalizedRole === 'admin' ? 'admin' : normalizedRole === 'admin_ti' ? 'admin_ti' : normalizedRole === 'chefe' ? 'chefe' : normalizedRole === 'supervisor' ? 'supervisor' : 'user';
-
-      const userProfileData: UserProfile = {
-        id: userId,
-        email: userEmail || user?.email || '',
-        fullName: profile?.full_name || 'Sem nome',
-        role: finalRole
-      };
+      const [profileResult, role] = await Promise.all([
+        supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
+        fetchRole(),
+      ]);
 
       if (isStaleRequest()) return null;
 
-      setUserProfile(userProfileData);
+      const profileData = buildProfile(profileResult.data?.full_name || 'Sem nome', role);
+      setUserProfile(profileData);
 
       console.log('✅ AuthContext - Perfil definido:', {
         userId,
-        role: finalRole,
-        isAdmin: finalRole === 'admin'
+        role,
+        isAdmin: role === 'admin',
       });
 
-      return userProfileData;
+      return profileData;
     } catch (error) {
       console.error('❌ AuthContext - Erro ao carregar perfil:', error);
-      // Fallback seguro em caso de erro
-      const fallbackProfile: UserProfile = {
-        id: userId,
-        email: userEmail || user?.email || '',
-        fullName: 'Sem nome',
-        role: 'user'
-      };
-
       if (isStaleRequest()) return null;
-
-      setUserProfile(fallbackProfile);
-      return fallbackProfile;
+      const fallback = buildProfile('Sem nome', 'user');
+      setUserProfile(fallback);
+      return fallback;
     }
   };
 
@@ -172,23 +149,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     let initialSessionHandled = false;
 
-    // Escutar mudanças de autenticação ANTES de getSession (evita race condition)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('🔄 AuthContext - onAuthStateChange:', event);
+
         if (event === 'INITIAL_SESSION') {
-          // Sessão inicial restaurada do storage
           applySessionUser(session?.user ?? null);
           if (session?.user) queueProfileLoad(session.user);
           initialSessionHandled = true;
           setLoading(false);
         } else if (event === 'SIGNED_IN' && session?.user) {
+          lastSignedInAtRef.current = Date.now();
           applySessionUser(session.user);
           queueProfileLoad(session.user);
           if (!initialSessionHandled) {
             setLoading(false);
           }
         } else if (event === 'SIGNED_OUT') {
+          // Grace period: ignorar SIGNED_OUT espúrio logo após login
+          const timeSinceSignIn = Date.now() - lastSignedInAtRef.current;
+          if (lastSignedInAtRef.current > 0 && timeSinceSignIn < SIGNED_OUT_GRACE_MS) {
+            console.warn('⚠️ AuthContext - SIGNED_OUT ignorado (grace period, ' + timeSinceSignIn + 'ms após login)');
+            return;
+          }
+
+          // Aguardar 500ms e confirmar com getSession antes de aceitar logout
           setTimeout(() => {
             supabase.auth.getSession().then(({ data: { session: currentSession }, error }) => {
               if (error) {
@@ -205,7 +190,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
               setLoading(false);
             });
-          }, 0);
+          }, 500);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           applySessionUser(session.user);
         }
@@ -236,8 +221,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const isAdminTI = userProfile?.role === 'admin_ti';
   const isChefe = userProfile?.role === 'chefe';
   const isSupervisor = userProfile?.role === 'supervisor' || isAdmin;
-
-  // Removido console.log que rodava a cada render (impacto de performance)
 
   return (
     <AuthContext.Provider

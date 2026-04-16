@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { redistributeChats } from "@/hooks/useLogoutRedistribution";
 
-const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
+const INACTIVITY_TIMEOUT = 4 * 60 * 60 * 1000; // 4 hours
 const WARNING_BEFORE = 15 * 60 * 1000; // 15 minutes before
 const LAST_ACTIVITY_KEY = "last-activity-timestamp";
 
