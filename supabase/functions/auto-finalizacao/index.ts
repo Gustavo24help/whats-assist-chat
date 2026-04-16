@@ -347,8 +347,7 @@ Deno.serve(async (req) => {
     }
 
     // Log nas notas da ficha
-    const statusLabel = ficha.status === "Agendado" ? "ao agendar" : "ao finalizar";
-    const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] 🤖 Link de pagamento enviado automaticamente ${statusLabel}. ${dentroJanela ? "Via mensagem livre" : "Via template (fora 24h)"}. Link: ${paymentUrl}`;
+    const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] 🤖 Link de pagamento enviado automaticamente ao finalizar. ${dentroJanela ? "Via mensagem livre" : "Via template (fora 24h)"}. Link: ${paymentUrl}`;
     const { data: fichaAtual } = await supabase
       .from("fichas_de_servico")
       .select("notas")
