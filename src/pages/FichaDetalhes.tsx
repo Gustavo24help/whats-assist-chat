@@ -29,6 +29,7 @@ interface HistoricoItem {
 const FichaDetalhes = () => {
   const navigate = useNavigate();
   const { fichaId } = useParams();
+  const grupo = useFichaGrupo(fichaId || null);
   const [ficha, setFicha] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
