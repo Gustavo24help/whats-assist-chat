@@ -2684,7 +2684,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
             {(() => {
               return mensagens.map((msg, index) => {
-              const previousMsg = index > 0 ? filteredMsgs[index - 1] : undefined;
+              const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
               const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
           
           return (
