@@ -44,16 +44,25 @@ export const VincularFichaDialog = ({ open, onOpenChange, fichaAtualId, onSucces
     setLoading(true);
 
     const term = `%${search.trim()}%`;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("fichas_de_servico")
       .select("id, nome_ficha, nome_cliente, telefone_cliente, status, prestador_id, valor_total")
-      .not("status", "in", `(${STATUS_EXCLUIDOS.map(s => `"${s}"`).join(",")})`)
       .neq("id", fichaAtualId)
       .or(`id.ilike.${term},nome_ficha.ilike.${term},nome_cliente.ilike.${term},telefone_cliente.ilike.${term}`)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(50);
 
-    setResults(data || []);
+    if (error) {
+      console.error("[VincularFichaDialog] erro busca:", error);
+      toast.error("Erro ao buscar fichas: " + error.message);
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    // Filter out excluded statuses client-side (avoids PostgREST "in" syntax issues)
+    const filtered = (data || []).filter((f) => !STATUS_EXCLUIDOS.includes(f.status || ""));
+    setResults(filtered);
     setLoading(false);
   };
 
