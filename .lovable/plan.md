@@ -1,86 +1,45 @@
 
 
-# Correção: Grace period bloqueando SIGNED_OUT legítimo
+# Fix: Stale localStorage causing immediate logout
 
-## Diagnóstico
+## Root cause (confirmed)
 
-O problema está no grace period. A sequência no console (imagem 48):
+The incognito logs prove auth works perfectly. The difference is **localStorage**. In a normal window, `useInactivityLogout` reads a stale `last-activity-timestamp` on mount. If it's older than 4 hours, it calls `signOut()` immediately — even right after a fresh login, because `Auth.tsx` never updates this key.
 
-```text
-SIGNED_IN          ← sessão VELHA restaurada do localStorage
-SIGNED_OUT         ← token refresh FALHOU (sessão inválida) → 400 errors
-INITIAL_SESSION    ← tenta usar sessão inválida
-```
+## Changes
 
-O `lastSignedInAtRef` é definido em **qualquer** SIGNED_IN, incluindo a restauração automática de sessão do localStorage. Quando o SIGNED_OUT vem 772ms depois para dizer "esses tokens são inválidos", o grace period bloqueia e mantém uma sessão corrupta. Resultado: 400 em todas as queries.
+### 1. `src/pages/Auth.tsx` — Update timestamp on login
 
-Em aba anônima não há localStorage → não há sessão velha → login funciona.
+After successful `signInWithPassword`, set the activity timestamp before navigating:
 
-## Solução
-
-### 1. `AuthContext.tsx` — Grace period inteligente
-
-O grace period deve proteger apenas logins **reais** (via formulário), não restaurações de sessão do localStorage.
-
-- Mudar `lastSignedInAtRef` para só ser definido quando o SIGNED_IN vem **depois** do INITIAL_SESSION (login real do formulário)
-- Adicionar flag `initialSessionDoneRef` que fica true após INITIAL_SESSION
-- SIGNED_IN antes de INITIAL_SESSION = restauração de sessão → NÃO definir grace
-- SIGNED_IN depois de INITIAL_SESSION = login real → definir grace
-- No handler de SIGNED_OUT com grace period: em vez de apenas `return`, ainda fazer `getSession()` para confirmar — se a sessão for inválida, aceitar o logout
-
-### 2. `AuthContext.tsx` — Detectar 400 no loadUserProfile
-
-- Se as queries de profile/role retornam erro 400 (PGRST), verificar se a sessão é válida com `getSession()`
-- Se `getSession()` retornar null, forçar `signOut()` para limpar tokens corrompidos do localStorage
-
-### 3. Nenhuma outra mudança
-
-ProtectedRoute e useInactivityLogout já estão corretos.
-
-## Detalhes técnicos
-
-```text
-Restauração localStorage:
-  SIGNED_IN (stale) → NÃO define grace (initialSessionDone = false)
-  SIGNED_OUT (token inválido) → getSession() → null → aceitar logout, limpar localStorage
-
-Login real (formulário):
-  INITIAL_SESSION (sem sessão) → SIGNED_IN (real) → define grace
-  SIGNED_OUT espúrio → grace period → getSession() → sessão válida → ignorar
-```
-
-Mudança principal no SIGNED_IN handler:
 ```typescript
-} else if (event === 'SIGNED_IN' && session?.user) {
-  // Só ativar grace period para logins reais (após INITIAL_SESSION)
-  if (initialSessionDoneRef.current) {
-    lastSignedInAtRef.current = Date.now();
-  }
-  applySessionUser(session.user);
-  queueProfileLoad(session.user);
-  ...
+localStorage.setItem('last-activity-timestamp', String(Date.now()));
+```
+
+### 2. `src/contexts/AuthContext.tsx` — Update timestamp on SIGNED_IN
+
+In the `SIGNED_IN` handler, also update the timestamp to cover OAuth, token refresh, and tab restoration:
+
+```typescript
+try { localStorage.setItem('last-activity-timestamp', String(Date.now())); } catch {}
+```
+
+### 3. `src/hooks/useInactivityLogout.tsx` — Guard mount check
+
+The mount check currently calls `signOut()` blindly. Add a session check first — only sign out if there's actually a session to clear:
+
+```typescript
+if (elapsed >= INACTIVITY_TIMEOUT) {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      supabase.auth.signOut().then(() => navigateRef.current("/auth"));
+    }
+  });
+  return;
 }
 ```
 
-Mudança no grace period handler — nunca ignorar cegamente:
-```typescript
-} else if (event === 'SIGNED_OUT') {
-  const timeSinceSignIn = Date.now() - lastSignedInAtRef.current;
-  if (lastSignedInAtRef.current > 0 && timeSinceSignIn < SIGNED_OUT_GRACE_MS) {
-    console.warn('⚠️ Grace period — verificando sessão...');
-    // Mesmo no grace, confirmar com getSession
-    setTimeout(() => {
-      supabase.auth.getSession().then(({ data: { session: s } }) => {
-        if (!s) {
-          console.warn('⚠️ Grace period mas sessão inválida — logout real');
-          applySessionUser(null);
-          setLoading(false);
-        }
-      });
-    }, 500);
-    return;
-  }
-  // ... resto do handler existente
-}
-```
+## Secondary issue (not auth-related)
+
+The logs also show a **500 error** on a massive `.in()` query with ~400 phone numbers in the URL. This is a PostgREST URL length overflow — separate from the logout issue but should be addressed later with chunking.
 
