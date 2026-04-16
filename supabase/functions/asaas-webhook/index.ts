@@ -316,12 +316,30 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Estratégia 5: cliente Asaas + valor (fallback para links criados manualmente no painel)
+    if (!fichaId && payment.customer) {
+      fichaId = await findFichaByCustomerAndValue(supabase, payment.customer, payment.value);
+    }
+
     if (!fichaId) {
-      console.error("[asaas-webhook] ❌ Ficha não identificada");
+      console.error("[asaas-webhook] ❌ Ficha não identificada — respondendo 200 para evitar penalização");
       console.error("[asaas-webhook] Payment data:", JSON.stringify(payment).substring(0, 500));
+      await logAudit(
+        supabase,
+        "DESCONHECIDA",
+        "webhook_pagamento",
+        "unidentified",
+        `Payment ${payment.id} sem ficha identificável (customer: ${payment.customer}, link: ${payment.paymentLink}, value: ${payment.value})`,
+        payment.id,
+      );
       return new Response(
-        JSON.stringify({ error: "Ficha não identificada", payment_id: payment.id }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          success: false,
+          unidentified: true,
+          message: "Pagamento recebido mas não vinculado a nenhuma ficha. Registrado para revisão manual.",
+          payment_id: payment.id,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
