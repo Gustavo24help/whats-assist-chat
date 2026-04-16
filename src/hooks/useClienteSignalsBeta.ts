@@ -62,10 +62,10 @@ export function useClienteSignalsBeta(clienteTelefone: string) {
       // 4. Total de orçamentos coletados
       let totalOrcamentos = 0;
       if (ficha?.id) {
-        const { count } = await (supabase
-          .from("orcamentos")
-          .select("*", { count: "exact", head: true }) as any)
-          .eq("ficha_id", ficha.id);
+        const { count } = await (supabase.from("orcamentos").select("*", { count: "exact", head: true }) as any).eq(
+          "ficha_id",
+          ficha.id,
+        );
         totalOrcamentos = (count as number) || 0;
       }
 
@@ -168,6 +168,25 @@ Retorne APENAS o texto da mensagem sugerida. Sem explicação, sem aspas, sem pr
     };
 
     fetchSignals();
+
+    const channel = supabase
+      .channel(`signals-${clienteTelefone}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "mensagens",
+          filter: `cliente_id=eq.${clienteTelefone}`,
+        },
+        () => {
+          lastMsgIdRef.current = null;
+          fetchSignals();
+        },
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, [clienteTelefone]);
 
   return { coaching, loading };
