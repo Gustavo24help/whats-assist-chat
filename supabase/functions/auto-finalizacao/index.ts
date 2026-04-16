@@ -75,10 +75,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar se status é Agendado ou Finalizado
-    const statusPermitidos = ["Agendado", "Finalizado"];
-    if (!statusPermitidos.includes(ficha.status)) {
-      console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} não está em status permitido (status: ${ficha.status})`);
+    // Verificar se status é Finalizado
+    if (ficha.status !== "Finalizado") {
+      console.log(`[auto-finalizacao] ⏭️ Ficha ${ficha_id} não está em status Finalizado (status: ${ficha.status})`);
       await logAudit(supabase, ficha_id, "auto_finalizacao", "skipped", `Status não permitido: ${ficha.status}`);
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "status_nao_permitido" }),
