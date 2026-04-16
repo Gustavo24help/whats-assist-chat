@@ -47,10 +47,9 @@ interface FichaPanelProps {
   clienteTelefone: string;
   clienteNome: string;
   onClose?: () => void;
-  onFichaChange?: (fichaId: string | null) => void;
 }
 
-export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaChange }: FichaPanelProps) => {
+export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaPanelProps) => {
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [fichaAtual, setFichaAtual] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -153,7 +152,6 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
         : data[0].id;
       
       setFichaAtual(fichaInicial);
-      onFichaChange?.(fichaInicial);
       
       if (!fichaAtivaValida) {
         marcarFichaComoAtiva(data[0].id);
@@ -161,7 +159,6 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
     } else {
       setFichas([]);
       setFichaAtual(null);
-      onFichaChange?.(null);
     }
   };
 
@@ -251,7 +248,6 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose, onFichaC
                   onValueChange={(value) => {
                     setFichaAtual(value);
                     marcarFichaComoAtiva(value);
-                    onFichaChange?.(value);
                   }}
                 >
                   <SelectTrigger className="flex-1 h-9 text-sm bg-muted/30">

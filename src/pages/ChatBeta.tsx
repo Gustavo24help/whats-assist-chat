@@ -319,7 +319,6 @@ const ChatBeta = () => {
               onOpenFicha={() => setInfoPanelOpen(true)}
               onBack={handleBackToEmpty}
               fichaOpen={true}
-              fichaFilterId={selectedFichaId}
               onSuggestionReady={(telefone) => {
                 setConversasComSugestao(prev => new Set(prev).add(telefone));
               }}
