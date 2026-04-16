@@ -40,29 +40,44 @@ export const VincularFichaDialog = ({ open, onOpenChange, fichaAtualId, onSucces
   const [saving, setSaving] = useState(false);
 
   const handleSearch = async () => {
-    if (!search.trim()) return;
+    const termRaw = search.trim();
+    if (!termRaw) return;
     setLoading(true);
 
-    const term = `%${search.trim()}%`;
-    const { data, error } = await supabase
-      .from("fichas_de_servico")
-      .select("id, nome_ficha, nome_cliente, telefone_cliente, status, prestador_id, valor_total")
-      .neq("id", fichaAtualId)
-      .or(`id.ilike.${term},nome_ficha.ilike.${term},nome_cliente.ilike.${term},telefone_cliente.ilike.${term}`)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const term = `%${termRaw}%`;
+    const select = "id, nome_ficha, nome_cliente, telefone_cliente, status, prestador_id, valor_total";
 
-    if (error) {
-      console.error("[VincularFichaDialog] erro busca:", error);
-      toast.error("Erro ao buscar fichas: " + error.message);
+    // Run separate queries in parallel — `.or()` breaks with special chars (@ , -) in IDs.
+    const base = () =>
+      supabase.from("fichas_de_servico").select(select).neq("id", fichaAtualId).limit(50);
+
+    const [r1, r2, r3, r4] = await Promise.all([
+      base().ilike("id", term),
+      base().ilike("nome_ficha", term),
+      base().ilike("nome_cliente", term),
+      base().ilike("telefone_cliente", term),
+    ]);
+
+    const firstError = [r1, r2, r3, r4].find((r) => r.error)?.error;
+    if (firstError) {
+      console.error("[VincularFichaDialog] erro busca:", firstError);
+      toast.error("Erro ao buscar fichas: " + firstError.message);
       setResults([]);
       setLoading(false);
       return;
     }
 
-    // Filter out excluded statuses client-side (avoids PostgREST "in" syntax issues)
-    const filtered = (data || []).filter((f) => !STATUS_EXCLUIDOS.includes(f.status || ""));
-    setResults(filtered);
+    // Merge + dedupe by id
+    const map = new Map<string, FichaResult>();
+    [...(r1.data || []), ...(r2.data || []), ...(r3.data || []), ...(r4.data || [])].forEach((f: any) => {
+      if (!map.has(f.id)) map.set(f.id, f);
+    });
+
+    const merged = Array.from(map.values()).filter((f) => !STATUS_EXCLUIDOS.includes(f.status || ""));
+    if (merged.length === 0) {
+      console.log("[VincularFichaDialog] nenhum resultado para:", termRaw);
+    }
+    setResults(merged);
     setLoading(false);
   };
 
