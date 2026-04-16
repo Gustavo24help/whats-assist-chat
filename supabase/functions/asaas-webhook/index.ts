@@ -27,6 +27,62 @@ async function logAudit(
   }
 }
 
+function extractPaymentLinkCode(value?: string | null) {
+  if (!value) return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed);
+    const parts = url.pathname.split("/").filter(Boolean);
+    return parts.at(-1) ?? trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
+async function findFichaIdByStoredPaymentLink(supabase: any, paymentLinkValue?: string | null) {
+  const paymentLinkCode = extractPaymentLinkCode(paymentLinkValue);
+  if (!paymentLinkCode) return null;
+
+  const suffixPattern = `%/${paymentLinkCode}`;
+
+  const { data: contaByLink, error: contaByLinkError } = await supabase
+    .from("contas_receber")
+    .select("ficha_id, pagamento_link, created_at")
+    .ilike("pagamento_link", suffixPattern)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (contaByLinkError) {
+    console.warn("[asaas-webhook] ⚠️ Erro buscando conta por paymentLink:", contaByLinkError.message);
+  }
+
+  if (contaByLink?.length) {
+    console.log(`[asaas-webhook] 🔍 Ficha via contas_receber.payment_link: ${contaByLink[0].ficha_id}`);
+    return contaByLink[0].ficha_id as string;
+  }
+
+  const { data: fichaByLink, error: fichaByLinkError } = await supabase
+    .from("fichas_de_servico")
+    .select("id, pagamento_link, created_at")
+    .ilike("pagamento_link", suffixPattern)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (fichaByLinkError) {
+    console.warn("[asaas-webhook] ⚠️ Erro buscando ficha por paymentLink:", fichaByLinkError.message);
+  }
+
+  if (fichaByLink?.length) {
+    console.log(`[asaas-webhook] 🔍 Ficha via fichas_de_servico.payment_link: ${fichaByLink[0].id}`);
+    return fichaByLink[0].id as string;
+  }
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -110,7 +166,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Estratégia 3: paymentLink API lookup
+    // Estratégia 3: paymentLink salvo localmente (código curto ou URL completa)
+    if (!fichaId && payment.paymentLink) {
+      fichaId = await findFichaIdByStoredPaymentLink(supabase, payment.paymentLink);
+    }
+
+    // Estratégia 4: paymentLink API lookup
     if (!fichaId && payment.paymentLink) {
       const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
       if (asaasApiKey) {
@@ -118,20 +179,22 @@ Deno.serve(async (req) => {
           const linkRes = await fetch(`https://api.asaas.com/v3/paymentLinks/${payment.paymentLink}`, {
             headers: { "access_token": asaasApiKey },
           });
-          if (linkRes.ok) {
+
+          if (!linkRes.ok) {
+            const errorBody = await linkRes.text();
+            console.warn(`[asaas-webhook] ⚠️ Asaas paymentLinks lookup falhou (${linkRes.status}): ${errorBody.substring(0, 300)}`);
+          } else {
             const linkData = await linkRes.json();
+            const externalReference = linkData.externalReference;
             const linkUrl = linkData.url;
 
-            if (linkUrl) {
-              const { data: fichaByLink } = await supabase
-                .from("fichas_de_servico")
-                .select("id")
-                .eq("pagamento_link", linkUrl)
-                .maybeSingle();
-              if (fichaByLink) {
-                fichaId = fichaByLink.id;
-                console.log(`[asaas-webhook] 🔍 Ficha via link URL: ${fichaId}`);
-              }
+            if (externalReference) {
+              fichaId = externalReference;
+              console.log(`[asaas-webhook] 🔍 Ficha via externalReference do paymentLink: ${fichaId}`);
+            }
+
+            if (!fichaId && linkUrl) {
+              fichaId = await findFichaIdByStoredPaymentLink(supabase, linkUrl);
             }
 
             if (!fichaId && linkData.name) {
