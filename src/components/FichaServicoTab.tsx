@@ -140,6 +140,7 @@ const COMPARECIMENTO_PRESTADOR_OPTIONS = [
 ];
 
 export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
+  const grupo = useFichaGrupo(fichaId);
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
   const [searchPrestadorAgendamento, setSearchPrestadorAgendamento] = useState<string>('');
