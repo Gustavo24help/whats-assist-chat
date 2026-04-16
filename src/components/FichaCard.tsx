@@ -194,7 +194,18 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
           >
             {ficha.status || "Sem status"}
           </Badge>
-        </div>
+        {(grupo.isPrincipal || grupo.isVinculada) && (
+          <div className="px-4 pb-1">
+            <FichaVinculoBadge
+              isPrincipal={grupo.isPrincipal}
+              isVinculada={grupo.isVinculada}
+              fichaPrincipalId={grupo.fichaPrincipalId}
+              outrosMembrosCount={grupo.outrosMembros.length}
+              compact
+            />
+          </div>
+        )}
+      </div>
       </div>
 
       <CardContent className="p-4 pt-3 space-y-3">
