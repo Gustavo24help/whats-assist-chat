@@ -160,12 +160,29 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
               <Button 
                 variant="outline" 
                 size="icon"
+                onClick={() => setVincularOpen(true)}
+                className="shrink-0 h-8 w-8 hover:scale-[0.98] active:scale-95 transition-transform"
+                title="Vincular a ficha existente"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
                 onClick={() => setDialogOpen(true)}
                 className="shrink-0 h-8 w-8 hover:scale-[0.98] active:scale-95 transition-transform"
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
+            {(grupo.isPrincipal || grupo.isVinculada) && (
+              <FichaVinculoBadge
+                isPrincipal={grupo.isPrincipal}
+                isVinculada={grupo.isVinculada}
+                fichaPrincipalId={grupo.fichaPrincipalId}
+                outrosMembrosCount={grupo.outrosMembros.length}
+              />
+            )}
           </div>
 
           <Tabs defaultValue="ficha" className="flex-1 flex flex-col overflow-hidden">
