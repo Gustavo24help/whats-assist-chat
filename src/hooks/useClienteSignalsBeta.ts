@@ -186,7 +186,9 @@ Retorne APENAS o texto da mensagem sugerida. Sem explicação, sem aspas, sem pr
       )
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [clienteTelefone]);
 
   return { coaching, loading };
