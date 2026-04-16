@@ -219,6 +219,18 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
         clienteTelefone={clienteTelefone}
         clienteNome={clienteNome}
       />
+
+      {fichaAtual && (
+        <VincularFichaDialog
+          open={vincularOpen}
+          onOpenChange={setVincularOpen}
+          fichaAtualId={fichaAtual}
+          onSuccess={() => {
+            grupo.refetch();
+            fetchFichas();
+          }}
+        />
+      )}
     </div>
   );
 };
