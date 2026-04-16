@@ -167,11 +167,10 @@ interface ChatWindowProps {
   onBack?: () => void;
   fichaOpen?: boolean;
   onToggleFicha?: () => void;
-  fichaFilterId?: string | null;
   onSuggestionReady?: (telefone: string) => void;
 }
 
-export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, fichaFilterId, onSuggestionReady }: ChatWindowProps) => {
+export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, onSuggestionReady }: ChatWindowProps) => {
   const { user, userProfile, isSupervisor } = useAuth();
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
   const [coachingVisible, setCoachingVisible] = useState(true);
