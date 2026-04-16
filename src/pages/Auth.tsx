@@ -83,6 +83,7 @@ const Auth = () => {
         .gte("entrada_em", todayStart.toISOString())
         .limit(1);
 
+      try { localStorage.setItem('last-activity-timestamp', String(Date.now())); } catch {}
       const finalDest = (!pontoHoje || pontoHoje.length === 0) ? "/registro-ponto" : destination;
       console.log('✅ Auth - Redirecionando para:', finalDest);
       navigate(finalDest, { replace: true });

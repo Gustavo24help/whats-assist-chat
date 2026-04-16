@@ -174,6 +174,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           initialSessionHandled = true;
           setLoading(false);
         } else if (event === 'SIGNED_IN' && session?.user) {
+          try { localStorage.setItem('last-activity-timestamp', String(Date.now())); } catch {}
           // Só ativar grace period para logins reais (após INITIAL_SESSION)
           if (initialSessionDoneRef.current) {
             lastSignedInAtRef.current = Date.now();
