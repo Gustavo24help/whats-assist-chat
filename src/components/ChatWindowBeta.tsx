@@ -167,11 +167,10 @@ interface ChatWindowProps {
   onBack?: () => void;
   fichaOpen?: boolean;
   onToggleFicha?: () => void;
-  fichaFilterId?: string | null;
   onSuggestionReady?: (telefone: string) => void;
 }
 
-export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, fichaFilterId, onSuggestionReady }: ChatWindowProps) => {
+export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, onSuggestionReady }: ChatWindowProps) => {
   const { user, userProfile, isSupervisor } = useAuth();
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
   const [coachingVisible, setCoachingVisible] = useState(true);
@@ -2435,31 +2434,6 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         </div>
       </header>
 
-      {/* Barra de filtro por ficha */}
-      {fichaFilterId && (
-        <div className="px-4 py-1.5 border-b bg-muted/20 flex items-center gap-2 text-xs shrink-0">
-          <FileText className="h-3 w-3 text-muted-foreground" />
-          <button
-            onClick={() => setShowAllMessages(false)}
-            className={cn(
-              "px-2 py-0.5 rounded transition-colors",
-              !showAllMessages ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Mensagens da Ficha
-          </button>
-          <button
-            onClick={() => setShowAllMessages(true)}
-            className={cn(
-              "px-2 py-0.5 rounded transition-colors",
-              showAllMessages ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Todas
-          </button>
-        </div>
-      )}
-
       {/* Barra de busca no chat */}
       {chatSearchOpen && (
         <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2">
@@ -2709,27 +2683,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
             )}
 
             {(() => {
-              const filteredMsgs = (!showAllMessages && fichaFilterId) 
-                ? mensagens.filter(m => m.ficha_id === fichaFilterId)
-                : mensagens;
-              
-              if (filteredMsgs.length === 0 && !showAllMessages && fichaFilterId) {
-                return (
-                  <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
-                    <FileText className="h-8 w-8 text-muted-foreground/50" />
-                    <p className="text-sm text-muted-foreground">Nenhuma mensagem vinculada a esta ficha</p>
-                    <button
-                      onClick={() => setShowAllMessages(true)}
-                      className="text-xs text-primary hover:underline mt-1"
-                    >
-                      Ver todas as mensagens
-                    </button>
-                  </div>
-                );
-              }
-
-              return filteredMsgs.map((msg, index) => {
-              const previousMsg = index > 0 ? filteredMsgs[index - 1] : undefined;
+              return mensagens.map((msg, index) => {
+              const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
               const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
           
           return (

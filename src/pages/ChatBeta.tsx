@@ -319,7 +319,6 @@ const ChatBeta = () => {
               onOpenFicha={() => setInfoPanelOpen(true)}
               onBack={handleBackToEmpty}
               fichaOpen={true}
-              fichaFilterId={selectedFichaId}
               onSuggestionReady={(telefone) => {
                 setConversasComSugestao(prev => new Set(prev).add(telefone));
               }}
@@ -372,7 +371,6 @@ const ChatBeta = () => {
                 key={selectedCliente.telefone}
                 clienteTelefone={selectedCliente.telefone}
                 clienteNome={selectedCliente.nome}
-                onFichaChange={setSelectedFichaId}
               />
             ) : (
               <VendasAssistant
