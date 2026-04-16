@@ -13,6 +13,8 @@ import { OrcamentosTab } from "@/components/OrcamentosTab";
 import { AcompanhamentoTab } from "@/components/AcompanhamentoTab";
 import { TrocarPrestadorDialog } from "@/components/TrocarPrestadorDialog";
 import { PageLayout } from "@/components/PageLayout";
+import { useFichaGrupo } from "@/hooks/useFichaGrupo";
+import { FichaVinculoBadge } from "@/components/FichaVinculoBadge";
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
@@ -27,6 +29,7 @@ interface HistoricoItem {
 const FichaDetalhes = () => {
   const navigate = useNavigate();
   const { fichaId } = useParams();
+  const grupo = useFichaGrupo(fichaId || null);
   const [ficha, setFicha] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
@@ -161,6 +164,18 @@ const FichaDetalhes = () => {
       </header>
 
       <main className="flex-1 px-4 py-4 md:px-6">
+        {/* Vinculo badge */}
+        {(grupo.isPrincipal || grupo.isVinculada) && (
+          <div className="mb-4">
+            <FichaVinculoBadge
+              isPrincipal={grupo.isPrincipal}
+              isVinculada={grupo.isVinculada}
+              fichaPrincipalId={grupo.fichaPrincipalId}
+              outrosMembrosCount={grupo.outrosMembros.length}
+            />
+          </div>
+        )}
+
         {/* Summary card */}
         <Card className="mb-4">
           <CardContent className="p-4">

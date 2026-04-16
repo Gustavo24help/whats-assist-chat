@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus, ClipboardCheck } from "lucide-react";
+import { X, FileText, DollarSign, Plus, ClipboardCheck, Link2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
 import { OrcamentosTab } from "./OrcamentosTab";
 import { AcompanhamentoTab } from "./AcompanhamentoTab";
 import { CriarFichaDialog } from "./CriarFichaDialog";
+import { VincularFichaDialog } from "./VincularFichaDialog";
+import { useFichaGrupo } from "@/hooks/useFichaGrupo";
+import { FichaVinculoBadge } from "./FichaVinculoBadge";
 
 interface Ficha {
   id: string;
@@ -24,6 +27,8 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
   const [fichas, setFichas] = useState<Ficha[]>([]);
   const [fichaAtual, setFichaAtual] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [vincularOpen, setVincularOpen] = useState(false);
+  const grupo = useFichaGrupo(fichaAtual);
 
   useEffect(() => {
     console.log('[FichaPanel] Limpando fichas para:', clienteTelefone);
@@ -155,12 +160,29 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
               <Button 
                 variant="outline" 
                 size="icon"
+                onClick={() => setVincularOpen(true)}
+                className="shrink-0 h-8 w-8 hover:scale-[0.98] active:scale-95 transition-transform"
+                title="Vincular a ficha existente"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
                 onClick={() => setDialogOpen(true)}
                 className="shrink-0 h-8 w-8 hover:scale-[0.98] active:scale-95 transition-transform"
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
+            {(grupo.isPrincipal || grupo.isVinculada) && (
+              <FichaVinculoBadge
+                isPrincipal={grupo.isPrincipal}
+                isVinculada={grupo.isVinculada}
+                fichaPrincipalId={grupo.fichaPrincipalId}
+                outrosMembrosCount={grupo.outrosMembros.length}
+              />
+            )}
           </div>
 
           <Tabs defaultValue="ficha" className="flex-1 flex flex-col overflow-hidden">
@@ -197,6 +219,18 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
         clienteTelefone={clienteTelefone}
         clienteNome={clienteNome}
       />
+
+      {fichaAtual && (
+        <VincularFichaDialog
+          open={vincularOpen}
+          onOpenChange={setVincularOpen}
+          fichaAtualId={fichaAtual}
+          onSuccess={() => {
+            grupo.refetch();
+            fetchFichas();
+          }}
+        />
+      )}
     </div>
   );
 };

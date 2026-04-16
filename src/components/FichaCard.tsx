@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { useFichaGrupo } from "@/hooks/useFichaGrupo";
+import { FichaVinculoBadge } from "./FichaVinculoBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +75,7 @@ const getStatusConfig = (status: string | null) => {
 
 export const FichaCard = ({ ficha }: FichaCardProps) => {
   const { toast } = useToast();
+  const grupo = useFichaGrupo(ficha.id);
   const [isOpen, setIsOpen] = useState(false);
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [loadingOrcamentos, setLoadingOrcamentos] = useState(false);
@@ -191,7 +194,18 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
           >
             {ficha.status || "Sem status"}
           </Badge>
-        </div>
+        {(grupo.isPrincipal || grupo.isVinculada) && (
+          <div className="px-4 pb-1">
+            <FichaVinculoBadge
+              isPrincipal={grupo.isPrincipal}
+              isVinculada={grupo.isVinculada}
+              fichaPrincipalId={grupo.fichaPrincipalId}
+              outrosMembrosCount={grupo.outrosMembros.length}
+              compact
+            />
+          </div>
+        )}
+      </div>
       </div>
 
       <CardContent className="p-4 pt-3 space-y-3">
