@@ -43,6 +43,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const activeUserIdRef = useRef<string | null>(null);
   const profileRequestRef = useRef(0);
   const lastSignedInAtRef = useRef(0);
+  const initialSessionDoneRef = useRef(false);
 
   const applySessionUser = (sessionUser: User | null) => {
     activeUserIdRef.current = sessionUser?.id ?? null;
