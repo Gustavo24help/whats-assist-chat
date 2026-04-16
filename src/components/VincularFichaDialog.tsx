@@ -129,7 +129,7 @@ export const VincularFichaDialog = ({ open, onOpenChange, fichaAtualId, onSucces
               </Button>
             </div>
 
-            <ScrollArea className="max-h-[300px]">
+            <ScrollArea className="h-[300px] pr-3">
               {results.length === 0 && !loading && search && (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma ficha encontrada</p>
               )}
