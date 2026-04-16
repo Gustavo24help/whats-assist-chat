@@ -13,6 +13,8 @@ import { OrcamentosTab } from "@/components/OrcamentosTab";
 import { AcompanhamentoTab } from "@/components/AcompanhamentoTab";
 import { TrocarPrestadorDialog } from "@/components/TrocarPrestadorDialog";
 import { PageLayout } from "@/components/PageLayout";
+import { useFichaGrupo } from "@/hooks/useFichaGrupo";
+import { FichaVinculoBadge } from "@/components/FichaVinculoBadge";
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
