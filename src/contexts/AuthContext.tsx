@@ -168,22 +168,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.log('🔄 AuthContext - onAuthStateChange:', event);
 
         if (event === 'INITIAL_SESSION') {
+          initialSessionDoneRef.current = true;
           applySessionUser(session?.user ?? null);
           if (session?.user) queueProfileLoad(session.user);
           initialSessionHandled = true;
           setLoading(false);
         } else if (event === 'SIGNED_IN' && session?.user) {
-          lastSignedInAtRef.current = Date.now();
+          // Só ativar grace period para logins reais (após INITIAL_SESSION)
+          if (initialSessionDoneRef.current) {
+            lastSignedInAtRef.current = Date.now();
+          }
           applySessionUser(session.user);
           queueProfileLoad(session.user);
           if (!initialSessionHandled) {
             setLoading(false);
           }
         } else if (event === 'SIGNED_OUT') {
-          // Grace period: ignorar SIGNED_OUT espúrio logo após login
           const timeSinceSignIn = Date.now() - lastSignedInAtRef.current;
           if (lastSignedInAtRef.current > 0 && timeSinceSignIn < SIGNED_OUT_GRACE_MS) {
-            console.warn('⚠️ AuthContext - SIGNED_OUT ignorado (grace period, ' + timeSinceSignIn + 'ms após login)');
+            console.warn('⚠️ AuthContext - Grace period ativo (' + timeSinceSignIn + 'ms) — verificando sessão...');
+            // Mesmo no grace, confirmar com getSession
+            setTimeout(() => {
+              supabase.auth.getSession().then(({ data: { session: s } }) => {
+                if (!s) {
+                  console.warn('⚠️ AuthContext - Grace period mas sessão inválida — logout real');
+                  applySessionUser(null);
+                  setLoading(false);
+                } else {
+                  console.log('✅ AuthContext - Grace period confirmado, sessão válida');
+                }
+              });
+            }, 500);
             return;
           }
 
