@@ -976,6 +976,80 @@ export type Database = {
           },
         ]
       }
+      ficha_grupo_membros: {
+        Row: {
+          adicionado_em: string
+          adicionado_por: string | null
+          ficha_id: string
+          grupo_id: string
+          id: string
+          papel: string
+        }
+        Insert: {
+          adicionado_em?: string
+          adicionado_por?: string | null
+          ficha_id: string
+          grupo_id: string
+          id?: string
+          papel?: string
+        }
+        Update: {
+          adicionado_em?: string
+          adicionado_por?: string | null
+          ficha_id?: string
+          grupo_id?: string
+          id?: string
+          papel?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ficha_grupo_membros_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: true
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ficha_grupo_membros_grupo_id_fkey"
+            columns: ["grupo_id"]
+            isOneToOne: false
+            referencedRelation: "ficha_grupos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ficha_grupos: {
+        Row: {
+          criado_em: string
+          criado_por: string | null
+          ficha_principal_id: string
+          id: string
+          motivo: string | null
+        }
+        Insert: {
+          criado_em?: string
+          criado_por?: string | null
+          ficha_principal_id: string
+          id?: string
+          motivo?: string | null
+        }
+        Update: {
+          criado_em?: string
+          criado_por?: string | null
+          ficha_principal_id?: string
+          id?: string
+          motivo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ficha_grupos_ficha_principal_id_fkey"
+            columns: ["ficha_principal_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ficha_status_historico: {
         Row: {
           created_at: string
