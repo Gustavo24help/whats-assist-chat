@@ -99,7 +99,11 @@ export function useInactivityLogout() {
       if (lastActivity) {
         const elapsed = Date.now() - Number(lastActivity);
         if (elapsed >= INACTIVITY_TIMEOUT) {
-          supabase.auth.signOut().then(() => navigateRef.current("/auth"));
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+              supabase.auth.signOut().then(() => navigateRef.current("/auth"));
+            }
+          });
           return;
         }
       }
