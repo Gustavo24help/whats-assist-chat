@@ -164,6 +164,18 @@ const FichaDetalhes = () => {
       </header>
 
       <main className="flex-1 px-4 py-4 md:px-6">
+        {/* Vinculo badge */}
+        {(grupo.isPrincipal || grupo.isVinculada) && (
+          <div className="mb-4">
+            <FichaVinculoBadge
+              isPrincipal={grupo.isPrincipal}
+              isVinculada={grupo.isVinculada}
+              fichaPrincipalId={grupo.fichaPrincipalId}
+              outrosMembrosCount={grupo.outrosMembros.length}
+            />
+          </div>
+        )}
+
         {/* Summary card */}
         <Card className="mb-4">
           <CardContent className="p-4">
