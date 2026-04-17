@@ -1041,16 +1041,46 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     }
   };
 
+  // Timestamp da montagem deste chat (atualizado quando clienteTelefone muda).
+  // Usado para preservar marcações manuais de "não lido" feitas DEPOIS de abrir o chat.
+  const mountTimestampRef = useRef<string>(new Date().toISOString());
+  const lastClearedTelefoneRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    mountTimestampRef.current = new Date().toISOString();
+    lastClearedTelefoneRef.current = null;
+  }, [clienteTelefone]);
+
   const clearUnreadMark = async () => {
     if (!user) return;
-    // Per-operator read status: atualiza last_read_at E limpa manual_unread_at
-    // (caso operador tenha marcado manualmente como não lido e agora abriu a conversa)
+    // Idempotência: só roda uma vez por sessão de visualização do chat
+    if (lastClearedTelefoneRef.current === clienteTelefone) return;
+    lastClearedTelefoneRef.current = clienteTelefone;
+
+    const mountedAt = mountTimestampRef.current;
+
+    // Verifica se há marcação manual de "não lido" feita DEPOIS de abrir o chat.
+    // Se sim, preserva manual_unread_at (apenas atualiza last_read_at).
+    const { data: existing } = await (supabase as any)
+      .from('mensagem_leitura_operador')
+      .select('manual_unread_at')
+      .eq('cliente_telefone', clienteTelefone)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const preserveManual =
+      existing?.manual_unread_at && existing.manual_unread_at > mountedAt;
+
+    const payload: any = {
+      cliente_telefone: clienteTelefone,
+      user_id: user.id,
+      last_read_at: new Date().toISOString(),
+    };
+    if (!preserveManual) payload.manual_unread_at = null;
+
     await (supabase as any)
       .from('mensagem_leitura_operador')
-      .upsert(
-        { cliente_telefone: clienteTelefone, user_id: user.id, last_read_at: new Date().toISOString(), manual_unread_at: null },
-        { onConflict: 'cliente_telefone,user_id' }
-      );
+      .upsert(payload, { onConflict: 'cliente_telefone,user_id' });
   };
 
   // ✅ Removidas funções duplicadas - consolidadas em fetchClienteData()
