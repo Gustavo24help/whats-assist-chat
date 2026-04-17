@@ -853,14 +853,14 @@ export const ConversationList = ({
       }
 
       // ✅ Query extra: Buscar leitura per-operator para determinar não lido
-      let operatorReadMap = new Map<string, string>(); // telefone -> last_read_at
+      let operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread_at: string | null }>();
       if (user?.id) {
         const { data: readData } = await (supabase as any)
           .from('mensagem_leitura_operador')
-          .select('cliente_telefone, last_read_at')
+          .select('cliente_telefone, last_read_at, manual_unread_at')
           .eq('user_id', user.id);
         readData?.forEach((r: any) => {
-          operatorReadMap.set(r.cliente_telefone, r.last_read_at);
+          operatorReadMap.set(r.cliente_telefone, { last_read_at: r.last_read_at, manual_unread_at: r.manual_unread_at });
         });
       }
 
@@ -935,13 +935,17 @@ export const ConversationList = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
-        // Per-operator unread: compare last_read_at with latest client message
-        const lastRead = operatorReadMap.get(cliente.telefone);
+        // Per-operator unread: manual_unread_at takes priority; fallback compares last_read_at with latest client message
+        const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
-        if (lastClientMsg) {
+        if (readRecord?.manual_unread_at) {
+          // Marcação manual sempre tem prioridade — independe de bot_ja_desligado_alguma_vez
+          perOperatorUnread = true;
+        } else if (lastClientMsg) {
+          const lastRead = readRecord?.last_read_at;
           if (!lastRead || new Date(lastClientMsg) > new Date(lastRead)) {
-            // Only mark unread if bot was already disabled at some point (same logic as trigger)
+            // Only mark unread automatically if bot was already disabled at some point (same logic as trigger)
             perOperatorUnread = cliente.bot_ja_desligado_alguma_vez === true;
           }
         }
@@ -1074,10 +1078,11 @@ export const ConversationList = ({
     if (!user?.id) return;
 
     if (currentState) {
+      // Marcar como lida: limpa manual_unread_at e atualiza last_read_at
       const { error } = await (supabase as any)
         .from('mensagem_leitura_operador')
         .upsert(
-          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString() },
+          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString(), manual_unread_at: null },
           { onConflict: 'cliente_telefone,user_id' }
         );
       if (error) {
@@ -1085,11 +1090,13 @@ export const ConversationList = ({
         return;
       }
     } else {
+      // Marcar como não lida: define manual_unread_at = now() (prioridade no cálculo)
       const { error } = await (supabase as any)
         .from('mensagem_leitura_operador')
-        .delete()
-        .eq('cliente_telefone', telefone)
-        .eq('user_id', user.id);
+        .upsert(
+          { cliente_telefone: telefone, user_id: user.id, manual_unread_at: new Date().toISOString() },
+          { onConflict: 'cliente_telefone,user_id' }
+        );
       if (error) {
         toast.error("Erro ao marcar conversa");
         return;
