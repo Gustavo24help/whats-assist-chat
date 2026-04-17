@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   // Resolve destination once on mount
   const [destination] = useState(() => resolvePostLoginRoute());
@@ -34,14 +36,29 @@ const Auth = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔐 handleAuth chamado');
+
+    // Fallback contra autofill: se o state estiver vazio, ler direto do DOM
+    const effectiveEmail = (email || emailInputRef.current?.value || "").trim();
+    const effectivePassword = password || passwordInputRef.current?.value || "";
+
+    // Sincronizar o state com o que veio do autofill (mantém UI consistente)
+    if (!email && effectiveEmail) setEmail(effectiveEmail);
+    if (!password && effectivePassword) setPassword(effectivePassword);
+
+    if (!effectiveEmail || !effectivePassword) {
+      toast.error("Preencha email e senha");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      console.log('🔐 Auth - Iniciando login para:', email);
+      console.log('🔐 Auth - Iniciando login para:', effectiveEmail);
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+        email: effectiveEmail,
+        password: effectivePassword
       });
 
       if (error) throw error;
@@ -118,6 +135,8 @@ const Auth = () => {
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  ref={emailInputRef}
+                  autoComplete="username"
                   required
                 />
               </div>
@@ -129,6 +148,8 @@ const Auth = () => {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  ref={passwordInputRef}
+                  autoComplete="current-password"
                   required
                 />
               </div>
