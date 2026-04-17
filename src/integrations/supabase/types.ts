@@ -1120,6 +1120,10 @@ export type Database = {
           horario_visita_tecnica: string | null
           id: string
           id_zoho: string | null
+          link_pagamento_envio_count: number
+          link_pagamento_ultimo_envio_em: string | null
+          link_pagamento_ultimo_envio_origem: string | null
+          link_pagamento_ultimo_envio_por: string | null
           material_pago_24help: boolean | null
           motivo_perda: string | null
           motivo_troca_prestador: string | null
@@ -1141,6 +1145,9 @@ export type Database = {
           prestador_id: string | null
           recibo_enviado: boolean | null
           recibo_enviado_em: string | null
+          recibo_envio_count: number
+          recibo_ultimo_envio_origem: string | null
+          recibo_ultimo_envio_por: string | null
           recibo_url: string | null
           status: Database["public"]["Enums"]["status_ficha_enum"] | null
           subtotal: number | null
@@ -1189,6 +1196,10 @@ export type Database = {
           horario_visita_tecnica?: string | null
           id: string
           id_zoho?: string | null
+          link_pagamento_envio_count?: number
+          link_pagamento_ultimo_envio_em?: string | null
+          link_pagamento_ultimo_envio_origem?: string | null
+          link_pagamento_ultimo_envio_por?: string | null
           material_pago_24help?: boolean | null
           motivo_perda?: string | null
           motivo_troca_prestador?: string | null
@@ -1210,6 +1221,9 @@ export type Database = {
           prestador_id?: string | null
           recibo_enviado?: boolean | null
           recibo_enviado_em?: string | null
+          recibo_envio_count?: number
+          recibo_ultimo_envio_origem?: string | null
+          recibo_ultimo_envio_por?: string | null
           recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           subtotal?: number | null
@@ -1258,6 +1272,10 @@ export type Database = {
           horario_visita_tecnica?: string | null
           id?: string
           id_zoho?: string | null
+          link_pagamento_envio_count?: number
+          link_pagamento_ultimo_envio_em?: string | null
+          link_pagamento_ultimo_envio_origem?: string | null
+          link_pagamento_ultimo_envio_por?: string | null
           material_pago_24help?: boolean | null
           motivo_perda?: string | null
           motivo_troca_prestador?: string | null
@@ -1279,6 +1297,9 @@ export type Database = {
           prestador_id?: string | null
           recibo_enviado?: boolean | null
           recibo_enviado_em?: string | null
+          recibo_envio_count?: number
+          recibo_ultimo_envio_origem?: string | null
+          recibo_ultimo_envio_por?: string | null
           recibo_url?: string | null
           status?: Database["public"]["Enums"]["status_ficha_enum"] | null
           subtotal?: number | null
