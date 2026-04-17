@@ -25,6 +25,7 @@ import { ReciboGenerator } from "@/components/ReciboGenerator";
 import { ResumoConversaDialog } from "@/components/ResumoConversaDialog";
 import { PopupConfirmacaoFinanceira } from "@/components/PopupConfirmacaoFinanceira";
 import { EnviarLinkPagamentoDialog } from "@/components/EnviarLinkPagamentoDialog";
+import { ConfirmReenvioDialog } from "@/components/ConfirmReenvioDialog";
 import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
@@ -164,8 +165,44 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [editarManualmente, setEditarManualmente] = useState(false);
   const [showFinalizarConfirm, setShowFinalizarConfirm] = useState(false);
   const [showAutoLinkWarning, setShowAutoLinkWarning] = useState(false);
+  const [reenvioConfirmData, setReenvioConfirmData] = useState<{
+    count: number;
+    ultimoEnvioEm: string | null;
+    ultimoEnvioOrigem: string | null;
+    ultimoEnvioPorNome: string | null;
+  } | null>(null);
+  const pendingGerarLinkRef = useRef(false);
 
-  const handleGerarLinkManual = useCallback(async () => {
+  /** Pré-check: se já houve envio prévio (auto OU manual), pede confirmação. */
+  const checarEnviosPrevios = useCallback(async (): Promise<boolean> => {
+    if (!ficha) return true;
+    const { data } = await supabase
+      .from('fichas_de_servico')
+      .select('link_pagamento_envio_count, link_pagamento_ultimo_envio_em, link_pagamento_ultimo_envio_origem, link_pagamento_ultimo_envio_por')
+      .eq('id', fichaId)
+      .single();
+    const count = data?.link_pagamento_envio_count || 0;
+    if (count <= 0) return true; // primeiro envio, segue direto
+
+    let nome: string | null = null;
+    if (data?.link_pagamento_ultimo_envio_por) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.link_pagamento_ultimo_envio_por)
+        .maybeSingle();
+      nome = prof?.full_name || null;
+    }
+    setReenvioConfirmData({
+      count,
+      ultimoEnvioEm: data?.link_pagamento_ultimo_envio_em ?? null,
+      ultimoEnvioOrigem: data?.link_pagamento_ultimo_envio_origem ?? null,
+      ultimoEnvioPorNome: nome,
+    });
+    return false; // bloqueia até usuário confirmar
+  }, [ficha, fichaId]);
+
+  const _executarGerarLink = useCallback(async () => {
     if (!ficha) return;
     if (ficha.pagamento_link) {
       const confirmReplace = window.confirm('Já existe um link de pagamento. Deseja gerar um novo link? O anterior será substituído.');
@@ -212,6 +249,16 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     } finally { setGerandoLink(false); }
   }, [ficha, fichaId, nomeCliente, envioAutomatico]);
 
+  const handleGerarLinkManual = useCallback(async () => {
+    if (!ficha) return;
+    const podeProsseguir = await checarEnviosPrevios();
+    if (!podeProsseguir) {
+      pendingGerarLinkRef.current = true; // aguarda confirmação no dialog
+      return;
+    }
+    await _executarGerarLink();
+  }, [ficha, checarEnviosPrevios, _executarGerarLink]);
+
   const formatMoeda = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
@@ -224,16 +271,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       
       const { data: fichaAtual } = await supabase
         .from('fichas_de_servico')
-        .select('notas')
+        .select('notas, link_pagamento_envio_count')
         .eq('id', fichaIdParam)
         .single();
       
       const notasAtuais = fichaAtual?.notas || '';
       const novasNotas = notasAtuais ? `${notasAtuais}\n${logEntry}` : logEntry;
+      const novoCount = (fichaAtual?.link_pagamento_envio_count || 0) + 1;
       
       await supabase
         .from('fichas_de_servico')
-        .update({ notas: novasNotas })
+        .update({
+          notas: novasNotas,
+          link_pagamento_envio_count: novoCount,
+          link_pagamento_ultimo_envio_em: new Date().toISOString(),
+          link_pagamento_ultimo_envio_origem: 'manual',
+          link_pagamento_ultimo_envio_por: user?.id ?? null,
+        })
         .eq('id', fichaIdParam);
       
       // Atualizar estado local
@@ -2599,6 +2653,24 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           telefoneCliente={ficha.telefone_cliente}
           valorTotal={linkDialogData.valor}
           onEnviado={() => fetchFicha()}
+        />
+      )}
+
+      {reenvioConfirmData && (
+        <ConfirmReenvioDialog
+          open={!!reenvioConfirmData}
+          onOpenChange={(open) => { if (!open) { setReenvioConfirmData(null); pendingGerarLinkRef.current = false; } }}
+          tipo="link de pagamento"
+          count={reenvioConfirmData.count}
+          ultimoEnvioEm={reenvioConfirmData.ultimoEnvioEm}
+          ultimoEnvioOrigem={reenvioConfirmData.ultimoEnvioOrigem}
+          ultimoEnvioPorNome={reenvioConfirmData.ultimoEnvioPorNome}
+          onConfirm={() => {
+            const wasPending = pendingGerarLinkRef.current;
+            pendingGerarLinkRef.current = false;
+            setReenvioConfirmData(null);
+            if (wasPending) _executarGerarLink();
+          }}
         />
       )}
 

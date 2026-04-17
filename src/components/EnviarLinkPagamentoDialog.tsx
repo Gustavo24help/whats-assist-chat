@@ -80,7 +80,7 @@ export const EnviarLinkPagamentoDialog = ({
       setEnviado(true);
       toast.success("Link de pagamento enviado ao cliente!");
 
-      // Registrar envio na ficha
+      // Registrar envio na ficha (notas + contadores de rastreio)
       try {
         const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
         const nomeUsuario = user?.email?.split('@')[0] || 'operador';
@@ -88,16 +88,23 @@ export const EnviarLinkPagamentoDialog = ({
         
         const { data: fichaAtual } = await supabase
           .from('fichas_de_servico')
-          .select('notas')
+          .select('notas, link_pagamento_envio_count')
           .eq('id', fichaId)
           .single();
         
         const notasAtuais = fichaAtual?.notas || '';
         const novasNotas = notasAtuais ? `${notasAtuais}\n${logEntry}` : logEntry;
+        const novoCount = (fichaAtual?.link_pagamento_envio_count || 0) + 1;
         
         await supabase
           .from('fichas_de_servico')
-          .update({ notas: novasNotas })
+          .update({
+            notas: novasNotas,
+            link_pagamento_envio_count: novoCount,
+            link_pagamento_ultimo_envio_em: new Date().toISOString(),
+            link_pagamento_ultimo_envio_origem: 'manual',
+            link_pagamento_ultimo_envio_por: user?.id ?? null,
+          })
           .eq('id', fichaId);
         
         onEnviado?.();

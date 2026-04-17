@@ -346,16 +346,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Log nas notas da ficha
+    // Log nas notas da ficha + contadores de envio
     const logEntry = `[${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}] 🤖 Link de pagamento enviado automaticamente ao finalizar. ${dentroJanela ? "Via mensagem livre" : "Via template (fora 24h)"}. Link: ${paymentUrl}`;
     const { data: fichaAtual } = await supabase
       .from("fichas_de_servico")
-      .select("notas")
+      .select("notas, link_pagamento_envio_count")
       .eq("id", ficha_id)
       .single();
+    const novoCount = (fichaAtual?.link_pagamento_envio_count || 0) + 1;
     await supabase
       .from("fichas_de_servico")
-      .update({ notas: fichaAtual?.notas ? `${fichaAtual.notas}\n${logEntry}` : logEntry })
+      .update({
+        notas: fichaAtual?.notas ? `${fichaAtual.notas}\n${logEntry}` : logEntry,
+        link_pagamento_envio_count: novoCount,
+        link_pagamento_ultimo_envio_em: new Date().toISOString(),
+        link_pagamento_ultimo_envio_origem: "automatico",
+        link_pagamento_ultimo_envio_por: null,
+      })
       .eq("id", ficha_id);
 
     const duration = Date.now() - startTime;
