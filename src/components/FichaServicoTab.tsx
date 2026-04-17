@@ -271,16 +271,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       
       const { data: fichaAtual } = await supabase
         .from('fichas_de_servico')
-        .select('notas')
+        .select('notas, link_pagamento_envio_count')
         .eq('id', fichaIdParam)
         .single();
       
       const notasAtuais = fichaAtual?.notas || '';
       const novasNotas = notasAtuais ? `${notasAtuais}\n${logEntry}` : logEntry;
+      const novoCount = (fichaAtual?.link_pagamento_envio_count || 0) + 1;
       
       await supabase
         .from('fichas_de_servico')
-        .update({ notas: novasNotas })
+        .update({
+          notas: novasNotas,
+          link_pagamento_envio_count: novoCount,
+          link_pagamento_ultimo_envio_em: new Date().toISOString(),
+          link_pagamento_ultimo_envio_origem: 'manual',
+          link_pagamento_ultimo_envio_por: user?.id ?? null,
+        })
         .eq('id', fichaIdParam);
       
       // Atualizar estado local
@@ -2646,6 +2653,24 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           telefoneCliente={ficha.telefone_cliente}
           valorTotal={linkDialogData.valor}
           onEnviado={() => fetchFicha()}
+        />
+      )}
+
+      {reenvioConfirmData && (
+        <ConfirmReenvioDialog
+          open={!!reenvioConfirmData}
+          onOpenChange={(open) => { if (!open) { setReenvioConfirmData(null); pendingGerarLinkRef.current = false; } }}
+          tipo="link de pagamento"
+          count={reenvioConfirmData.count}
+          ultimoEnvioEm={reenvioConfirmData.ultimoEnvioEm}
+          ultimoEnvioOrigem={reenvioConfirmData.ultimoEnvioOrigem}
+          ultimoEnvioPorNome={reenvioConfirmData.ultimoEnvioPorNome}
+          onConfirm={() => {
+            const wasPending = pendingGerarLinkRef.current;
+            pendingGerarLinkRef.current = false;
+            setReenvioConfirmData(null);
+            if (wasPending) _executarGerarLink();
+          }}
         />
       )}
 
