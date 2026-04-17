@@ -135,6 +135,8 @@ const Auth = () => {
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  ref={emailInputRef}
+                  autoComplete="username"
                   required
                 />
               </div>
@@ -146,6 +148,8 @@ const Auth = () => {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  ref={passwordInputRef}
+                  autoComplete="current-password"
                   required
                 />
               </div>
