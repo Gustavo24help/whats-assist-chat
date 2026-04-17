@@ -1059,17 +1059,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
     const mountedAt = mountTimestampRef.current;
 
-    // Verifica se há marcação manual de "não lido" feita DEPOIS de abrir o chat.
-    // Se sim, preserva manual_unread_at (apenas atualiza last_read_at).
     const { data: existing } = await (supabase as any)
       .from('mensagem_leitura_operador')
-      .select('manual_unread_at')
+      .select('manual_unread_at, last_read_at')
       .eq('cliente_telefone', clienteTelefone)
       .eq('user_id', user.id)
       .maybeSingle();
 
+    // Preserva marcação manual se: foi feita após abrir o chat OU é mais recente
+    // que o último last_read_at (intenção do operador é mais nova que sua leitura).
+    const manualAt = existing?.manual_unread_at;
+    const lastRead = existing?.last_read_at;
     const preserveManual =
-      existing?.manual_unread_at && existing.manual_unread_at > mountedAt;
+      !!manualAt && (manualAt > mountedAt || !lastRead || manualAt > lastRead);
 
     const payload: any = {
       cliente_telefone: clienteTelefone,
