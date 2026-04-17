@@ -2934,6 +2934,7 @@ export type Database = {
           body: string
           content_sid: string
           created_at: string
+          desliga_bot: boolean
           friendly_name: string
           id: string
           updated_at: string
@@ -2944,6 +2945,7 @@ export type Database = {
           body: string
           content_sid: string
           created_at?: string
+          desliga_bot?: boolean
           friendly_name: string
           id?: string
           updated_at?: string
@@ -2954,6 +2956,7 @@ export type Database = {
           body?: string
           content_sid?: string
           created_at?: string
+          desliga_bot?: boolean
           friendly_name?: string
           id?: string
           updated_at?: string
