@@ -1043,11 +1043,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
   const clearUnreadMark = async () => {
     if (!user) return;
-    // Per-operator read status only — do NOT clear global marcado_nao_lido
+    // Per-operator read status: atualiza last_read_at E limpa manual_unread_at
+    // (caso operador tenha marcado manualmente como não lido e agora abriu a conversa)
     await (supabase as any)
       .from('mensagem_leitura_operador')
       .upsert(
-        { cliente_telefone: clienteTelefone, user_id: user.id, last_read_at: new Date().toISOString() },
+        { cliente_telefone: clienteTelefone, user_id: user.id, last_read_at: new Date().toISOString(), manual_unread_at: null },
         { onConflict: 'cliente_telefone,user_id' }
       );
   };
