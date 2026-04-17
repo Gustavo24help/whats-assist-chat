@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { ficha_id, telefone_cliente } = await req.json();
+    const { ficha_id, telefone_cliente, origem = "automatico", user_id = null } = await req.json();
     console.log(`[send-recibo] Iniciando para ficha: ${ficha_id}, tel: ${telefone_cliente}`);
 
     if (!ficha_id || !telefone_cliente) {
@@ -387,10 +387,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Marcar como enviado
+    // Marcar como enviado + atualizar contadores
+    const { data: fichaCount } = await supabase
+      .from("fichas_de_servico")
+      .select("recibo_envio_count")
+      .eq("id", ficha_id)
+      .single();
+    const novoReciboCount = (fichaCount?.recibo_envio_count || 0) + 1;
+
     await supabase
       .from("fichas_de_servico")
-      .update({ recibo_enviado: true, recibo_enviado_em: new Date().toISOString() })
+      .update({
+        recibo_enviado: true,
+        recibo_enviado_em: new Date().toISOString(),
+        recibo_envio_count: novoReciboCount,
+        recibo_ultimo_envio_origem: origem,
+        recibo_ultimo_envio_por: user_id,
+      })
       .eq("id", ficha_id);
 
     return new Response(
