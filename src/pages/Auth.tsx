@@ -36,14 +36,29 @@ const Auth = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔐 handleAuth chamado');
+
+    // Fallback contra autofill: se o state estiver vazio, ler direto do DOM
+    const effectiveEmail = (email || emailInputRef.current?.value || "").trim();
+    const effectivePassword = password || passwordInputRef.current?.value || "";
+
+    // Sincronizar o state com o que veio do autofill (mantém UI consistente)
+    if (!email && effectiveEmail) setEmail(effectiveEmail);
+    if (!password && effectivePassword) setPassword(effectivePassword);
+
+    if (!effectiveEmail || !effectivePassword) {
+      toast.error("Preencha email e senha");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      console.log('🔐 Auth - Iniciando login para:', email);
+      console.log('🔐 Auth - Iniciando login para:', effectiveEmail);
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+        email: effectiveEmail,
+        password: effectivePassword
       });
 
       if (error) throw error;
