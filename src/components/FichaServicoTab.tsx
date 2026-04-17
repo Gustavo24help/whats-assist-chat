@@ -25,6 +25,7 @@ import { ReciboGenerator } from "@/components/ReciboGenerator";
 import { ResumoConversaDialog } from "@/components/ResumoConversaDialog";
 import { PopupConfirmacaoFinanceira } from "@/components/PopupConfirmacaoFinanceira";
 import { EnviarLinkPagamentoDialog } from "@/components/EnviarLinkPagamentoDialog";
+import { ConfirmReenvioDialog } from "@/components/ConfirmReenvioDialog";
 import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
@@ -164,6 +165,42 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [editarManualmente, setEditarManualmente] = useState(false);
   const [showFinalizarConfirm, setShowFinalizarConfirm] = useState(false);
   const [showAutoLinkWarning, setShowAutoLinkWarning] = useState(false);
+  const [reenvioConfirmData, setReenvioConfirmData] = useState<{
+    count: number;
+    ultimoEnvioEm: string | null;
+    ultimoEnvioOrigem: string | null;
+    ultimoEnvioPorNome: string | null;
+  } | null>(null);
+  const pendingGerarLinkRef = useRef(false);
+
+  /** Pré-check: se já houve envio prévio (auto OU manual), pede confirmação. */
+  const checarEnviosPrevios = useCallback(async (): Promise<boolean> => {
+    if (!ficha) return true;
+    const { data } = await supabase
+      .from('fichas_de_servico')
+      .select('link_pagamento_envio_count, link_pagamento_ultimo_envio_em, link_pagamento_ultimo_envio_origem, link_pagamento_ultimo_envio_por')
+      .eq('id', fichaId)
+      .single();
+    const count = data?.link_pagamento_envio_count || 0;
+    if (count <= 0) return true; // primeiro envio, segue direto
+
+    let nome: string | null = null;
+    if (data?.link_pagamento_ultimo_envio_por) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.link_pagamento_ultimo_envio_por)
+        .maybeSingle();
+      nome = prof?.full_name || null;
+    }
+    setReenvioConfirmData({
+      count,
+      ultimoEnvioEm: data?.link_pagamento_ultimo_envio_em ?? null,
+      ultimoEnvioOrigem: data?.link_pagamento_ultimo_envio_origem ?? null,
+      ultimoEnvioPorNome: nome,
+    });
+    return false; // bloqueia até usuário confirmar
+  }, [ficha, fichaId]);
 
   const handleGerarLinkManual = useCallback(async () => {
     if (!ficha) return;
