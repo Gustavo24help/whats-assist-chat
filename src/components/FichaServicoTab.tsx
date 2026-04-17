@@ -202,7 +202,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     return false; // bloqueia até usuário confirmar
   }, [ficha, fichaId]);
 
-  const handleGerarLinkManual = useCallback(async () => {
+  const _executarGerarLink = useCallback(async () => {
     if (!ficha) return;
     if (ficha.pagamento_link) {
       const confirmReplace = window.confirm('Já existe um link de pagamento. Deseja gerar um novo link? O anterior será substituído.');
@@ -248,6 +248,16 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       toast.error(`Erro ao gerar link: ${err.message || 'Erro desconhecido'}`);
     } finally { setGerandoLink(false); }
   }, [ficha, fichaId, nomeCliente, envioAutomatico]);
+
+  const handleGerarLinkManual = useCallback(async () => {
+    if (!ficha) return;
+    const podeProsseguir = await checarEnviosPrevios();
+    if (!podeProsseguir) {
+      pendingGerarLinkRef.current = true; // aguarda confirmação no dialog
+      return;
+    }
+    await _executarGerarLink();
+  }, [ficha, checarEnviosPrevios, _executarGerarLink]);
 
   const formatMoeda = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
