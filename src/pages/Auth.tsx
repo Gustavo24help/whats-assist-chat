@@ -106,7 +106,24 @@ const Auth = () => {
       navigate(finalDest, { replace: true });
     } catch (error: any) {
       console.error('❌ Auth - Erro no login:', error);
-      toast.error(error.message || "Erro ao autenticar");
+
+      const rawMsg = String(error?.message || '');
+      const isNetworkError =
+        error?.name === 'TypeError' ||
+        /failed to fetch|networkerror|load failed|network request failed/i.test(rawMsg);
+
+      if (isNetworkError) {
+        toast.error(
+          "Não foi possível conectar ao servidor. Verifique sua internet, desative bloqueadores de anúncios/VPN/Brave Shields para este site e tente novamente.",
+          { duration: 8000 }
+        );
+      } else if (/invalid login credentials/i.test(rawMsg)) {
+        toast.error("Email ou senha incorretos.");
+      } else if (/email not confirmed/i.test(rawMsg)) {
+        toast.error("Email ainda não confirmado.");
+      } else {
+        toast.error(rawMsg || "Erro ao autenticar");
+      }
     } finally {
       setLoading(false);
     }
