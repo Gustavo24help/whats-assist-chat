@@ -203,21 +203,31 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         throw new Error(data?.error || "Erro ao enviar template");
       }
 
-      try {
-        await supabase.functions.invoke("toggle-bot-status", {
-          body: {
-            telefone: clienteTelefone,
-            bot_status: "disabled",
-            origem: "manual",
-          },
-        });
-        console.log("🤖 Bot desativado automaticamente após envio de template");
-      } catch (botError) {
-        console.error("Erro ao desativar bot:", botError);
+      // Verifica se este template está configurado para desligar o bot
+      // (default true para manter o comportamento anterior)
+      const desligaBot = (selectedTemplate as { desliga_bot?: boolean }).desliga_bot ?? true;
+
+      if (desligaBot) {
+        try {
+          await supabase.functions.invoke("toggle-bot-status", {
+            body: {
+              telefone: clienteTelefone,
+              bot_status: "disabled",
+              origem: "manual",
+            },
+          });
+          console.log("🤖 Bot desativado automaticamente após envio de template");
+        } catch (botError) {
+          console.error("Erro ao desativar bot:", botError);
+        }
+      } else {
+        console.log("🤖 Template configurado para NÃO desligar o bot — mantendo estado atual");
       }
 
       toast.success("✅ Template enviado com sucesso!", {
-        description: `Enviado para ${clienteNome} (bot desativado)`,
+        description: desligaBot
+          ? `Enviado para ${clienteNome} (bot desativado)`
+          : `Enviado para ${clienteNome} (bot mantido)`,
       });
       setOpen(false);
       setSelectedTemplate(null);
