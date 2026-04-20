@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Logo } from "@/components/Logo";
-import { ArrowLeft, Search, ChevronLeft, ChevronRight, FileText, Loader2, CalendarCog } from "lucide-react";
+import { ArrowLeft, Search, ChevronLeft, ChevronRight, FileText, Loader2, CalendarCog, MessageCircle } from "lucide-react";
 import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
 import { PageLayout } from "@/components/PageLayout";
 
@@ -183,6 +183,20 @@ const Fichas = () => {
                   </p>
                 </div>
                 <div className="text-right shrink-0 ml-4 flex items-center gap-2">
+                  {f.telefone_cliente && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-primary hover:bg-primary/10"
+                      title="Abrir conversa"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(`/chat?telefone=${encodeURIComponent(f.telefone_cliente)}`, '_blank', 'noopener,noreferrer');
+                      }}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                    </Button>
+                  )}
                   {f.status === "Finalizado" && (
                     <Button
                       variant="ghost"

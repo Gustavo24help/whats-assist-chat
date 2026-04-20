@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Save, FileText, DollarSign, Calendar as CalendarIcon, CreditCard, User, Clock, X, Copy, Check, XCircle, Loader2, Link, Send, Zap, Lock, Unlock } from "lucide-react";
+import { Save, FileText, DollarSign, Calendar as CalendarIcon, CreditCard, User, Clock, X, Copy, Check, XCircle, Loader2, Link, Send, Zap, Lock, Unlock, MessageCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DescontoField } from "@/components/DescontoField";
@@ -1266,12 +1266,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </Select>
         </div>
         
-        {/* Botão Gerar Resumo */}
-        <div className="pt-5">
-          <ResumoConversaDialog 
-            fichaId={fichaId} 
+        {/* Botões: Gerar Resumo + Conversa */}
+        <div className="pt-5 flex flex-wrap gap-2">
+          <ResumoConversaDialog
+            fichaId={fichaId}
             fichaName={ficha?.nome_ficha || undefined}
           />
+          {ficha?.telefone_cliente && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(`/chat?telefone=${encodeURIComponent(ficha.telefone_cliente)}`, '_blank', 'noopener,noreferrer')}
+              className="gap-1.5"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Conversa
+            </Button>
+          )}
         </div>
       </div>
 
