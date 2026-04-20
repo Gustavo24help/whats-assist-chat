@@ -15,7 +15,7 @@ import { Logo } from "@/components/Logo";
 import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getCorTipo, getLabelTipo } from "@/lib/calcularEstadoAgendamento";
+
 import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { PageLayout } from "@/components/PageLayout";
 
