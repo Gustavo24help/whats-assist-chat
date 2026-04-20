@@ -14,13 +14,17 @@
 const ASAAS_HOST_RE = /^(www\.|sandbox\.)?asaas\.com$/i;
 const ASAAS_PATH_RE = /^\/(c|i|b\/pix)\/[A-Za-z0-9_-]{4,}$/;
 
-export type AsaasValidation =
-  | { ok: true; normalized: string }
-  | { ok: false; reason: string };
+export interface AsaasValidation {
+  ok: boolean;
+  /** URL normalizada (sem query/hash). Vazia se raw estava vazio. */
+  normalized: string;
+  /** Motivo da rejeição (vazio quando ok=true). */
+  reason: string;
+}
 
 export function validateAsaasLink(raw: string | null | undefined): AsaasValidation {
   if (!raw || !raw.trim()) {
-    return { ok: true, normalized: '' }; // vazio é permitido (significa "sem link")
+    return { ok: true, normalized: '', reason: '' };
   }
 
   const trimmed = raw.trim();
@@ -29,16 +33,17 @@ export function validateAsaasLink(raw: string | null | undefined): AsaasValidati
   try {
     url = new URL(trimmed);
   } catch {
-    return { ok: false, reason: 'URL inválida. Cole um link completo (ex: https://www.asaas.com/c/abc123).' };
+    return { ok: false, normalized: '', reason: 'URL inválida. Cole um link completo (ex: https://www.asaas.com/c/abc123).' };
   }
 
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    return { ok: false, reason: 'O link deve usar http:// ou https://' };
+    return { ok: false, normalized: '', reason: 'O link deve usar http:// ou https://' };
   }
 
   if (!ASAAS_HOST_RE.test(url.hostname)) {
     return {
       ok: false,
+      normalized: '',
       reason: `Domínio "${url.hostname}" não é Asaas. Apenas links asaas.com ou sandbox.asaas.com são aceitos.`,
     };
   }
@@ -46,12 +51,12 @@ export function validateAsaasLink(raw: string | null | undefined): AsaasValidati
   if (!ASAAS_PATH_RE.test(url.pathname)) {
     return {
       ok: false,
+      normalized: '',
       reason: 'Formato do link Asaas não reconhecido. Use /c/..., /i/... ou /b/pix/...',
     };
   }
 
-  // Normaliza removendo query/hash (alguns links copiados vêm com tracking)
-  return { ok: true, normalized: `${url.protocol}//${url.hostname}${url.pathname}` };
+  return { ok: true, normalized: `${url.protocol}//${url.hostname}${url.pathname}`, reason: '' };
 }
 
 export function isValidAsaasLink(raw: string | null | undefined): boolean {
