@@ -13,6 +13,15 @@ interface AgendamentoCardProps {
 
 const statusCancelados = ['Não foi adiante', 'Perdido', 'Orçamento Não Aprovado'];
 
+// Cores específicas por status da ficha — precedência sobre cor por tipo.
+// Mantém o comportamento antigo (cor por tipo) apenas para os status "abertos"
+// onde a cor por tipo já fazia sentido: Agendado, Visita Técnica, Retorno.
+const CORES_POR_STATUS: Record<string, string> = {
+  'Em andamento': '#3B82F6', // azul
+  'Finalizado': '#6B7280',   // cinza
+  'Garantia': '#A855F7',     // roxo
+};
+
 export function AgendamentoCard({ ficha, onClick, compact = false, contextoHorario = 'cliente' }: AgendamentoCardProps) {
   const agData: AgendamentoData = {
     tipo_agendamento: ficha.tipo_agendamento,
