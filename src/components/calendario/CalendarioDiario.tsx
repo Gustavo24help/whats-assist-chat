@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AgendamentoCard } from "./AgendamentoCard";
-import { getAgendamentoDates } from "@/lib/calcularEstadoAgendamento";
+import { getAllAgendamentoSlots, type AgendamentoSlot } from "@/lib/calcularEstadoAgendamento";
 import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 
 interface Props {
@@ -10,22 +10,29 @@ interface Props {
   currentDate: Date;
   onSelectFicha: (ficha: any) => void;
   contextoHorario?: HorarioContexto;
+  mostrarVisitaHistorica?: boolean;
 }
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 7);
 
-export function CalendarioDiario({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente' }: Props) {
-  const fichasByHour = useMemo(() => {
-    const map: Record<number, any[]> = {};
+interface SlotItem { ficha: any; slot: AgendamentoSlot; }
+
+export function CalendarioDiario({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente', mostrarVisitaHistorica = true }: Props) {
+  const slotsByHour = useMemo(() => {
+    const map: Record<number, SlotItem[]> = {};
     fichas.forEach(f => {
-      const { inicio } = getAgendamentoDates(f);
-      if (!inicio || !isSameDay(inicio, currentDate)) return;
-      const hour = Math.max(7, Math.min(22, inicio.getHours()));
-      if (!map[hour]) map[hour] = [];
-      map[hour].push(f);
+      const slots = getAllAgendamentoSlots(f);
+      slots.forEach(slot => {
+        if (!isSameDay(slot.inicio, currentDate)) return;
+        const isVisitaHistorica = slot.tipoSlot === 'visita' && (f.status || '') !== 'Visita Técnica';
+        if (isVisitaHistorica && !mostrarVisitaHistorica) return;
+        const hour = Math.max(7, Math.min(22, slot.inicio.getHours()));
+        if (!map[hour]) map[hour] = [];
+        map[hour].push({ ficha: f, slot });
+      });
     });
     return map;
-  }, [fichas, currentDate]);
+  }, [fichas, currentDate, mostrarVisitaHistorica]);
 
   return (
     <div className="border rounded-xl overflow-hidden bg-card">
@@ -34,15 +41,23 @@ export function CalendarioDiario({ fichas, currentDate, onSelectFicha, contextoH
       </div>
       <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
         {HOURS.map(hour => {
-          const slotFichas = fichasByHour[hour] || [];
+          const slotItems = slotsByHour[hour] || [];
           return (
             <div key={hour} className="grid grid-cols-[80px_1fr] min-h-[70px] border-b">
               <div className="border-r p-2 text-sm text-muted-foreground text-right pr-3 pt-2 font-medium">
                 {String(hour).padStart(2, '0')}:00
               </div>
               <div className="p-1 space-y-1">
-                {slotFichas.map(f => (
-                  <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} contextoHorario={contextoHorario} />
+                {slotItems.map(({ ficha, slot }, idx) => (
+                  <AgendamentoCard
+                    key={`${ficha.id}-${slot.tipoSlot}-${idx}`}
+                    ficha={ficha}
+                    onClick={() => onSelectFicha(ficha)}
+                    contextoHorario={contextoHorario}
+                    tipoSlot={slot.tipoSlot}
+                    slotInicio={slot.inicio}
+                    slotFim={slot.fim}
+                  />
                 ))}
               </div>
             </div>

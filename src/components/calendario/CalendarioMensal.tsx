@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AgendamentoCard } from "./AgendamentoCard";
-import { getAgendamentoDates } from "@/lib/calcularEstadoAgendamento";
+import { getAllAgendamentoSlots, type AgendamentoSlot } from "@/lib/calcularEstadoAgendamento";
 import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,12 @@ interface Props {
   currentDate: Date;
   onSelectFicha: (ficha: any) => void;
   contextoHorario?: HorarioContexto;
+  mostrarVisitaHistorica?: boolean;
 }
 
-export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente' }: Props) {
+interface SlotItem { ficha: any; slot: AgendamentoSlot; }
+
+export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente', mostrarVisitaHistorica = true }: Props) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const days = useMemo(() => {
@@ -26,21 +29,28 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoH
     return eachDayOfInterval({ start: calStart, end: calEnd });
   }, [currentDate]);
 
-  const fichasByDay = useMemo(() => {
-    const map: Record<string, any[]> = {};
+  const slotsByDay = useMemo(() => {
+    const map: Record<string, SlotItem[]> = {};
     fichas.forEach(f => {
-      const { inicio } = getAgendamentoDates(f);
-      if (!inicio) return;
-      const key = format(inicio, 'yyyy-MM-dd');
-      if (!map[key]) map[key] = [];
-      map[key].push(f);
+      const slots = getAllAgendamentoSlots(f);
+      slots.forEach(slot => {
+        const isVisitaHistorica = slot.tipoSlot === 'visita' && (f.status || '') !== 'Visita Técnica';
+        if (isVisitaHistorica && !mostrarVisitaHistorica) return;
+        const key = format(slot.inicio, 'yyyy-MM-dd');
+        if (!map[key]) map[key] = [];
+        map[key].push({ ficha: f, slot });
+      });
+    });
+    // ordenar slots por horário
+    Object.keys(map).forEach(k => {
+      map[k].sort((a, b) => a.slot.inicio.getTime() - b.slot.inicio.getTime());
     });
     return map;
-  }, [fichas]);
+  }, [fichas, mostrarVisitaHistorica]);
 
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-  const selectedDayFichas = selectedDay ? (fichasByDay[selectedDay] || []) : [];
+  const selectedDaySlots = selectedDay ? (slotsByDay[selectedDay] || []) : [];
   const selectedDayDate = selectedDay ? parse(selectedDay, 'yyyy-MM-dd', new Date()) : null;
 
   return (
@@ -56,7 +66,7 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoH
         <div className="grid grid-cols-7">
           {days.map(day => {
             const key = format(day, 'yyyy-MM-dd');
-            const dayFichas = fichasByDay[key] || [];
+            const daySlots = slotsByDay[key] || [];
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isToday = isSameDay(day, new Date());
             const isSelected = selectedDay === key;
@@ -70,20 +80,29 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoH
               >
                 <div
                   className={`text-xs font-medium mb-1 cursor-pointer hover:text-primary transition-colors ${isToday ? 'text-primary font-bold' : 'text-muted-foreground'}`}
-                  onClick={() => dayFichas.length > 0 && setSelectedDay(isSelected ? null : key)}
+                  onClick={() => daySlots.length > 0 && setSelectedDay(isSelected ? null : key)}
                 >
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-0.5 max-h-[80px] 2xl:max-h-[100px] overflow-y-auto">
-                  {dayFichas.slice(0, 4).map(f => (
-                    <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} compact contextoHorario={contextoHorario} />
+                  {daySlots.slice(0, 4).map(({ ficha, slot }, idx) => (
+                    <AgendamentoCard
+                      key={`${ficha.id}-${slot.tipoSlot}-${idx}`}
+                      ficha={ficha}
+                      onClick={() => onSelectFicha(ficha)}
+                      compact
+                      contextoHorario={contextoHorario}
+                      tipoSlot={slot.tipoSlot}
+                      slotInicio={slot.inicio}
+                      slotFim={slot.fim}
+                    />
                   ))}
-                  {dayFichas.length > 4 && (
+                  {daySlots.length > 4 && (
                     <div
                       className="text-[10px] text-primary font-medium text-center cursor-pointer hover:underline"
                       onClick={() => setSelectedDay(key)}
                     >
-                      +{dayFichas.length - 4} mais
+                      +{daySlots.length - 4} mais
                     </div>
                   )}
                 </div>
@@ -98,7 +117,7 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoH
           <div className="flex items-center justify-between p-3 border-b">
             <h3 className="text-sm font-semibold capitalize">
               {format(selectedDayDate, "dd 'de' MMMM", { locale: ptBR })}
-              <span className="text-muted-foreground font-normal ml-1">({selectedDayFichas.length})</span>
+              <span className="text-muted-foreground font-normal ml-1">({selectedDaySlots.length})</span>
             </h3>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDay(null)}>
               <X className="h-4 w-4" />
@@ -106,10 +125,19 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoH
           </div>
           <ScrollArea className="flex-1 p-2">
             <div className="space-y-1.5">
-              {selectedDayFichas.map(f => (
-                <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} compact={false} contextoHorario={contextoHorario} />
+              {selectedDaySlots.map(({ ficha, slot }, idx) => (
+                <AgendamentoCard
+                  key={`${ficha.id}-${slot.tipoSlot}-${idx}`}
+                  ficha={ficha}
+                  onClick={() => onSelectFicha(ficha)}
+                  compact={false}
+                  contextoHorario={contextoHorario}
+                  tipoSlot={slot.tipoSlot}
+                  slotInicio={slot.inicio}
+                  slotFim={slot.fim}
+                />
               ))}
-              {selectedDayFichas.length === 0 && (
+              {selectedDaySlots.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-4">Nenhum agendamento</p>
               )}
             </div>
