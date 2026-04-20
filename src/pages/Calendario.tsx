@@ -204,19 +204,39 @@ export default function Calendario() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          {(['servico', 'visita_tecnica', 'retorno'] as const).map(tipo => (
-            <div key={tipo} className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: getCorTipo(tipo) }} />
-              <span>{getLabelTipo(tipo)}</span>
-              <span className="font-bold">({contadores[tipo]})</span>
-            </div>
-          ))}
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#3B82F6' }} />
-            <span>Em andamento</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground font-medium mr-1">Status:</span>
+          {STATUS_CALENDARIO.map(s => {
+            const active = filtroStatus.includes(s.value);
+            return (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => toggleStatus(s.value)}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all ${
+                  active
+                    ? 'bg-background border-border shadow-sm'
+                    : 'bg-muted/40 border-transparent opacity-50 hover:opacity-75'
+                }`}
+                title={active ? `Ocultar ${s.label}` : `Mostrar ${s.label}`}
+              >
+                <Checkbox checked={active} className="h-3 w-3 pointer-events-none" />
+                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: s.cor }} />
+                <span>{s.label}</span>
+                <span className="font-bold">({contadoresStatus[s.value] || 0})</span>
+              </button>
+            );
+          })}
+          <div className="flex gap-1 ml-auto">
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setFiltroStatus([...STATUS_VALUES])}>
+              Todos
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setFiltroStatus([])}>
+              Nenhum
+            </Button>
           </div>
         </div>
+
 
         <Tabs value={viewMode} onValueChange={setViewMode}>
           <TabsList>
