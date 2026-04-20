@@ -54,6 +54,7 @@ export default function Calendario() {
   const [prestadores, setPrestadores] = useState<any[]>([]);
   const [selectedFicha, setSelectedFicha] = useState<any>(null);
   const [visaoHorario, setVisaoHorario] = useState<HorarioContexto>('cliente');
+  const [filtroStatus, setFiltroStatus] = useState<string[]>([...STATUS_VALUES]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
