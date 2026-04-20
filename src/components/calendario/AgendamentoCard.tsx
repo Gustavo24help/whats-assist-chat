@@ -43,6 +43,13 @@ export function AgendamentoCard({ ficha, onClick, compact = false, contextoHorar
   const estado = useMemo(() => calcularEstadoAgendamento(agData), [ficha]);
   const isCancelado = statusCancelados.includes(ficha.status || '');
 
+  // Cor final: status específico > estado temporal (atrasado/andamento) > cor por tipo
+  const corFundo = useMemo(() => {
+    const statusCor = CORES_POR_STATUS[ficha.status || ''];
+    if (statusCor) return statusCor;
+    return estado.cor;
+  }, [ficha.status, estado.cor]);
+
   const horaStr = useMemo(() => {
     if (contextoHorario === 'ambos') {
       const janelas = getJanelaHorario(ficha, 'ambos') as any;
