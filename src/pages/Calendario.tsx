@@ -102,18 +102,25 @@ export default function Calendario() {
     return fichas.filter(f => {
       if (filtroTipo !== 'all' && (f.tipo_agendamento || 'servico') !== filtroTipo) return false;
       if (filtroPrestador !== 'all' && f.prestador_id !== filtroPrestador) return false;
+      if (!filtroStatus.includes(f.status || '')) return false;
       return true;
     });
-  }, [fichas, filtroTipo, filtroPrestador]);
+  }, [fichas, filtroTipo, filtroPrestador, filtroStatus]);
 
-  const contadores = useMemo(() => {
-    const c = { servico: 0, visita_tecnica: 0, retorno: 0 };
+  const contadoresStatus = useMemo(() => {
+    const c: Record<string, number> = {};
+    STATUS_VALUES.forEach(s => { c[s] = 0; });
     fichas.forEach(f => {
-      const tipo = (f.tipo_agendamento || 'servico') as keyof typeof c;
-      if (c[tipo] !== undefined) c[tipo]++;
+      if (f.status && c[f.status] !== undefined) c[f.status]++;
     });
     return c;
   }, [fichas]);
+
+  const toggleStatus = (status: string) => {
+    setFiltroStatus(prev =>
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
 
   const navigateDate = (dir: 'prev' | 'next') => {
     setCurrentDate(d => {
