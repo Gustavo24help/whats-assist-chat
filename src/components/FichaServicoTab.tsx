@@ -562,7 +562,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         pagamento_tipo: fichaData.pagamento_tipo as any,
         pagamento_parcelas: fichaData.pagamento_parcelas,
         pagamento_gerar_link: fichaData.pagamento_gerar_link,
-        pagamento_link: fichaData.pagamento_link?.trim() || null,
+        pagamento_link: (() => {
+          const linkValidation = validateAsaasLink(fichaData.pagamento_link);
+          if (!linkValidation.ok) {
+            throw new Error(`Link de pagamento inválido: ${linkValidation.reason}`);
+          }
+          return linkValidation.normalized || null;
+        })(),
         pagamento_realizado: fichaData.pagamento_realizado,
         notas: fichaData.notas?.trim() || null,
         categoria_id: fichaData.categoria_id,
