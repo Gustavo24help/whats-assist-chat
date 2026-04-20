@@ -32,6 +32,17 @@ const visaoHorarioOptions = [
   { value: 'ambos', label: 'Ambas Janelas' },
 ];
 
+// Status que aparecem no calendário (com datas). Cor serve também como legenda.
+const STATUS_CALENDARIO = [
+  { value: 'Agendado', label: 'Agendado', cor: '#10B981' },
+  { value: 'Visita Técnica', label: 'Visita Técnica', cor: '#FBBF24' },
+  { value: 'Retorno', label: 'Retorno', cor: '#F97316' },
+  { value: 'Em andamento', label: 'Em andamento', cor: '#3B82F6' },
+  { value: 'Finalizado', label: 'Finalizado', cor: '#6B7280' },
+  { value: 'Garantia', label: 'Garantia', cor: '#A855F7' },
+] as const;
+const STATUS_VALUES = STATUS_CALENDARIO.map(s => s.value);
+
 export default function Calendario() {
   const navigate = useNavigate();
   const [fichas, setFichas] = useState<any[]>([]);
