@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CalendarioMensal } from "@/components/calendario/CalendarioMensal";
 import { CalendarioSemanal } from "@/components/calendario/CalendarioSemanal";
 import { CalendarioDiario } from "@/components/calendario/CalendarioDiario";
@@ -12,7 +13,7 @@ import { Logo } from "@/components/Logo";
 import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { getCorTipo, getLabelTipo } from "@/lib/calcularEstadoAgendamento";
+
 import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { PageLayout } from "@/components/PageLayout";
 
@@ -29,6 +30,17 @@ const visaoHorarioOptions = [
   { value: 'ambos', label: 'Ambas Janelas' },
 ];
 
+// Status que aparecem no calendário (com datas). Cor serve também como legenda.
+const STATUS_CALENDARIO = [
+  { value: 'Agendado', label: 'Agendado', cor: '#10B981' },
+  { value: 'Visita Técnica', label: 'Visita Técnica', cor: '#FBBF24' },
+  { value: 'Retorno', label: 'Retorno', cor: '#F97316' },
+  { value: 'Em andamento', label: 'Em andamento', cor: '#3B82F6' },
+  { value: 'Finalizado', label: 'Finalizado', cor: '#6B7280' },
+  { value: 'Garantia', label: 'Garantia', cor: '#A855F7' },
+] as const;
+const STATUS_VALUES = STATUS_CALENDARIO.map(s => s.value);
+
 export default function Calendario() {
   const navigate = useNavigate();
   const [fichas, setFichas] = useState<any[]>([]);
@@ -40,6 +52,7 @@ export default function Calendario() {
   const [prestadores, setPrestadores] = useState<any[]>([]);
   const [selectedFicha, setSelectedFicha] = useState<any>(null);
   const [visaoHorario, setVisaoHorario] = useState<HorarioContexto>('cliente');
+  const [filtroStatus, setFiltroStatus] = useState<string[]>([...STATUS_VALUES]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -58,7 +71,7 @@ export default function Calendario() {
           clientes!fichas_de_servico_telefone_cliente_fkey(nome),
           categorias!fichas_de_servico_categoria_id_fkey(nome)
         `)
-        .in('status', ['Retorno', 'Visita Técnica', 'Agendado'])
+        .in('status', STATUS_VALUES as any)
         .or('horario_agendamento.not.is.null,data_retorno.not.is.null,horario_visita_tecnica.not.is.null,data_visita_tecnica.not.is.null');
 
       if (error) throw error;
@@ -87,18 +100,25 @@ export default function Calendario() {
     return fichas.filter(f => {
       if (filtroTipo !== 'all' && (f.tipo_agendamento || 'servico') !== filtroTipo) return false;
       if (filtroPrestador !== 'all' && f.prestador_id !== filtroPrestador) return false;
+      if (!filtroStatus.includes(f.status || '')) return false;
       return true;
     });
-  }, [fichas, filtroTipo, filtroPrestador]);
+  }, [fichas, filtroTipo, filtroPrestador, filtroStatus]);
 
-  const contadores = useMemo(() => {
-    const c = { servico: 0, visita_tecnica: 0, retorno: 0 };
+  const contadoresStatus = useMemo(() => {
+    const c: Record<string, number> = {};
+    STATUS_VALUES.forEach(s => { c[s] = 0; });
     fichas.forEach(f => {
-      const tipo = (f.tipo_agendamento || 'servico') as keyof typeof c;
-      if (c[tipo] !== undefined) c[tipo]++;
+      if (f.status && c[f.status] !== undefined) c[f.status]++;
     });
     return c;
   }, [fichas]);
+
+  const toggleStatus = (status: string) => {
+    setFiltroStatus(prev =>
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
 
   const navigateDate = (dir: 'prev' | 'next') => {
     setCurrentDate(d => {
@@ -182,19 +202,39 @@ export default function Calendario() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          {(['servico', 'visita_tecnica', 'retorno'] as const).map(tipo => (
-            <div key={tipo} className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: getCorTipo(tipo) }} />
-              <span>{getLabelTipo(tipo)}</span>
-              <span className="font-bold">({contadores[tipo]})</span>
-            </div>
-          ))}
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#3B82F6' }} />
-            <span>Em andamento</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground font-medium mr-1">Status:</span>
+          {STATUS_CALENDARIO.map(s => {
+            const active = filtroStatus.includes(s.value);
+            return (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => toggleStatus(s.value)}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all ${
+                  active
+                    ? 'bg-background border-border shadow-sm'
+                    : 'bg-muted/40 border-transparent opacity-50 hover:opacity-75'
+                }`}
+                title={active ? `Ocultar ${s.label}` : `Mostrar ${s.label}`}
+              >
+                <Checkbox checked={active} className="h-3 w-3 pointer-events-none" />
+                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: s.cor }} />
+                <span>{s.label}</span>
+                <span className="font-bold">({contadoresStatus[s.value] || 0})</span>
+              </button>
+            );
+          })}
+          <div className="flex gap-1 ml-auto">
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setFiltroStatus([...STATUS_VALUES])}>
+              Todos
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setFiltroStatus([])}>
+              Nenhum
+            </Button>
           </div>
         </div>
+
 
         <Tabs value={viewMode} onValueChange={setViewMode}>
           <TabsList>
