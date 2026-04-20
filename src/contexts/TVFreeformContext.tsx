@@ -75,8 +75,8 @@ const DEFAULT_WIDGETS: TVWidgetLayout[] = [
   // Row 7 — Blocos maiores
   { id: 'widget-rotativo',    label: 'Widget Rotativo',       icon: '🔁', enabled: true,  x: 0,    y: 1010, width: 1920, height: 260, zIndex: 1, locked: false, autoHeight: false, scaleMode: 'fluid' },
 
-  // Row 8 — Acompanhamento de Conversas (desabilitado por padrão, posicionado dentro do canvas visível)
-  { id: 'conversation-timeline', label: 'Acompanhamento de Conversas', icon: '📋', enabled: false, x: 0, y: 480, width: 1920, height: 540, zIndex: 5, locked: false, autoHeight: false, scaleMode: 'fluid' },
+  // Row 8 — Acompanhamento de Conversas (desabilitado por padrão, ocupa metade da largura)
+  { id: 'conversation-timeline', label: 'Acompanhamento de Conversas', icon: '📋', enabled: false, x: 0, y: 480, width: 960, height: 540, zIndex: 5, locked: false, autoHeight: false, scaleMode: 'fluid' },
 ];
 
 const PRESETS: { name: string; widgets: TVWidgetLayout[] }[] = [
