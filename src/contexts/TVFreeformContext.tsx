@@ -100,7 +100,17 @@ function mergeWithDefaults(saved: TVWidgetLayout[]): TVWidgetLayout[] {
   const savedMap = new Map(saved.map(w => [w.id, w]));
   return DEFAULT_WIDGETS.map(def => {
     const s = savedMap.get(def.id);
-    return s ? { ...def, ...s } : def;
+    if (!s) return def;
+    const merged = { ...def, ...s };
+    // Safety: if a saved widget is positioned outside the visible canvas (y >= CANVAS_H),
+    // fall back to its default position so the user can see it.
+    if (merged.y >= CANVAS_H || merged.y + merged.height <= 0) {
+      merged.x = def.x;
+      merged.y = def.y;
+      merged.width = def.width;
+      merged.height = def.height;
+    }
+    return merged;
   });
 }
 
