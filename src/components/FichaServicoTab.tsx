@@ -29,6 +29,7 @@ import { ConfirmReenvioDialog } from "@/components/ConfirmReenvioDialog";
 import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
+import { validateAsaasLink } from "@/lib/asaasLinkValidator";
 
 interface FichaServicoTabProps {
   fichaId: string;
@@ -2367,7 +2368,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     value={ficha?.pagamento_link || ""}
                     onChange={(e) => updateFicha({ pagamento_link: e.target.value })}
                     placeholder="https://www.asaas.com/c/..."
-                    className="h-9 text-sm focus:ring-2 focus:ring-primary/20 flex-1"
+                    className={cn(
+                      "h-9 text-sm focus:ring-2 flex-1",
+                      (() => {
+                        const v = validateAsaasLink(ficha?.pagamento_link);
+                        return v.ok
+                          ? "focus:ring-primary/20"
+                          : "border-destructive focus:ring-destructive/30";
+                      })()
+                    )}
                   />
                   {ficha?.pagamento_link && (
                     <Button
@@ -2383,6 +2392,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     </Button>
                   )}
                 </div>
+                {(() => {
+                  const v = validateAsaasLink(ficha?.pagamento_link);
+                  if (v.ok) return null;
+                  return (
+                    <p className="text-[11px] text-destructive mt-1">
+                      ⚠ {v.reason}
+                    </p>
+                  );
+                })()}
               </div>
 
               {/* Botão para gerar link via Asaas direto */}
