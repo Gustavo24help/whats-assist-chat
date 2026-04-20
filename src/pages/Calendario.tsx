@@ -103,7 +103,14 @@ export default function Calendario() {
     return fichas.filter(f => {
       if (filtroTipo !== 'all' && (f.tipo_agendamento || 'servico') !== filtroTipo) return false;
       if (filtroPrestador !== 'all' && f.prestador_id !== filtroPrestador) return false;
-      if (!filtroStatus.includes(f.status || '')) return false;
+      // Status filter: aceita se status atual está marcado, OU se a ficha tem visita técnica
+      // histórica e o filtro "Visita Técnica" está marcado (permite ver VTs de fichas que
+      // mudaram para outros status como Perdido).
+      const statusAtual = f.status || '';
+      const temVT = !!(f.data_visita_tecnica || f.horario_visita_tecnica);
+      const statusOk = filtroStatus.includes(statusAtual);
+      const vtHistoricaOk = temVT && filtroStatus.includes('Visita Técnica') && statusAtual !== 'Visita Técnica';
+      if (!statusOk && !vtHistoricaOk) return false;
       return true;
     });
   }, [fichas, filtroTipo, filtroPrestador, filtroStatus]);
