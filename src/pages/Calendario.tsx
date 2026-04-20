@@ -53,6 +53,7 @@ export default function Calendario() {
   const [selectedFicha, setSelectedFicha] = useState<any>(null);
   const [visaoHorario, setVisaoHorario] = useState<HorarioContexto>('cliente');
   const [filtroStatus, setFiltroStatus] = useState<string[]>([...STATUS_VALUES]);
+  const [mostrarVisitaHistorica, setMostrarVisitaHistorica] = useState<boolean>(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -225,6 +226,20 @@ export default function Calendario() {
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setMostrarVisitaHistorica(v => !v)}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all ${
+              mostrarVisitaHistorica
+                ? 'bg-background border-border shadow-sm'
+                : 'bg-muted/40 border-transparent opacity-50 hover:opacity-75'
+            }`}
+            title="Mostrar/ocultar visitas técnicas já realizadas"
+          >
+            <Checkbox checked={mostrarVisitaHistorica} className="h-3 w-3 pointer-events-none" />
+            <div className="w-3 h-3 rounded-sm border border-dashed border-foreground/40" style={{ backgroundColor: '#FBBF24' }} />
+            <span>Visita Técnica (histórico)</span>
+          </button>
           <div className="flex gap-1 ml-auto">
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setFiltroStatus([...STATUS_VALUES])}>
               Todos
@@ -244,13 +259,13 @@ export default function Calendario() {
           </TabsList>
 
           <TabsContent value="mensal" className="mt-3">
-            <CalendarioMensal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} />
+            <CalendarioMensal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} />
           </TabsContent>
           <TabsContent value="semanal" className="mt-3">
-            <CalendarioSemanal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} />
+            <CalendarioSemanal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} />
           </TabsContent>
           <TabsContent value="diario" className="mt-3">
-            <CalendarioDiario fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} />
+            <CalendarioDiario fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} />
           </TabsContent>
         </Tabs>
       </main>

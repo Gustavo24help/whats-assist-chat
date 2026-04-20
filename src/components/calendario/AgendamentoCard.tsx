@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { calcularEstadoAgendamento, getLabelTipo, type AgendamentoData } from "@/lib/calcularEstadoAgendamento";
+import { calcularEstadoAgendamento, type AgendamentoData, type TipoSlot } from "@/lib/calcularEstadoAgendamento";
 import { formatJanela, getJanelaHorario, type HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { format } from "date-fns";
 
@@ -9,20 +9,30 @@ interface AgendamentoCardProps {
   compact?: boolean;
   /** Which time window to display: 'cliente' (default), 'prestador', or 'ambos' */
   contextoHorario?: HorarioContexto;
+  /** Slot type — when 'visita' and status differs from 'Visita Técnica', renders as historical */
+  tipoSlot?: TipoSlot;
+  /** Pre-computed slot start/end (when provided, used to display the time of THIS slot) */
+  slotInicio?: Date | null;
+  slotFim?: Date | null;
 }
 
 const statusCancelados = ['Não foi adiante', 'Perdido', 'Orçamento Não Aprovado'];
 
-// Cores específicas por status da ficha — precedência sobre cor por tipo.
-// Mantém o comportamento antigo (cor por tipo) apenas para os status "abertos"
-// onde a cor por tipo já fazia sentido: Agendado, Visita Técnica, Retorno.
 const CORES_POR_STATUS: Record<string, string> = {
-  'Em andamento': '#3B82F6', // azul
-  'Finalizado': '#6B7280',   // cinza
-  'Garantia': '#A855F7',     // roxo
+  'Em andamento': '#3B82F6',
+  'Finalizado': '#6B7280',
+  'Garantia': '#A855F7',
 };
 
-export function AgendamentoCard({ ficha, onClick, compact = false, contextoHorario = 'cliente' }: AgendamentoCardProps) {
+export function AgendamentoCard({
+  ficha,
+  onClick,
+  compact = false,
+  contextoHorario = 'cliente',
+  tipoSlot,
+  slotInicio,
+  slotFim,
+}: AgendamentoCardProps) {
   const agData: AgendamentoData = {
     tipo_agendamento: ficha.tipo_agendamento,
     horario_agendamento: ficha.horario_agendamento,
@@ -43,14 +53,25 @@ export function AgendamentoCard({ ficha, onClick, compact = false, contextoHorar
   const estado = useMemo(() => calcularEstadoAgendamento(agData), [ficha]);
   const isCancelado = statusCancelados.includes(ficha.status || '');
 
-  // Cor final: status específico > estado temporal (atrasado/andamento) > cor por tipo
+  // Slot histórico de visita técnica (status atual ≠ 'Visita Técnica')
+  const isVisitaHistorica = tipoSlot === 'visita' && (ficha.status || '') !== 'Visita Técnica';
+
   const corFundo = useMemo(() => {
+    if (tipoSlot === 'visita') return '#FBBF24';
+    if (tipoSlot === 'retorno' && (ficha.status || '') === 'Retorno') return '#F97316';
     const statusCor = CORES_POR_STATUS[ficha.status || ''];
     if (statusCor) return statusCor;
     return estado.cor;
-  }, [ficha.status, estado.cor]);
+  }, [ficha.status, estado.cor, tipoSlot]);
 
   const horaStr = useMemo(() => {
+    // Quando temos um slot específico (visita/retorno), priorizamos seu horário
+    if (slotInicio) {
+      const h = format(slotInicio, 'HH:mm');
+      const f = slotFim ? format(slotFim, 'HH:mm') : '';
+      return f && f !== h ? `${h}-${f}` : h;
+    }
+
     if (contextoHorario === 'ambos') {
       const janelas = getJanelaHorario(ficha, 'ambos') as any;
       const cStr = formatJanela(janelas?.cliente?.inicio, janelas?.cliente?.fim);
@@ -64,7 +85,7 @@ export function AgendamentoCard({ ficha, onClick, compact = false, contextoHorar
     if (janelaStr) return janelaStr;
 
     return fallbackHora();
-  }, [ficha, contextoHorario]);
+  }, [ficha, contextoHorario, slotInicio, slotFim]);
 
   function fallbackHora(): string {
     if (ficha.horario_agendamento) {
@@ -76,21 +97,27 @@ export function AgendamentoCard({ ficha, onClick, compact = false, contextoHorar
     return '';
   }
 
+  const opacidadeClasse = isCancelado ? 'opacity-50' : isVisitaHistorica ? 'opacity-70' : '';
+  const prefixo = tipoSlot === 'visita' ? '[VT] ' : '';
+  const tooltipExtra = isVisitaHistorica ? ' — Visita técnica realizada' : '';
+
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left rounded-lg px-2 py-1 text-xs font-medium text-white truncate transition-all duration-150 active:scale-[0.97] ${isCancelado ? 'opacity-50' : ''}`}
+      className={`w-full text-left rounded-lg px-2 py-1 text-xs font-medium text-white truncate transition-all duration-150 active:scale-[0.97] ${opacidadeClasse} ${isVisitaHistorica ? 'border border-dashed border-white/60' : ''}`}
       style={{ backgroundColor: corFundo }}
-      title={`${ficha.id} - ${ficha.nome_cliente || 'Cliente'} - ${ficha.prestadores?.nome || 'Sem prestador'}`}
+      title={`${prefixo}${ficha.id} - ${ficha.nome_cliente || 'Cliente'} - ${ficha.prestadores?.nome || 'Sem prestador'}${tooltipExtra}`}
     >
       {compact ? (
         <span className="truncate block">
+          {prefixo && <span className="font-bold mr-0.5">{prefixo}</span>}
           {horaStr && <span className="font-bold mr-1">{horaStr}</span>}
           {ficha.id}
         </span>
       ) : (
         <div className="space-y-0.5">
           <div className="flex items-center gap-1">
+            {prefixo && <span className="font-bold">{prefixo}</span>}
             {horaStr && <span className="font-bold">{horaStr}</span>}
             <span className="truncate">{ficha.id}</span>
           </div>

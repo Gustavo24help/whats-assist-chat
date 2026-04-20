@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { startOfWeek, addDays, format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AgendamentoCard } from "./AgendamentoCard";
-import { getAgendamentoDates } from "@/lib/calcularEstadoAgendamento";
+import { getAllAgendamentoSlots, type AgendamentoSlot } from "@/lib/calcularEstadoAgendamento";
 import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 
 interface Props {
@@ -10,28 +10,33 @@ interface Props {
   currentDate: Date;
   onSelectFicha: (ficha: any) => void;
   contextoHorario?: HorarioContexto;
+  mostrarVisitaHistorica?: boolean;
 }
 
-const HOURS = Array.from({ length: 16 }, (_, i) => i + 7); // 7-22
+const HOURS = Array.from({ length: 16 }, (_, i) => i + 7);
 
-export function CalendarioSemanal({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente' }: Props) {
+interface SlotItem { ficha: any; slot: AgendamentoSlot; }
+
+export function CalendarioSemanal({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente', mostrarVisitaHistorica = true }: Props) {
   const weekStart = useMemo(() => startOfWeek(currentDate, { locale: ptBR }), [currentDate]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
-  const fichasByDayHour = useMemo(() => {
-    const map: Record<string, any[]> = {};
+  const slotsByDayHour = useMemo(() => {
+    const map: Record<string, SlotItem[]> = {};
     fichas.forEach(f => {
-      const { inicio } = getAgendamentoDates(f);
-      if (!inicio) return;
-      const dayKey = format(inicio, 'yyyy-MM-dd');
-      const hour = inicio.getHours();
-      const slotHour = Math.max(7, Math.min(22, hour));
-      const key = `${dayKey}-${slotHour}`;
-      if (!map[key]) map[key] = [];
-      map[key].push(f);
+      const slots = getAllAgendamentoSlots(f);
+      slots.forEach(slot => {
+        const isVisitaHistorica = slot.tipoSlot === 'visita' && (f.status || '') !== 'Visita Técnica';
+        if (isVisitaHistorica && !mostrarVisitaHistorica) return;
+        const dayKey = format(slot.inicio, 'yyyy-MM-dd');
+        const hour = Math.max(7, Math.min(22, slot.inicio.getHours()));
+        const key = `${dayKey}-${hour}`;
+        if (!map[key]) map[key] = [];
+        map[key].push({ ficha: f, slot });
+      });
     });
     return map;
-  }, [fichas]);
+  }, [fichas, mostrarVisitaHistorica]);
 
   return (
     <div className="border rounded-xl overflow-hidden bg-card">
@@ -58,11 +63,20 @@ export function CalendarioSemanal({ fichas, currentDate, onSelectFicha, contexto
             </div>
             {weekDays.map(day => {
               const key = `${format(day, 'yyyy-MM-dd')}-${hour}`;
-              const slotFichas = fichasByDayHour[key] || [];
+              const slotItems = slotsByDayHour[key] || [];
               return (
                 <div key={key} className="border-b border-r p-0.5 space-y-0.5">
-                  {slotFichas.map(f => (
-                    <AgendamentoCard key={f.id} ficha={f} onClick={() => onSelectFicha(f)} compact contextoHorario={contextoHorario} />
+                  {slotItems.map(({ ficha, slot }, idx) => (
+                    <AgendamentoCard
+                      key={`${ficha.id}-${slot.tipoSlot}-${idx}`}
+                      ficha={ficha}
+                      onClick={() => onSelectFicha(ficha)}
+                      compact
+                      contextoHorario={contextoHorario}
+                      tipoSlot={slot.tipoSlot}
+                      slotInicio={slot.inicio}
+                      slotFim={slot.fim}
+                    />
                   ))}
                 </div>
               );
