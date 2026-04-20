@@ -165,6 +165,63 @@ export function calcularEstadoAgendamento(ag: AgendamentoData): EstadoAgendament
   return defaultResult;
 }
 
+export type TipoSlot = 'visita' | 'agendamento' | 'retorno';
+
+export interface AgendamentoSlot {
+  inicio: Date;
+  fim: Date | null;
+  tipoSlot: TipoSlot;
+}
+
+/**
+ * Returns ALL relevant calendar slots for a ficha (visita técnica + agendamento/retorno).
+ * Visita técnica is always emitted when present, regardless of current status.
+ * Does NOT mutate or replace getAgendamentoDates — purely additive for visualization.
+ */
+export function getAllAgendamentoSlots(ag: AgendamentoData): AgendamentoSlot[] {
+  const slots: AgendamentoSlot[] = [];
+
+  // 1. Slot da visita técnica — sempre que existir data/horário
+  if (ag.data_visita_tecnica || ag.horario_visita_tecnica) {
+    let inicio: Date | null = null;
+    if (ag.horario_visita_tecnica) {
+      inicio = new Date(ag.horario_visita_tecnica);
+    } else if (ag.data_visita_tecnica) {
+      inicio = new Date(`${ag.data_visita_tecnica}T09:00:00`);
+    }
+    if (inicio && !isNaN(inicio.getTime())) {
+      slots.push({ inicio, fim: null, tipoSlot: 'visita' });
+    }
+  }
+
+  // 2. Slot do agendamento principal (serviço)
+  if (ag.horario_agendamento) {
+    const inicioBase = new Date(ag.horario_agendamento);
+    if (!isNaN(inicioBase.getTime())) {
+      const dataBase = inicioBase.toISOString().split('T')[0];
+      const inicio = ag.hora_inicio_agendamento
+        ? new Date(`${dataBase}T${ag.hora_inicio_agendamento}`)
+        : inicioBase;
+      const fim = ag.hora_fim_agendamento ? new Date(`${dataBase}T${ag.hora_fim_agendamento}`) : null;
+      slots.push({ inicio, fim, tipoSlot: 'agendamento' });
+    }
+  }
+
+  // 3. Slot do retorno
+  if (ag.data_retorno) {
+    const dataBase = ag.data_retorno.split('T')[0];
+    const inicio = ag.hora_inicio_retorno
+      ? new Date(`${dataBase}T${ag.hora_inicio_retorno}`)
+      : new Date(ag.data_retorno);
+    if (!isNaN(inicio.getTime())) {
+      const fim = ag.hora_fim_retorno ? new Date(`${dataBase}T${ag.hora_fim_retorno}`) : null;
+      slots.push({ inicio, fim, tipoSlot: 'retorno' });
+    }
+  }
+
+  return slots;
+}
+
 export function getCorTipo(tipo: string | null): string {
   return corPorTipo[tipo || 'servico'] || '#10B981';
 }
