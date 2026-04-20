@@ -439,11 +439,7 @@ export const ConversationListBeta = ({
 
     // Filtro de aguardando resposta
     if (showAguardandoRespostaOnly) {
-      filtered = filtered.filter(c =>
-        c.bot_habilitado === false &&
-        c.marcado_nao_lido === true &&
-        isAguardandoRespostaEligivel(c)
-      );
+      filtered = filtered.filter(c => isAguardandoRespostaEligivel(c));
     }
 
     // Manter ordem original do banco (ultima_interacao DESC)
@@ -1133,13 +1129,9 @@ export const ConversationListBeta = ({
   };
 
   // Contagem de atendimentos aguardando resposta
-  // Critério: bot desabilitado + não lido pelo operador + escopo (Ficha Criada / Orçamento Enviado / VT já passou)
+  // Critério: ficha em "Ficha Criada" / "Orçamento Enviado" OU Visita Técnica já passou
   const aguardandoRespostaCount = useMemo(() => {
-    return clientes.filter(c =>
-      c.bot_habilitado === false &&
-      c.marcado_nao_lido === true &&
-      isAguardandoRespostaEligivel(c)
-    ).length;
+    return clientes.filter(c => isAguardandoRespostaEligivel(c)).length;
   }, [clientes]);
 
 
