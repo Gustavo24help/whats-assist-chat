@@ -1095,7 +1095,9 @@ export const ConversationListBeta = ({
           atendente_id: cliente.atendente_id || null,
           tempoNoStatusMinutos: minutosNoStatus,
           statusAlertColor: escalatedAlertColor,
-          ficha_id_real: fichaIdParaOrcamentos || null
+          ficha_id_real: fichaIdParaOrcamentos || null,
+          horario_visita_tecnica: (fichaData as any)?.horario_visita_tecnica || null,
+          data_visita_tecnica: (fichaData as any)?.data_visita_tecnica || null
         };
       });
 
@@ -1128,10 +1130,13 @@ export const ConversationListBeta = ({
     }
   };
 
-  // Contagem de atendimentos aguardando resposta (bot desabilitado + não lido pelo operador)
+  // Contagem de atendimentos aguardando resposta
+  // Critério: bot desabilitado + não lido pelo operador + escopo (Ficha Criada / Orçamento Enviado / VT já passou)
   const aguardandoRespostaCount = useMemo(() => {
-    return clientes.filter(c => 
-      c.bot_habilitado === false && c.marcado_nao_lido === true
+    return clientes.filter(c =>
+      c.bot_habilitado === false &&
+      c.marcado_nao_lido === true &&
+      isAguardandoRespostaEligivel(c)
     ).length;
   }, [clientes]);
 
