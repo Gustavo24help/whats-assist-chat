@@ -1,52 +1,58 @@
 
 
-## Objetivo
+## Diagnóstico — divergência no alerta "precisando de resposta"
 
-Garantir que fichas que tiveram **Visita Técnica** apareçam no calendário mesmo após a visita ter passado e o status ter mudado (ex: virou "Em andamento", "Agendado", "Finalizado", "Garantia" etc).
+Você tem **3 fichas com status "Ficha Criada"** e **6 com "Orçamento Enviado"** (total = 9). O alerta no Chat BETA mostra **5**. A divergência tem duas causas distintas que se combinam.
 
-## Diagnóstico atual
+### Causa 1 — A regra atual NÃO conta todas as fichas no escopo
 
-No `AgendamentoCard.tsx` + `calcularEstadoAgendamento.ts`, a data exibida no calendário (`getAgendamentoDates`) é escolhida pelo **status atual** ou pelo `tipo_agendamento`. Quando o status muda de "Visita Técnica" para outro (ex: "Agendado", "Em andamento"), a função passa a ler `horario_agendamento` ou `data_retorno` e **ignora** `data_visita_tecnica`. Resultado: a visita técnica "desaparece" do dia em que aconteceu.
+Hoje a regra do alerta (em `ConversationListBeta.tsx`, linhas 1137-1143 e 441-447) exige **três condições simultâneas**:
 
-Além disso, a query do `Calendario.tsx` filtra fichas pela data do agendamento principal — fichas cuja única data preenchida é `data_visita_tecnica` podem ficar fora do range buscado.
+1. `bot_habilitado = false` (bot desligado)
+2. `marcado_nao_lido = true` (a conversa foi marcada como não lida pelo operador)
+3. status da ficha em `Ficha Criada` ou `Orçamento Enviado` **OU** Visita Técnica já passou
 
-## Mudanças
+Pelo banco hoje: das 9 fichas no escopo (3 + 6), nenhuma tem `bot_habilitado = false` E `marcado_nao_lido = true` ao mesmo tempo. A contagem real pela regra atual seria **0**, não 5 nem 9.
 
-### 1. `src/pages/Calendario.tsx`
-- Expandir a query para também trazer fichas com `data_visita_tecnica` ou `horario_visita_tecnica` dentro do range visível (além das já buscadas por `horario_agendamento` / `data_retorno`).
-- Sem alterar status nem nenhum dado — apenas amplia o conjunto exibido.
+Conclusão: a regra está restritiva demais. Você quer que **toda conversa em "Ficha Criada" / "Orçamento Enviado" / "Visita Técnica passada" entre no alerta** — independente de bot/leitura. É isso que bate com o número 9 esperado.
 
-### 2. `src/components/calendario/AgendamentoCard.tsx` (lógica de slot)
-- Para cada ficha com **visita técnica preenchida**, gerar um "slot" adicional no dia da visita, independente do status atual.
-- Quando o status atual for diferente de "Visita Técnica", o slot da visita aparece com:
-  - Cor cinza/roxa suave (visual de "histórico")
-  - Prefixo `[VT]` no card
-  - Tooltip: "Visita técnica realizada"
-- O agendamento principal (Agendado/Retorno/Em andamento/Finalizado/Garantia) continua aparecendo normalmente no seu próprio dia/horário com a cor já definida.
+### Causa 2 — O "5" que aparece é estado obsoleto
 
-### 3. `CalendarioDiario.tsx`, `CalendarioSemanal.tsx`, `CalendarioMensal.tsx`
-- Ajustar a função que distribui fichas por dia/hora para emitir **múltiplas entradas** por ficha quando ela tiver mais de uma data relevante (visita + agendamento, por exemplo). Hoje cada ficha vira só 1 entrada.
-- Cada entrada carrega uma flag `tipoSlot: 'visita' | 'agendamento' | 'retorno'` usada pelo `AgendamentoCard` para escolher rótulo e cor.
+As 3 conversas que hoje têm `bot off + não lido` não estão no escopo (estão em Perdido / Agendado / Finalizado). Ou seja, com a regra atual, deveria mostrar **0**. O "5" provavelmente vem de um snapshot anterior (antes do último ajuste) que ainda não atualizou na sua tela, ou de fichas que mudaram de status depois que a contagem foi feita.
 
-### 4. `src/components/calendario/AgendamentoCard.tsx` (visual)
-- Aceitar prop opcional `tipoSlot`.
-- Se `tipoSlot === 'visita'` E o status atual ≠ "Visita Técnica" → renderiza em modo "histórico" (cor amarela mais clara/opaca + prefixo `[VT]`).
-- Caso contrário, comportamento atual permanece intacto.
+---
 
-### 5. Filtros de status no topo do calendário
-- Adicionar o item **"Visita Técnica (histórico)"** no grupo de filtros, controlando a exibição dos slots de visita já passada. Por padrão fica **ligado**.
-- Os filtros de status existentes continuam funcionando como hoje sobre o agendamento principal.
+## Mudança proposta
 
-## Salvaguardas (sem alterar dados)
+Reescrever a regra de elegibilidade do alerta e do filtro para refletir exatamente o que você descreveu antes:
 
-- Nenhuma migração, nenhum UPDATE, nenhuma alteração em `fichas_de_servico`.
-- `getAgendamentoDates` original não é modificada — apenas adicionamos uma função paralela que extrai **todos** os slots relevantes para visualização.
-- Fichas antigas continuam aparecendo igual; a visita técnica passa a aparecer **adicionalmente** quando existir.
-- Timezone: continuamos usando os mesmos campos (`data_visita_tecnica` / `horario_visita_tecnica`) sem reparse — sem risco de shift de horário.
-- Status, valores, pagamentos: nada é tocado.
+**Nova regra:** uma conversa entra no alerta/filtro "precisando de resposta" se:
 
-## Fora de escopo
+- A ficha ativa está em status **"Ficha Criada"** ou **"Orçamento Enviado"**, **OU**
+- A ficha ativa tem uma **Visita Técnica agendada cuja hora já passou** (independente do status atual da ficha)
 
-- Não altera comportamento da ficha em si (FichaServicoTab) — a visita técnica já fica registrada lá; só passa a ser visível no calendário sempre.
-- Não cria histórico novo de status; usa apenas os campos já existentes na ficha.
+Removidas as exigências de `bot_habilitado = false` e `marcado_nao_lido = true` — elas não fazem parte do critério que você definiu.
+
+### Detalhes técnicos
+
+Arquivo: `src/components/ConversationListBeta.tsx`
+
+1. **Função `isAguardandoRespostaEligivel`** (linhas 50-66): manter como está (já implementa a regra correta de status + VT passada).
+
+2. **`aguardandoRespostaCount`** (linhas 1137-1143): remover as duas checagens extras, mantendo só `isAguardandoRespostaEligivel(c)`.
+
+3. **Filtro `showAguardandoRespostaOnly`** (linhas 441-447): mesma simplificação — aplicar apenas `isAguardandoRespostaEligivel(c)`.
+
+### Resultado esperado
+
+Com os dados atuais do banco:
+- Alerta passará a mostrar **9** (3 Ficha Criada + 6 Orçamento Enviado + 0 VT passada)
+- Ao clicar no alerta, o filtro listará exatamente essas 9 conversas
+
+### Garantias de segurança
+
+- Não altera nenhum dado armazenado (apenas lógica de exibição em memória)
+- Não toca em fuso/horário/agendamento
+- Não modifica RLS, schema ou Edge Functions
+- A função helper já existente é reaproveitada — comportamento continua determinístico
 
