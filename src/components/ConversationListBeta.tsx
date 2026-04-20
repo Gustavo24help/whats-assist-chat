@@ -1129,13 +1129,9 @@ export const ConversationListBeta = ({
   };
 
   // Contagem de atendimentos aguardando resposta
-  // Critério: bot desabilitado + não lido pelo operador + escopo (Ficha Criada / Orçamento Enviado / VT já passou)
+  // Critério: ficha em "Ficha Criada" / "Orçamento Enviado" OU Visita Técnica já passou
   const aguardandoRespostaCount = useMemo(() => {
-    return clientes.filter(c =>
-      c.bot_habilitado === false &&
-      c.marcado_nao_lido === true &&
-      isAguardandoRespostaEligivel(c)
-    ).length;
+    return clientes.filter(c => isAguardandoRespostaEligivel(c)).length;
   }, [clientes]);
 
 
