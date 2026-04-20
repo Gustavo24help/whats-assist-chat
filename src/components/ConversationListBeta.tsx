@@ -46,7 +46,10 @@ interface Cliente {
 }
 
 // Helper: conversa elegível para o alerta "precisando de resposta"
-// Critério: status Ficha Criada / Orçamento Enviado, OU possui Visita Técnica cuja hora já passou
+// Critério:
+//  - Status "Ficha Criada" ou "Orçamento Enviado" SEMPRE entra
+//  - Status "Visita Técnica" entra apenas se o horário da VT já chegou (passado/agora)
+//  - Qualquer outro status sai do alerta automaticamente (tratada = mudou de status)
 const isAguardandoRespostaEligivel = (c: {
   status_ficha?: string;
   horario_visita_tecnica?: string | null;
@@ -55,12 +58,12 @@ const isAguardandoRespostaEligivel = (c: {
   if (c.status_ficha === 'Ficha Criada' || c.status_ficha === 'Orçamento Enviado') {
     return true;
   }
-  const vtIso = c.horario_visita_tecnica || c.data_visita_tecnica;
-  if (vtIso) {
+  if (c.status_ficha === 'Visita Técnica') {
+    const vtIso = c.horario_visita_tecnica || c.data_visita_tecnica;
+    if (!vtIso) return false;
     const vtDate = new Date(vtIso);
-    if (!isNaN(vtDate.getTime()) && vtDate.getTime() <= Date.now()) {
-      return true;
-    }
+    if (isNaN(vtDate.getTime())) return false;
+    return vtDate.getTime() <= Date.now();
   }
   return false;
 };
