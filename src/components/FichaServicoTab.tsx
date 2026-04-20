@@ -1266,12 +1266,23 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </Select>
         </div>
         
-        {/* Botão Gerar Resumo */}
-        <div className="pt-5">
-          <ResumoConversaDialog 
-            fichaId={fichaId} 
+        {/* Botões: Gerar Resumo + Conversa */}
+        <div className="pt-5 flex flex-wrap gap-2">
+          <ResumoConversaDialog
+            fichaId={fichaId}
             fichaName={ficha?.nome_ficha || undefined}
           />
+          {ficha?.telefone_cliente && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(`/chat?telefone=${encodeURIComponent(ficha.telefone_cliente)}`, '_blank', 'noopener,noreferrer')}
+              className="gap-1.5"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Conversa
+            </Button>
+          )}
         </div>
       </div>
 
