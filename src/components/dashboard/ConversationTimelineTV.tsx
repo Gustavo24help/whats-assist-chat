@@ -199,12 +199,12 @@ export function ConversationTimelineTV() {
   return (
     <div className="w-full h-full flex flex-col bg-white rounded-lg overflow-hidden">
       {/* Header com título + filtros */}
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3">
+      <div className="sticky top-0 z-20 bg-white border-b-2 border-gray-200 px-5 py-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-bold text-[#111827] uppercase tracking-wider">
+          <h3 className="text-2xl font-extrabold text-[#111827] uppercase tracking-wider">
             Acompanhamento de Conversas
           </h3>
-          <span className="text-sm font-semibold text-[#6B7280]">{cards.length} conversas</span>
+          <span className="text-xl font-bold text-[#6B7280]">{cards.length} conversas</span>
         </div>
 
         {/* Filtros por status (chips) */}
@@ -217,7 +217,7 @@ export function ConversationTimelineTV() {
                 key={f.key}
                 onClick={() => setStatusFiltro(f.key)}
                 className={cn(
-                  'px-3 py-1.5 rounded-full text-sm font-semibold transition-all border-2',
+                  'px-4 py-2 rounded-full text-base font-bold transition-all border-2',
                   ativo ? 'shadow-md scale-105' : 'opacity-70 hover:opacity-100 border-transparent'
                 )}
                 style={{
@@ -226,141 +226,143 @@ export function ConversationTimelineTV() {
                   borderColor: ativo ? f.color : 'transparent',
                 }}
               >
-                {f.label} <span className="ml-1 font-bold">({count})</span>
+                {f.label} <span className="ml-1 font-extrabold">({count})</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Lista scrollável */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Lista — grid 2 colunas */}
+      <div className="flex-1 overflow-y-auto p-4">
         {cards.length === 0 ? (
-          <div className="w-full h-full flex flex-col items-center justify-center text-[#6B7280] gap-2 py-12">
-            <div className="text-5xl">📭</div>
-            <div className="text-base">Nenhuma conversa nesse status</div>
+          <div className="w-full h-full flex flex-col items-center justify-center text-[#6B7280] gap-3 py-16">
+            <div className="text-6xl">📭</div>
+            <div className="text-xl">Nenhuma conversa nesse status</div>
           </div>
         ) : (
-          cards.map(({ ficha, cfg, historico, etapas, tempoNoStatus, tempoTotal }) => (
-            <div
-              key={ficha.id}
-              className="rounded-xl border-2 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-              style={{ borderColor: cfg.border }}
-            >
-              {/* Faixa de status no topo */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {cards.map(({ ficha, cfg, historico, etapas, tempoNoStatus, tempoTotal }) => (
               <div
-                className="px-4 py-2 flex items-center justify-between"
-                style={{ background: cfg.gradient, color: '#FFFFFF' }}
+                key={ficha.id}
+                className="rounded-xl border-[3px] shadow-md overflow-hidden"
+                style={{ borderColor: cfg.border }}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{cfg.icon}</span>
-                  <span className="font-bold text-sm uppercase tracking-wide">{cfg.label}</span>
-                </div>
-                <span className="text-xs font-mono opacity-90">{ficha.id}</span>
-              </div>
-
-              <div className="p-4 bg-white">
-                {/* Cliente + Valor */}
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-[#111827] text-base truncate">
-                      {ficha.nome_cliente || ficha.nome_ficha || 'Sem nome'}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
-                        {ficha.telefone_cliente}
-                      </span>
-                    </div>
+                {/* Faixa de status no topo */}
+                <div
+                  className="px-4 py-3 flex items-center justify-between"
+                  style={{ background: cfg.gradient, color: '#FFFFFF' }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{cfg.icon}</span>
+                    <span className="font-extrabold text-lg uppercase tracking-wide">{cfg.label}</span>
                   </div>
-                  {ficha.valor_total != null && ficha.valor_total > 0 && (
-                    <div className="text-right">
-                      <div className="text-[10px] uppercase text-[#6B7280] font-semibold">Valor</div>
-                      <div className="text-base font-bold text-emerald-700">
-                        {formatCurrency(ficha.valor_total)}
+                  <span className="text-sm font-mono opacity-90 font-bold">{ficha.id}</span>
+                </div>
+
+                <div className="p-4 bg-white">
+                  {/* Cliente + Valor */}
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-extrabold text-[#111827] text-xl truncate">
+                        {ficha.nome_cliente || ficha.nome_ficha || 'Sem nome'}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-base font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded font-semibold">
+                          {ficha.telefone_cliente}
+                        </span>
                       </div>
                     </div>
-                  )}
-                </div>
-
-                {/* Barra de progresso GROSSA */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-xs font-semibold text-[#374151]">Progresso</span>
-                    <span className="text-sm font-bold" style={{ color: cfg.bar }}>{cfg.percent}%</span>
+                    {ficha.valor_total != null && ficha.valor_total > 0 && (
+                      <div className="text-right">
+                        <div className="text-xs uppercase text-[#6B7280] font-bold">Valor</div>
+                        <div className="text-xl font-extrabold text-emerald-700">
+                          {formatCurrency(ficha.valor_total)}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="h-6 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                    <div
-                      className="h-full transition-all duration-700 flex items-center justify-end px-2"
-                      style={{ width: `${cfg.percent}%`, background: cfg.gradient }}
-                    >
-                      {cfg.percent >= 20 && (
-                        <span className="text-[10px] font-bold text-white drop-shadow">{cfg.percent}%</span>
-                      )}
+
+                  {/* Barra de progresso GROSSA */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-base font-bold text-[#374151]">Progresso</span>
+                      <span className="text-xl font-extrabold" style={{ color: cfg.bar }}>{cfg.percent}%</span>
                     </div>
-                  </div>
-                </div>
-
-                {/* Timeline de etapas */}
-                <div className="grid grid-cols-4 gap-2 mb-3">
-                  {etapas.map((etapa, idx) => {
-                    const entry = findFirstEntry(historico, etapa);
-                    const passed = !!entry;
-                    const isCurrent = etapa === ficha.status;
-                    const etapaCfg = getStatusConfig(etapa);
-
-                    return (
-                      <div key={`${etapa}-${idx}`} className="flex flex-col items-center text-center">
-                        <div
-                          className={cn(
-                            'w-4 h-4 rounded-full mb-1.5 border-2',
-                            isCurrent && 'animate-pulse ring-4 ring-offset-1'
-                          )}
-                          style={{
-                            backgroundColor: passed ? etapaCfg.bar : '#E5E7EB',
-                            borderColor: passed ? etapaCfg.border : '#D1D5DB',
-                            ...(isCurrent ? { boxShadow: `0 0 0 4px ${etapaCfg.bar}33` } : {}),
-                          }}
-                        />
-                        <div className="text-[10px] font-bold text-[#374151] leading-tight">{etapa}</div>
-                        {entry ? (
-                          <>
-                            <div className="text-[9px] text-[#6B7280] mt-0.5">
-                              {format(new Date(entry.data_inicio), 'dd/MM HH:mm')}
-                            </div>
-                            <div className="text-[9px] text-[#9CA3AF] italic">
-                              {formatRelative(new Date(entry.data_inicio), now)}
-                            </div>
-                          </>
-                        ) : (
-                          <div className="text-[9px] text-[#D1D5DB] mt-0.5">—</div>
+                    <div className="h-8 w-full bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
+                      <div
+                        className="h-full transition-all duration-700 flex items-center justify-end px-3"
+                        style={{ width: `${cfg.percent}%`, background: cfg.gradient }}
+                      >
+                        {cfg.percent >= 20 && (
+                          <span className="text-sm font-extrabold text-white drop-shadow">{cfg.percent}%</span>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  </div>
 
-                {/* Métricas finais */}
-                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100">
-                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: cfg.bg }}>
-                    <div className="text-[9px] uppercase font-semibold" style={{ color: cfg.text }}>
-                      No status
-                    </div>
-                    <div className="text-sm font-bold" style={{ color: cfg.text }}>
-                      {formatDuration(tempoNoStatus)}
-                    </div>
+                  {/* Timeline de etapas */}
+                  <div className="grid grid-cols-4 gap-2 mb-4">
+                    {etapas.map((etapa, idx) => {
+                      const entry = findFirstEntry(historico, etapa);
+                      const passed = !!entry;
+                      const isCurrent = etapa === ficha.status;
+                      const etapaCfg = getStatusConfig(etapa);
+
+                      return (
+                        <div key={`${etapa}-${idx}`} className="flex flex-col items-center text-center">
+                          <div
+                            className={cn(
+                              'w-5 h-5 rounded-full mb-2 border-[3px]',
+                              isCurrent && 'animate-pulse'
+                            )}
+                            style={{
+                              backgroundColor: passed ? etapaCfg.bar : '#E5E7EB',
+                              borderColor: passed ? etapaCfg.border : '#D1D5DB',
+                              ...(isCurrent ? { boxShadow: `0 0 0 5px ${etapaCfg.bar}33` } : {}),
+                            }}
+                          />
+                          <div className="text-sm font-bold text-[#374151] leading-tight">{etapa}</div>
+                          {entry ? (
+                            <>
+                              <div className="text-xs text-[#6B7280] mt-1 font-semibold">
+                                {format(new Date(entry.data_inicio), 'dd/MM HH:mm')}
+                              </div>
+                              <div className="text-xs text-[#9CA3AF] italic">
+                                {formatRelative(new Date(entry.data_inicio), now)}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-xs text-[#D1D5DB] mt-1">—</div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="rounded-lg p-2 text-center bg-gray-50">
-                    <div className="text-[9px] uppercase font-semibold text-[#6B7280]">Tempo total</div>
-                    <div className="text-sm font-bold text-[#111827]">{formatDuration(tempoTotal)}</div>
-                  </div>
-                  <div className="rounded-lg p-2 text-center bg-emerald-50">
-                    <div className="text-[9px] uppercase font-semibold text-emerald-700">Valor</div>
-                    <div className="text-sm font-bold text-emerald-700">{formatCurrency(ficha.valor_total)}</div>
+
+                  {/* Métricas finais */}
+                  <div className="grid grid-cols-3 gap-2 pt-3 border-t-2 border-gray-100">
+                    <div className="rounded-lg p-3 text-center" style={{ backgroundColor: cfg.bg }}>
+                      <div className="text-xs uppercase font-bold" style={{ color: cfg.text }}>
+                        No status
+                      </div>
+                      <div className="text-lg font-extrabold" style={{ color: cfg.text }}>
+                        {formatDuration(tempoNoStatus)}
+                      </div>
+                    </div>
+                    <div className="rounded-lg p-3 text-center bg-gray-50">
+                      <div className="text-xs uppercase font-bold text-[#6B7280]">Tempo total</div>
+                      <div className="text-lg font-extrabold text-[#111827]">{formatDuration(tempoTotal)}</div>
+                    </div>
+                    <div className="rounded-lg p-3 text-center bg-emerald-50">
+                      <div className="text-xs uppercase font-bold text-emerald-700">Valor</div>
+                      <div className="text-lg font-extrabold text-emerald-700">{formatCurrency(ficha.valor_total)}</div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
     </div>
