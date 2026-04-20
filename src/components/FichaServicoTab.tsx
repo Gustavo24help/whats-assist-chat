@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Save, FileText, DollarSign, Calendar as CalendarIcon, CreditCard, User, Clock, X, Copy, Check, XCircle, Loader2, Link, Send, Zap, Lock, Unlock } from "lucide-react";
+import { Save, FileText, DollarSign, Calendar as CalendarIcon, CreditCard, User, Clock, X, Copy, Check, XCircle, Loader2, Link, Send, Zap, Lock, Unlock, MessageCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DescontoField } from "@/components/DescontoField";
