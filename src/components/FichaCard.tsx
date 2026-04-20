@@ -17,8 +17,10 @@ import {
   Loader2,
   CheckCircle2,
   Clock,
-  FileText
+  FileText,
+  MessageCircle
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -305,6 +307,20 @@ export const FichaCard = ({ ficha }: FichaCardProps) => {
             <Copy className="h-3.5 w-3.5 mr-1.5" />
             Copiar Link
           </Button>
+
+          {ficha.telefone_cliente && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="flex-1 h-9 text-xs"
+            >
+              <Link to={`/chat?telefone=${encodeURIComponent(ficha.telefone_cliente)}`} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+                Conversa
+              </Link>
+            </Button>
+          )}
 
           {ficha.formulario_orcamento_ativo === false && (
             <Button
