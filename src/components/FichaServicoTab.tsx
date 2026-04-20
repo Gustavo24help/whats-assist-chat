@@ -776,6 +776,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         }
       }
       
+      // Marca o link original do banco para preservar links legados não tocados pelo usuário
+      (fichaCompleta as any).__pagamento_link_original = fichaCompleta.pagamento_link ?? null;
       setFicha(fichaCompleta);
       
       // ✅ SEMPRE LIMPAR TODOS OS ESTADOS DE HORÁRIO PRIMEIRO
