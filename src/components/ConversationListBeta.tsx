@@ -439,11 +439,7 @@ export const ConversationListBeta = ({
 
     // Filtro de aguardando resposta
     if (showAguardandoRespostaOnly) {
-      filtered = filtered.filter(c =>
-        c.bot_habilitado === false &&
-        c.marcado_nao_lido === true &&
-        isAguardandoRespostaEligivel(c)
-      );
+      filtered = filtered.filter(c => isAguardandoRespostaEligivel(c));
     }
 
     // Manter ordem original do banco (ultima_interacao DESC)
