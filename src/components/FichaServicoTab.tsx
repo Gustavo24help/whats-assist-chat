@@ -521,6 +521,22 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         return;
       }
 
+      // Validar link de pagamento ANTES de montar payload (evita throw no meio do objeto literal,
+      // que silenciava saves de outros campos como "Pagamento Realizado" quando havia link legado).
+      // Só valida se o link foi alterado nesta sessão; preserva links legados não tocados.
+      const linkAtualNoBanco = (ficha as any)?.__pagamento_link_original ?? null;
+      const linkNovo = fichaData.pagamento_link;
+      let pagamentoLinkParaSalvar: string | null = linkNovo ?? null;
+      if (linkNovo !== linkAtualNoBanco) {
+        const linkValidation = validateAsaasLink(linkNovo);
+        if (!linkValidation.ok) {
+          console.error('❌ Link de pagamento inválido:', linkValidation.reason);
+          toast.error(`Link de pagamento inválido: ${linkValidation.reason}`);
+          return;
+        }
+        pagamentoLinkParaSalvar = linkValidation.normalized || null;
+      }
+
       // ✅ Salvar com timezone explícito de Brasília (-03:00) para evitar confusão futura
       let agendamentoISO: string | null = null;
       if (dataAgend && dataAgend.trim() && horaAgend && horaAgend.trim()) {
