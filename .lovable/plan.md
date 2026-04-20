@@ -1,73 +1,52 @@
 
 
-## Entendimento
+## Objetivo
 
-Hoje o envio do link de pagamento e a mensagem de confirmação podem sair de 2 lugares:
+Garantir que fichas que tiveram **Visita Técnica** apareçam no calendário mesmo após a visita ter passado e o status ter mudado (ex: virou "Em andamento", "Agendado", "Finalizado", "Garantia" etc).
 
-1. **Automático** — `auto-finalizacao` (trigger AFTER UPDATE em `fichas_de_servico` quando status vira "Agendado"/"Finalizado") gera link Asaas + envia mensagem.
-2. **Manual** — operador clica em "Gerar/Enviar link" na ficha (`EnviarLinkPagamentoDialog.tsx`) ou envia recibo via `send-recibo`.
+## Diagnóstico atual
 
-Hoje **não há controle** de quantas vezes foi enviado nem **de onde** saiu. O operador pode reenviar sem perceber que o automático já mandou — gerando duplicidade e confusão para o cliente.
+No `AgendamentoCard.tsx` + `calcularEstadoAgendamento.ts`, a data exibida no calendário (`getAgendamentoDates`) é escolhida pelo **status atual** ou pelo `tipo_agendamento`. Quando o status muda de "Visita Técnica" para outro (ex: "Agendado", "Em andamento"), a função passa a ler `horario_agendamento` ou `data_retorno` e **ignora** `data_visita_tecnica`. Resultado: a visita técnica "desaparece" do dia em que aconteceu.
 
-## Solução proposta
+Além disso, a query do `Calendario.tsx` filtra fichas pela data do agendamento principal — fichas cuja única data preenchida é `data_visita_tecnica` podem ficar fora do range buscado.
 
-### 1. Rastreamento de envios (banco)
+## Mudanças
 
-Adicionar campos em `fichas_de_servico` (ou usar `notas` parsing — mas campos dedicados são melhor):
+### 1. `src/pages/Calendario.tsx`
+- Expandir a query para também trazer fichas com `data_visita_tecnica` ou `horario_visita_tecnica` dentro do range visível (além das já buscadas por `horario_agendamento` / `data_retorno`).
+- Sem alterar status nem nenhum dado — apenas amplia o conjunto exibido.
 
-| Campo | Tipo | Descrição |
-|---|---|---|
-| `link_pagamento_envio_count` | int default 0 | Quantas vezes o link foi enviado |
-| `link_pagamento_ultimo_envio_em` | timestamptz | Timestamp do último envio |
-| `link_pagamento_ultimo_envio_origem` | text | `'automatico'` ou `'manual'` |
-| `link_pagamento_ultimo_envio_por` | uuid | user_id (null se automático) |
-| `recibo_envio_count` | int default 0 | Já existe `recibo_enviado` boolean — adicionar contador |
-| `recibo_ultimo_envio_origem` | text | `'automatico'` ou `'manual'` |
-| `recibo_ultimo_envio_por` | uuid | user_id |
+### 2. `src/components/calendario/AgendamentoCard.tsx` (lógica de slot)
+- Para cada ficha com **visita técnica preenchida**, gerar um "slot" adicional no dia da visita, independente do status atual.
+- Quando o status atual for diferente de "Visita Técnica", o slot da visita aparece com:
+  - Cor cinza/roxa suave (visual de "histórico")
+  - Prefixo `[VT]` no card
+  - Tooltip: "Visita técnica realizada"
+- O agendamento principal (Agendado/Retorno/Em andamento/Finalizado/Garantia) continua aparecendo normalmente no seu próprio dia/horário com a cor já definida.
 
-Default 0 / null preserva todas as fichas existentes — nenhum dado é alterado.
+### 3. `CalendarioDiario.tsx`, `CalendarioSemanal.tsx`, `CalendarioMensal.tsx`
+- Ajustar a função que distribui fichas por dia/hora para emitir **múltiplas entradas** por ficha quando ela tiver mais de uma data relevante (visita + agendamento, por exemplo). Hoje cada ficha vira só 1 entrada.
+- Cada entrada carrega uma flag `tipoSlot: 'visita' | 'agendamento' | 'retorno'` usada pelo `AgendamentoCard` para escolher rótulo e cor.
 
-### 2. Registrar origem em todos os pontos de envio
+### 4. `src/components/calendario/AgendamentoCard.tsx` (visual)
+- Aceitar prop opcional `tipoSlot`.
+- Se `tipoSlot === 'visita'` E o status atual ≠ "Visita Técnica" → renderiza em modo "histórico" (cor amarela mais clara/opaca + prefixo `[VT]`).
+- Caso contrário, comportamento atual permanece intacto.
 
-- `auto-finalizacao/index.ts` → ao enviar, incrementa contador com origem `'automatico'`.
-- `EnviarLinkPagamentoDialog.tsx` → ao enviar, incrementa com `'manual'` + user_id.
-- `send-recibo` (quando chamado pelo webhook Asaas) → origem `'automatico'`.
-- Botão manual de "Enviar recibo" (se existir, ou criar) → origem `'manual'`.
+### 5. Filtros de status no topo do calendário
+- Adicionar o item **"Visita Técnica (histórico)"** no grupo de filtros, controlando a exibição dos slots de visita já passada. Por padrão fica **ligado**.
+- Os filtros de status existentes continuam funcionando como hoje sobre o agendamento principal.
 
-### 3. Aviso de confirmação no manual
+## Salvaguardas (sem alterar dados)
 
-No `EnviarLinkPagamentoDialog` (e no fluxo manual de recibo), **antes de abrir o dialog de envio**, fazer um SELECT no count. Se `> 0`:
+- Nenhuma migração, nenhum UPDATE, nenhuma alteração em `fichas_de_servico`.
+- `getAgendamentoDates` original não é modificada — apenas adicionamos uma função paralela que extrai **todos** os slots relevantes para visualização.
+- Fichas antigas continuam aparecendo igual; a visita técnica passa a aparecer **adicionalmente** quando existir.
+- Timezone: continuamos usando os mesmos campos (`data_visita_tecnica` / `horario_visita_tecnica`) sem reparse — sem risco de shift de horário.
+- Status, valores, pagamentos: nada é tocado.
 
-- Mostrar `AlertDialog` com:
-  - "Este link já foi enviado **N vez(es)**."
-  - "Último envio: **DD/MM HH:mm** por **[automático | nome do operador]**."
-  - Botões: **"Cancelar"** / **"Reenviar mesmo assim"**.
+## Fora de escopo
 
-Só após confirmar, abre o `EnviarLinkPagamentoDialog` normal.
+- Não altera comportamento da ficha em si (FichaServicoTab) — a visita técnica já fica registrada lá; só passa a ser visível no calendário sempre.
+- Não cria histórico novo de status; usa apenas os campos já existentes na ficha.
 
-### 4. Indicador visual na ficha
-
-Pequeno badge na seção de pagamento da ficha:
-- "Link enviado 1× (automático)" ou "Link enviado 2× (último: manual por João)".
-- Ajuda o operador a ver de relance sem precisar abrir o dialog.
-
-## Arquivos afetados
-
-- **Migration nova** — adicionar 6 colunas em `fichas_de_servico` (com defaults seguros, nada quebra).
-- `supabase/functions/auto-finalizacao/index.ts` — gravar origem `automatico` ao enviar.
-- `supabase/functions/asaas-webhook/index.ts` — gravar origem `automatico` ao disparar recibo.
-- `supabase/functions/send-recibo/index.ts` — receber parâmetro `origem` opcional; default `automatico`.
-- `src/components/EnviarLinkPagamentoDialog.tsx` — incrementar contador como `manual` + user_id ao enviar.
-- `src/components/FichaServicoTab.tsx` (ou onde abre o dialog de link) — pré-check com `AlertDialog` se já houve envio.
-- Componente novo opcional: `ConfirmReenvioDialog.tsx` reutilizável para link e recibo.
-
-## Validação anti-regressão
-
-- Defaults de coluna = 0/null → fichas antigas seguem funcionando, exibem "primeiro envio" no fluxo manual sem aviso.
-- Nenhum envio é bloqueado — só adiciona uma confirmação extra.
-- Contador é **incremento aditivo** — não altera dados financeiros nem status.
-- O envio automático continua funcionando; só passa a registrar origem.
-
-## Pergunta antes de implementar
-
-Apenas uma dúvida para garantir que entrego o que você quer:
