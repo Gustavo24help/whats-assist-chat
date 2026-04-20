@@ -521,6 +521,22 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         return;
       }
 
+      // Validar link de pagamento ANTES de montar payload (evita throw no meio do objeto literal,
+      // que silenciava saves de outros campos como "Pagamento Realizado" quando havia link legado).
+      // Só valida se o link foi alterado nesta sessão; preserva links legados não tocados.
+      const linkAtualNoBanco = (ficha as any)?.__pagamento_link_original ?? null;
+      const linkNovo = fichaData.pagamento_link;
+      let pagamentoLinkParaSalvar: string | null = linkNovo ?? null;
+      if (linkNovo !== linkAtualNoBanco) {
+        const linkValidation = validateAsaasLink(linkNovo);
+        if (!linkValidation.ok) {
+          console.error('❌ Link de pagamento inválido:', linkValidation.reason);
+          toast.error(`Link de pagamento inválido: ${linkValidation.reason}`);
+          return;
+        }
+        pagamentoLinkParaSalvar = linkValidation.normalized || null;
+      }
+
       // ✅ Salvar com timezone explícito de Brasília (-03:00) para evitar confusão futura
       let agendamentoISO: string | null = null;
       if (dataAgend && dataAgend.trim() && horaAgend && horaAgend.trim()) {
@@ -563,11 +579,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         pagamento_tipo: fichaData.pagamento_tipo as any,
         pagamento_parcelas: fichaData.pagamento_parcelas,
         pagamento_gerar_link: fichaData.pagamento_gerar_link,
-        pagamento_link: (() => {
-          const linkValidation = validateAsaasLink(fichaData.pagamento_link);
-          if (linkValidation.ok) return linkValidation.normalized || null;
-          throw new Error(`Link de pagamento inválido: ${linkValidation.reason}`);
-        })(),
+        pagamento_link: pagamentoLinkParaSalvar,
         pagamento_realizado: fichaData.pagamento_realizado,
         notas: fichaData.notas?.trim() || null,
         categoria_id: fichaData.categoria_id,
@@ -764,6 +776,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         }
       }
       
+      // Marca o link original do banco para preservar links legados não tocados pelo usuário
+      (fichaCompleta as any).__pagamento_link_original = fichaCompleta.pagamento_link ?? null;
       setFicha(fichaCompleta);
       
       // ✅ SEMPRE LIMPAR TODOS OS ESTADOS DE HORÁRIO PRIMEIRO
