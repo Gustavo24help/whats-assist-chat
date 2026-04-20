@@ -55,6 +55,7 @@ import VisibilitySettings from "./pages/VisibilitySettings";
 import Orcamentos from "./pages/Orcamentos";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
+import PagamentosOrfaos from "./pages/PagamentosOrfaos";
 
 const queryClient = new QueryClient();
 
@@ -349,6 +350,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <ContasPagar />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/financeiro/pagamentos-orfaos"
+                element={
+                  <ProtectedRoute>
+                    <PagamentosOrfaos />
                   </ProtectedRoute>
                 }
               />

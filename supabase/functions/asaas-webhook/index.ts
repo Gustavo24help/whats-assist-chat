@@ -427,11 +427,42 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ========== NÃO IDENTIFICADO — sempre 200 + audit ==========
+    // ========== NÃO IDENTIFICADO — sempre 200 + audit + notificação ==========
     if (!fichaId) {
       const detalhe = `Payment ${payment.id} sem ficha. Trail: ${trail.join(" | ")} | customer=${payment.customer} link=${payment.paymentLink} value=${payment.value}`;
       console.error(`[asaas-webhook] ❌ Não identificado: ${detalhe}`);
       await logAudit(supabase, "DESCONHECIDA", "webhook_pagamento", "unidentified", detalhe, payment.id);
+
+      // Notifica operadores (admin + supervisor) sobre pagamento órfão
+      try {
+        const { data: admins } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .in("role", ["admin", "supervisor", "admin_ti"]);
+
+        if (admins?.length) {
+          const valorFmt = payment.value
+            ? `R$ ${Number(payment.value).toFixed(2)}`
+            : "valor desconhecido";
+          const notifs = admins.map((a: any) => ({
+            usuario_destino: a.user_id,
+            tipo: "pagamento_orfao",
+            titulo: "💰 Pagamento sem ficha vinculada",
+            descricao: `Asaas confirmou ${valorFmt} (payment ${payment.id}) mas não conseguimos identificar a ficha. Revise em Pagamentos Órfãos.`,
+            referencia_id: payment.id,
+            lida: false,
+          }));
+          const { error: notifErr } = await supabase.from("notificacoes").insert(notifs);
+          if (notifErr) {
+            console.warn(`[asaas-webhook] ⚠️ Erro criando notificações órfão: ${notifErr.message}`);
+          } else {
+            console.log(`[asaas-webhook] 🔔 Notificações órfão enviadas para ${admins.length} operador(es)`);
+          }
+        }
+      } catch (e) {
+        console.warn("[asaas-webhook] ⚠️ Erro ao notificar operadores sobre órfão:", e);
+      }
+
       return unidentifiedResponse(payment.id, "Pagamento recebido mas não vinculado a nenhuma ficha. Registrado para revisão manual.");
     }
 

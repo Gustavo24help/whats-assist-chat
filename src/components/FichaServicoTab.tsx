@@ -29,6 +29,7 @@ import { ConfirmReenvioDialog } from "@/components/ConfirmReenvioDialog";
 import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
+import { validateAsaasLink } from "@/lib/asaasLinkValidator";
 
 interface FichaServicoTabProps {
   fichaId: string;
@@ -562,7 +563,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         pagamento_tipo: fichaData.pagamento_tipo as any,
         pagamento_parcelas: fichaData.pagamento_parcelas,
         pagamento_gerar_link: fichaData.pagamento_gerar_link,
-        pagamento_link: fichaData.pagamento_link?.trim() || null,
+        pagamento_link: (() => {
+          const linkValidation = validateAsaasLink(fichaData.pagamento_link);
+          if (linkValidation.ok) return linkValidation.normalized || null;
+          throw new Error(`Link de pagamento inválido: ${linkValidation.reason}`);
+        })(),
         pagamento_realizado: fichaData.pagamento_realizado,
         notas: fichaData.notas?.trim() || null,
         categoria_id: fichaData.categoria_id,
@@ -2361,7 +2366,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     value={ficha?.pagamento_link || ""}
                     onChange={(e) => updateFicha({ pagamento_link: e.target.value })}
                     placeholder="https://www.asaas.com/c/..."
-                    className="h-9 text-sm focus:ring-2 focus:ring-primary/20 flex-1"
+                    className={cn(
+                      "h-9 text-sm focus:ring-2 flex-1",
+                      (() => {
+                        const v = validateAsaasLink(ficha?.pagamento_link);
+                        return v.ok
+                          ? "focus:ring-primary/20"
+                          : "border-destructive focus:ring-destructive/30";
+                      })()
+                    )}
                   />
                   {ficha?.pagamento_link && (
                     <Button
@@ -2377,6 +2390,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     </Button>
                   )}
                 </div>
+                {(() => {
+                  const v = validateAsaasLink(ficha?.pagamento_link);
+                  if (v.ok) return null;
+                  return (
+                    <p className="text-[11px] text-destructive mt-1">
+                      ⚠ {v.reason}
+                    </p>
+                  );
+                })()}
               </div>
 
               {/* Botão para gerar link via Asaas direto */}
