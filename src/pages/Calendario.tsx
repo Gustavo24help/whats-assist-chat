@@ -58,6 +58,9 @@ export default function Calendario() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // Buscar fichas com QUALQUER data relevante (agendamento, retorno ou visita técnica),
+      // independentemente do status atual. Isso garante que fichas que tiveram visita técnica
+      // continuem aparecendo no calendário mesmo após mudança de status (ex: Perdido, Finalizado).
       const { data, error } = await supabase
         .from('fichas_de_servico')
         .select(`
@@ -72,7 +75,6 @@ export default function Calendario() {
           clientes!fichas_de_servico_telefone_cliente_fkey(nome),
           categorias!fichas_de_servico_categoria_id_fkey(nome)
         `)
-        .in('status', STATUS_VALUES as any)
         .or('horario_agendamento.not.is.null,data_retorno.not.is.null,horario_visita_tecnica.not.is.null,data_visita_tecnica.not.is.null');
 
       if (error) throw error;
