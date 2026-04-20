@@ -565,10 +565,8 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         pagamento_gerar_link: fichaData.pagamento_gerar_link,
         pagamento_link: (() => {
           const linkValidation = validateAsaasLink(fichaData.pagamento_link);
-          if (!linkValidation.ok) {
-            throw new Error(`Link de pagamento inválido: ${linkValidation.reason}`);
-          }
-          return linkValidation.normalized || null;
+          if (linkValidation.ok) return linkValidation.normalized || null;
+          throw new Error(`Link de pagamento inválido: ${linkValidation.reason}`);
         })(),
         pagamento_realizado: fichaData.pagamento_realizado,
         notas: fichaData.notas?.trim() || null,
