@@ -865,6 +865,9 @@ function DashboardTVContent() {
         return renderOpenConversationsWidget();
       }
 
+      case 'conversation-timeline':
+        return <ConversationTimelineTV />;
+
       default:
         return null;
     }
