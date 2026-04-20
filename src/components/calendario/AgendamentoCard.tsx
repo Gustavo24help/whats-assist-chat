@@ -80,7 +80,7 @@ export function AgendamentoCard({ ficha, onClick, compact = false, contextoHorar
     <button
       onClick={onClick}
       className={`w-full text-left rounded-lg px-2 py-1 text-xs font-medium text-white truncate transition-all duration-150 active:scale-[0.97] ${isCancelado ? 'opacity-50' : ''}`}
-      style={{ backgroundColor: estado.cor }}
+      style={{ backgroundColor: corFundo }}
       title={`${ficha.id} - ${ficha.nome_cliente || 'Cliente'} - ${ficha.prestadores?.nome || 'Sem prestador'}`}
     >
       {compact ? (
