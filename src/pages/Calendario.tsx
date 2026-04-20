@@ -109,11 +109,11 @@ export default function Calendario() {
       const statusAtual = f.status || '';
       const temVT = !!(f.data_visita_tecnica || f.horario_visita_tecnica);
       const statusOk = filtroStatus.includes(statusAtual);
-      const vtHistoricaOk = temVT && filtroStatus.includes('Visita Técnica') && statusAtual !== 'Visita Técnica';
+      const vtHistoricaOk = temVT && mostrarVisitaHistorica;
       if (!statusOk && !vtHistoricaOk) return false;
       return true;
     });
-  }, [fichas, filtroTipo, filtroPrestador, filtroStatus]);
+  }, [fichas, filtroTipo, filtroPrestador, filtroStatus, mostrarVisitaHistorica]);
 
   const contadoresStatus = useMemo(() => {
     const c: Record<string, number> = {};
