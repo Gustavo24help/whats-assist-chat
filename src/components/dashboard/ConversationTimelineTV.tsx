@@ -90,7 +90,7 @@ export function ConversationTimelineTV() {
             status_novo, data_inicio
           )
         `)
-        .in('status', STATUS_FILTRADOS as unknown as string[])
+        .in('status', STATUS_FILTRADOS as any)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
