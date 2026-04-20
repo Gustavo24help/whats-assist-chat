@@ -41,7 +41,29 @@ interface Cliente {
   tempoNoStatusMinutos?: number;
   statusAlertColor?: string | null;
   ficha_id_real?: string | null;
+  horario_visita_tecnica?: string | null;
+  data_visita_tecnica?: string | null;
 }
+
+// Helper: conversa elegível para o alerta "precisando de resposta"
+// Critério: status Ficha Criada / Orçamento Enviado, OU possui Visita Técnica cuja hora já passou
+const isAguardandoRespostaEligivel = (c: {
+  status_ficha?: string;
+  horario_visita_tecnica?: string | null;
+  data_visita_tecnica?: string | null;
+}): boolean => {
+  if (c.status_ficha === 'Ficha Criada' || c.status_ficha === 'Orçamento Enviado') {
+    return true;
+  }
+  const vtIso = c.horario_visita_tecnica || c.data_visita_tecnica;
+  if (vtIso) {
+    const vtDate = new Date(vtIso);
+    if (!isNaN(vtDate.getTime()) && vtDate.getTime() <= Date.now()) {
+      return true;
+    }
+  }
+  return false;
+};
 
 interface ConversationListProps {
   selectedClienteTelefone: string | null;
@@ -417,8 +439,10 @@ export const ConversationListBeta = ({
 
     // Filtro de aguardando resposta
     if (showAguardandoRespostaOnly) {
-      filtered = filtered.filter(c => 
-        c.bot_habilitado === false && c.marcado_nao_lido === true
+      filtered = filtered.filter(c =>
+        c.bot_habilitado === false &&
+        c.marcado_nao_lido === true &&
+        isAguardandoRespostaEligivel(c)
       );
     }
 
@@ -887,7 +911,7 @@ export const ConversationListBeta = ({
         .map(c => c.ficha_ativa_id);
       
       const fichasAtivas = await chunkedIn(
-        'fichas_de_servico', 'id, nome_ficha, status, pagamento_link, pagamento_realizado, created_at, updated_at',
+        'fichas_de_servico', 'id, nome_ficha, status, pagamento_link, pagamento_realizado, created_at, updated_at, horario_visita_tecnica, data_visita_tecnica',
         'id', fichasAtivasIds
       );
 
@@ -900,7 +924,7 @@ export const ConversationListBeta = ({
         .map(c => c.telefone);
       
       const ultimasFichas = await chunkedIn(
-        'fichas_de_servico', 'id, telefone_cliente, nome_ficha, status, created_at, updated_at, pagamento_link, pagamento_realizado',
+        'fichas_de_servico', 'id, telefone_cliente, nome_ficha, status, created_at, updated_at, pagamento_link, pagamento_realizado, horario_visita_tecnica, data_visita_tecnica',
         'telefone_cliente', telefonesSeficha,
         undefined,
         'created_at'
@@ -1073,7 +1097,9 @@ export const ConversationListBeta = ({
           atendente_id: cliente.atendente_id || null,
           tempoNoStatusMinutos: minutosNoStatus,
           statusAlertColor: escalatedAlertColor,
-          ficha_id_real: fichaIdParaOrcamentos || null
+          ficha_id_real: fichaIdParaOrcamentos || null,
+          horario_visita_tecnica: (fichaData as any)?.horario_visita_tecnica || null,
+          data_visita_tecnica: (fichaData as any)?.data_visita_tecnica || null
         };
       });
 
@@ -1106,10 +1132,13 @@ export const ConversationListBeta = ({
     }
   };
 
-  // Contagem de atendimentos aguardando resposta (bot desabilitado + não lido pelo operador)
+  // Contagem de atendimentos aguardando resposta
+  // Critério: bot desabilitado + não lido pelo operador + escopo (Ficha Criada / Orçamento Enviado / VT já passou)
   const aguardandoRespostaCount = useMemo(() => {
-    return clientes.filter(c => 
-      c.bot_habilitado === false && c.marcado_nao_lido === true
+    return clientes.filter(c =>
+      c.bot_habilitado === false &&
+      c.marcado_nao_lido === true &&
+      isAguardandoRespostaEligivel(c)
     ).length;
   }, [clientes]);
 
