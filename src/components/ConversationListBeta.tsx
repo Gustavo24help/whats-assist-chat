@@ -1721,7 +1721,7 @@ export const ConversationListBeta = ({
                       statusConversa={cliente.status_conversa}
                       ultimaInteracao={cliente.ultima_interacao}
                       isSelected={selectedClienteTelefone === cliente.telefone}
-                      unreadCount={cliente.marcado_nao_lido ? 1 : 0}
+                      unreadCount={cliente.unread_count_real || 0}
                       onClick={() => {
                         if (selectionMode) {
                           toggleClienteSelection(cliente.telefone);
