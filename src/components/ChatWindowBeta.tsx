@@ -2236,8 +2236,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {!fichaOpen && (
-            <>
+          {/* Header actions — sempre visíveis (Assumir + delegação não dependem da ficha) */}
+          <></>
               {/* Botão copiar info do serviço para prestador */}
               {fichaId && (
                 <Button
