@@ -166,14 +166,20 @@ function FichaCard({ ficha, now }: CardProps) {
     ? now.getTime() - new Date(statusAtualHistorico.data_inicio).getTime()
     : tempoTotal;
 
-  // Deltas entre etapas (intervalos)
+  // Deltas entre etapas — fallback para created_at quando "Ficha Criada" não tem histórico
+  const getEtapaTimestamp = (etapa: string): Date | null => {
+    const entry = findFirstEntry(historico, etapa);
+    if (entry) return new Date(entry.data_inicio);
+    if (etapa === 'Ficha Criada') return new Date(ficha.created_at);
+    return null;
+  };
+
   const deltas: (string | null)[] = [];
   for (let i = 0; i < etapas.length - 1; i++) {
-    const a = findFirstEntry(historico, etapas[i]);
-    const b = findFirstEntry(historico, etapas[i + 1]);
+    const a = getEtapaTimestamp(etapas[i]);
+    const b = getEtapaTimestamp(etapas[i + 1]);
     if (a && b) {
-      const diff = new Date(b.data_inicio).getTime() - new Date(a.data_inicio).getTime();
-      deltas.push(formatDuration(diff));
+      deltas.push(formatDuration(b.getTime() - a.getTime()));
     } else {
       deltas.push(null);
     }
