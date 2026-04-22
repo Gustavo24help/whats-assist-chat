@@ -258,15 +258,15 @@ function FichaCard({ ficha, now }: CardProps) {
                       boxShadow: isCurrent ? `0 0 0 4px ${etapaCfg.bar}33` : undefined,
                     }}
                   />
-                  <div className="text-xs font-medium leading-tight text-foreground">
+                  <div className="text-sm font-medium leading-tight text-foreground">
                     {etapa}
                   </div>
                   {entry && (
                     <>
-                      <div className="text-xs font-normal text-muted-foreground mt-0.5">
+                      <div className="text-sm font-normal text-muted-foreground mt-0.5">
                         {format(new Date(entry.data_inicio), 'dd/MM HH:mm')}
                       </div>
-                      <div className="text-xs font-normal italic text-muted-foreground">
+                      <div className="text-sm font-normal italic text-muted-foreground">
                         {formatRelative(new Date(entry.data_inicio), now)}
                       </div>
                     </>
@@ -277,7 +277,7 @@ function FichaCard({ ficha, now }: CardProps) {
                 {idx < etapas.length - 1 && (
                   <div className="flex items-center justify-center pt-1">
                     {deltas[idx] && (
-                      <span className="text-xs font-normal text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full whitespace-nowrap">
+                      <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap">
                         ⏱ {deltas[idx]}
                       </span>
                     )}
