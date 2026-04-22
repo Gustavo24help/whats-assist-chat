@@ -2469,7 +2469,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                   <Check className="h-4 w-4 ml-1 text-green-600 dark:text-green-400" />
                 )}
               </Button>
-            >
+          </>
 
           {onToggleFicha && (
             <Button
