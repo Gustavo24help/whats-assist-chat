@@ -1,14 +1,9 @@
-import { ConversationTimelineTV } from '@/components/dashboard/ConversationTimelineTV';
+import { AcompanhamentoConversas } from '@/components/AcompanhamentoConversas';
 
 /**
  * Página dedicada do Acompanhamento de Conversas para TV.
- * Tela cheia, sem sistema freeform (não pode redimensionar/mover).
- * Layout fixo: 2 colunas de cards, com rolagem vertical.
+ * Usa o mesmo componente da rota /acompanhamento — tela cheia, sem sidebar.
  */
 export default function DashboardTVConversas() {
-  return (
-    <div className="fixed inset-0 bg-[#0B1220] overflow-hidden">
-      <ConversationTimelineTV />
-    </div>
-  );
+  return <AcompanhamentoConversas />;
 }
