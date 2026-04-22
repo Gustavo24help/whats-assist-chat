@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -241,9 +241,9 @@ function FichaCard({ ficha, now }: CardProps) {
             const etapaCfg = getStatusConfig(etapa);
 
             return (
-              <>
+              <React.Fragment key={`step-${etapa}-${idx}`}>
                 {/* Nó */}
-                <div key={`node-${etapa}-${idx}`} className="flex flex-col items-center text-center px-1 min-w-[72px]">
+                <div className="flex flex-col items-center text-center px-1 min-w-[72px]">
                   <div
                     className={cn(
                       'rounded-full mb-1.5 transition-all',
@@ -274,10 +274,7 @@ function FichaCard({ ficha, now }: CardProps) {
 
                 {/* Delta (intervalo) — só se não for o último */}
                 {idx < etapas.length - 1 && (
-                  <div
-                    key={`delta-${idx}`}
-                    className="flex items-center justify-center pt-1"
-                  >
+                  <div className="flex items-center justify-center pt-1">
                     {deltas[idx] && (
                       <span className="text-xs font-normal text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full whitespace-nowrap">
                         ⏱ {deltas[idx]}
@@ -285,7 +282,7 @@ function FichaCard({ ficha, now }: CardProps) {
                     )}
                   </div>
                 )}
-              </>
+              </React.Fragment>
             );
           })}
         </div>
