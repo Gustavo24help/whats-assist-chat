@@ -57,7 +57,7 @@ import Orcamentos from "./pages/Orcamentos";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
 import PagamentosOrfaos from "./pages/PagamentosOrfaos";
-import Acompanhamento from "./pages/Acompanhamento";
+
 
 const queryClient = new QueryClient();
 
@@ -376,14 +376,6 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <TarefasOperacionais />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/acompanhamento"
-                element={
-                  <ProtectedRoute>
-                    <Acompanhamento />
                   </ProtectedRoute>
                 }
               />
