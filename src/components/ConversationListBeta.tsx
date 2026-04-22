@@ -996,27 +996,35 @@ export const ConversationListBeta = ({
         });
       }
 
-      // ✅ Buscar última mensagem de CLIENTE por telefone para comparar com leitura
+      // ✅ Buscar TODAS as mensagens de CLIENTE por telefone para contar não lidas
       // Mensagens do cliente podem ter remetente='cliente' (legado) OU tipo_remetente='cliente' (webhook/Twilio)
-      // Buscamos ambos os casos para compatibilidade
-      const ultimasMensagensClienteLegado = await chunkedIn(
+      const mensagensClienteLegado = await chunkedIn(
         'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
         (q) => q.eq('remetente', 'cliente'),
         'data_hora'
       );
-      const ultimasMensagensClienteTipo = await chunkedIn(
+      const mensagensClienteTipo = await chunkedIn(
         'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
         (q) => q.eq('tipo_remetente', 'cliente'),
         'data_hora'
       );
 
+      // Map: cliente_id -> { lastDate, allDates[] (deduplicated) }
       const ultimaMsgClienteMap = new Map<string, string>();
-      // Merge both result sets, keeping the most recent date per client
-      [...(ultimasMensagensClienteLegado || []), ...(ultimasMensagensClienteTipo || [])].forEach(msg => {
+      const todasMsgsClienteMap = new Map<string, Set<string>>();
+      [...(mensagensClienteLegado || []), ...(mensagensClienteTipo || [])].forEach(msg => {
+        // Latest date
         const existing = ultimaMsgClienteMap.get(msg.cliente_id);
         if (!existing || new Date(msg.data_hora) > new Date(existing)) {
           ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
         }
+        // Dedupe by exact data_hora to avoid double-counting messages that match BOTH remetente AND tipo_remetente filters
+        let set = todasMsgsClienteMap.get(msg.cliente_id);
+        if (!set) {
+          set = new Set<string>();
+          todasMsgsClienteMap.set(msg.cliente_id, set);
+        }
+        set.add(msg.data_hora);
       });
 
       // ✅ Combinar tudo SEM QUERIES EXTRAS
