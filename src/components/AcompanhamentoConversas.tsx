@@ -166,14 +166,20 @@ function FichaCard({ ficha, now }: CardProps) {
     ? now.getTime() - new Date(statusAtualHistorico.data_inicio).getTime()
     : tempoTotal;
 
-  // Deltas entre etapas (intervalos)
+  // Deltas entre etapas — fallback para created_at quando "Ficha Criada" não tem histórico
+  const getEtapaTimestamp = (etapa: string): Date | null => {
+    const entry = findFirstEntry(historico, etapa);
+    if (entry) return new Date(entry.data_inicio);
+    if (etapa === 'Ficha Criada') return new Date(ficha.created_at);
+    return null;
+  };
+
   const deltas: (string | null)[] = [];
   for (let i = 0; i < etapas.length - 1; i++) {
-    const a = findFirstEntry(historico, etapas[i]);
-    const b = findFirstEntry(historico, etapas[i + 1]);
+    const a = getEtapaTimestamp(etapas[i]);
+    const b = getEtapaTimestamp(etapas[i + 1]);
     if (a && b) {
-      const diff = new Date(b.data_inicio).getTime() - new Date(a.data_inicio).getTime();
-      deltas.push(formatDuration(diff));
+      deltas.push(formatDuration(b.getTime() - a.getTime()));
     } else {
       deltas.push(null);
     }
@@ -237,37 +243,40 @@ function FichaCard({ ficha, now }: CardProps) {
         >
           {etapas.map((etapa, idx) => {
             const entry = findFirstEntry(historico, etapa);
-            const passed = !!entry;
+            // Fallback: "Ficha Criada" sem histórico usa created_at da ficha
+            const fallbackDate = !entry && etapa === 'Ficha Criada' ? new Date(ficha.created_at) : null;
+            const displayDate = entry ? new Date(entry.data_inicio) : fallbackDate;
+            const passed = !!displayDate;
             const isCurrent = etapa === ficha.status;
             const etapaCfg = getStatusConfig(etapa);
 
             return (
               <React.Fragment key={`step-${etapa}-${idx}`}>
                 {/* Nó */}
-                <div className="flex flex-col items-center text-center px-1 min-w-[72px]">
+                <div className="flex flex-col items-center text-center px-1 min-w-[88px]">
                   <div
                     className={cn(
-                      'rounded-full mb-1.5 transition-all',
+                      'rounded-full mb-2 transition-all',
                       isCurrent && 'animate-pulse',
                     )}
                     style={{
-                      width: '14px',
-                      height: '14px',
+                      width: '18px',
+                      height: '18px',
                       backgroundColor: passed ? etapaCfg.bar : 'transparent',
                       border: `2px solid ${passed ? etapaCfg.bar : 'hsl(var(--muted-foreground) / 0.4)'}`,
                       boxShadow: isCurrent ? `0 0 0 4px ${etapaCfg.bar}33` : undefined,
                     }}
                   />
-                  <div className="text-sm font-medium leading-tight text-foreground">
+                  <div className="text-lg font-semibold leading-tight text-foreground">
                     {etapa}
                   </div>
-                  {entry && (
+                  {displayDate && (
                     <>
-                      <div className="text-sm font-normal text-muted-foreground mt-0.5">
-                        {format(new Date(entry.data_inicio), 'dd/MM HH:mm')}
+                      <div className="text-base font-medium text-muted-foreground mt-1">
+                        {format(displayDate, 'dd/MM HH:mm')}
                       </div>
-                      <div className="text-sm font-normal italic text-muted-foreground">
-                        {formatRelative(new Date(entry.data_inicio), now)}
+                      <div className="text-base font-normal italic text-muted-foreground">
+                        {formatRelative(displayDate, now)}
                       </div>
                     </>
                   )}
@@ -275,9 +284,9 @@ function FichaCard({ ficha, now }: CardProps) {
 
                 {/* Delta (intervalo) — só se não for o último */}
                 {idx < etapas.length - 1 && (
-                  <div className="flex items-center justify-center pt-1">
+                  <div className="flex items-center justify-center pt-2">
                     {deltas[idx] && (
-                      <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap">
+                      <span className="text-base font-semibold text-foreground bg-muted px-3 py-1 rounded-full whitespace-nowrap">
                         ⏱ {deltas[idx]}
                       </span>
                     )}
