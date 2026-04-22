@@ -270,13 +270,13 @@ function FichaCard({ ficha, now }: CardProps) {
                   <div className="text-lg font-semibold leading-tight text-foreground">
                     {etapa}
                   </div>
-                  {entry && (
+                  {displayDate && (
                     <>
                       <div className="text-base font-medium text-muted-foreground mt-1">
-                        {format(new Date(entry.data_inicio), 'dd/MM HH:mm')}
+                        {format(displayDate, 'dd/MM HH:mm')}
                       </div>
                       <div className="text-base font-normal italic text-muted-foreground">
-                        {formatRelative(new Date(entry.data_inicio), now)}
+                        {formatRelative(displayDate, now)}
                       </div>
                     </>
                   )}
