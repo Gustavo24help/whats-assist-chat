@@ -243,7 +243,10 @@ function FichaCard({ ficha, now }: CardProps) {
         >
           {etapas.map((etapa, idx) => {
             const entry = findFirstEntry(historico, etapa);
-            const passed = !!entry;
+            // Fallback: "Ficha Criada" sem histórico usa created_at da ficha
+            const fallbackDate = !entry && etapa === 'Ficha Criada' ? new Date(ficha.created_at) : null;
+            const displayDate = entry ? new Date(entry.data_inicio) : fallbackDate;
+            const passed = !!displayDate;
             const isCurrent = etapa === ficha.status;
             const etapaCfg = getStatusConfig(etapa);
 
