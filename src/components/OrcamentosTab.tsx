@@ -18,6 +18,7 @@ import { Check, Copy, Pencil, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { formatBRL } from "@/lib/utils";
 import { AprovacaoOrcamentoDialog } from "./AprovacaoOrcamentoDialog";
 
 interface OrcamentosTabProps {
@@ -343,21 +344,21 @@ export const OrcamentosTab = ({ fichaId }: OrcamentosTabProps) => {
                 {orc.valor_total !== null && (
                   <div className="text-sm">
                     <span className="font-medium text-foreground">Valor Total:</span> 
-                    <span className="text-muted-foreground ml-1">R$ {orc.valor_total.toFixed(2)}</span>
+                    <span className="text-muted-foreground ml-1">{formatBRL(orc.valor_total)}</span>
                   </div>
                 )}
                 
                 {orc.valor_mao_obra !== null && (
                   <div className="text-sm">
                     <span className="font-medium text-foreground">Mão de Obra:</span> 
-                    <span className="text-muted-foreground ml-1">R$ {orc.valor_mao_obra.toFixed(2)}</span>
+                    <span className="text-muted-foreground ml-1">{formatBRL(orc.valor_mao_obra)}</span>
                   </div>
                 )}
                 
                 {orc.valor_pecas !== null && (
                   <div className="text-sm">
                     <span className="font-medium text-foreground">Peças:</span> 
-                    <span className="text-muted-foreground ml-1">R$ {orc.valor_pecas.toFixed(2)}</span>
+                    <span className="text-muted-foreground ml-1">{formatBRL(orc.valor_pecas)}</span>
                   </div>
                 )}
 

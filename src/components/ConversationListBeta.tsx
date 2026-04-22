@@ -1274,11 +1274,19 @@ export const ConversationListBeta = ({
         return;
       }
     } else {
-      // Mark as unread: set manual_unread_at to now
+      // Mark as unread: set manual_unread_at to now AND zera last_read_at
+      // (garante que manual_unread_at > last_read_at na lógica de leitura)
+      const now = new Date();
+      const past = new Date(now.getTime() - 1000).toISOString();
       const { error } = await (supabase as any)
         .from('mensagem_leitura_operador')
         .upsert(
-          { cliente_telefone: telefone, user_id: user.id, manual_unread_at: new Date().toISOString() },
+          {
+            cliente_telefone: telefone,
+            user_id: user.id,
+            manual_unread_at: now.toISOString(),
+            last_read_at: past,
+          },
           { onConflict: 'cliente_telefone,user_id' }
         );
       if (error) {
@@ -1288,9 +1296,15 @@ export const ConversationListBeta = ({
     }
 
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
-    setClientes(prev => prev.map(c => 
-      c.telefone === telefone 
-        ? { ...c, marcado_nao_lido: !currentState }
+    // Atualiza estado local imediatamente — não espera realtime
+    setClientes(prev => prev.map(c =>
+      c.telefone === telefone
+        ? {
+            ...c,
+            marcado_nao_lido: !currentState,
+            // Se marcou como não lido sem msgs novas, mantém pelo menos 1 (badge "•")
+            unread_count_real: !currentState ? Math.max(c.unread_count_real || 0, 0) : 0,
+          }
         : c
     ));
   };
