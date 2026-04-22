@@ -195,15 +195,15 @@ function FichaCard({ ficha, now }: CardProps) {
         </span>
       </div>
 
-      {/* Body */}
-      <div className="p-4 space-y-4">
+      {/* Body — padding compacto */}
+      <div className="p-3 space-y-3">
         {/* Cliente + telefone */}
         <div>
-          <div className="text-xl font-semibold text-foreground truncate leading-tight">
+          <div className="text-2xl font-semibold text-foreground truncate leading-tight">
             {ficha.nome_cliente || ficha.nome_ficha || 'Sem nome'}
           </div>
-          <div className="mt-1.5">
-            <span className="inline-block text-lg font-normal bg-muted text-foreground px-3 py-1 rounded-md font-mono">
+          <div className="mt-1">
+            <span className="inline-block text-xl font-normal bg-muted text-foreground px-2 py-0.5 rounded-md font-mono">
               {formatTelefone(ficha.telefone_cliente)}
             </span>
           </div>
