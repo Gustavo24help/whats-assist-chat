@@ -350,6 +350,21 @@ export function AcompanhamentoConversas() {
   const [statusAtivos, setStatusAtivos] = useState<Set<StatusAtual>>(
     () => new Set(STATUS_FILTRADOS),
   );
+  const [zoom, setZoom] = useState<number>(() => {
+    if (typeof window === 'undefined') return ZOOM_DEFAULT;
+    const saved = window.localStorage.getItem(ZOOM_STORAGE_KEY);
+    const parsed = saved ? parseFloat(saved) : ZOOM_DEFAULT;
+    return Number.isFinite(parsed) ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, parsed)) : ZOOM_DEFAULT;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
+  }, [zoom]);
+
+  const aumentarZoom = () => setZoom(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)));
+  const diminuirZoom = () => setZoom(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)));
+  const resetarZoom = () => setZoom(ZOOM_DEFAULT);
 
   const fetchFichas = async () => {
     try {
