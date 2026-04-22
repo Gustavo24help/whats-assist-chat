@@ -244,29 +244,29 @@ function FichaCard({ ficha, now }: CardProps) {
             return (
               <React.Fragment key={`step-${etapa}-${idx}`}>
                 {/* Nó */}
-                <div className="flex flex-col items-center text-center px-1 min-w-[72px]">
+                <div className="flex flex-col items-center text-center px-1 min-w-[88px]">
                   <div
                     className={cn(
-                      'rounded-full mb-1.5 transition-all',
+                      'rounded-full mb-2 transition-all',
                       isCurrent && 'animate-pulse',
                     )}
                     style={{
-                      width: '14px',
-                      height: '14px',
+                      width: '18px',
+                      height: '18px',
                       backgroundColor: passed ? etapaCfg.bar : 'transparent',
                       border: `2px solid ${passed ? etapaCfg.bar : 'hsl(var(--muted-foreground) / 0.4)'}`,
                       boxShadow: isCurrent ? `0 0 0 4px ${etapaCfg.bar}33` : undefined,
                     }}
                   />
-                  <div className="text-sm font-medium leading-tight text-foreground">
+                  <div className="text-lg font-semibold leading-tight text-foreground">
                     {etapa}
                   </div>
                   {entry && (
                     <>
-                      <div className="text-sm font-normal text-muted-foreground mt-0.5">
+                      <div className="text-base font-medium text-muted-foreground mt-1">
                         {format(new Date(entry.data_inicio), 'dd/MM HH:mm')}
                       </div>
-                      <div className="text-sm font-normal italic text-muted-foreground">
+                      <div className="text-base font-normal italic text-muted-foreground">
                         {formatRelative(new Date(entry.data_inicio), now)}
                       </div>
                     </>
@@ -275,9 +275,9 @@ function FichaCard({ ficha, now }: CardProps) {
 
                 {/* Delta (intervalo) — só se não for o último */}
                 {idx < etapas.length - 1 && (
-                  <div className="flex items-center justify-center pt-1">
+                  <div className="flex items-center justify-center pt-2">
                     {deltas[idx] && (
-                      <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap">
+                      <span className="text-base font-semibold text-foreground bg-muted px-3 py-1 rounded-full whitespace-nowrap">
                         ⏱ {deltas[idx]}
                       </span>
                     )}
