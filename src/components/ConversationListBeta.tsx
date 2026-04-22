@@ -29,6 +29,7 @@ interface Cliente {
   nome_ficha?: string;
   status_ficha?: string;
   unread_count?: number;
+  unread_count_real?: number;
   dentroJanela?: boolean;
   bot_habilitado?: boolean;
   bot_desativado_notificacao_vista?: boolean;
@@ -996,27 +997,35 @@ export const ConversationListBeta = ({
         });
       }
 
-      // ✅ Buscar última mensagem de CLIENTE por telefone para comparar com leitura
+      // ✅ Buscar TODAS as mensagens de CLIENTE por telefone para contar não lidas
       // Mensagens do cliente podem ter remetente='cliente' (legado) OU tipo_remetente='cliente' (webhook/Twilio)
-      // Buscamos ambos os casos para compatibilidade
-      const ultimasMensagensClienteLegado = await chunkedIn(
+      const mensagensClienteLegado = await chunkedIn(
         'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
         (q) => q.eq('remetente', 'cliente'),
         'data_hora'
       );
-      const ultimasMensagensClienteTipo = await chunkedIn(
+      const mensagensClienteTipo = await chunkedIn(
         'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
         (q) => q.eq('tipo_remetente', 'cliente'),
         'data_hora'
       );
 
+      // Map: cliente_id -> { lastDate, allDates[] (deduplicated) }
       const ultimaMsgClienteMap = new Map<string, string>();
-      // Merge both result sets, keeping the most recent date per client
-      [...(ultimasMensagensClienteLegado || []), ...(ultimasMensagensClienteTipo || [])].forEach(msg => {
+      const todasMsgsClienteMap = new Map<string, Set<string>>();
+      [...(mensagensClienteLegado || []), ...(mensagensClienteTipo || [])].forEach(msg => {
+        // Latest date
         const existing = ultimaMsgClienteMap.get(msg.cliente_id);
         if (!existing || new Date(msg.data_hora) > new Date(existing)) {
           ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
         }
+        // Dedupe by exact data_hora to avoid double-counting messages that match BOTH remetente AND tipo_remetente filters
+        let set = todasMsgsClienteMap.get(msg.cliente_id);
+        if (!set) {
+          set = new Set<string>();
+          todasMsgsClienteMap.set(msg.cliente_id, set);
+        }
+        set.add(msg.data_hora);
       });
 
       // ✅ Combinar tudo SEM QUERIES EXTRAS
@@ -1067,16 +1076,30 @@ export const ConversationListBeta = ({
         // Per-operator unread: compare last_read_at with latest client message
         const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
+        const allClientMsgDates = todasMsgsClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
+        let unreadCountReal = 0;
         
-        // Manual unread takes priority
+        // Manual unread takes priority (sets badge to •/1 for manual flag)
         if (readRecord?.manual_unread_at) {
           perOperatorUnread = true;
+          // Mantém contagem real se houver mensagens novas após manual_unread_at, senão 0 (mostra ponto)
+          if (allClientMsgDates) {
+            const ref = readRecord.last_read_at && readRecord.last_read_at > readRecord.manual_unread_at
+              ? readRecord.last_read_at
+              : readRecord.manual_unread_at;
+            unreadCountReal = Array.from(allClientMsgDates).filter(d => d > ref).length;
+          }
         } else if (lastClientMsg) {
           if (!readRecord) {
             perOperatorUnread = !!lastClientMsg;
+            unreadCountReal = allClientMsgDates ? allClientMsgDates.size : 0;
           } else if (new Date(lastClientMsg) > new Date(readRecord.last_read_at)) {
             perOperatorUnread = true;
+            const lastReadAt = readRecord.last_read_at;
+            unreadCountReal = allClientMsgDates
+              ? Array.from(allClientMsgDates).filter(d => d > lastReadAt).length
+              : 0;
           }
         }
 
@@ -1085,6 +1108,7 @@ export const ConversationListBeta = ({
           nome_ficha: fichaData?.nome_ficha || undefined,
           status_ficha: fichaData?.status || undefined,
           unread_count: unreadMessages[cliente.telefone] || 0,
+          unread_count_real: unreadCountReal,
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
@@ -1697,7 +1721,7 @@ export const ConversationListBeta = ({
                       statusConversa={cliente.status_conversa}
                       ultimaInteracao={cliente.ultima_interacao}
                       isSelected={selectedClienteTelefone === cliente.telefone}
-                      unreadCount={cliente.marcado_nao_lido ? 1 : 0}
+                      unreadCount={cliente.unread_count_real || 0}
                       onClick={() => {
                         if (selectionMode) {
                           toggleClienteSelection(cliente.telefone);
@@ -1710,10 +1734,10 @@ export const ConversationListBeta = ({
                               return next;
                             });
                           }
-                          // ✅ Limpar marcado_nao_lido localmente de imediato
+                          // ✅ Limpar marcado_nao_lido + contagem real localmente de imediato
                           setClientes(prev => prev.map(c => 
                             c.telefone === cliente.telefone 
-                              ? { ...c, marcado_nao_lido: false }
+                              ? { ...c, marcado_nao_lido: false, unread_count_real: 0 }
                               : c
                           ));
                           onSelectCliente(cliente);
