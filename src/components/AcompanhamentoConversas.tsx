@@ -4,7 +4,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { FileText, FileCheck2, Wrench, CalendarCheck } from 'lucide-react';
+import { FileText, FileCheck2, Wrench, CalendarCheck, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+const ZOOM_STORAGE_KEY = 'acompanhamento-conversas-zoom';
+const ZOOM_MIN = 0.8;
+const ZOOM_MAX = 2.0;
+const ZOOM_STEP = 0.1;
+const ZOOM_DEFAULT = 1.0;
 
 // ===== Tipos =====
 type StatusAtual = 'Ficha Criada' | 'Orçamento Enviado' | 'Visita Técnica' | 'Agendado';
@@ -343,6 +350,21 @@ export function AcompanhamentoConversas() {
   const [statusAtivos, setStatusAtivos] = useState<Set<StatusAtual>>(
     () => new Set(STATUS_FILTRADOS),
   );
+  const [zoom, setZoom] = useState<number>(() => {
+    if (typeof window === 'undefined') return ZOOM_DEFAULT;
+    const saved = window.localStorage.getItem(ZOOM_STORAGE_KEY);
+    const parsed = saved ? parseFloat(saved) : ZOOM_DEFAULT;
+    return Number.isFinite(parsed) ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, parsed)) : ZOOM_DEFAULT;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
+  }, [zoom]);
+
+  const aumentarZoom = () => setZoom(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)));
+  const diminuirZoom = () => setZoom(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)));
+  const resetarZoom = () => setZoom(ZOOM_DEFAULT);
 
   const fetchFichas = async () => {
     try {
@@ -430,11 +452,52 @@ export function AcompanhamentoConversas() {
                 Timeline em tempo real das fichas em andamento
               </p>
             </div>
-            <div className="text-right">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Total
+            <div className="flex items-center gap-4">
+              {/* Controle de zoom */}
+              <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={diminuirZoom}
+                  disabled={zoom <= ZOOM_MIN}
+                  title="Diminuir tamanho"
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <button
+                  onClick={resetarZoom}
+                  className="text-xs font-mono font-medium text-foreground min-w-[3rem] px-1 hover:text-brand-coral transition-colors"
+                  title="Resetar zoom"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={aumentarZoom}
+                  disabled={zoom >= ZOOM_MAX}
+                  title="Aumentar tamanho"
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={resetarZoom}
+                  title="Resetar para 100%"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="text-3xl font-bold text-foreground">{fichasFiltradas.length}</div>
+              <div className="text-right">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Total
+                </div>
+                <div className="text-3xl font-bold text-foreground">{fichasFiltradas.length}</div>
+              </div>
             </div>
           </div>
 
@@ -481,7 +544,10 @@ export function AcompanhamentoConversas() {
             Nenhuma conversa nos status selecionados.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            style={{ fontSize: `${zoom}rem` }}
+          >
             {fichasFiltradas.map(ficha => (
               <FichaCard key={ficha.id} ficha={ficha} now={now} />
             ))}
