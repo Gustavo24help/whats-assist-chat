@@ -150,20 +150,21 @@ function FichaCard({ ficha, now }: CardProps) {
   const Icon = cfg.Icon;
   const historico = ficha.ficha_status_historico;
 
-  const primeiraEntrada =
-    findFirstEntry(historico, 'Ficha Criada') ||
-    historico[0] ||
-    { status_novo: 'Ficha Criada', data_inicio: ficha.created_at };
-
-  // status atual = última entrada do histórico (pela ordem cronológica)
-  const ultimaEntrada = historico[historico.length - 1] || primeiraEntrada;
-
   const temVT = !!findFirstEntry(historico, 'Visita Técnica');
   const intermediarioStatus = temVT ? 'Visita Técnica' : 'Agendado';
   const etapas = ['Ficha Criada', 'Orçamento Enviado', intermediarioStatus, 'Finalizado'];
 
-  const tempoNoStatus = now.getTime() - new Date(ultimaEntrada.data_inicio).getTime();
-  const tempoTotal = now.getTime() - new Date(primeiraEntrada.data_inicio).getTime();
+  // TEMPO TOTAL = sempre desde a criação da ficha
+  const tempoTotal = now.getTime() - new Date(ficha.created_at).getTime();
+
+  // NO STATUS = desde a entrada mais recente no status atual
+  const statusAtualHistorico = historico
+    .filter(h => h.status_novo === ficha.status)
+    .sort((a, b) => new Date(b.data_inicio).getTime() - new Date(a.data_inicio).getTime())[0];
+
+  const tempoNoStatus = statusAtualHistorico
+    ? now.getTime() - new Date(statusAtualHistorico.data_inicio).getTime()
+    : tempoTotal;
 
   // Deltas entre etapas (intervalos)
   const deltas: (string | null)[] = [];
