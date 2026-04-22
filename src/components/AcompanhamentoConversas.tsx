@@ -150,20 +150,21 @@ function FichaCard({ ficha, now }: CardProps) {
   const Icon = cfg.Icon;
   const historico = ficha.ficha_status_historico;
 
-  const primeiraEntrada =
-    findFirstEntry(historico, 'Ficha Criada') ||
-    historico[0] ||
-    { status_novo: 'Ficha Criada', data_inicio: ficha.created_at };
-
-  // status atual = última entrada do histórico (pela ordem cronológica)
-  const ultimaEntrada = historico[historico.length - 1] || primeiraEntrada;
-
   const temVT = !!findFirstEntry(historico, 'Visita Técnica');
   const intermediarioStatus = temVT ? 'Visita Técnica' : 'Agendado';
   const etapas = ['Ficha Criada', 'Orçamento Enviado', intermediarioStatus, 'Finalizado'];
 
-  const tempoNoStatus = now.getTime() - new Date(ultimaEntrada.data_inicio).getTime();
-  const tempoTotal = now.getTime() - new Date(primeiraEntrada.data_inicio).getTime();
+  // TEMPO TOTAL = sempre desde a criação da ficha
+  const tempoTotal = now.getTime() - new Date(ficha.created_at).getTime();
+
+  // NO STATUS = desde a entrada mais recente no status atual
+  const statusAtualHistorico = historico
+    .filter(h => h.status_novo === ficha.status)
+    .sort((a, b) => new Date(b.data_inicio).getTime() - new Date(a.data_inicio).getTime())[0];
+
+  const tempoNoStatus = statusAtualHistorico
+    ? now.getTime() - new Date(statusAtualHistorico.data_inicio).getTime()
+    : tempoTotal;
 
   // Deltas entre etapas (intervalos)
   const deltas: (string | null)[] = [];
@@ -194,15 +195,15 @@ function FichaCard({ ficha, now }: CardProps) {
         </span>
       </div>
 
-      {/* Body */}
-      <div className="p-4 space-y-4">
+      {/* Body — padding compacto */}
+      <div className="p-3 space-y-3">
         {/* Cliente + telefone */}
         <div>
-          <div className="text-xl font-semibold text-foreground truncate leading-tight">
+          <div className="text-2xl font-semibold text-foreground truncate leading-tight">
             {ficha.nome_cliente || ficha.nome_ficha || 'Sem nome'}
           </div>
-          <div className="mt-1.5">
-            <span className="inline-block text-lg font-normal bg-muted text-foreground px-3 py-1 rounded-md font-mono">
+          <div className="mt-1">
+            <span className="inline-block text-xl font-normal bg-muted text-foreground px-2 py-0.5 rounded-md font-mono">
               {formatTelefone(ficha.telefone_cliente)}
             </span>
           </div>
@@ -257,15 +258,15 @@ function FichaCard({ ficha, now }: CardProps) {
                       boxShadow: isCurrent ? `0 0 0 4px ${etapaCfg.bar}33` : undefined,
                     }}
                   />
-                  <div className="text-xs font-medium leading-tight text-foreground">
+                  <div className="text-sm font-medium leading-tight text-foreground">
                     {etapa}
                   </div>
                   {entry && (
                     <>
-                      <div className="text-xs font-normal text-muted-foreground mt-0.5">
+                      <div className="text-sm font-normal text-muted-foreground mt-0.5">
                         {format(new Date(entry.data_inicio), 'dd/MM HH:mm')}
                       </div>
-                      <div className="text-xs font-normal italic text-muted-foreground">
+                      <div className="text-sm font-normal italic text-muted-foreground">
                         {formatRelative(new Date(entry.data_inicio), now)}
                       </div>
                     </>
@@ -276,7 +277,7 @@ function FichaCard({ ficha, now }: CardProps) {
                 {idx < etapas.length - 1 && (
                   <div className="flex items-center justify-center pt-1">
                     {deltas[idx] && (
-                      <span className="text-xs font-normal text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full whitespace-nowrap">
+                      <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap">
                         ⏱ {deltas[idx]}
                       </span>
                     )}
@@ -290,28 +291,28 @@ function FichaCard({ ficha, now }: CardProps) {
         {/* Métricas inferiores — sem caixas, divisor sutil */}
         <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border">
           <div className="text-center">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs uppercase tracking-widest font-medium text-muted-foreground">
               No status
             </div>
-            <div className="text-2xl font-bold mt-1" style={{ color: cfg.bar }}>
+            <div className="text-3xl font-bold mt-1" style={{ color: cfg.bar }}>
               {formatDuration(tempoNoStatus)}
             </div>
           </div>
           <div className="text-center border-x border-border">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs uppercase tracking-widest font-medium text-muted-foreground">
               Tempo total
             </div>
-            <div className="text-2xl font-bold mt-1 text-foreground">
+            <div className="text-3xl font-bold mt-1 text-foreground">
               {formatDuration(tempoTotal)}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs uppercase tracking-widest font-medium text-muted-foreground">
               Valor
             </div>
             <div
               className={cn(
-                'text-2xl font-bold mt-1',
+                'text-3xl font-bold mt-1',
                 ficha.valor_total && ficha.valor_total > 0 ? 'text-emerald-500' : 'text-muted-foreground',
               )}
             >
@@ -409,7 +410,7 @@ export function AcompanhamentoConversas() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full min-h-screen overflow-y-auto bg-background">
       {/* Header com filtros */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
         <div className="px-6 py-4">
