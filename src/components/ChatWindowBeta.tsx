@@ -2237,7 +2237,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Header actions — sempre visíveis (Assumir + delegação não dependem da ficha) */}
-          <></>
+          <>
               {/* Botão copiar info do serviço para prestador */}
               {fichaId && (
                 <Button
@@ -2469,8 +2469,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                   <Check className="h-4 w-4 ml-1 text-green-600 dark:text-green-400" />
                 )}
               </Button>
-            </>
-          )}
+            >
 
           {onToggleFicha && (
             <Button
