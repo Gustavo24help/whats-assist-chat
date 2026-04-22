@@ -130,33 +130,49 @@ const UserDetails = () => {
     if (!userId) return;
     setHistoryLoading(true);
 
-    const db = supabase as any;
-    let query = db
-      .from("user_internal_history")
-      .select("id, history_type, description, reference_id, created_at, metadata", { count: "exact" })
-      .eq("user_id", userId)
-      .gte("created_at", `${historyDateFrom}T00:00:00`)
-      .lte("created_at", `${historyDateTo}T23:59:59`)
-      .order("created_at", { ascending: false })
-      .range(historyPage * PAGE_SIZE, (historyPage + 1) * PAGE_SIZE - 1);
+    try {
+      const db = supabase as any;
+      let query = db
+        .from("user_internal_history")
+        .select("id, history_type, description, reference_id, created_at, metadata", { count: "exact" })
+        .eq("user_id", userId)
+        .gte("created_at", `${historyDateFrom}T00:00:00`)
+        .lte("created_at", `${historyDateTo}T23:59:59`)
+        .order("created_at", { ascending: false })
+        .range(historyPage * PAGE_SIZE, (historyPage + 1) * PAGE_SIZE - 1);
 
-    if (historyFilterType !== "todos") {
-      query = query.eq("history_type", historyFilterType);
+      if (historyFilterType !== "todos") {
+        query = query.eq("history_type", historyFilterType);
+      }
+
+      const { data, count, error } = await query;
+      if (error) {
+        toast({ title: "Erro ao carregar histórico", description: error.message, variant: "destructive" });
+        setHistoryItems([]);
+        setHistoryTotal(0);
+      } else {
+        setHistoryItems(data || []);
+        setHistoryTotal(count || 0);
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao carregar histórico", description: err?.message || "Falha inesperada", variant: "destructive" });
+      setHistoryItems([]);
+      setHistoryTotal(0);
+    } finally {
+      setHistoryLoading(false);
     }
-
-    const { data, count } = await query;
-    setHistoryItems(data || []);
-    setHistoryTotal(count || 0);
-    setHistoryLoading(false);
-  }, [userId, historyDateFrom, historyDateTo, historyFilterType, historyPage]);
+  }, [userId, historyDateFrom, historyDateTo, historyFilterType, historyPage, toast]);
 
   useEffect(() => {
     if (!loading && isAdmin) fetchUserData();
   }, [fetchUserData, loading, isAdmin]);
 
+  // Carrega histórico apenas quando: usuário muda, página muda ou filtro de tipo muda.
+  // Datas são aplicadas apenas via botão "Filtrar" para evitar refetch a cada keystroke.
   useEffect(() => {
     if (!loading && isAdmin && userId) fetchHistory();
-  }, [fetchHistory, loading, isAdmin, userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isAdmin, userId, historyPage, historyFilterType]);
 
   const roleLabel = useMemo(() => {
     if (!managedUser) return "";
