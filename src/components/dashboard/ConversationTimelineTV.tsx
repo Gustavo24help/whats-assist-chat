@@ -49,7 +49,7 @@ function formatCurrency(v: number | null): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-// Configuração rica de cores por status (mais vibrante para TV)
+// Configuração rica de cores por status (vibrante para TV)
 function getStatusConfig(status: string) {
   switch (status) {
     case 'Ficha Criada':
@@ -95,7 +95,10 @@ export function ConversationTimelineTV() {
   const [fichas, setFichas] = useState<FichaTimeline[]>([]);
   const [now, setNow] = useState(new Date());
   const [loading, setLoading] = useState(true);
-  const [statusFiltro, setStatusFiltro] = useState<StatusAtual | 'TODOS'>('TODOS');
+  // Multi-select de status — começa com todos ativos
+  const [statusAtivos, setStatusAtivos] = useState<Set<StatusAtual>>(
+    () => new Set(STATUS_FILTRADOS)
+  );
 
   const fetchFichas = async () => {
     try {
@@ -109,7 +112,7 @@ export function ConversationTimelineTV() {
           )
         `)
         .in('status', STATUS_FILTRADOS as any)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true }); // mais antigo primeiro
 
       if (error) throw error;
 
@@ -150,14 +153,24 @@ export function ConversationTimelineTV() {
 
   // Contagens por status
   const counts = useMemo(() => {
-    const c: Record<string, number> = { TODOS: fichas.length };
+    const c: Record<string, number> = {};
     STATUS_FILTRADOS.forEach(s => { c[s] = 0; });
     fichas.forEach(f => { if (c[f.status] !== undefined) c[f.status]++; });
     return c;
   }, [fichas]);
 
+  const toggleStatus = (status: StatusAtual) => {
+    setStatusAtivos(prev => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  };
+
   const cards = useMemo(() => {
-    const filtradas = statusFiltro === 'TODOS' ? fichas : fichas.filter(f => f.status === statusFiltro);
+    // Filtra pelos status ativos (multi-select). Se nenhum ativo, lista vazia.
+    const filtradas = fichas.filter(f => statusAtivos.has(f.status as StatusAtual));
 
     return filtradas.map(ficha => {
       const cfg = getStatusConfig(ficha.status);
@@ -178,18 +191,17 @@ export function ConversationTimelineTV() {
 
       return { ficha, cfg, historico, primeiraEntrada, ultimaEntrada, etapas, tempoNoStatus, tempoTotal };
     });
-  }, [fichas, now, statusFiltro]);
+  }, [fichas, now, statusAtivos]);
 
   if (loading) {
     return (
-      <div className="w-full h-full flex items-center justify-center text-[#6B7280] text-base bg-white rounded-lg">
+      <div className="w-full h-full flex items-center justify-center text-white text-3xl bg-[#0B1220]">
         Carregando acompanhamento...
       </div>
     );
   }
 
-  const FILTROS: Array<{ key: StatusAtual | 'TODOS'; label: string; color: string; bg: string }> = [
-    { key: 'TODOS', label: 'Todos', color: '#111827', bg: '#F3F4F6' },
+  const FILTROS: Array<{ key: StatusAtual; label: string; color: string; bg: string }> = [
     { key: 'Ficha Criada', label: '📝 Ficha Criada', color: '#3730A3', bg: '#E0E7FF' },
     { key: 'Orçamento Enviado', label: '💰 Orçamento', color: '#1E40AF', bg: '#DBEAFE' },
     { key: 'Visita Técnica', label: '🔧 Visita Técnica', color: '#92400E', bg: '#FEF3C7' },
@@ -197,86 +209,99 @@ export function ConversationTimelineTV() {
   ];
 
   return (
-    <div className="w-full h-full flex flex-col bg-white rounded-lg overflow-hidden">
-      {/* Header com título + filtros */}
-      <div className="sticky top-0 z-20 bg-white border-b-2 border-gray-200 px-5 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-2xl font-extrabold text-[#111827] uppercase tracking-wider">
+    <div className="w-full h-full flex flex-col bg-[#0B1220] overflow-hidden">
+      {/* Header com título + filtros multi-select */}
+      <div className="flex-shrink-0 bg-[#111827] border-b-4 border-[#1F2937] px-8 py-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-5xl font-extrabold text-white uppercase tracking-wider">
             Acompanhamento de Conversas
           </h3>
-          <span className="text-xl font-bold text-[#6B7280]">{cards.length} conversas</span>
+          <span className="text-3xl font-extrabold text-cyan-400">{cards.length} conversas</span>
         </div>
 
-        {/* Filtros por status (chips) */}
-        <div className="flex flex-wrap gap-2">
+        {/* Filtros multi-select por status (chips clicáveis) */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <span className="text-xl font-bold text-white/70 mr-2">FILTRAR:</span>
           {FILTROS.map(f => {
-            const ativo = statusFiltro === f.key;
+            const ativo = statusAtivos.has(f.key);
             const count = counts[f.key] ?? 0;
             return (
               <button
                 key={f.key}
-                onClick={() => setStatusFiltro(f.key)}
+                onClick={() => toggleStatus(f.key)}
                 className={cn(
-                  'px-4 py-2 rounded-full text-base font-bold transition-all border-2',
-                  ativo ? 'shadow-md scale-105' : 'opacity-70 hover:opacity-100 border-transparent'
+                  'px-5 py-3 rounded-full text-2xl font-extrabold transition-all border-4 flex items-center gap-2',
+                  ativo ? 'shadow-xl scale-105' : 'opacity-40 hover:opacity-70 border-transparent',
                 )}
                 style={{
-                  backgroundColor: f.bg,
-                  color: f.color,
+                  backgroundColor: ativo ? f.bg : '#1F2937',
+                  color: ativo ? f.color : '#9CA3AF',
                   borderColor: ativo ? f.color : 'transparent',
                 }}
               >
-                {f.label} <span className="ml-1 font-extrabold">({count})</span>
+                <span className={cn('w-5 h-5 rounded border-2 flex items-center justify-center text-xs',
+                  ativo ? 'bg-white' : 'bg-transparent')}
+                  style={{ borderColor: ativo ? f.color : '#4B5563' }}
+                >
+                  {ativo && <span style={{ color: f.color }}>✓</span>}
+                </span>
+                {f.label}
+                <span className="ml-1 px-2 py-0.5 rounded-full text-xl"
+                  style={{ backgroundColor: ativo ? f.color : '#374151', color: ativo ? '#fff' : '#9CA3AF' }}>
+                  {count}
+                </span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Lista — grid 2 colunas */}
-      <div className="flex-1 overflow-y-auto p-4">
+      {/* Lista — grid 2 colunas, mais antigo no topo-esquerda */}
+      <div className="flex-1 overflow-y-auto p-6">
         {cards.length === 0 ? (
-          <div className="w-full h-full flex flex-col items-center justify-center text-[#6B7280] gap-3 py-16">
-            <div className="text-6xl">📭</div>
-            <div className="text-xl">Nenhuma conversa nesse status</div>
+          <div className="w-full h-full flex flex-col items-center justify-center text-white/60 gap-4 py-16">
+            <div className="text-8xl">📭</div>
+            <div className="text-3xl font-bold">Nenhuma conversa nos status selecionados</div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-6">
             {cards.map(({ ficha, cfg, historico, etapas, tempoNoStatus, tempoTotal }) => (
               <div
                 key={ficha.id}
-                className="rounded-xl border-[3px] shadow-md overflow-hidden"
+                className="rounded-2xl border-[5px] shadow-2xl overflow-hidden bg-white"
                 style={{ borderColor: cfg.border }}
               >
                 {/* Faixa de status no topo */}
                 <div
-                  className="px-4 py-3 flex items-center justify-between"
+                  className="px-6 py-4 flex items-center justify-between"
                   style={{ background: cfg.gradient, color: '#FFFFFF' }}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{cfg.icon}</span>
-                    <span className="font-extrabold text-lg uppercase tracking-wide">{cfg.label}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-5xl">{cfg.icon}</span>
+                    <span className="font-extrabold text-3xl uppercase tracking-wide">{cfg.label}</span>
                   </div>
-                  <span className="text-sm font-mono opacity-90 font-bold">{ficha.id}</span>
+                  <span className="text-xl font-mono opacity-90 font-extrabold bg-black/20 px-3 py-1 rounded-lg">
+                    {ficha.id}
+                  </span>
                 </div>
 
-                <div className="p-4 bg-white">
+                <div className="p-6 bg-white">
                   {/* Cliente + Valor */}
-                  <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start justify-between gap-4 mb-5">
                     <div className="flex-1 min-w-0">
-                      <div className="font-extrabold text-[#111827] text-xl truncate">
+                      <div className="font-extrabold text-[#111827] text-3xl truncate">
                         {ficha.nome_cliente || ficha.nome_ficha || 'Sem nome'}
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-base font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded font-semibold">
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xl font-mono bg-gray-100 text-gray-800 px-3 py-1.5 rounded-lg font-bold">
                           {ficha.telefone_cliente}
                         </span>
                       </div>
                     </div>
                     {ficha.valor_total != null && ficha.valor_total > 0 && (
                       <div className="text-right">
-                        <div className="text-xs uppercase text-[#6B7280] font-bold">Valor</div>
-                        <div className="text-xl font-extrabold text-emerald-700">
+                        <div className="text-base uppercase text-[#6B7280] font-extrabold">Valor</div>
+                        <div className="text-3xl font-extrabold text-emerald-700">
                           {formatCurrency(ficha.valor_total)}
                         </div>
                       </div>
@@ -284,25 +309,25 @@ export function ConversationTimelineTV() {
                   </div>
 
                   {/* Barra de progresso GROSSA */}
-                  <div className="mb-4">
+                  <div className="mb-5">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-base font-bold text-[#374151]">Progresso</span>
-                      <span className="text-xl font-extrabold" style={{ color: cfg.bar }}>{cfg.percent}%</span>
+                      <span className="text-xl font-extrabold text-[#374151]">Progresso</span>
+                      <span className="text-3xl font-extrabold" style={{ color: cfg.bar }}>{cfg.percent}%</span>
                     </div>
-                    <div className="h-8 w-full bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
+                    <div className="h-12 w-full bg-gray-100 rounded-xl overflow-hidden border-[3px] border-gray-200">
                       <div
-                        className="h-full transition-all duration-700 flex items-center justify-end px-3"
+                        className="h-full transition-all duration-700 flex items-center justify-end px-4"
                         style={{ width: `${cfg.percent}%`, background: cfg.gradient }}
                       >
                         {cfg.percent >= 20 && (
-                          <span className="text-sm font-extrabold text-white drop-shadow">{cfg.percent}%</span>
+                          <span className="text-xl font-extrabold text-white drop-shadow">{cfg.percent}%</span>
                         )}
                       </div>
                     </div>
                   </div>
 
                   {/* Timeline de etapas */}
-                  <div className="grid grid-cols-4 gap-2 mb-4">
+                  <div className="grid grid-cols-4 gap-3 mb-5">
                     {etapas.map((etapa, idx) => {
                       const entry = findFirstEntry(historico, etapa);
                       const passed = !!entry;
@@ -313,27 +338,27 @@ export function ConversationTimelineTV() {
                         <div key={`${etapa}-${idx}`} className="flex flex-col items-center text-center">
                           <div
                             className={cn(
-                              'w-5 h-5 rounded-full mb-2 border-[3px]',
+                              'w-8 h-8 rounded-full mb-2 border-[4px]',
                               isCurrent && 'animate-pulse'
                             )}
                             style={{
                               backgroundColor: passed ? etapaCfg.bar : '#E5E7EB',
                               borderColor: passed ? etapaCfg.border : '#D1D5DB',
-                              ...(isCurrent ? { boxShadow: `0 0 0 5px ${etapaCfg.bar}33` } : {}),
+                              ...(isCurrent ? { boxShadow: `0 0 0 8px ${etapaCfg.bar}33` } : {}),
                             }}
                           />
-                          <div className="text-sm font-bold text-[#374151] leading-tight">{etapa}</div>
+                          <div className="text-base font-extrabold text-[#374151] leading-tight">{etapa}</div>
                           {entry ? (
                             <>
-                              <div className="text-xs text-[#6B7280] mt-1 font-semibold">
+                              <div className="text-sm text-[#6B7280] mt-1 font-bold">
                                 {format(new Date(entry.data_inicio), 'dd/MM HH:mm')}
                               </div>
-                              <div className="text-xs text-[#9CA3AF] italic">
+                              <div className="text-sm text-[#9CA3AF] italic font-semibold">
                                 {formatRelative(new Date(entry.data_inicio), now)}
                               </div>
                             </>
                           ) : (
-                            <div className="text-xs text-[#D1D5DB] mt-1">—</div>
+                            <div className="text-base text-[#D1D5DB] mt-1">—</div>
                           )}
                         </div>
                       );
@@ -341,22 +366,22 @@ export function ConversationTimelineTV() {
                   </div>
 
                   {/* Métricas finais */}
-                  <div className="grid grid-cols-3 gap-2 pt-3 border-t-2 border-gray-100">
-                    <div className="rounded-lg p-3 text-center" style={{ backgroundColor: cfg.bg }}>
-                      <div className="text-xs uppercase font-bold" style={{ color: cfg.text }}>
+                  <div className="grid grid-cols-3 gap-3 pt-4 border-t-[3px] border-gray-100">
+                    <div className="rounded-xl p-4 text-center" style={{ backgroundColor: cfg.bg }}>
+                      <div className="text-base uppercase font-extrabold" style={{ color: cfg.text }}>
                         No status
                       </div>
-                      <div className="text-lg font-extrabold" style={{ color: cfg.text }}>
+                      <div className="text-2xl font-extrabold" style={{ color: cfg.text }}>
                         {formatDuration(tempoNoStatus)}
                       </div>
                     </div>
-                    <div className="rounded-lg p-3 text-center bg-gray-50">
-                      <div className="text-xs uppercase font-bold text-[#6B7280]">Tempo total</div>
-                      <div className="text-lg font-extrabold text-[#111827]">{formatDuration(tempoTotal)}</div>
+                    <div className="rounded-xl p-4 text-center bg-gray-100">
+                      <div className="text-base uppercase font-extrabold text-[#6B7280]">Tempo total</div>
+                      <div className="text-2xl font-extrabold text-[#111827]">{formatDuration(tempoTotal)}</div>
                     </div>
-                    <div className="rounded-lg p-3 text-center bg-emerald-50">
-                      <div className="text-xs uppercase font-bold text-emerald-700">Valor</div>
-                      <div className="text-lg font-extrabold text-emerald-700">{formatCurrency(ficha.valor_total)}</div>
+                    <div className="rounded-xl p-4 text-center bg-emerald-50">
+                      <div className="text-base uppercase font-extrabold text-emerald-700">Valor</div>
+                      <div className="text-2xl font-extrabold text-emerald-700">{formatCurrency(ficha.valor_total)}</div>
                     </div>
                   </div>
                 </div>
