@@ -273,35 +273,35 @@ export function ConversationTimelineTV() {
               >
                 {/* Faixa de status no topo */}
                 <div
-                  className="px-6 py-4 flex items-center justify-between"
+                  className="px-8 py-6 flex items-center justify-between"
                   style={{ background: cfg.gradient, color: '#FFFFFF' }}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-5xl">{cfg.icon}</span>
-                    <span className="font-extrabold text-3xl uppercase tracking-wide">{cfg.label}</span>
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <span className="text-7xl">{cfg.icon}</span>
+                    <span className="font-extrabold text-5xl uppercase tracking-wide truncate">{cfg.label}</span>
                   </div>
-                  <span className="text-xl font-mono opacity-90 font-extrabold bg-black/20 px-3 py-1 rounded-lg">
+                  <span className="text-2xl font-mono font-extrabold bg-black/30 px-4 py-2 rounded-lg whitespace-nowrap ml-3">
                     {ficha.id}
                   </span>
                 </div>
 
-                <div className="p-6 bg-white">
+                <div className="p-7 bg-white">
                   {/* Cliente + Valor */}
-                  <div className="flex items-start justify-between gap-4 mb-5">
+                  <div className="flex items-start justify-between gap-4 mb-6">
                     <div className="flex-1 min-w-0">
-                      <div className="font-extrabold text-[#111827] text-3xl truncate">
+                      <div className="font-extrabold text-[#111827] text-4xl truncate">
                         {ficha.nome_cliente || ficha.nome_ficha || 'Sem nome'}
                       </div>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xl font-mono bg-gray-100 text-gray-800 px-3 py-1.5 rounded-lg font-bold">
+                      <div className="flex items-center gap-2 mt-3">
+                        <span className="text-3xl font-mono bg-gray-100 text-gray-800 px-4 py-2 rounded-lg font-extrabold">
                           {ficha.telefone_cliente}
                         </span>
                       </div>
                     </div>
                     {ficha.valor_total != null && ficha.valor_total > 0 && (
                       <div className="text-right">
-                        <div className="text-base uppercase text-[#6B7280] font-extrabold">Valor</div>
-                        <div className="text-3xl font-extrabold text-emerald-700">
+                        <div className="text-xl uppercase text-[#6B7280] font-extrabold">Valor</div>
+                        <div className="text-4xl font-extrabold text-emerald-700">
                           {formatCurrency(ficha.valor_total)}
                         </div>
                       </div>
@@ -309,25 +309,25 @@ export function ConversationTimelineTV() {
                   </div>
 
                   {/* Barra de progresso GROSSA */}
-                  <div className="mb-5">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xl font-extrabold text-[#374151]">Progresso</span>
-                      <span className="text-3xl font-extrabold" style={{ color: cfg.bar }}>{cfg.percent}%</span>
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-2xl font-extrabold text-[#374151]">Progresso</span>
+                      <span className="text-4xl font-extrabold" style={{ color: cfg.bar }}>{cfg.percent}%</span>
                     </div>
-                    <div className="h-12 w-full bg-gray-100 rounded-xl overflow-hidden border-[3px] border-gray-200">
+                    <div className="h-14 w-full bg-gray-100 rounded-xl overflow-hidden border-[4px] border-gray-200">
                       <div
                         className="h-full transition-all duration-700 flex items-center justify-end px-4"
                         style={{ width: `${cfg.percent}%`, background: cfg.gradient }}
                       >
                         {cfg.percent >= 20 && (
-                          <span className="text-xl font-extrabold text-white drop-shadow">{cfg.percent}%</span>
+                          <span className="text-2xl font-extrabold text-white drop-shadow">{cfg.percent}%</span>
                         )}
                       </div>
                     </div>
                   </div>
 
                   {/* Timeline de etapas */}
-                  <div className="grid grid-cols-4 gap-3 mb-5">
+                  <div className="grid grid-cols-4 gap-3 mb-6">
                     {etapas.map((etapa, idx) => {
                       const entry = findFirstEntry(historico, etapa);
                       const passed = !!entry;
@@ -338,7 +338,7 @@ export function ConversationTimelineTV() {
                         <div key={`${etapa}-${idx}`} className="flex flex-col items-center text-center">
                           <div
                             className={cn(
-                              'w-8 h-8 rounded-full mb-2 border-[4px]',
+                              'w-10 h-10 rounded-full mb-2 border-[4px]',
                               isCurrent && 'animate-pulse'
                             )}
                             style={{
@@ -347,18 +347,18 @@ export function ConversationTimelineTV() {
                               ...(isCurrent ? { boxShadow: `0 0 0 8px ${etapaCfg.bar}33` } : {}),
                             }}
                           />
-                          <div className="text-base font-extrabold text-[#374151] leading-tight">{etapa}</div>
+                          <div className="text-xl font-extrabold text-[#374151] leading-tight">{etapa}</div>
                           {entry ? (
                             <>
-                              <div className="text-sm text-[#6B7280] mt-1 font-bold">
+                              <div className="text-lg text-[#6B7280] mt-1 font-bold">
                                 {format(new Date(entry.data_inicio), 'dd/MM HH:mm')}
                               </div>
-                              <div className="text-sm text-[#9CA3AF] italic font-semibold">
+                              <div className="text-lg text-[#9CA3AF] italic font-semibold">
                                 {formatRelative(new Date(entry.data_inicio), now)}
                               </div>
                             </>
                           ) : (
-                            <div className="text-base text-[#D1D5DB] mt-1">—</div>
+                            <div className="text-xl text-[#D1D5DB] mt-1">—</div>
                           )}
                         </div>
                       );
@@ -366,22 +366,22 @@ export function ConversationTimelineTV() {
                   </div>
 
                   {/* Métricas finais */}
-                  <div className="grid grid-cols-3 gap-3 pt-4 border-t-[3px] border-gray-100">
-                    <div className="rounded-xl p-4 text-center" style={{ backgroundColor: cfg.bg }}>
-                      <div className="text-base uppercase font-extrabold" style={{ color: cfg.text }}>
+                  <div className="grid grid-cols-3 gap-3 pt-5 border-t-[3px] border-gray-100">
+                    <div className="rounded-xl p-5 text-center" style={{ backgroundColor: cfg.bg }}>
+                      <div className="text-xl uppercase font-extrabold" style={{ color: cfg.text }}>
                         No status
                       </div>
-                      <div className="text-2xl font-extrabold" style={{ color: cfg.text }}>
+                      <div className="text-3xl font-extrabold" style={{ color: cfg.text }}>
                         {formatDuration(tempoNoStatus)}
                       </div>
                     </div>
-                    <div className="rounded-xl p-4 text-center bg-gray-100">
-                      <div className="text-base uppercase font-extrabold text-[#6B7280]">Tempo total</div>
-                      <div className="text-2xl font-extrabold text-[#111827]">{formatDuration(tempoTotal)}</div>
+                    <div className="rounded-xl p-5 text-center bg-gray-100">
+                      <div className="text-xl uppercase font-extrabold text-[#6B7280]">Tempo total</div>
+                      <div className="text-3xl font-extrabold text-[#111827]">{formatDuration(tempoTotal)}</div>
                     </div>
-                    <div className="rounded-xl p-4 text-center bg-emerald-50">
-                      <div className="text-base uppercase font-extrabold text-emerald-700">Valor</div>
-                      <div className="text-2xl font-extrabold text-emerald-700">{formatCurrency(ficha.valor_total)}</div>
+                    <div className="rounded-xl p-5 text-center bg-emerald-50">
+                      <div className="text-xl uppercase font-extrabold text-emerald-700">Valor</div>
+                      <div className="text-3xl font-extrabold text-emerald-700">{formatCurrency(ficha.valor_total)}</div>
                     </div>
                   </div>
                 </div>
