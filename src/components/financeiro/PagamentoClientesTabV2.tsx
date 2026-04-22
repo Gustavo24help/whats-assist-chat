@@ -68,6 +68,7 @@ export const PagamentoClientesTabV2 = () => {
   const [fichasProblemas, setFichasProblemas] = useState<FichaCliente[]>([]);
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [reconciling, setReconciling] = useState(false);
   
   // Pagos recentemente (5 dias úteis)
   const [pagosRecentes5d, setPagosRecentes5d] = useState<FichaCliente[]>([]);
