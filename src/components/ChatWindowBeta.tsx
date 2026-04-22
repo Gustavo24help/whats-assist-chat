@@ -1201,6 +1201,29 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     lastClearedTelefoneRef.current = null;
   }, [clienteTelefone]);
 
+  // ✅ Sempre que chegar uma nova mensagem do cliente E o chat estiver aberto,
+  // marcar como lida automaticamente (zera o badge para o operador atual).
+  useEffect(() => {
+    if (!user || !clienteTelefone || mensagens.length === 0) return;
+    const lastMsg = mensagens[mensagens.length - 1];
+    const isClienteMsg = lastMsg?.remetente === 'cliente' || lastMsg?.tipo_remetente === 'cliente';
+    if (!isClienteMsg) return;
+
+    // Atualiza last_read_at (sem mexer em manual_unread_at — operador está vendo a msg agora)
+    (supabase as any)
+      .from('mensagem_leitura_operador')
+      .upsert(
+        {
+          cliente_telefone: clienteTelefone,
+          user_id: user.id,
+          last_read_at: new Date().toISOString(),
+          manual_unread_at: null,
+        },
+        { onConflict: 'cliente_telefone,user_id' }
+      )
+      .then(() => {});
+  }, [mensagens.length, clienteTelefone, user?.id]);
+
   const clearUnreadMark = async () => {
     if (!user) return;
     // Idempotência: só roda uma vez por sessão de visualização do chat
