@@ -1076,16 +1076,30 @@ export const ConversationListBeta = ({
         // Per-operator unread: compare last_read_at with latest client message
         const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
+        const allClientMsgDates = todasMsgsClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
+        let unreadCountReal = 0;
         
-        // Manual unread takes priority
+        // Manual unread takes priority (sets badge to •/1 for manual flag)
         if (readRecord?.manual_unread_at) {
           perOperatorUnread = true;
+          // Mantém contagem real se houver mensagens novas após manual_unread_at, senão 0 (mostra ponto)
+          if (allClientMsgDates) {
+            const ref = readRecord.last_read_at && readRecord.last_read_at > readRecord.manual_unread_at
+              ? readRecord.last_read_at
+              : readRecord.manual_unread_at;
+            unreadCountReal = Array.from(allClientMsgDates).filter(d => d > ref).length;
+          }
         } else if (lastClientMsg) {
           if (!readRecord) {
             perOperatorUnread = !!lastClientMsg;
+            unreadCountReal = allClientMsgDates ? allClientMsgDates.size : 0;
           } else if (new Date(lastClientMsg) > new Date(readRecord.last_read_at)) {
             perOperatorUnread = true;
+            const lastReadAt = readRecord.last_read_at;
+            unreadCountReal = allClientMsgDates
+              ? Array.from(allClientMsgDates).filter(d => d > lastReadAt).length
+              : 0;
           }
         }
 
@@ -1094,6 +1108,7 @@ export const ConversationListBeta = ({
           nome_ficha: fichaData?.nome_ficha || undefined,
           status_ficha: fichaData?.status || undefined,
           unread_count: unreadMessages[cliente.telefone] || 0,
+          unread_count_real: unreadCountReal,
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
