@@ -410,7 +410,7 @@ export function AcompanhamentoConversas() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full min-h-screen overflow-y-auto bg-background">
       {/* Header com filtros */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
         <div className="px-6 py-4">
