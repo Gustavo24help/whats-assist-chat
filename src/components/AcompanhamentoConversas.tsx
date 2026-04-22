@@ -4,7 +4,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { FileText, FileCheck2, Wrench, CalendarCheck } from 'lucide-react';
+import { FileText, FileCheck2, Wrench, CalendarCheck, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+const ZOOM_STORAGE_KEY = 'acompanhamento-conversas-zoom';
+const ZOOM_MIN = 0.8;
+const ZOOM_MAX = 2.0;
+const ZOOM_STEP = 0.1;
+const ZOOM_DEFAULT = 1.0;
 
 // ===== Tipos =====
 type StatusAtual = 'Ficha Criada' | 'Orçamento Enviado' | 'Visita Técnica' | 'Agendado';
