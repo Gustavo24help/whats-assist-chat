@@ -32,7 +32,7 @@ import OrcamentoPublico from "./pages/OrcamentoPublico";
 import PrestadorPortal from "./pages/PrestadorPortal";
 import PrestadoresReport from "./pages/PrestadoresReport";
 import DashboardTV from "./pages/DashboardTV";
-import DashboardTVConversas from "./pages/DashboardTVConversas";
+
 import GerenciamentoPrestadores from "./pages/GerenciamentoPrestadores";
 import PrestadorDetalhes from "./pages/PrestadorDetalhes";
 import AnaliseServicos from "./pages/AnaliseServicos";
@@ -224,14 +224,6 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <DashboardTV />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/dashboard-tv/conversas"
-                element={
-                  <ProtectedRoute>
-                    <DashboardTVConversas />
                   </ProtectedRoute>
                 }
               />
