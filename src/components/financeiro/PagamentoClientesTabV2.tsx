@@ -276,6 +276,29 @@ export const PagamentoClientesTabV2 = () => {
     return result;
   };
 
+  const handleReconciliarAsaas = async () => {
+    setReconciling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reconcile-asaas-payments", { body: {} });
+      if (error) throw error;
+      const s = data?.summary || { total: 0, paid: 0, pending: 0, not_found: 0, errors: 0 };
+      toast({
+        title: "Reconciliação concluída",
+        description: `${s.total} verificadas · ${s.paid} marcadas como pagas · ${s.pending} ainda pendentes · ${s.not_found} sem pagamento · ${s.errors} erros`,
+      });
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Erro na reconciliação",
+        description: err instanceof Error ? err.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   const filteredPendentes = applyFilters(fichasPendentes);
   const filteredRecentes = applyFilters(fichasPagasRecentes);
   const filteredPagos5d = applyFilters(pagosRecentes5d);
