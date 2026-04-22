@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { formatBRL } from "@/lib/utils";
 
 interface AprovacaoOrcamentoDialogProps {
   open: boolean;
@@ -41,7 +42,7 @@ export const AprovacaoOrcamentoDialog = ({
     `Segue abaixo o orçamento referente ao serviço solicitado:
 
 📋 Ficha: ${fichaNome}
-💰 Valor: R$ ${orcamento.valor_total?.toFixed(2) || "0.00"}
+💰 Valor: ${formatBRL(orcamento.valor_total)}
 ⏰ Tempo: ${orcamento.tempo_servico || "A definir"}
 📌 Observações: ${orcamento.observacoes || "Nenhuma"}
 
