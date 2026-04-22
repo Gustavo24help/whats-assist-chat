@@ -291,28 +291,28 @@ function FichaCard({ ficha, now }: CardProps) {
         {/* Métricas inferiores — sem caixas, divisor sutil */}
         <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border">
           <div className="text-center">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs uppercase tracking-widest font-medium text-muted-foreground">
               No status
             </div>
-            <div className="text-2xl font-bold mt-1" style={{ color: cfg.bar }}>
+            <div className="text-3xl font-bold mt-1" style={{ color: cfg.bar }}>
               {formatDuration(tempoNoStatus)}
             </div>
           </div>
           <div className="text-center border-x border-border">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs uppercase tracking-widest font-medium text-muted-foreground">
               Tempo total
             </div>
-            <div className="text-2xl font-bold mt-1 text-foreground">
+            <div className="text-3xl font-bold mt-1 text-foreground">
               {formatDuration(tempoTotal)}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs uppercase tracking-widest font-medium text-muted-foreground">
               Valor
             </div>
             <div
               className={cn(
-                'text-2xl font-bold mt-1',
+                'text-3xl font-bold mt-1',
                 ficha.valor_total && ficha.valor_total > 0 ? 'text-emerald-500' : 'text-muted-foreground',
               )}
             >
