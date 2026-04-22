@@ -57,21 +57,45 @@ export function AjustarDataFinalizacaoDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // 1. Get current finalization date from ficha_status_historico
-      const { data: historico } = await supabase
+      // Preserve the time-of-day from the original finalization (avoid timezone shifts)
+      const novaData = new Date(dataFinal);
+
+      // 1. Get the CURRENT Finalizado entry (the one without data_fim = active status)
+      // Falls back to the most recent Finalizado entry if none is active.
+      const { data: historicoAtivo } = await supabase
         .from("ficha_status_historico")
         .select("id, data_inicio")
         .eq("ficha_id", fichaId)
         .eq("status_novo", "Finalizado")
+        .is("data_fim", null)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      let historico = historicoAtivo;
+      if (!historico) {
+        const { data: historicoFallback } = await supabase
+          .from("ficha_status_historico")
+          .select("id, data_inicio")
+          .eq("ficha_id", fichaId)
+          .eq("status_novo", "Finalizado")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        historico = historicoFallback;
+      }
 
       const dataAnterior = historico?.data_inicio || new Date().toISOString();
-      const novaDataISO = dataFinal.toISOString();
-      const novaDataPagamento = calcularDataPagamento(dataFinal);
 
-      // 2. Update ficha_status_historico
+      // Preserve hour/minute/second from original record so we don't shift times
+      if (historico?.data_inicio) {
+        const original = new Date(historico.data_inicio);
+        novaData.setHours(original.getHours(), original.getMinutes(), original.getSeconds(), original.getMilliseconds());
+      }
+      const novaDataISO = novaData.toISOString();
+      const novaDataPagamento = calcularDataPagamento(novaData);
+
+      // 2. Update only the relevant ficha_status_historico entry
       if (historico) {
         await supabase
           .from("ficha_status_historico")
@@ -79,16 +103,27 @@ export function AjustarDataFinalizacaoDialog({
           .eq("id", historico.id);
       }
 
-      // 3. Update transacoes_financeiras
-      await supabase
+      // 3. Update ONLY unpaid transactions (do NOT overwrite already-paid ones)
+      const { data: transacoesAfetadas, error: txErr } = await supabase
         .from("transacoes_financeiras")
         .update({
           data_execucao: novaDataISO,
           data_pagamento_prevista: novaDataPagamento,
+          atualizado_por: user.id,
         } as any)
-        .eq("ficha_id", fichaId);
+        .eq("ficha_id", fichaId)
+        .neq("status_pagamento_prestador", "pago")
+        .select("id");
 
-      // 4. Log the adjustment
+      if (txErr) console.warn("[AjustarData] Erro ao atualizar transações:", txErr);
+
+      // 4. Touch the ficha so caches/listeners refresh
+      await supabase
+        .from("fichas_de_servico")
+        .update({ updated_at: new Date().toISOString() } as any)
+        .eq("id", fichaId);
+
+      // 5. Log the adjustment
       await supabase.from("ajustes_data_finalizacao" as any).insert({
         ficha_id: fichaId,
         data_anterior: dataAnterior,
@@ -99,7 +134,29 @@ export function AjustarDataFinalizacaoDialog({
         ajustado_por: user.id,
       });
 
-      toast.success("Data de finalização ajustada com sucesso");
+      // 6. Notify external spreadsheet (Make.com) — non-blocking
+      try {
+        await supabase.functions.invoke("webhook-update-planilha", {
+          body: {
+            evento: "ajuste_data_finalizacao",
+            ficha_id: fichaId,
+            data_anterior: dataAnterior,
+            data_nova: novaDataISO,
+            data_pagamento_prevista: novaDataPagamento,
+            prestador_id: prestadorId || null,
+            prestador_nome: prestadorNome || null,
+            justificativa: justificativa.trim(),
+            transacoes_atualizadas: transacoesAfetadas?.length || 0,
+          },
+        });
+      } catch (whErr) {
+        console.warn("[AjustarData] Webhook planilha falhou (não-crítico):", whErr);
+      }
+
+      const msgExtra = transacoesAfetadas && transacoesAfetadas.length > 0
+        ? ` (${transacoesAfetadas.length} transação(ões) atualizadas)`
+        : " (nenhuma transação pendente afetada)";
+      toast.success("Data de finalização ajustada com sucesso" + msgExtra);
       setDataFinal(undefined);
       setJustificativa("");
       onOpenChange(false);
