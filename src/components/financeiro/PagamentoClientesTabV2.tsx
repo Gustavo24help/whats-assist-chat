@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -437,16 +438,37 @@ export const PagamentoClientesTabV2 = () => {
             </div>
           </PopoverContent>
         </Popover>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleReconciliarAsaas}
-          disabled={reconciling}
-          title="Consulta o Asaas para identificar pagamentos confirmados que não atualizaram automaticamente (ex.: links criados fora do sistema)"
-        >
-          {reconciling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-          Reconciliar Asaas
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReconciliarAsaas}
+            disabled={reconciling}
+          >
+            {reconciling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Reconciliar Asaas
+          </Button>
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" aria-label="O que faz este botão?">
+                  <Info className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs leading-relaxed">
+                <p className="font-semibold mb-1">Reconciliar Asaas</p>
+                <p>
+                  Consulta o Asaas para verificar pagamentos confirmados que não foram atualizados automaticamente no sistema —
+                  por exemplo, quando o link de cobrança foi criado fora do sistema (sem <code>externalReference</code>) ou o
+                  webhook falhou.
+                </p>
+                <p className="mt-1">
+                  Use quando uma cobrança aparecer como <strong>Pendente</strong> aqui, mas o cliente já tiver pago no Asaas.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>
