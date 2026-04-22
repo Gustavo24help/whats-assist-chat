@@ -29,6 +29,7 @@ interface Cliente {
   nome_ficha?: string;
   status_ficha?: string;
   unread_count?: number;
+  unread_count_real?: number;
   dentroJanela?: boolean;
   bot_habilitado?: boolean;
   bot_desativado_notificacao_vista?: boolean;
