@@ -32,7 +32,7 @@ import OrcamentoPublico from "./pages/OrcamentoPublico";
 import PrestadorPortal from "./pages/PrestadorPortal";
 import PrestadoresReport from "./pages/PrestadoresReport";
 import DashboardTV from "./pages/DashboardTV";
-import DashboardTVConversas from "./pages/DashboardTVConversas";
+
 import GerenciamentoPrestadores from "./pages/GerenciamentoPrestadores";
 import PrestadorDetalhes from "./pages/PrestadorDetalhes";
 import AnaliseServicos from "./pages/AnaliseServicos";
@@ -57,7 +57,7 @@ import Orcamentos from "./pages/Orcamentos";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
 import PagamentosOrfaos from "./pages/PagamentosOrfaos";
-import Acompanhamento from "./pages/Acompanhamento";
+
 
 const queryClient = new QueryClient();
 
@@ -228,14 +228,6 @@ const App = () => (
                 }
               />
               <Route
-                path="/dashboard-tv/conversas"
-                element={
-                  <ProtectedRoute>
-                    <DashboardTVConversas />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/mensagens"
                 element={
                   <ProtectedRoute>
@@ -376,14 +368,6 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <TarefasOperacionais />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/acompanhamento"
-                element={
-                  <ProtectedRoute>
-                    <Acompanhamento />
                   </ProtectedRoute>
                 }
               />

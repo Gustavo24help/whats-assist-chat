@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 import { isBusinessDay, getBusinessDaysInRange } from '@/lib/businessDays2026';
 import { Calendar as CalendarIcon, Settings, Pencil, X } from 'lucide-react';
 import logoGreen from '@/assets/logo-green.png';
-import { ConversationTimelineTV } from '@/components/dashboard/ConversationTimelineTV';
+import { AcompanhamentoConversas } from '@/components/AcompanhamentoConversas';
 
 // ---- Helpers ----
 /** Returns 'yyyy-MM-dd' string forced to America/Sao_Paulo timezone */
@@ -867,7 +867,7 @@ function DashboardTVContent() {
       }
 
       case 'conversation-timeline':
-        return <ConversationTimelineTV />;
+        return <AcompanhamentoConversas />;
 
       default:
         return null;
