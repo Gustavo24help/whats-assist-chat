@@ -544,7 +544,10 @@ export function AcompanhamentoConversas() {
             Nenhuma conversa nos status selecionados.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            style={{ fontSize: `${zoom}rem` }}
+          >
             {fichasFiltradas.map(ficha => (
               <FichaCard key={ficha.id} ficha={ficha} now={now} />
             ))}
