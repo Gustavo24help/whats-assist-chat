@@ -182,28 +182,6 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* ── STATUS SUMMARY CARDS ── */}
-        <div className="p-3 border-b border-border/40">
-          <div className="grid grid-cols-4 gap-1.5">
-            <div className="bg-primary/10 rounded-lg p-2 text-center">
-              <p className="text-lg font-bold text-primary">{fichasStats.fichaCriada}</p>
-              <p className="text-[9px] text-muted-foreground leading-tight">Ficha Criada</p>
-            </div>
-            <div className="bg-emerald-500/10 rounded-lg p-2 text-center">
-              <p className="text-lg font-bold text-emerald-600">{fichasStats.finalizadas}</p>
-              <p className="text-[9px] text-muted-foreground leading-tight">Finalizadas</p>
-            </div>
-            <div className="bg-red-500/10 rounded-lg p-2 text-center">
-              <p className="text-lg font-bold text-red-600">{fichasStats.perdidas}</p>
-              <p className="text-[9px] text-muted-foreground leading-tight">Perdidas</p>
-            </div>
-            <div className="bg-amber-500/10 rounded-lg p-2 text-center">
-              <p className="text-lg font-bold text-amber-600">{fichasStats.semOrcamento}</p>
-              <p className="text-[9px] text-muted-foreground leading-tight">S/ Orçamento</p>
-            </div>
-          </div>
-        </div>
-
         {/* ── FICHA SELECTOR ── */}
         {fichas.length === 0 ? (
           <div className="flex-1 flex items-center justify-center p-6">
@@ -217,7 +195,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
           </div>
         ) : (
           <div className="flex flex-col">
-            <div className="p-2.5 space-y-2 border-b shrink-0">
+            <div className="p-2.5 border-b shrink-0">
               <div className="flex items-center gap-1.5">
                 <Select
                   value={fichaAtual || ''}
@@ -242,28 +220,9 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
                   size="icon"
                   onClick={() => setDialogOpen(true)}
                   className="shrink-0 h-8 w-8 hover:scale-[0.98] active:scale-95 transition-transform"
+                  title="Nova ficha"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-1.5">
-                <AbrirConversaDialog clienteTelefone={clienteTelefone} clienteNome={clienteNome} />
-                <AvaliacaoPrestadorFlowPanel
-                  clienteTelefone={clienteTelefone}
-                  clienteNome={clienteNome}
-                  fichaId={fichaAtual || undefined}
-                  onCopyMessage={handleCopyGeneratedMessage}
-                />
-                <NPSFlowPanel
-                  clienteTelefone={clienteTelefone}
-                  clienteNome={clienteNome}
-                  fichaId={fichaAtual || undefined}
-                  onCopyMessage={handleCopyGeneratedMessage}
-                />
-                <Button variant="outline" size="sm" className="h-9 justify-start text-xs" onClick={() => window.dispatchEvent(new CustomEvent('chat-beta-open-assumir'))}>
-                  <UserCheck className="h-3.5 w-3.5 mr-1.5" />
-                  Assumido
                 </Button>
               </div>
             </div>
