@@ -1109,7 +1109,7 @@ export const ConversationListBeta = ({
         }
 
         // Força badge zerado se essa conversa está selecionada (operador a está visualizando)
-        const isSelected = selectedClienteTelefone === cliente.telefone;
+        const isSelected = selectedClienteTelefoneRef.current === cliente.telefone;
         if (isSelected) {
           perOperatorUnread = false;
           unreadCountReal = 0;
