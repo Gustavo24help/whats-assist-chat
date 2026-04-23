@@ -368,19 +368,81 @@ export function AcompanhamentoConversas() {
 
   const fetchFichas = async () => {
     try {
-      const { data, error } = await supabase
-        .from('fichas_de_servico')
-        .select(`
-          id, nome_ficha, nome_cliente, telefone_cliente,
-          status, valor_total, created_at, updated_at,
-          ficha_status_historico ( status_novo, data_inicio )
-        `)
-        .in('status', STATUS_FILTRADOS as any)
-        .order('updated_at', { ascending: false });
+      // ✅ Mesma fonte de verdade que o Chat BETA: contar UMA conversa por cliente
+      // usando a ficha_ativa_id de cada cliente. Isso evita contar fichas antigas
+      // que não são mais a "ficha ativa" do cliente (ex.: cliente já avançou para
+      // uma nova ficha enquanto a anterior ficou em 'Orçamento Enviado').
 
-      if (error) throw error;
+      // 1) Buscar todos os clientes com uma ficha ativa atribuída.
+      let allClientes: any[] = [];
+      let from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data: page, error: cErr } = await supabase
+          .from('clientes')
+          .select('telefone, nome, ficha_ativa_id')
+          .not('ficha_ativa_id', 'is', null)
+          .range(from, from + PAGE - 1);
+        if (cErr) throw cErr;
+        if (!page || page.length === 0) break;
+        allClientes = allClientes.concat(page);
+        if (page.length < PAGE) break;
+        from += PAGE;
+      }
 
-      const normalized = (data || []).map((f: any) => ({
+      const fichaIds = Array.from(
+        new Set(allClientes.map((c) => c.ficha_ativa_id).filter(Boolean)),
+      );
+
+      if (fichaIds.length === 0) {
+        setFichas([]);
+        return;
+      }
+
+      // 2) Buscar APENAS as fichas ativas que estão nos status filtrados.
+      const fichasResult: any[] = [];
+      const CHUNK = 500;
+      for (let i = 0; i < fichaIds.length; i += CHUNK) {
+        const slice = fichaIds.slice(i, i + CHUNK);
+        const { data, error } = await supabase
+          .from('fichas_de_servico')
+          .select(`
+            id, nome_ficha, nome_cliente, telefone_cliente,
+            status, valor_total, created_at, updated_at,
+            ficha_status_historico ( status_novo, data_inicio )
+          `)
+          .in('id', slice)
+          .in('status', STATUS_FILTRADOS as any);
+        if (error) throw error;
+        if (data) fichasResult.push(...data);
+      }
+
+      // 3) Index por id e remontar respeitando os clientes (1 por cliente).
+      const fichasMap = new Map<string, any>();
+      fichasResult.forEach((f) => fichasMap.set(f.id, f));
+
+      const seenFicha = new Set<string>();
+      const finalRows: any[] = [];
+      allClientes.forEach((c) => {
+        const f = fichasMap.get(c.ficha_ativa_id);
+        if (!f) return; // ficha ativa não está nos status filtrados
+        if (seenFicha.has(f.id)) return;
+        seenFicha.add(f.id);
+        finalRows.push({
+          ...f,
+          // Preserva nome_cliente vindo da ficha; se ausente, usa nome do cliente.
+          nome_cliente: f.nome_cliente || c.nome || null,
+        });
+      });
+
+      // Ordena por updated_at desc para manter o comportamento original.
+      finalRows.sort((a, b) => {
+        const ta = new Date(a.updated_at || a.created_at).getTime();
+        const tb = new Date(b.updated_at || b.created_at).getTime();
+        return tb - ta;
+      });
+
+      const normalized = finalRows.map((f: any) => ({
         ...f,
         ficha_status_historico: [...(f.ficha_status_historico || [])].sort(
           (a: HistoricoEntry, b: HistoricoEntry) =>
