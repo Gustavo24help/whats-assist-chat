@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus, ClipboardCheck, MapPin, Phone, User, Copy, Lightbulb, Wrench, Star, UserCheck, History, Sparkles } from "lucide-react";
+import { X, FileText, DollarSign, Plus, MapPin, Phone, User, History, Sparkles, ClipboardList, UserCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
 import { OrcamentosTab } from "./OrcamentosTab";
-import { AcompanhamentoTab } from "./AcompanhamentoTab";
 import { CriarFichaDialog } from "./CriarFichaDialog";
 import { HistoricoClienteTab } from "./chat-beta/HistoricoClienteTab";
-import { ResumoIATab } from "./chat-beta/ResumoIATab";
+import { ResumoFichaTab } from "./chat-beta/ResumoFichaTab";
+import { NinaTab } from "./chat-beta/NinaTab";
 import { useClienteSignalsBeta } from "@/hooks/useClienteSignalsBeta";
 import { Badge } from "@/components/ui/badge";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
@@ -295,30 +295,32 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
             </div>
 
             {/* ── TABS ── */}
-            <Tabs defaultValue="ficha" className="flex flex-col">
-              <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid grid-cols-7">
-                <TabsTrigger value="ficha" className="text-[10px] h-7 px-1" title="Ficha">
-                  <FileText className="h-3 w-3" />
+            <Tabs defaultValue="resumo" className="flex flex-col">
+              <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid grid-cols-6">
+                <TabsTrigger value="resumo" className="text-[10px] h-7 px-1" title="Resumo">
+                  <ClipboardList className="h-3 w-3" />
                 </TabsTrigger>
                 <TabsTrigger value="cliente" className="text-[10px] h-7 px-1" title="Cliente">
                   <User className="h-3 w-3" />
                 </TabsTrigger>
-                <TabsTrigger value="acompanhamento" className="text-[10px] h-7 px-1" title="Acompanhamento">
-                  <ClipboardCheck className="h-3 w-3" />
-                </TabsTrigger>
-                <TabsTrigger value="orcamentos" className="text-[10px] h-7 px-1" title="Orçamentos">
-                  <DollarSign className="h-3 w-3" />
-                </TabsTrigger>
-                <TabsTrigger value="historico" className="text-[10px] h-7 px-1" title="Histórico do cliente">
+                <TabsTrigger value="historico" className="text-[10px] h-7 px-1" title="Histórico">
                   <History className="h-3 w-3" />
                 </TabsTrigger>
-                <TabsTrigger value="insights" className="text-[10px] h-7 px-1" title="Insights">
-                  <Lightbulb className="h-3 w-3" />
+                <TabsTrigger value="informacoes" className="text-[10px] h-7 px-1" title="Informações">
+                  <FileText className="h-3 w-3" />
                 </TabsTrigger>
-                <TabsTrigger value="resumo" className="text-[10px] h-7 px-1" title="Resumo (IA)">
+                <TabsTrigger value="nina" className="text-[10px] h-7 px-1" title="Nina (IA)">
                   <Sparkles className="h-3 w-3" />
                 </TabsTrigger>
+                <TabsTrigger value="orcamentos" className="text-[10px] h-7 px-1" title="Orçamento">
+                  <DollarSign className="h-3 w-3" />
+                </TabsTrigger>
               </TabsList>
+
+              {/* ── RESUMO TAB (default) ── */}
+              <TabsContent value="resumo" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <ResumoFichaTab fichaId={fichaAtual} />
+              </TabsContent>
 
               {/* ── CLIENTE TAB ── */}
               <TabsContent value="cliente" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
@@ -380,101 +382,24 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
                 </div>
               </TabsContent>
 
-              {/* ── FICHA TAB ── */}
-              <TabsContent value="ficha" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
-                {/* Ficha Summary */}
-                {fichaDetalhes && (
-                  <div className="mb-3">
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      <div className="bg-muted/30 rounded p-2">
-                        <p className="text-[10px] text-muted-foreground">Código</p>
-                        <p className="text-xs font-semibold truncate">{fichaDetalhes.id}</p>
-                      </div>
-                      <div className="bg-muted/30 rounded p-2">
-                        <p className="text-[10px] text-muted-foreground">Status</p>
-                        <Badge variant="outline" className="text-[10px] mt-0.5">
-                          {fichaDetalhes.status || 'N/A'}
-                        </Badge>
-                      </div>
-                      <div className="bg-muted/30 rounded p-2">
-                        <p className="text-[10px] text-muted-foreground">Categoria</p>
-                        <p className="text-xs font-medium">{categoriaNome || 'N/A'}</p>
-                      </div>
-                      <div className="bg-muted/30 rounded p-2">
-                        <p className="text-[10px] text-muted-foreground">Valor</p>
-                        <p className="text-xs font-semibold text-primary">
-                          {fichaDetalhes.valor_total ? `R$ ${fichaDetalhes.valor_total.toFixed(2)}` : 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <FichaServicoTab fichaId={fichaAtual} />
-              </TabsContent>
-
-              {/* ── INSIGHTS TAB ── */}
-              <TabsContent value="insights" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
-                <div className="space-y-3">
-                  {/* Coaching Suggestion */}
-                  {coaching ? (
-                    <div className="bg-accent/50 border border-border rounded-lg p-2.5">
-                      <div className="flex items-center gap-1 mb-1.5">
-                        <Lightbulb className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs font-semibold text-foreground">
-                          {coaching.perfil}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mb-1">
-                        Meta: {(coaching.conversaoMeta * 100).toFixed(0)}% · Próximo: {coaching.proximoPassoLabel}
-                      </p>
-                      {coaching.prioridade === 'maxima' && (
-                        <Badge variant="destructive" className="text-[9px] px-1 py-0 mb-1.5">
-                          🔴 PRIORIDADE MÁXIMA
-                        </Badge>
-                      )}
-                      <div className="bg-muted/50 rounded p-2 mb-2">
-                        <p className="text-[11px] text-foreground italic">
-                          &ldquo;{coaching.sugestaoMensagem}&rdquo;
-                        </p>
-                      </div>
-                      <Button size="sm" variant="outline" className="h-6 text-[10px] w-full" onClick={copiarSugestao}>
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copiar Sugestão
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="bg-muted/30 rounded-lg p-3 text-center">
-                      <Lightbulb className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
-                      <p className="text-xs text-muted-foreground">Sem sugestões disponíveis</p>
-                    </div>
-                  )}
-
-                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-2.5">
-                    <p className="text-[10px] text-muted-foreground">
-                      💡 As ações principais do atendimento ficam fixas no topo desta coluna para manter o chat mais limpo.
-                    </p>
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* ── ACOMPANHAMENTO TAB ── */}
-              <TabsContent value="acompanhamento" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
-                <AcompanhamentoTab fichaId={fichaAtual} />
-              </TabsContent>
-
-              {/* ── ORÇAMENTOS TAB ── */}
-              <TabsContent value="orcamentos" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
-                <OrcamentosTab fichaId={fichaAtual} />
-              </TabsContent>
-
               {/* ── HISTÓRICO DO CLIENTE TAB ── */}
               <TabsContent value="historico" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
                 <HistoricoClienteTab clienteTelefone={clienteTelefone} fichaAtualId={fichaAtual} />
               </TabsContent>
 
-              {/* ── RESUMO IA (NINA) TAB ── */}
-              <TabsContent value="resumo" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
-                <ResumoIATab fichaId={fichaAtual} />
+              {/* ── INFORMAÇÕES (FICHA COMPLETA) TAB ── */}
+              <TabsContent value="informacoes" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <FichaServicoTab fichaId={fichaAtual} />
+              </TabsContent>
+
+              {/* ── NINA (IA) TAB ── */}
+              <TabsContent value="nina" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <NinaTab fichaId={fichaAtual} coaching={coaching} />
+              </TabsContent>
+
+              {/* ── ORÇAMENTOS TAB ── */}
+              <TabsContent value="orcamentos" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <OrcamentosTab fichaId={fichaAtual} />
               </TabsContent>
             </Tabs>
           </div>
