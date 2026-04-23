@@ -212,11 +212,17 @@ function applyEmbeddedFichaFilters<Q>(
 
 // Busca fichas DISTINCT que tiveram um determinado status no período
 // (com fallback p/ created_at da ficha quando não há histórico).
+//
+// `excludeCurrentStatuses`: se a ficha atualmente está em algum desses status,
+// ela é descartada da contagem mesmo que tenha tido o evento no período.
+// Usado p/ regra de "Agendado": se a ficha foi agendada mas depois virou
+// "Perdido", não contamos mais como agendamento.
 async function fetchFichasComEvento(
   statusNovo: string,
   fromStr: string,
   toStr: string,
   filters: RawFichaFiltros,
+  excludeCurrentStatuses: string[] = [],
 ): Promise<{
   fichas: Array<{
     id: string;
