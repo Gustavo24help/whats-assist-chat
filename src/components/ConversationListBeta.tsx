@@ -990,15 +990,18 @@ export const ConversationListBeta = ({
         });
       }
 
-      // ✅ Query extra: Buscar leitura per-operator para determinar não lido
-      let operatorReadMap = new Map<string, { last_read_at: string; manual_unread_at: string | null }>(); 
+      // ✅ Fonte de verdade ÚNICA: mensagem_leitura_operador (last_read_at + manual_unread)
+      let operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread: boolean }>();
       if (user?.id) {
         const { data: readData } = await (supabase as any)
           .from('mensagem_leitura_operador')
-          .select('cliente_telefone, last_read_at, manual_unread_at')
+          .select('cliente_telefone, last_read_at, manual_unread')
           .eq('user_id', user.id);
         readData?.forEach((r: any) => {
-          operatorReadMap.set(r.cliente_telefone, { last_read_at: r.last_read_at, manual_unread_at: r.manual_unread_at });
+          operatorReadMap.set(r.cliente_telefone, {
+            last_read_at: r.last_read_at,
+            manual_unread: r.manual_unread === true,
+          });
         });
       }
 
