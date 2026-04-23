@@ -470,6 +470,7 @@ export function AcompanhamentoConversas() {
       .channel('acompanhamento-conversas')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fichas_de_servico' }, () => fetchFichas())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ficha_status_historico' }, () => fetchFichas())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clientes' }, () => fetchFichas())
       .subscribe();
 
     const tick = setInterval(() => setNow(new Date()), 60000);
