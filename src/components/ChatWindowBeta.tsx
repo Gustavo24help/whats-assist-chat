@@ -1199,18 +1199,17 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     const isClienteMsg = lastMsg?.remetente === 'cliente' || lastMsg?.tipo_remetente === 'cliente';
     if (!isClienteMsg) return;
 
-    import('@/lib/chatBetaUnread').then(({ markConversationRead }) => {
-      markConversationRead(clienteTelefone, user.id).catch(() => {});
+    import('@/lib/chatBetaUnread').then(({ markConversationAutoRead }) => {
+      markConversationAutoRead(clienteTelefone, user.id).catch(() => {});
     });
   }, [mensagens.length, clienteTelefone, user?.id]);
 
   const clearUnreadMark = async () => {
     if (!user) return;
-    // Sempre marca como lido ao abrir a conversa.
-    // A marcação manual de "não lido" é um evento explícito posterior; ao abrir o chat,
-    // a leitura sobrescreve qualquer flag anterior.
-    const { markConversationRead } = await import('@/lib/chatBetaUnread');
-    await markConversationRead(clienteTelefone, user.id);
+    // Leitura AUTOMÁTICA: preserva flag manual_unread se setada.
+    // Só o menu "Marcar como lida" apaga a flag explicitamente.
+    const { markConversationAutoRead } = await import('@/lib/chatBetaUnread');
+    await markConversationAutoRead(clienteTelefone, user.id);
   };
 
   // ✅ Removidas funções duplicadas - consolidadas em fetchClienteData()
