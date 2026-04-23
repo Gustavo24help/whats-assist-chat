@@ -1047,10 +1047,23 @@ export const ConversationList = ({
   };
 
   const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
+    if (!user?.id) {
+      toast.error("Usuário não identificado");
+      return;
+    }
+    const novoEstado = !currentState;
     const { error } = await supabase
-      .from('clientes')
-      .update({ marcado_nao_lido: !currentState })
-      .eq('telefone', telefone);
+      .from('mensagem_leitura_operador')
+      .upsert(
+        {
+          user_id: user.id,
+          cliente_telefone: telefone,
+          manual_unread: novoEstado,
+          manual_unread_at: novoEstado ? new Date().toISOString() : null,
+          last_read_at: novoEstado ? null : new Date().toISOString(),
+        },
+        { onConflict: 'user_id,cliente_telefone' }
+      );
 
     if (error) {
       console.error('[ConversationList] toggleUnreadMark erro:', error);
@@ -1058,8 +1071,13 @@ export const ConversationList = ({
       return;
     }
 
+    // Atualizar otimisticamente o estado local
+    setClientes(prev => prev.map(c =>
+      c.telefone === telefone
+        ? { ...c, marcado_nao_lido: novoEstado, unread_count_real: novoEstado ? 1 : 0 }
+        : c
+    ));
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
-    await fetchClientes();
   };
 
   const getStatusColor = (status?: string) => {
