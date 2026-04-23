@@ -274,7 +274,7 @@ async function fetchFichasComEvento(
     .select(
       'id, status, valor_total, valor_mao_obra, valor_final_mao_obra, valor_pecas, valor_final_pecas, pagamento_realizado, created_at',
     )
-    .eq('status', statusNovo)
+    .eq('status', statusNovo as any)
     .gte('created_at', fromStr)
     .lte('created_at', toStr);
   fbQ = applyFichaFilters(fbQ, filters);
@@ -328,14 +328,15 @@ async function fetchMetricsForWindow(
     pagoPrestadorRes,
   ] = await Promise.all([
     // FS Criadas (= Conversas Iniciadas) — count direto
-    applyFichaFilters(
-      supabase
+    (async () => {
+      let q: any = supabase
         .from('fichas_de_servico')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', fromStr)
-        .lte('created_at', toStr),
-      filters,
-    ),
+        .lte('created_at', toStr);
+      q = applyFichaFilters(q, filters);
+      return await q;
+    })(),
     // Visita Agendada — eventos de status
     fetchFichasComEvento('Visita Técnica', fromStr, toStr, filters),
     // Serviço Agendado — eventos de status
