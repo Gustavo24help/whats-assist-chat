@@ -21,9 +21,19 @@ export function setSameTabPreference(value: boolean): void {
   }
 }
 
+type MouseLikeEvent = {
+  button?: number;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  shiftKey?: boolean;
+  preventDefault?: () => void;
+};
+
 /**
- * Stateless hook that exposes only the navigation action.
- * No internal useState — avoids hook-count mismatches across renders.
+ * Stateless hook that exposes navigation actions.
+ * - openRoute(path): normal click navigation (respects same-tab preference for admin TI)
+ * - getLinkHandlers(path): spreadable handlers for buttons that should behave like links,
+ *   opening in a new tab on middle-click / ctrl+click / cmd+click.
  */
 export function useOpenInNewTab() {
   const { isAdminTI } = useAuth();
@@ -40,5 +50,41 @@ export function useOpenInNewTab() {
     [isAdminTI]
   );
 
-  return { openRoute };
+  const openInNewTab = useCallback((path: string) => {
+    const url = new URL(path, window.location.origin).href;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, []);
+
+  /**
+   * Returns handlers for elements that should behave like links.
+   * Middle-click (button 1) or ctrl/cmd+click always opens in a new tab.
+   */
+  const getLinkHandlers = useCallback(
+    (path: string) => ({
+      onClick: (e: MouseLikeEvent) => {
+        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+          e.preventDefault?.();
+          openInNewTab(path);
+          return;
+        }
+        openRoute(path);
+      },
+      onAuxClick: (e: MouseLikeEvent) => {
+        // Middle mouse button
+        if (e.button === 1) {
+          e.preventDefault?.();
+          openInNewTab(path);
+        }
+      },
+      onMouseDown: (e: MouseLikeEvent) => {
+        // Prevent default autoscroll behavior on middle-click
+        if (e.button === 1) {
+          e.preventDefault?.();
+        }
+      },
+    }),
+    [openRoute, openInNewTab]
+  );
+
+  return { openRoute, openInNewTab, getLinkHandlers };
 }
