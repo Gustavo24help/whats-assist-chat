@@ -182,17 +182,6 @@ export const ConversationList = ({
       )
       .subscribe();
 
-    const leituraChannel = user?.id
-      ? supabase
-          .channel(`chat-leitura-operador-${user.id}`)
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'mensagem_leitura_operador', filter: `user_id=eq.${user.id}` },
-            () => fetchClientes()
-          )
-          .subscribe()
-      : null;
-
     // 🆕 Canal realtime para novos orçamentos
     const orcamentosChannel = supabase
       .channel('orcamentos-new-classic')
@@ -220,7 +209,6 @@ export const ConversationList = ({
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(fichasChannel);
       supabase.removeChannel(mensagensChannel);
-      if (leituraChannel) supabase.removeChannel(leituraChannel);
       supabase.removeChannel(orcamentosChannel);
       window.clearInterval(pollingInterval);
     };

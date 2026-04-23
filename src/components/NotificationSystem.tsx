@@ -31,6 +31,11 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
           if (remetente === NUMERO_24HELP || remetente === 'atendente' || remetente === 'bot') return;
           
           if (clienteId !== currentClienteId) {
+            await supabase
+              .from('clientes')
+              .update({ marcado_nao_lido: true })
+              .eq('telefone', clienteId);
+
             // Verificar se o bot já foi desligado alguma vez para este cliente
             const { data: cliente } = await supabase
               .from('clientes')
