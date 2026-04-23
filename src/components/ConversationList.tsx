@@ -884,11 +884,19 @@ export const ConversationList = ({
         .limit(1000);
 
       const ultimaMsgClienteMap = new Map<string, string>();
+      // Map: cliente_id -> Set<data_hora> deduplicada para contagem real de não lidas
+      const todasMsgsClienteMap = new Map<string, Set<string>>();
       [...(ultimasMensagensClienteLegado || []), ...(ultimasMensagensClienteTipo || [])].forEach(msg => {
         const existing = ultimaMsgClienteMap.get(msg.cliente_id);
         if (!existing || new Date(msg.data_hora) > new Date(existing)) {
           ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
         }
+        let set = todasMsgsClienteMap.get(msg.cliente_id);
+        if (!set) {
+          set = new Set<string>();
+          todasMsgsClienteMap.set(msg.cliente_id, set);
+        }
+        set.add(msg.data_hora);
       });
 
       // ✅ Combinar tudo SEM QUERIES EXTRAS
