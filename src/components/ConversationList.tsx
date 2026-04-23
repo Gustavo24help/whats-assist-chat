@@ -992,7 +992,6 @@ export const ConversationList = ({
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
           status_ficha: fichaData?.status || undefined,
-          unread_count: unreadMessages[cliente.telefone] || 0,
           unread_count_real: perOperatorUnread ? unreadCountReal : 0,
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
@@ -1143,11 +1142,7 @@ export const ConversationList = ({
     }
 
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
-    setClientes(prev => prev.map(c => 
-      c.telefone === telefone 
-        ? { ...c, marcado_nao_lido: !currentState }
-        : c
-    ));
+    await fetchClientes();
   };
 
   const getStatusColor = (status?: string) => {
