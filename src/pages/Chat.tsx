@@ -24,7 +24,6 @@ const Chat = () => {
   const { openRoute } = useOpenInNewTab();
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [fichaOpen, setFichaOpen] = useState(false);
-  const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [botDisabledAcknowledged, setBotDisabledAcknowledged] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"conversas" | "contatos">("conversas");
@@ -75,20 +74,8 @@ const Chat = () => {
     navigate("/auth");
   };
 
-  const handleNewMessage = (clienteId: string) => {
-    setUnreadMessages(prev => ({
-      ...prev,
-      [clienteId]: (prev[clienteId] || 0) + 1
-    }));
-  };
-
   const handleSelectCliente = async (cliente: any) => {
     setSelectedCliente(cliente);
-    // Clear unread count when opening conversation
-    setUnreadMessages(prev => ({
-      ...prev,
-      [cliente.telefone]: 0
-    }));
     
     // Mark bot disabled notification as seen in database when opening conversation
     if (cliente.bot_habilitado === false) {
@@ -135,7 +122,7 @@ const Chat = () => {
   return (
     <PageLayout fullHeight>
       <NotificationSystem 
-        onNewMessage={handleNewMessage}
+        onNewMessage={() => {}}
         currentClienteId={selectedCliente?.telefone || null}
       />
       
