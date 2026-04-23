@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus, ClipboardCheck, MapPin, Phone, User, Copy, Lightbulb, Wrench, Star, UserCheck, History } from "lucide-react";
+import { X, FileText, DollarSign, Plus, ClipboardCheck, MapPin, Phone, User, Copy, Lightbulb, Wrench, Star, UserCheck, History, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
 import { OrcamentosTab } from "./OrcamentosTab";
 import { AcompanhamentoTab } from "./AcompanhamentoTab";
 import { CriarFichaDialog } from "./CriarFichaDialog";
+import { HistoricoClienteTab } from "./chat-beta/HistoricoClienteTab";
+import { ResumoIATab } from "./chat-beta/ResumoIATab";
 import { useClienteSignalsBeta } from "@/hooks/useClienteSignalsBeta";
 import { Badge } from "@/components/ui/badge";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
@@ -294,26 +296,27 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
 
             {/* ── TABS ── */}
             <Tabs defaultValue="ficha" className="flex flex-col">
-              <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid grid-cols-5">
-                <TabsTrigger value="cliente" className="text-[10px] h-7 px-1">
-                  <User className="mr-0.5 h-3 w-3" />
-                  Cliente
+              <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid grid-cols-7">
+                <TabsTrigger value="ficha" className="text-[10px] h-7 px-1" title="Ficha">
+                  <FileText className="h-3 w-3" />
                 </TabsTrigger>
-                <TabsTrigger value="ficha" className="text-[10px] h-7 px-1">
-                  <FileText className="mr-0.5 h-3 w-3" />
-                  Ficha
+                <TabsTrigger value="cliente" className="text-[10px] h-7 px-1" title="Cliente">
+                  <User className="h-3 w-3" />
                 </TabsTrigger>
-                <TabsTrigger value="insights" className="text-[10px] h-7 px-1">
-                  <Lightbulb className="mr-0.5 h-3 w-3" />
-                  Insights
+                <TabsTrigger value="acompanhamento" className="text-[10px] h-7 px-1" title="Acompanhamento">
+                  <ClipboardCheck className="h-3 w-3" />
                 </TabsTrigger>
-                <TabsTrigger value="acompanhamento" className="text-[10px] h-7 px-1">
-                  <ClipboardCheck className="mr-0.5 h-3 w-3" />
-                  Acomp.
+                <TabsTrigger value="orcamentos" className="text-[10px] h-7 px-1" title="Orçamentos">
+                  <DollarSign className="h-3 w-3" />
                 </TabsTrigger>
-                <TabsTrigger value="orcamentos" className="text-[10px] h-7 px-1">
-                  <DollarSign className="mr-0.5 h-3 w-3" />
-                  Orçam.
+                <TabsTrigger value="historico" className="text-[10px] h-7 px-1" title="Histórico do cliente">
+                  <History className="h-3 w-3" />
+                </TabsTrigger>
+                <TabsTrigger value="insights" className="text-[10px] h-7 px-1" title="Insights">
+                  <Lightbulb className="h-3 w-3" />
+                </TabsTrigger>
+                <TabsTrigger value="resumo" className="text-[10px] h-7 px-1" title="Resumo (IA)">
+                  <Sparkles className="h-3 w-3" />
                 </TabsTrigger>
               </TabsList>
 
@@ -462,6 +465,16 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
               {/* ── ORÇAMENTOS TAB ── */}
               <TabsContent value="orcamentos" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
                 <OrcamentosTab fichaId={fichaAtual} />
+              </TabsContent>
+
+              {/* ── HISTÓRICO DO CLIENTE TAB ── */}
+              <TabsContent value="historico" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <HistoricoClienteTab clienteTelefone={clienteTelefone} fichaAtualId={fichaAtual} />
+              </TabsContent>
+
+              {/* ── RESUMO IA (NINA) TAB ── */}
+              <TabsContent value="resumo" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <ResumoIATab fichaId={fichaAtual} />
               </TabsContent>
             </Tabs>
           </div>
