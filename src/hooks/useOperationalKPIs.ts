@@ -212,11 +212,17 @@ function applyEmbeddedFichaFilters<Q>(
 
 // Busca fichas DISTINCT que tiveram um determinado status no período
 // (com fallback p/ created_at da ficha quando não há histórico).
+//
+// `excludeCurrentStatuses`: se a ficha atualmente está em algum desses status,
+// ela é descartada da contagem mesmo que tenha tido o evento no período.
+// Usado p/ regra de "Agendado": se a ficha foi agendada mas depois virou
+// "Perdido", não contamos mais como agendamento.
 async function fetchFichasComEvento(
   statusNovo: string,
   fromStr: string,
   toStr: string,
   filters: RawFichaFiltros,
+  excludeCurrentStatuses: string[] = [],
 ): Promise<{
   fichas: Array<{
     id: string;
@@ -306,7 +312,15 @@ async function fetchFichasComEvento(
     fichasFromHist.set(f.id, f);
   }
 
-  return { fichas: Array.from(fichasFromHist.values()) };
+  // 3. Aplica exclusão por status atual (regra de negócio):
+  //    Ex.: para "Agendado", se a ficha hoje está como "Perdido", desconta.
+  //    Status válidos a manter: Agendado, Em andamento, Finalizado, Garantia, Retorno.
+  let fichas = Array.from(fichasFromHist.values());
+  if (excludeCurrentStatuses.length > 0) {
+    fichas = fichas.filter((f) => !excludeCurrentStatuses.includes(f.status));
+  }
+
+  return { fichas };
 }
 
 // ============================================================
@@ -340,7 +354,10 @@ async function fetchMetricsForWindow(
     // Visita Agendada — eventos de status
     fetchFichasComEvento('Visita Técnica', fromStr, toStr, filters),
     // Serviço Agendado — eventos de status
-    fetchFichasComEvento('Agendado', fromStr, toStr, filters),
+    // Regra: se a ficha hoje está como "Perdido", o agendamento NÃO é contado.
+    // Status válidos a manter: Agendado, Em andamento, Finalizado, Garantia, Retorno
+    // (qualquer status que não seja "Perdido" preserva o agendamento histórico).
+    fetchFichasComEvento('Agendado', fromStr, toStr, filters, ['Perdido']),
     // Serviço Finalizado — eventos de status
     fetchFichasComEvento('Finalizado', fromStr, toStr, filters),
     // Pago ao prestador — transacoes_financeiras (mesma fonte do módulo Financeiro/Contas a Pagar)
