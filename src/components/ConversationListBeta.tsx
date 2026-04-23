@@ -1081,37 +1081,34 @@ export const ConversationListBeta = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
-        // Per-operator unread: compare last_read_at with latest client message
+        // Per-operator unread (regra única):
+        //   manual_unread === true  → não lido (até ação manual de marcar como lida)
+        //   senão  → não lido se existir mensagem do cliente após last_read_at
         const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
         const allClientMsgDates = todasMsgsClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
         let unreadCountReal = 0;
-        
-        // Manual unread takes priority (sets badge to •/1 for manual flag)
-        if (readRecord?.manual_unread_at) {
+
+        if (readRecord?.manual_unread === true) {
           perOperatorUnread = true;
-          // Mantém contagem real se houver mensagens novas após manual_unread_at, senão 0 (mostra ponto)
-          if (allClientMsgDates) {
-            const ref = readRecord.last_read_at && readRecord.last_read_at > readRecord.manual_unread_at
-              ? readRecord.last_read_at
-              : readRecord.manual_unread_at;
-            unreadCountReal = Array.from(allClientMsgDates).filter(d => d > ref).length;
-          }
+          // Conta só msgs após last_read_at (se houver). Caso contrário 0 → mostra "•".
+          const ref = readRecord.last_read_at;
+          unreadCountReal = ref && allClientMsgDates
+            ? Array.from(allClientMsgDates).filter(d => d > ref).length
+            : 0;
         } else if (lastClientMsg) {
-          if (!readRecord) {
-            perOperatorUnread = !!lastClientMsg;
-            unreadCountReal = allClientMsgDates ? allClientMsgDates.size : 0;
-          } else if (new Date(lastClientMsg) > new Date(readRecord.last_read_at)) {
+          const lastReadAt = readRecord?.last_read_at ?? null;
+          if (!lastReadAt || new Date(lastClientMsg) > new Date(lastReadAt)) {
             perOperatorUnread = true;
-            const lastReadAt = readRecord.last_read_at;
             unreadCountReal = allClientMsgDates
-              ? Array.from(allClientMsgDates).filter(d => d > lastReadAt).length
+              ? Array.from(allClientMsgDates).filter(d => !lastReadAt || d > lastReadAt).length
               : 0;
           }
         }
 
-        // Força badge zerado se essa conversa está selecionada (operador a está visualizando)
+        // Força badge zerado se essa conversa está selecionada (operador a está visualizando agora).
+        // A escrita real em mensagem_leitura_operador é responsabilidade do ChatWindowBeta.
         const isSelected = selectedClienteTelefoneRef.current === cliente.telefone;
         if (isSelected) {
           perOperatorUnread = false;
