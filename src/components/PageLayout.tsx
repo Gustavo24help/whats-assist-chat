@@ -123,7 +123,7 @@ interface PageLayoutProps {
 export function PageLayout({ children, fullHeight = false }: PageLayoutProps) {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
-  const { openRoute, getLinkHandlers } = useOpenInNewTab();
+  const { getLinkHandlers } = useOpenInNewTab();
 
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) === "true"; } catch { return false; }
