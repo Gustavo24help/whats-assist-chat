@@ -2134,8 +2134,9 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
-      <header className="bg-card border-b min-h-14 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 shrink-0">
-        <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+      <header className="bg-card border-b flex flex-col gap-2 px-3 py-2 shrink-0">
+        {/* ─── Linha 1: Info do cliente ─── */}
+        <div className="flex items-center gap-2 md:gap-3 min-w-0 w-full">
           <Button
             variant="ghost"
             size="sm"
@@ -2144,52 +2145,53 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-semibold text-sm md:text-base truncate">{clienteNome}</h2>
-            {fichaId && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
-                <FileText className="h-3 w-3" />
-                Ficha Ativa
-              </span>
-            )}
-            <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-xs font-medium cursor-help">
-                    Bot: <span className={botDesabilitado ? "text-destructive" : "text-green-600"}>
-                      {botDesabilitado ? "Desativado" : "Ativado"}
-                    </span>
-                    {ultimaAcaoBot && ultimaAcaoBot.por && (
-                      <span className="text-muted-foreground ml-1">
-                        por {ultimaAcaoBot.por.split(' ')[0]}
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-semibold text-sm md:text-base truncate">{clienteNome}</h2>
+              {fichaId && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
+                  <FileText className="h-3 w-3" />
+                  Ficha Ativa
+                </span>
+              )}
+              <StatusConexaoTwilio telefoneCliente={clienteTelefone} />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs text-muted-foreground truncate">{clienteTelefone}</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs font-medium cursor-help">
+                      Bot: <span className={botDesabilitado ? "text-destructive" : "text-green-600"}>
+                        {botDesabilitado ? "Desativado" : "Ativado"}
                       </span>
+                      {ultimaAcaoBot && ultimaAcaoBot.por && (
+                        <span className="text-muted-foreground ml-1">
+                          por {ultimaAcaoBot.por.split(' ')[0]}
+                        </span>
+                      )}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {ultimaAcaoBot ? (
+                      <div className="text-xs">
+                        <p><strong>{ultimaAcaoBot.acao === 'habilitado' ? 'Ativado' : 'Desativado'}</strong></p>
+                        {ultimaAcaoBot.por && <p>Por: {ultimaAcaoBot.por}</p>}
+                        <p>Em: {format(new Date(ultimaAcaoBot.quando), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs">Sem histórico de alterações</p>
                     )}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {ultimaAcaoBot ? (
-                    <div className="text-xs">
-                      <p><strong>{ultimaAcaoBot.acao === 'habilitado' ? 'Ativado' : 'Desativado'}</strong></p>
-                      {ultimaAcaoBot.por && <p>Por: {ultimaAcaoBot.por}</p>}
-                      <p>Em: {format(new Date(ultimaAcaoBot.quando), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
-                    </div>
-                  ) : (
-                    <p className="text-xs">Sem histórico de alterações</p>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
-        </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 shrink-0 ml-auto">
+        {/* ─── Linha 2: Ações (sempre wrap, nunca encavala com título) ─── */}
+        <div className="flex flex-wrap items-center gap-1.5 w-full">
           {/* Header actions — sempre visíveis (Assumir + delegação não dependem da ficha) */}
           <>
               {/* Botão copiar info do serviço para prestador */}
