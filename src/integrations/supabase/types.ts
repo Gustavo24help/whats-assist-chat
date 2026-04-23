@@ -430,6 +430,7 @@ export type Database = {
           endereco: string | null
           ficha_ativa_id: string | null
           marcado_nao_lido: boolean | null
+          marcado_nao_lido_manual_em: string | null
           nome: string
           notas_internas: string | null
           numero_twilio: string | null
@@ -456,6 +457,7 @@ export type Database = {
           endereco?: string | null
           ficha_ativa_id?: string | null
           marcado_nao_lido?: boolean | null
+          marcado_nao_lido_manual_em?: string | null
           nome?: string
           notas_internas?: string | null
           numero_twilio?: string | null
@@ -482,6 +484,7 @@ export type Database = {
           endereco?: string | null
           ficha_ativa_id?: string | null
           marcado_nao_lido?: boolean | null
+          marcado_nao_lido_manual_em?: string | null
           nome?: string
           notas_internas?: string | null
           numero_twilio?: string | null
