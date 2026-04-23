@@ -47,7 +47,6 @@ interface Cliente {
 interface ConversationListProps {
   selectedClienteTelefone: string | null;
   onSelectCliente: (cliente: Cliente) => void;
-  unreadMessages: Record<string, number>;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   botDisabledAcknowledged?: Set<string>;
@@ -56,7 +55,6 @@ interface ConversationListProps {
 export const ConversationList = ({ 
   selectedClienteTelefone, 
   onSelectCliente, 
-  unreadMessages,
   isCollapsed = false,
   onToggleCollapse,
   botDisabledAcknowledged = new Set()
@@ -175,6 +173,26 @@ export const ConversationList = ({
       )
       .subscribe();
 
+    const mensagensChannel = supabase
+      .channel('chat-mensagens-unread-classic')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'mensagens' },
+        () => fetchClientes()
+      )
+      .subscribe();
+
+    const leituraChannel = user?.id
+      ? supabase
+          .channel(`chat-leitura-operador-${user.id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'mensagem_leitura_operador', filter: `user_id=eq.${user.id}` },
+            () => fetchClientes()
+          )
+          .subscribe()
+      : null;
+
     // 🆕 Canal realtime para novos orçamentos
     const orcamentosChannel = supabase
       .channel('orcamentos-new-classic')
@@ -201,10 +219,12 @@ export const ConversationList = ({
       supabase.removeChannel(channel);
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(fichasChannel);
+      supabase.removeChannel(mensagensChannel);
+      if (leituraChannel) supabase.removeChannel(leituraChannel);
       supabase.removeChannel(orcamentosChannel);
       window.clearInterval(pollingInterval);
     };
-  }, []);
+  }, [user?.id]);
 
   // ✅ Memoizar filtros pesados para melhor performance
   const filteredClientes = useMemo(() => {
@@ -370,7 +390,7 @@ export const ConversationList = ({
     });
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
