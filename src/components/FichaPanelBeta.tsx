@@ -466,6 +466,16 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
               <TabsContent value="orcamentos" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
                 <OrcamentosTab fichaId={fichaAtual} />
               </TabsContent>
+
+              {/* ── HISTÓRICO DO CLIENTE TAB ── */}
+              <TabsContent value="historico" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <HistoricoClienteTab clienteTelefone={clienteTelefone} fichaAtualId={fichaAtual} />
+              </TabsContent>
+
+              {/* ── RESUMO IA (NINA) TAB ── */}
+              <TabsContent value="resumo" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                <ResumoIATab fichaId={fichaAtual} />
+              </TabsContent>
             </Tabs>
           </div>
         )}
