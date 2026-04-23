@@ -278,6 +278,7 @@ const ChatBeta = () => {
                 externalStatusFilter={statusFilter}
                 externalConversaStatusFilter={conversaStatusFilter}
                 onConversaStatusFilterChange={setConversaStatusFilter}
+                onStatusFilterChange={setStatusFilter}
                 externalUnreadFilter={unreadFilter}
                 onUnreadFilterChange={setUnreadFilter}
                 unreadCount={statusCounts.unreadCount}
