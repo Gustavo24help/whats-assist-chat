@@ -69,7 +69,7 @@ export const ConversionRatesSection = ({
           value={`${taxaFinalizadosSobreFsCriadas}%`}
           subValue={`${servicosFinalizados} de ${fsCriadas}`}
           icon={<Flag className="h-5 w-5" />}
-          iconColor="primary"
+          iconColor="brand-green"
           tooltip="Fichas finalizadas sobre fichas criadas no período."
           animationDelay={150}
         />

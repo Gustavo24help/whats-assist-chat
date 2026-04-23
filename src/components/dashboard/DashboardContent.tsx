@@ -60,6 +60,7 @@ export const DashboardContent = ({
             <ConversionRatesSection
               fsCriadas={kpiData.fsCriadas}
               servicosAgendados={kpiData.servicoAgendadoTotal}
+              servicosFinalizados={kpiData.servicoFinalizado}
               finalizadosPagos={kpiData.finalizadoPago}
             />
             <ConversionFunnel />
