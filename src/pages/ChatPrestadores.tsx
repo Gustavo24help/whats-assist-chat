@@ -37,10 +37,10 @@ const ChatPrestadores = () => {
             <span className="font-semibold text-sm">Chat Prestadores</span>
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => openRoute("/chat")}>
+            <Button variant="ghost" size="sm" {...getLinkHandlers("/chat")}>
               Chat Clientes
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => openRoute("/dashboard")}>
+            <Button variant="ghost" size="sm" {...getLinkHandlers("/dashboard")}>
               Dashboard
             </Button>
           </div>
