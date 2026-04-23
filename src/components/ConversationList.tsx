@@ -778,18 +778,7 @@ export const ConversationList = ({
         }
       });
 
-      // ✅ Query 2b: Estado de leitura POR OPERADOR (per-user)
-      const leituraMap = new Map<string, boolean>();
-      if (user?.id && telefones.length > 0) {
-        const { data: leituras } = await supabase
-          .from('mensagem_leitura_operador')
-          .select('cliente_telefone, manual_unread')
-          .eq('user_id', user.id)
-          .in('cliente_telefone', telefones);
-        leituras?.forEach(l => {
-          leituraMap.set(l.cliente_telefone, !!l.manual_unread);
-        });
-      }
+      // (estado de leitura "marcado_nao_lido" vem direto da tabela clientes — global)
 
 
       // ✅ Query 3: Buscar TODAS as fichas ativas de uma vez
@@ -920,18 +909,18 @@ export const ConversationList = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
-        const naoLidoOperador = leituraMap.get(cliente.telefone) === true;
+        const naoLidoGlobal = (cliente as any).marcado_nao_lido === true;
 
         return {
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
           status_ficha: fichaData?.status || undefined,
-          unread_count_real: naoLidoOperador ? 1 : 0,
+          unread_count_real: naoLidoGlobal ? 1 : 0,
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
           bot_desligado_manualmente: cliente.bot_desligado_manualmente,
-          marcado_nao_lido: naoLidoOperador,
+          marcado_nao_lido: naoLidoGlobal,
           orcamentos_count: orcamentosCount,
           pagamento_link: (fichaData as any)?.pagamento_link || null,
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
@@ -1047,23 +1036,11 @@ export const ConversationList = ({
   };
 
   const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
-    if (!user?.id) {
-      toast.error("Usuário não identificado");
-      return;
-    }
     const novoEstado = !currentState;
     const { error } = await supabase
-      .from('mensagem_leitura_operador')
-      .upsert(
-        {
-          user_id: user.id,
-          cliente_telefone: telefone,
-          manual_unread: novoEstado,
-          manual_unread_at: novoEstado ? new Date().toISOString() : null,
-          last_read_at: novoEstado ? null : new Date().toISOString(),
-        },
-        { onConflict: 'user_id,cliente_telefone' }
-      );
+      .from('clientes')
+      .update({ marcado_nao_lido: novoEstado })
+      .eq('telefone', telefone);
 
     if (error) {
       console.error('[ConversationList] toggleUnreadMark erro:', error);
@@ -1071,7 +1048,6 @@ export const ConversationList = ({
       return;
     }
 
-    // Atualizar otimisticamente o estado local
     setClientes(prev => prev.map(c =>
       c.telefone === telefone
         ? { ...c, marcado_nao_lido: novoEstado, unread_count_real: novoEstado ? 1 : 0 }
