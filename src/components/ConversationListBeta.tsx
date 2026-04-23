@@ -162,6 +162,9 @@ export const ConversationListBeta = ({
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
   const isFirstLoadRef = useRef(true);
+  // Ref para que fetchClientes (capturada em closures realtime) sempre veja a seleção atual
+  const selectedClienteTelefoneRef = useRef<string | null>(selectedClienteTelefone);
+  useEffect(() => { selectedClienteTelefoneRef.current = selectedClienteTelefone; }, [selectedClienteTelefone]);
   
   // 🆕 Rastrear orçamentos recém-chegados (ficha_id → Set)
   const [recentOrcamentoFichas, setRecentOrcamentoFichas] = useState<Set<string>>(new Set());
