@@ -778,6 +778,20 @@ export const ConversationList = ({
         }
       });
 
+      // ✅ Query 2b: Estado de leitura POR OPERADOR (per-user)
+      const leituraMap = new Map<string, boolean>();
+      if (user?.id && telefones.length > 0) {
+        const { data: leituras } = await supabase
+          .from('mensagem_leitura_operador')
+          .select('cliente_telefone, manual_unread')
+          .eq('user_id', user.id)
+          .in('cliente_telefone', telefones);
+        leituras?.forEach(l => {
+          leituraMap.set(l.cliente_telefone, !!l.manual_unread);
+        });
+      }
+
+
       // ✅ Query 3: Buscar TODAS as fichas ativas de uma vez
       const fichasAtivasIds = clientesData
         .filter(c => c.ficha_ativa_id)
@@ -906,16 +920,18 @@ export const ConversationList = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
+        const naoLidoOperador = leituraMap.get(cliente.telefone) === true;
+
         return {
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
           status_ficha: fichaData?.status || undefined,
-          unread_count_real: cliente.marcado_nao_lido ? 1 : 0,
+          unread_count_real: naoLidoOperador ? 1 : 0,
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
           bot_desligado_manualmente: cliente.bot_desligado_manualmente,
-          marcado_nao_lido: !!cliente.marcado_nao_lido,
+          marcado_nao_lido: naoLidoOperador,
           orcamentos_count: orcamentosCount,
           pagamento_link: (fichaData as any)?.pagamento_link || null,
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
