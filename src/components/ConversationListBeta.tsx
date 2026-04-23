@@ -121,6 +121,7 @@ export const ConversationListBeta = ({
   externalSelectedOperadorId,
   onConversaStatusFilterChange: onExternalConversaStatusFilterChange,
   onUnreadFilterChange: onExternalUnreadFilterChange,
+  onStatusFilterChange: onExternalStatusFilterChange,
   unreadCount: externalUnreadCount,
   onStatusCounts,
   conversasComSugestao = new Set(),
