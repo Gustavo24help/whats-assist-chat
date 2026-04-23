@@ -1039,7 +1039,10 @@ export const ConversationList = ({
     const novoEstado = !currentState;
     const { error } = await supabase
       .from('clientes')
-      .update({ marcado_nao_lido: novoEstado })
+      .update({
+        marcado_nao_lido: novoEstado,
+        marcado_nao_lido_manual_em: novoEstado ? new Date().toISOString() : null,
+      })
       .eq('telefone', telefone);
 
     if (error) {
