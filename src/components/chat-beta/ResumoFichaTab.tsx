@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, FileText, DollarSign, Tag, Clock, AlertCircle } from "lucide-react";
+import { Loader2, FileText, DollarSign, Tag, Clock, AlertCircle, HardHat } from "lucide-react";
 import { toast } from "sonner";
 
 interface ResumoFichaTabProps {
@@ -18,6 +18,7 @@ interface FichaResumo {
   descricao: string | null;
   preferencia_horario_cliente: string | null;
   horario_agendamento: string | null;
+  prestador_id: string | null;
 }
 
 const STATUS_OPTIONS = [
@@ -50,6 +51,7 @@ const statusVariant = (status: string | null): "default" | "secondary" | "destru
 export const ResumoFichaTab = ({ fichaId }: ResumoFichaTabProps) => {
   const [ficha, setFicha] = useState<FichaResumo | null>(null);
   const [categoriaNome, setCategoriaNome] = useState<string | null>(null);
+  const [prestadorNome, setPrestadorNome] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingStatus, setSavingStatus] = useState(false);
 
@@ -63,11 +65,12 @@ export const ResumoFichaTab = ({ fichaId }: ResumoFichaTabProps) => {
       setLoading(true);
       const { data } = await supabase
         .from("fichas_de_servico")
-        .select("id, nome_ficha, status, categoria_id, valor_total, descricao, preferencia_horario_cliente, horario_agendamento")
+        .select("id, nome_ficha, status, categoria_id, valor_total, descricao, preferencia_horario_cliente, horario_agendamento, prestador_id")
         .eq("id", fichaId)
         .maybeSingle();
       if (data) {
         setFicha(data as FichaResumo);
+        // Categoria
         if (data.categoria_id) {
           const { data: cat } = await supabase
             .from("categorias")
@@ -76,8 +79,20 @@ export const ResumoFichaTab = ({ fichaId }: ResumoFichaTabProps) => {
             .maybeSingle();
           setCategoriaNome(cat?.nome || null);
         } else setCategoriaNome(null);
+        // Prestador
+        if (data.prestador_id) {
+          const { data: prest } = await supabase
+            .from("prestadores")
+            .select("nome")
+            .eq("cpf", data.prestador_id)
+            .maybeSingle();
+          setPrestadorNome(prest?.nome || null);
+        } else {
+          setPrestadorNome(null);
+        }
       } else {
         setFicha(null);
+        setPrestadorNome(null);
       }
       setLoading(false);
     };
@@ -174,6 +189,19 @@ export const ResumoFichaTab = ({ fichaId }: ResumoFichaTabProps) => {
           </div>
           <p className="text-xs font-bold text-primary">{formatMoeda(ficha.valor_total)}</p>
         </div>
+      </div>
+
+      {/* Prestador */}
+      <div className="bg-muted/30 rounded-lg p-2.5">
+        <div className="flex items-center gap-1 mb-1">
+          <HardHat className="h-3 w-3 text-muted-foreground" />
+          <p className="text-[10px] text-muted-foreground">Prestador</p>
+        </div>
+        {prestadorNome ? (
+          <p className="text-xs font-medium text-foreground/90 truncate">{prestadorNome}</p>
+        ) : (
+          <p className="text-xs italic text-muted-foreground">Sem prestador atribuído</p>
+        )}
       </div>
 
       {/* Resumo do serviço */}
