@@ -1191,71 +1191,26 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
   };
 
-  // Timestamp da montagem deste chat (atualizado quando clienteTelefone muda).
-  // Usado para preservar marcações manuais de "não lido" feitas DEPOIS de abrir o chat.
-  const mountTimestampRef = useRef<string>(new Date().toISOString());
-  const lastClearedTelefoneRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    mountTimestampRef.current = new Date().toISOString();
-    lastClearedTelefoneRef.current = null;
-  }, [clienteTelefone]);
-
   // ✅ Sempre que chegar uma nova mensagem do cliente E o chat estiver aberto,
-  // marcar como lida automaticamente (zera o badge para o operador atual).
+  // marcar como lida automaticamente (zera badge para o operador atual).
   useEffect(() => {
     if (!user || !clienteTelefone || mensagens.length === 0) return;
     const lastMsg = mensagens[mensagens.length - 1];
     const isClienteMsg = lastMsg?.remetente === 'cliente' || lastMsg?.tipo_remetente === 'cliente';
     if (!isClienteMsg) return;
 
-    // Atualiza last_read_at (sem mexer em manual_unread_at — operador está vendo a msg agora)
-    (supabase as any)
-      .from('mensagem_leitura_operador')
-      .upsert(
-        {
-          cliente_telefone: clienteTelefone,
-          user_id: user.id,
-          last_read_at: new Date().toISOString(),
-          manual_unread_at: null,
-        },
-        { onConflict: 'cliente_telefone,user_id' }
-      )
-      .then(() => {});
+    import('@/lib/chatBetaUnread').then(({ markConversationRead }) => {
+      markConversationRead(clienteTelefone, user.id).catch(() => {});
+    });
   }, [mensagens.length, clienteTelefone, user?.id]);
 
   const clearUnreadMark = async () => {
     if (!user) return;
-    // Idempotência: só roda uma vez por sessão de visualização do chat
-    if (lastClearedTelefoneRef.current === clienteTelefone) return;
-    lastClearedTelefoneRef.current = clienteTelefone;
-
-    const mountedAt = mountTimestampRef.current;
-
-    const { data: existing } = await (supabase as any)
-      .from('mensagem_leitura_operador')
-      .select('manual_unread_at, last_read_at')
-      .eq('cliente_telefone', clienteTelefone)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    // Preserva marcação manual se: foi feita após abrir o chat OU é mais recente
-    // que o último last_read_at (intenção do operador é mais nova que sua leitura).
-    const manualAt = existing?.manual_unread_at;
-    const lastRead = existing?.last_read_at;
-    const preserveManual =
-      !!manualAt && (manualAt > mountedAt || !lastRead || manualAt > lastRead);
-
-    const payload: any = {
-      cliente_telefone: clienteTelefone,
-      user_id: user.id,
-      last_read_at: new Date().toISOString(),
-    };
-    if (!preserveManual) payload.manual_unread_at = null;
-
-    await (supabase as any)
-      .from('mensagem_leitura_operador')
-      .upsert(payload, { onConflict: 'cliente_telefone,user_id' });
+    // Sempre marca como lido ao abrir a conversa.
+    // A marcação manual de "não lido" é um evento explícito posterior; ao abrir o chat,
+    // a leitura sobrescreve qualquer flag anterior.
+    const { markConversationRead } = await import('@/lib/chatBetaUnread');
+    await markConversationRead(clienteTelefone, user.id);
   };
 
   // ✅ Removidas funções duplicadas - consolidadas em fetchClienteData()

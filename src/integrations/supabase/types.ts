@@ -1509,6 +1509,7 @@ export type Database = {
           cliente_telefone: string
           id: string
           last_read_at: string | null
+          manual_unread: boolean
           manual_unread_at: string | null
           user_id: string
         }
@@ -1516,6 +1517,7 @@ export type Database = {
           cliente_telefone: string
           id?: string
           last_read_at?: string | null
+          manual_unread?: boolean
           manual_unread_at?: string | null
           user_id: string
         }
@@ -1523,6 +1525,7 @@ export type Database = {
           cliente_telefone?: string
           id?: string
           last_read_at?: string | null
+          manual_unread?: boolean
           manual_unread_at?: string | null
           user_id?: string
         }
