@@ -2190,7 +2190,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0 ml-auto">
           {/* Header actions — sempre visíveis (Assumir + delegação não dependem da ficha) */}
           <>
               {/* Botão copiar info do serviço para prestador */}
