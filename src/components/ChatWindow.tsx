@@ -409,10 +409,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         fetchClienteData(), // Nova função consolidada
         fetchAtendentes()
       ]);
-      await supabase
-        .from('clientes')
-        .update({ marcado_nao_lido: false })
-        .eq('telefone', clienteTelefone);
+      // Marcar como lido APENAS para o operador atual (per-user)
+      if (user?.id) {
+        await supabase
+          .from('mensagem_leitura_operador')
+          .upsert(
+            {
+              user_id: user.id,
+              cliente_telefone: clienteTelefone,
+              manual_unread: false,
+              last_read_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id,cliente_telefone' }
+          );
+      }
       setIsLoadingMessages(false);
     };
     
@@ -434,11 +444,19 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
           const NUMERO_24HELP = 'whatsapp:+554138911555';
           const isMensagemCliente = novaMensagem.remetente !== NUMERO_24HELP && novaMensagem.remetente !== 'atendente' && novaMensagem.remetente !== 'bot';
-          if (isMensagemCliente) {
+          if (isMensagemCliente && user?.id) {
+            // Como a conversa está aberta neste operador, marca como lida só pra ele
             await supabase
-              .from('clientes')
-              .update({ marcado_nao_lido: false })
-              .eq('telefone', clienteTelefone);
+              .from('mensagem_leitura_operador')
+              .upsert(
+                {
+                  user_id: user.id,
+                  cliente_telefone: clienteTelefone,
+                  manual_unread: false,
+                  last_read_at: new Date().toISOString(),
+                },
+                { onConflict: 'user_id,cliente_telefone' }
+              );
           }
 
           let replyTo: Mensagem | null = null;

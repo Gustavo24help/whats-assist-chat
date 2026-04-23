@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NotificationSystemProps {
   onNewMessage: (clienteId: string) => void;
@@ -8,6 +9,7 @@ interface NotificationSystemProps {
 }
 
 export const NotificationSystem = ({ onNewMessage, currentClienteId }: NotificationSystemProps) => {
+  const { user } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -31,10 +33,20 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
           if (remetente === NUMERO_24HELP || remetente === 'atendente' || remetente === 'bot') return;
           
           if (clienteId !== currentClienteId) {
-            await supabase
-              .from('clientes')
-              .update({ marcado_nao_lido: true })
-              .eq('telefone', clienteId);
+            // Marcar como não lido APENAS para o operador atual (per-user)
+            if (user?.id) {
+              await supabase
+                .from('mensagem_leitura_operador')
+                .upsert(
+                  {
+                    user_id: user.id,
+                    cliente_telefone: clienteId,
+                    manual_unread: true,
+                    manual_unread_at: new Date().toISOString(),
+                  },
+                  { onConflict: 'user_id,cliente_telefone' }
+                );
+            }
 
             // Verificar se o bot já foi desligado alguma vez para este cliente
             const { data: cliente } = await supabase
@@ -65,7 +77,7 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentClienteId, onNewMessage]);
+  }, [currentClienteId, onNewMessage, user?.id]);
 
   return null;
 };
