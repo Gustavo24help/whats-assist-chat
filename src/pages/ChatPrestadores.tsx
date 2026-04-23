@@ -13,7 +13,7 @@ import { PageLayout } from "@/components/PageLayout";
 
 const ChatPrestadores = () => {
   const navigate = useNavigate();
-  const { openRoute } = useOpenInNewTab();
+  const { getLinkHandlers } = useOpenInNewTab();
   const [selectedPrestador, setSelectedPrestador] = useState<any>(null);
 
   // Auth is handled by ProtectedRoute — no local session check needed
