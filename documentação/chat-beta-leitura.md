@@ -20,12 +20,14 @@ Se não existir registro para o par, considera-se `last_read_at = null` e `manua
 Nesse caso, qualquer mensagem do cliente disponível conta como não lida.
 
 ## Eventos que escrevem na tabela
-1. **Abrir conversa** → `markConversationRead` (zera flag, atualiza `last_read_at`).
-2. **Chegou mensagem do cliente com a conversa aberta** → `markConversationRead` (somente para o operador que está vendo).
+1. **Abrir conversa** → `markConversationAutoRead` (atualiza `last_read_at`, **preserva** `manual_unread` se já setado).
+2. **Chegou mensagem do cliente com a conversa aberta** → `markConversationAutoRead` (idem item 1).
 3. **Menu → "Marcar como Não Lida"** → `markConversationUnread` (só sobe flag, **não** mexe em `last_read_at`).
-4. **Menu → "Marcar como Lida"** → `markConversationRead`.
+4. **Menu → "Marcar como Lida"** → `markConversationRead` (apaga flag explicitamente).
 
 > Carregamento de lista, polling e realtime **NUNCA** escrevem nessa tabela.
+
+> Diferença crítica: leitura automática (1 e 2) **respeita** uma marcação manual prévia. Só o item 4 apaga a flag. Isso garante a permanência do "marcado como não lido" mesmo com a conversa aberta.
 
 ## Frontend
 - `src/lib/chatBetaUnread.ts` — única porta de entrada para mudar leitura.
