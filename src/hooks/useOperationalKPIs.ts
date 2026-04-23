@@ -354,7 +354,10 @@ async function fetchMetricsForWindow(
     // Visita Agendada — eventos de status
     fetchFichasComEvento('Visita Técnica', fromStr, toStr, filters),
     // Serviço Agendado — eventos de status
-    fetchFichasComEvento('Agendado', fromStr, toStr, filters),
+    // Regra: se a ficha hoje está como "Perdido", o agendamento NÃO é contado.
+    // Status válidos a manter: Agendado, Em andamento, Finalizado, Garantia, Retorno
+    // (qualquer status que não seja "Perdido" preserva o agendamento histórico).
+    fetchFichasComEvento('Agendado', fromStr, toStr, filters, ['Perdido']),
     // Serviço Finalizado — eventos de status
     fetchFichasComEvento('Finalizado', fromStr, toStr, filters),
     // Pago ao prestador — transacoes_financeiras (mesma fonte do módulo Financeiro/Contas a Pagar)
