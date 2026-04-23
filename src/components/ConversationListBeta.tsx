@@ -103,7 +103,7 @@ interface ConversationListProps {
 export const ConversationListBeta = ({ 
   selectedClienteTelefone, 
   onSelectCliente, 
-  unreadMessages,
+  unreadMessages = {},
   isCollapsed = false,
   onToggleCollapse,
   botDisabledAcknowledged = new Set(),
