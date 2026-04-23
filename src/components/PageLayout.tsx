@@ -123,7 +123,7 @@ interface PageLayoutProps {
 export function PageLayout({ children, fullHeight = false }: PageLayoutProps) {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
-  const { openRoute } = useOpenInNewTab();
+  const { openRoute, getLinkHandlers } = useOpenInNewTab();
 
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) === "true"; } catch { return false; }
@@ -166,35 +166,40 @@ export function PageLayout({ children, fullHeight = false }: PageLayoutProps) {
     navigate("/auth");
   };
 
-  const handleItemClick = (item: SidebarItem) => {
-    if (item.externalUrl) {
-      window.open(item.externalUrl, "_blank");
-    } else if (item.route) {
-      openRoute(item.route);
-    }
-  };
+  const renderItem = (item: SidebarItem, indent = false) => {
+    const linkHandlers = item.route ? getLinkHandlers(item.route) : null;
+    const handleClick = (e: React.MouseEvent) => {
+      if (item.externalUrl) {
+        window.open(item.externalUrl, "_blank");
+      } else if (linkHandlers) {
+        linkHandlers.onClick(e);
+      }
+    };
 
-  const renderItem = (item: SidebarItem, indent = false) => (
-    <button
-      key={item.route || item.externalUrl || item.label}
-      onClick={() => handleItemClick(item)}
-      title={collapsed ? item.label : undefined}
-      className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-white hover:bg-white/20 transition-colors group text-left w-full",
-        collapsed && "justify-center px-0",
-        indent && !collapsed && "pl-8"
-      )}
-    >
-      <item.icon className="h-4 w-4 shrink-0 text-white" />
-      {!collapsed && (
-        <>
-          <span className="truncate flex-1">{item.label}</span>
-          {item.externalUrl && <ExternalLink className="h-3 w-3 opacity-40 shrink-0" />}
-          {!item.externalUrl && <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 transition-opacity shrink-0" />}
-        </>
-      )}
-    </button>
-  );
+    return (
+      <button
+        key={item.route || item.externalUrl || item.label}
+        onClick={handleClick}
+        onAuxClick={linkHandlers?.onAuxClick}
+        onMouseDown={linkHandlers?.onMouseDown}
+        title={collapsed ? item.label : undefined}
+        className={cn(
+          "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-white hover:bg-white/20 transition-colors group text-left w-full",
+          collapsed && "justify-center px-0",
+          indent && !collapsed && "pl-8"
+        )}
+      >
+        <item.icon className="h-4 w-4 shrink-0 text-white" />
+        {!collapsed && (
+          <>
+            <span className="truncate flex-1">{item.label}</span>
+            {item.externalUrl && <ExternalLink className="h-3 w-3 opacity-40 shrink-0" />}
+            {!item.externalUrl && <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 transition-opacity shrink-0" />}
+          </>
+        )}
+      </button>
+    );
+  };
 
   const renderGroup = (group: SidebarGroup) => {
     const isOpen = !!openGroups[group.label];
