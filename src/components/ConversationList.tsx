@@ -19,6 +19,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY, type StatusAlertRule } from "@/lib/statusAlertConfig";
+import { markConversationRead, markConversationUnread } from "@/lib/chatBetaUnread";
 
 interface Cliente {
   telefone: string;
@@ -874,14 +875,18 @@ export const ConversationList = ({
       }
 
       // ✅ Query extra: Buscar leitura per-operator para determinar não lido
-      let operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread_at: string | null }>();
+      let operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread: boolean; manual_unread_at: string | null }>();
       if (user?.id) {
         const { data: readData } = await (supabase as any)
           .from('mensagem_leitura_operador')
-          .select('cliente_telefone, last_read_at, manual_unread_at')
+          .select('cliente_telefone, last_read_at, manual_unread, manual_unread_at')
           .eq('user_id', user.id);
         readData?.forEach((r: any) => {
-          operatorReadMap.set(r.cliente_telefone, { last_read_at: r.last_read_at, manual_unread_at: r.manual_unread_at });
+          operatorReadMap.set(r.cliente_telefone, {
+            last_read_at: r.last_read_at,
+            manual_unread: r.manual_unread === true,
+            manual_unread_at: r.manual_unread_at,
+          });
         });
       }
 
@@ -964,14 +969,14 @@ export const ConversationList = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
-        // Per-operator unread: manual_unread_at takes priority; fallback compares
-        // last_read_at with the latest client message, independent of local UI state.
+        // Per-operator unread: usa a flag persistente manual_unread como fonte principal,
+        // com fallback para manual_unread_at legado, e depois compara last_read_at.
         const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
         const allClientMsgDates = todasMsgsClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
         let unreadCountReal = 0;
-        if (readRecord?.manual_unread_at) {
+        if (readRecord?.manual_unread === true || !!readRecord?.manual_unread_at) {
           // Marcação manual sempre tem prioridade — independe de bot_ja_desligado_alguma_vez
           perOperatorUnread = true;
           const ref = readRecord.last_read_at;
@@ -1115,30 +1120,16 @@ export const ConversationList = ({
   const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
     if (!user?.id) return;
 
-    if (currentState) {
-      // Marcar como lida: limpa manual_unread_at e atualiza last_read_at
-      const { error } = await (supabase as any)
-        .from('mensagem_leitura_operador')
-        .upsert(
-          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString(), manual_unread_at: null },
-          { onConflict: 'cliente_telefone,user_id' }
-        );
-      if (error) {
-        toast.error("Erro ao marcar conversa");
-        return;
+    try {
+      if (currentState) {
+        await markConversationRead(telefone, user.id);
+      } else {
+        await markConversationUnread(telefone, user.id);
       }
-    } else {
-      // Marcar como não lida: define manual_unread_at = now() (prioridade no cálculo)
-      const { error } = await (supabase as any)
-        .from('mensagem_leitura_operador')
-        .upsert(
-          { cliente_telefone: telefone, user_id: user.id, manual_unread_at: new Date().toISOString() },
-          { onConflict: 'cliente_telefone,user_id' }
-        );
-      if (error) {
-        toast.error("Erro ao marcar conversa");
-        return;
-      }
+    } catch (err) {
+      console.error('[ConversationList] toggleUnreadMark erro:', err);
+      toast.error("Erro ao marcar conversa");
+      return;
     }
 
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
