@@ -33,21 +33,6 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
           if (remetente === NUMERO_24HELP || remetente === 'atendente' || remetente === 'bot') return;
           
           if (clienteId !== currentClienteId) {
-            // Marcar como não lido APENAS para o operador atual (per-user)
-            if (user?.id) {
-              await supabase
-                .from('mensagem_leitura_operador')
-                .upsert(
-                  {
-                    user_id: user.id,
-                    cliente_telefone: clienteId,
-                    manual_unread: true,
-                    manual_unread_at: new Date().toISOString(),
-                  },
-                  { onConflict: 'user_id,cliente_telefone' }
-                );
-            }
-
             // Verificar se o bot já foi desligado alguma vez para este cliente
             const { data: cliente } = await supabase
               .from('clientes')
