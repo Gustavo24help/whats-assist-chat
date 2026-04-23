@@ -343,19 +343,33 @@ async function fetchMetricsForWindow(
     fetchFichasComEvento('Agendado', fromStr, toStr, filters),
     // Serviço Finalizado — eventos de status
     fetchFichasComEvento('Finalizado', fromStr, toStr, filters),
-    // Pago ao prestador — transacoes_financeiras
+    // Pago ao prestador — transacoes_financeiras (mesma fonte do módulo Financeiro/Contas a Pagar)
     (async () => {
-      let q: any = supabase
+      // Busca transações pagas no período. Usa LEFT join opcional para herdar
+      // filtros — se não houver filtros de ficha, evita inner join (que poderia
+      // descartar transações cuja ficha tenha sido reescrita).
+      const hasFichaFilters = !!(
+        filters.categoriaId || filters.prestadorCpf || filters.clienteTelefone
+      );
+      if (hasFichaFilters) {
+        let q: any = supabase
+          .from('transacoes_financeiras')
+          .select(
+            `id, ficha_id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)`,
+            { count: 'exact', head: true },
+          )
+          .eq('status_pagamento_prestador', 'pago')
+          .gte('data_pagamento_realizada', fromStr)
+          .lte('data_pagamento_realizada', toStr);
+        q = applyEmbeddedFichaFilters(q, filters);
+        return await q;
+      }
+      return await supabase
         .from('transacoes_financeiras')
-        .select(
-          `id, ficha_id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)`,
-          { count: 'exact' },
-        )
+        .select('id', { count: 'exact', head: true })
+        .eq('status_pagamento_prestador', 'pago')
         .gte('data_pagamento_realizada', fromStr)
-        .lte('data_pagamento_realizada', toStr)
-        .not('data_pagamento_realizada', 'is', null);
-      q = applyEmbeddedFichaFilters(q, filters);
-      return await q;
+        .lte('data_pagamento_realizada', toStr);
     })(),
   ]);
 
