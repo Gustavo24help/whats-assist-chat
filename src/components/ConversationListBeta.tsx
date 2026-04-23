@@ -1102,14 +1102,6 @@ export const ConversationListBeta = ({
           }
         }
 
-        // Força badge zerado se essa conversa está selecionada (operador a está visualizando agora).
-        // A escrita real em mensagem_leitura_operador é responsabilidade do ChatWindowBeta.
-        const isSelected = selectedClienteTelefoneRef.current === cliente.telefone;
-        if (isSelected) {
-          perOperatorUnread = false;
-          unreadCountReal = 0;
-        }
-
         return {
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
