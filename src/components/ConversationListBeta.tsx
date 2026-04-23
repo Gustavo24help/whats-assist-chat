@@ -394,7 +394,8 @@ export const ConversationListBeta = ({
 
     if (effectiveUnreadFilter !== "todas") {
       filtered = filtered.filter(c => {
-        const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
+        // Fonte única: marcado_nao_lido vem do snapshot derivado de mensagem_leitura_operador
+        const hasUnread = !!c.marcado_nao_lido;
         if (effectiveUnreadFilter === "nao_lidas") {
           return hasUnread;
         } else {
@@ -456,13 +457,10 @@ export const ConversationListBeta = ({
     return filtered;
   }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, showAguardandoRespostaOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS, externalSelectedOperadorId]);
 
-  // Contagem de conversas não lidas (para os botões)
+  // Contagem de conversas não lidas (para os botões) — fonte única: snapshot
   const unreadCount = useMemo(() => {
-    return clientes.filter(c => {
-      const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
-      return hasUnread && !showArchived;
-    }).length;
-  }, [clientes, unreadMessages, showArchived]);
+    return clientes.filter(c => !!c.marcado_nao_lido && !showArchived).length;
+  }, [clientes, showArchived]);
 
   // ✅ Extrair tags únicas (memoizado)
   const allTags = useMemo(() => {
@@ -499,10 +497,7 @@ export const ConversationListBeta = ({
     const ativasCount = baseClientes.filter(c => c.status_conversa === "aberta").length;
     const inativasCount = baseClientes.filter(c => c.status_conversa === "fechada" || !c.status_conversa).length;
     const botDisabledCount = baseClientes.filter(c => c.bot_habilitado === false && c.bot_desativado_notificacao_vista === false && c.bot_desligado_manualmente === false).length;
-    const filteredUnreadCount = baseClientes.filter(c => {
-      const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
-      return hasUnread;
-    }).length;
+    const filteredUnreadCount = baseClientes.filter(c => !!c.marcado_nao_lido).length;
     onStatusCounts({ byStatus, unreadCount: filteredUnreadCount, totalCount: baseClientes.length, ativasCount, inativasCount, allTags, tagsWithColors, botDisabledCount });
   }, [clientes, unreadCount, allTags, tagsWithColors, externalSelectedOperadorId]);
 
@@ -1140,27 +1135,8 @@ export const ConversationListBeta = ({
 
       setClientes(clientesComFicha);
 
-      // Seed read records for conversations that don't have one yet (avoid legacy showing as unread)
-      if (user?.id) {
-        const telefonesSemLeitura = clientesData
-          .filter(c => !operatorReadMap.has(c.telefone))
-          .map(c => c.telefone);
-        
-        if (telefonesSemLeitura.length > 0) {
-          // Batch insert in chunks of 100
-          for (let i = 0; i < telefonesSemLeitura.length; i += 100) {
-            const chunk = telefonesSemLeitura.slice(i, i + 100);
-            const rows = chunk.map(tel => ({
-              user_id: user.id,
-              cliente_telefone: tel,
-              last_read_at: new Date().toISOString()
-            }));
-            await supabase
-              .from('mensagem_leitura_operador')
-              .upsert(rows, { onConflict: 'cliente_telefone,user_id', ignoreDuplicates: true });
-          }
-        }
-      }
+      // ❌ NÃO fazer seed de leitura aqui — escrita é responsabilidade exclusiva
+      // dos eventos do ChatWindowBeta (abrir conversa / marcar manualmente).
     }
     } catch (err) {
       console.error('Erro ao buscar clientes:', err);
@@ -1273,38 +1249,17 @@ export const ConversationListBeta = ({
   const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
     if (!user?.id) return;
 
-    if (currentState) {
-      // Mark as read: clear manual_unread_at and set last_read_at to now
-      const { error } = await (supabase as any)
-        .from('mensagem_leitura_operador')
-        .upsert(
-          { cliente_telefone: telefone, user_id: user.id, last_read_at: new Date().toISOString(), manual_unread_at: null },
-          { onConflict: 'cliente_telefone,user_id' }
-        );
-      if (error) {
-        toast.error("Erro ao marcar conversa");
-        return;
+    try {
+      const { markConversationRead, markConversationUnread } = await import('@/lib/chatBetaUnread');
+      if (currentState) {
+        await markConversationRead(telefone, user.id);
+      } else {
+        await markConversationUnread(telefone, user.id);
       }
-    } else {
-      // Mark as unread: set manual_unread_at to now AND zera last_read_at
-      // (garante que manual_unread_at > last_read_at na lógica de leitura)
-      const now = new Date();
-      const past = new Date(now.getTime() - 1000).toISOString();
-      const { error } = await (supabase as any)
-        .from('mensagem_leitura_operador')
-        .upsert(
-          {
-            cliente_telefone: telefone,
-            user_id: user.id,
-            manual_unread_at: now.toISOString(),
-            last_read_at: past,
-          },
-          { onConflict: 'cliente_telefone,user_id' }
-        );
-      if (error) {
-        toast.error("Erro ao marcar conversa");
-        return;
-      }
+    } catch (err) {
+      console.error('[ConversationListBeta] toggleUnreadMark erro:', err);
+      toast.error("Erro ao marcar conversa");
+      return;
     }
 
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
@@ -1314,7 +1269,6 @@ export const ConversationListBeta = ({
         ? {
             ...c,
             marcado_nao_lido: !currentState,
-            // Se marcou como não lido sem msgs novas, mantém pelo menos 1 (badge "•")
             unread_count_real: !currentState ? Math.max(c.unread_count_real || 0, 0) : 0,
           }
         : c
