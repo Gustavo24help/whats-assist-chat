@@ -1661,7 +1661,17 @@ export const ConversationListBeta = ({
       {/* 🆕 Alerta de atendimentos aguardando resposta */}
       {!isCollapsed && aguardandoRespostaCount > 0 && (
         <button
-          onClick={() => setShowAguardandoRespostaOnly(!showAguardandoRespostaOnly)}
+          onClick={() => {
+            const next = !showAguardandoRespostaOnly;
+            setShowAguardandoRespostaOnly(next);
+            // Quando ativa o alerta, limpa filtros que poderiam esconder os elegíveis
+            if (next) {
+              if (onExternalStatusFilterChange) onExternalStatusFilterChange("all");
+              else setStatusFilter("all");
+              if (onExternalConversaStatusFilterChange) onExternalConversaStatusFilterChange("todas");
+              else setConversaStatusFilter("todas");
+            }
+          }}
           className={cn(
             "w-full px-3 py-2 flex items-center gap-2 text-sm font-medium border-b transition-colors shrink-0",
             showAguardandoRespostaOnly
