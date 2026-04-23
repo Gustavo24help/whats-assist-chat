@@ -72,7 +72,7 @@ const isAguardandoRespostaEligivel = (c: {
 interface ConversationListProps {
   selectedClienteTelefone: string | null;
   onSelectCliente: (cliente: Cliente) => void;
-  unreadMessages: Record<string, number>;
+  unreadMessages?: Record<string, number>;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   botDisabledAcknowledged?: Set<string>;
@@ -103,7 +103,7 @@ interface ConversationListProps {
 export const ConversationListBeta = ({ 
   selectedClienteTelefone, 
   onSelectCliente, 
-  unreadMessages,
+  unreadMessages = {},
   isCollapsed = false,
   onToggleCollapse,
   botDisabledAcknowledged = new Set(),

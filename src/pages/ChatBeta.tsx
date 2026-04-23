@@ -9,32 +9,26 @@ import { FichaPanelBeta as FichaPanel } from "@/components/FichaPanelBeta";
 import { ChatBetaFilterSidebar, type StatusCounts } from "@/components/chat-beta/ChatBetaFilterSidebar";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { LogOut, Settings, Home, MessageCircle, PanelRightOpen, PanelLeftOpen, Bot } from "lucide-react";
-import { VendasAssistant } from "@/components/chat-beta/VendasAssistant";
+import { LogOut, Settings, Home, MessageCircle, PanelLeftOpen } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { PageLayout } from "@/components/PageLayout";
 import { BotSemFichaNotification } from "@/components/BotSemFichaNotification";
 import { cn } from "@/lib/utils";
-import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
 
 const ChatBeta = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { openRoute } = useOpenInNewTab();
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
-  const [infoPanelOpen, setInfoPanelOpen] = useState(true);
   const [selectedFichaId, setSelectedFichaId] = useState<string | null>(null);
-  const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [botDisabledAcknowledged, setBotDisabledAcknowledged] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"conversas" | "contatos">("conversas");
   const [conversasComSugestao, setConversasComSugestao] = useState<Set<string>>(new Set());
 
-  // ═══ Collapsible columns ═══
+  // ═══ Collapsible columns (apenas col 1 e col 2). Col 4 sempre visível em lg+. ═══
   const [filterSidebarOpen, setFilterSidebarOpen] = useState(true);
   const [conversationListOpen, setConversationListOpen] = useState(true);
-  const [col4Tab, setCol4Tab] = useState<"ficha" | "coach">("ficha");
 
   // ═══ Filter state (lifted from ConversationListBeta for sidebar) ═══
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -129,14 +123,9 @@ const ChatBeta = () => {
     navigate("/auth");
   };
 
-  const handleNewMessage = (clienteId: string) => {
-    setUnreadMessages(prev => ({ ...prev, [clienteId]: (prev[clienteId] || 0) + 1 }));
-  };
-
   const handleSelectCliente = async (cliente: any) => {
     setSelectedCliente(cliente);
-    setSelectedFichaId(null); // Reset ficha selection when changing client
-    setUnreadMessages(prev => ({ ...prev, [cliente.telefone]: 0 }));
+    setSelectedFichaId(null);
     // Clear suggestion highlight when opening conversation
     setConversasComSugestao(prev => {
       const next = new Set(prev);
@@ -168,7 +157,6 @@ const ChatBeta = () => {
       .maybeSingle();
     if (cliente) {
       await handleSelectCliente(cliente);
-      setInfoPanelOpen(true);
     }
   };
 
@@ -184,8 +172,9 @@ const ChatBeta = () => {
 
   return (
     <PageLayout fullHeight>
+      {/* NotificationSystem só dispara toast/som — NÃO controla badge de não lido. */}
       <NotificationSystem
-        onNewMessage={handleNewMessage}
+        onNewMessage={() => {}}
         currentClienteId={selectedCliente?.telefone || null}
       />
 
@@ -270,7 +259,6 @@ const ChatBeta = () => {
               <ConversationList
                 selectedClienteTelefone={selectedCliente?.telefone || null}
                 onSelectCliente={handleSelectCliente}
-                unreadMessages={unreadMessages}
                 isCollapsed={false}
                 onToggleCollapse={() => setConversationListOpen(false)}
                 botDisabledAcknowledged={botDisabledAcknowledged}
@@ -317,7 +305,7 @@ const ChatBeta = () => {
               clienteTelefone={selectedCliente.telefone}
               clienteNome={selectedCliente.nome}
               statusConversa={selectedCliente.status_conversa}
-              onOpenFicha={() => setInfoPanelOpen(true)}
+              onOpenFicha={() => { /* Painel direito sempre aberto — noop. */ }}
               onBack={handleBackToEmpty}
               fichaOpen={true}
               onSuggestionReady={(telefone) => {
@@ -337,48 +325,14 @@ const ChatBeta = () => {
           </div>
         )}
 
-        {/* ─── COL 4: Info Panel ─── */}
+        {/* ─── COL 4: Info Panel — sempre visível em lg+ quando há conversa ─── */}
         {selectedCliente && (
           <div className="hidden lg:flex w-[380px] xl:w-[420px] border-l border-border/60 bg-card shrink-0 flex-col overflow-hidden">
-            {/* Tab toggle */}
-            <div className="flex border-b border-border/60 shrink-0">
-              <button
-                onClick={() => setCol4Tab("ficha")}
-                className={cn(
-                  "flex-1 text-[10px] font-medium py-1.5 transition-colors",
-                  col4Tab === "ficha"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Ficha
-              </button>
-              <button
-                onClick={() => setCol4Tab("coach")}
-                className={cn(
-                  "flex-1 text-[10px] font-medium py-1.5 transition-colors flex items-center justify-center gap-1",
-                  col4Tab === "coach"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Bot className="h-3 w-3" />
-                Coach IA
-              </button>
-            </div>
-
-            {col4Tab === "ficha" ? (
-              <FichaPanel
-                key={selectedCliente.telefone}
-                clienteTelefone={selectedCliente.telefone}
-                clienteNome={selectedCliente.nome}
-              />
-            ) : (
-              <VendasAssistant
-                clienteTelefone={selectedCliente.telefone}
-                clienteNome={selectedCliente.nome}
-              />
-            )}
+            <FichaPanel
+              key={selectedCliente.telefone}
+              clienteTelefone={selectedCliente.telefone}
+              clienteNome={selectedCliente.nome}
+            />
           </div>
         )}
       </div>

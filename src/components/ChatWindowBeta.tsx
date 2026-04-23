@@ -2135,7 +2135,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
-      <header className="bg-card border-b h-14 flex items-center justify-between gap-3 px-4 shrink-0">
+      <header className="bg-card border-b min-h-14 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 shrink-0">
         <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
           <Button
             variant="ghost"
@@ -2190,7 +2190,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0 ml-auto">
           {/* Header actions — sempre visíveis (Assumir + delegação não dependem da ficha) */}
           <>
               {/* Botão copiar info do serviço para prestador */}
