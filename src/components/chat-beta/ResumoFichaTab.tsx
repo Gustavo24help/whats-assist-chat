@@ -197,9 +197,9 @@ export const ResumoFichaTab = ({ fichaId }: ResumoFichaTabProps) => {
 
       {/* Agendamento (se houver) */}
       {ficha.horario_agendamento && (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5">
+        <div className="bg-primary/5 border border-primary/20 rounded-lg p-2.5">
           <p className="text-[10px] text-muted-foreground mb-1">Agendado para</p>
-          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+          <p className="text-xs font-semibold text-primary">
             {new Date(ficha.horario_agendamento).toLocaleString("pt-BR", {
               day: "2-digit",
               month: "2-digit",
