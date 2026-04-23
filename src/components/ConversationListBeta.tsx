@@ -92,6 +92,7 @@ interface ConversationListProps {
   // Callbacks for filters rendered in conversation list (hideFilters mode)
   onConversaStatusFilterChange?: (v: "ativas" | "inativas" | "todas") => void;
   onUnreadFilterChange?: (v: "todas" | "lidas" | "nao_lidas") => void;
+  onStatusFilterChange?: (v: string) => void;
   unreadCount?: number;
   // Callback to report counts
   onStatusCounts?: (counts: { byStatus: Record<string, number>; unreadCount: number; totalCount: number; ativasCount: number; inativasCount: number; allTags: string[]; tagsWithColors: Map<string, string>; botDisabledCount: number }) => void;
@@ -120,6 +121,7 @@ export const ConversationListBeta = ({
   externalSelectedOperadorId,
   onConversaStatusFilterChange: onExternalConversaStatusFilterChange,
   onUnreadFilterChange: onExternalUnreadFilterChange,
+  onStatusFilterChange: onExternalStatusFilterChange,
   unreadCount: externalUnreadCount,
   onStatusCounts,
   conversasComSugestao = new Set(),
@@ -160,6 +162,9 @@ export const ConversationListBeta = ({
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
   const isFirstLoadRef = useRef(true);
+  // Ref para que fetchClientes (capturada em closures realtime) sempre veja a seleção atual
+  const selectedClienteTelefoneRef = useRef<string | null>(selectedClienteTelefone);
+  useEffect(() => { selectedClienteTelefoneRef.current = selectedClienteTelefone; }, [selectedClienteTelefone]);
   
   // 🆕 Rastrear orçamentos recém-chegados (ficha_id → Set)
   const [recentOrcamentoFichas, setRecentOrcamentoFichas] = useState<Set<string>>(new Set());
@@ -1103,6 +1108,13 @@ export const ConversationListBeta = ({
           }
         }
 
+        // Força badge zerado se essa conversa está selecionada (operador a está visualizando)
+        const isSelected = selectedClienteTelefoneRef.current === cliente.telefone;
+        if (isSelected) {
+          perOperatorUnread = false;
+          unreadCountReal = 0;
+        }
+
         return {
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
@@ -1659,7 +1671,17 @@ export const ConversationListBeta = ({
       {/* 🆕 Alerta de atendimentos aguardando resposta */}
       {!isCollapsed && aguardandoRespostaCount > 0 && (
         <button
-          onClick={() => setShowAguardandoRespostaOnly(!showAguardandoRespostaOnly)}
+          onClick={() => {
+            const next = !showAguardandoRespostaOnly;
+            setShowAguardandoRespostaOnly(next);
+            // Quando ativa o alerta, limpa filtros que poderiam esconder os elegíveis
+            if (next) {
+              if (onExternalStatusFilterChange) onExternalStatusFilterChange("all");
+              else setStatusFilter("all");
+              if (onExternalConversaStatusFilterChange) onExternalConversaStatusFilterChange("todas");
+              else setConversaStatusFilter("todas");
+            }
+          }}
           className={cn(
             "w-full px-3 py-2 flex items-center gap-2 text-sm font-medium border-b transition-colors shrink-0",
             showAguardandoRespostaOnly
