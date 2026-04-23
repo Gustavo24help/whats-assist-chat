@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
+import { ComparisonModeSelector } from './ComparisonModeSelector';
+import type { ComparisonMode } from '@/hooks/useOperationalKPIs';
 
 type PeriodOption = 'today' | '7days' | '30days' | 'month' | 'custom';
 
@@ -46,6 +48,9 @@ interface HeaderProps {
   onRefresh?: () => void;
   onSearch?: (query: string) => void;
   onPeriodChange?: (period: PeriodOption, dateRange?: { from: Date; to: Date }) => void;
+  comparisonMode?: ComparisonMode;
+  comparisonRange?: { from: Date; to: Date };
+  onComparisonChange?: (mode: ComparisonMode, range?: { from: Date; to: Date }) => void;
   notificationCount?: number;
   isRefreshing?: boolean;
   className?: string;
@@ -58,6 +63,9 @@ export const Header = ({
   onRefresh,
   onSearch,
   onPeriodChange,
+  comparisonMode = 'previous-month',
+  comparisonRange,
+  onComparisonChange,
   notificationCount = 0,
   isRefreshing = false,
   className,
@@ -172,6 +180,14 @@ export const Header = ({
           </Popover>
         )}
 
+        {/* Comparison Mode Selector */}
+        {onComparisonChange && (
+          <ComparisonModeSelector
+            mode={comparisonMode}
+            range={comparisonRange}
+            onChange={onComparisonChange}
+          />
+        )}
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
