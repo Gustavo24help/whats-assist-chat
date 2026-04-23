@@ -1,96 +1,97 @@
 
-Objetivo: desmontar o sistema atual de lido/não lido do /chat-beta e reconstruí-lo com uma única fonte de verdade, garantindo que “Marcar como não lido” funcione de forma previsível e não volte a quebrar por polling, realtime ou estado local.
 
-1. Causa raiz identificada
-- Hoje o /chat-beta usa 2 sistemas ao mesmo tempo para “não lido”:
-  - estado local em `ChatBeta.tsx` / `NotificationSystem.tsx` (`unreadMessages`)
-  - estado persistido em `mensagem_leitura_operador`
-- A lista mistura os dois com `OR`, então um sistema limpa e o outro recria a bolinha alguns segundos depois.
-- `ChatWindowBeta.tsx` limpa leitura automaticamente ao abrir a conversa e também ao chegar nova mensagem, enquanto `ConversationListBeta.tsx` tenta preservar/forçar estado manual. Essas regras competem entre si.
-- O “marcar como não lido” no beta foi implementado com acoplamento frágil entre `manual_unread_at` e `last_read_at`, inclusive reescrevendo `last_read_at` para trás. Isso torna o comportamento dependente de timing.
-- `fetchClientes()` hoje também escreve no banco durante carregamento da lista (seed de leitura), o que não deveria acontecer numa rotina de leitura.
-- Resultado: o badge reaparece, some errado, e o estado manual não é confiável.
+## Escopo do que será corrigido no `/chat-beta`
 
-2. O que será reconstruído do zero
-Vou refazer todo o fluxo de leitura do Chat Beta com esta arquitetura:
-- Uma única fonte de verdade para unread/read: backend.
-- O frontend não vai mais “inventar” contagem local para badge.
-- “Marcar como não lido” vira estado explícito e separado da leitura automática.
-- Abertura da conversa, chegada de nova mensagem, troca de conversa e ação manual passam a usar regras únicas e centralizadas.
+Quatro frentes pedidas, todas no Chat BETA (e ajuste no Dashboard TV onde indicado):
 
-3. Nova arquitetura proposta
-Backend
-- Evoluir `mensagem_leitura_operador` para um modelo explícito:
-  - `last_read_at`
-  - `manual_unread` boolean
-  - `manual_unread_at` apenas como auditoria/ordenação, não como regra principal
-- Criar uma função/view de snapshot do Chat Beta para retornar por conversa:
-  - último timestamp de mensagem do cliente
-  - quantidade de mensagens do cliente após `last_read_at`
-  - flag manual de não lido
-  - badge final derivado
-  - dados da ficha atual usados pela lista/filtros
-- Regra final:
-  - se `manual_unread = true`, a conversa fica não lida até ação explícita de marcar como lida
-  - se `manual_unread = false`, não lido = mensagens do cliente posteriores a `last_read_at`
-  - abrir a conversa marca como lida
-  - nova mensagem do cliente enquanto a conversa está aberta marca como lida automaticamente só para aquele operador
+---
 
-Frontend
-- Remover o uso de `unreadMessages` como fonte de badge no `/chat-beta`
-- `NotificationSystem` fica só com toast/som; não controla mais bolinha
-- `ConversationListBeta` passa a renderizar badge/filtro apenas a partir do snapshot
-- `ChatWindowBeta` passa a chamar ações únicas:
-  - `markConversationRead`
-  - `markConversationUnread`
-- “Marcar como não lido” não vai mais mexer em `last_read_at`; só ativa a flag manual
+### 1. Alinhar contagem por status entre Chat BETA e Dashboard TV
 
-4. Arquivos e áreas que serão revisados/registrados
-Vou documentar e alinhar tudo que hoje participa da visualização/leitura:
-- `src/pages/ChatBeta.tsx`
+**Diagnóstico**
+- Sidebar do `/chat-beta` conta uma conversa por cliente, usando `clientes.status_ficha` (status da ficha **ativa** daquele cliente).
+- O painel "Acompanhamento de Conversas" do Dashboard TV consulta `fichas_de_servico` direto e conta **todas** as fichas naqueles status. Por isso aparece 14 em "Orçamento Enviado" enquanto o Chat BETA mostra 13: existe pelo menos uma ficha "Orçamento Enviado" que **não** é a ficha ativa de nenhum cliente (cliente já avançou para outra ficha mais nova).
+
+**Correção (Dashboard TV)**
+- Em `src/components/AcompanhamentoConversas.tsx`, mudar a fonte para a mesma base do Chat BETA: ler `clientes` (com `status_ficha`, `ficha_ativa_id`, `nome`, `telefone`, `nome_ficha`) e cruzar com `fichas_de_servico` apenas para pegar `created_at`, `valor_total` e `ficha_status_historico` da ficha ativa de cada cliente.
+- Filtrar pelos 4 status atuais (`Ficha Criada`, `Orçamento Enviado`, `Visita Técnica`, `Agendado`) usando `clientes.status_ficha`.
+- Resultado: contagem do TV passa a bater 1:1 com a do Chat BETA, sem alterar nada nos dados, só na fonte da consulta.
+
+---
+
+### 2. Bolinha de não lido voltando a aparecer no Chat BETA
+
+**Diagnóstico**
+- A política nova baseada em `mensagem_leitura_operador` está correta no `chatBetaUnread.ts`.
+- O efeito ainda volta porque o `ChatBeta.tsx` continua passando `unreadMessages` (estado local alimentado por `NotificationSystem`) para `ConversationListBeta`, e o componente ainda usa esse prop em alguns pontos para compor o badge / filtros, fazendo o número reaparecer alguns segundos depois do `markConversationRead`.
+- Além disso, ainda existe um `setUnreadMessages(prev => …, 0)` em `handleSelectCliente` que mascara o problema mas não resolve, pois novas inserções via realtime tornam a chave > 0 de novo.
+
+**Correção**
+- Remover por completo o estado `unreadMessages` e o callback `onNewMessage` do `ChatBeta.tsx`.
+- `NotificationSystem` continua só com som + toast (nenhum badge).
+- Em `ConversationListBeta.tsx`:
+  - Eliminar todas as referências a `unreadMessages` no cálculo de badge e do filtro "não lidas".
+  - Manter como única fonte: `marcado_nao_lido` (que vem do snapshot derivado de `mensagem_leitura_operador`).
+- Em `ChatWindowBeta.tsx`: garantir que `markConversationRead` é chamado:
+  - ao montar a janela com a conversa atual,
+  - ao chegar mensagem do cliente enquanto a janela está visível,
+  - ao trocar de conversa (cleanup do useEffect chama read na anterior se ainda aberta? não — apenas a nova é marcada como lida).
+- Resultado: ler → badge some → permanece zero. "Marcar como não lido" no menu continua funcionando porque mexe só na flag `manual_unread`.
+
+---
+
+### 3. Incluir nome do prestador no Resumo (aba Resumo do painel direito)
+
+- `src/components/chat-beta/ResumoFichaTab.tsx` hoje busca `id, nome_ficha, status, categoria_id, valor_total, descricao, preferencia_horario_cliente, horario_agendamento`.
+- Adicionar `prestador_id` à query e um segundo `select` em `prestadores` (`nome`) por `cpf = prestador_id`.
+- Renderizar um novo bloco "Prestador" entre "Categoria/Valor" e "Resumo do serviço": ícone de pessoa, nome do prestador, ou "Sem prestador atribuído" em itálico.
+
+---
+
+### 4. Topo encavalado + coluna direita sempre aberta + reorganização
+
+**Mudanças no painel direito (`FichaPanelBeta.tsx`)**
+- Remover os 4 cartões "Ficha Criada / Finalizadas / Perdidas / S/Orçamento" do topo (a informação já está na ficha e na aba Histórico).
+- Remover os 4 botões grandes do topo do painel direito ("Abrir / Av. Prestador / Satisfação / Assumido"). Eles passam a viver no header do chat.
+- Painel direito fica: seletor de ficha (compacto) + abas (Resumo, Cliente, Histórico, Informações, Nina, Orçamento).
+
+**Mudanças no `ChatBeta.tsx`**
+- Coluna 4 deixa de ser fechável. Remover qualquer botão/state de fechar/abrir o painel direito.
+- Tornar a coluna 4 sempre presente quando há conversa selecionada, com largura fixa responsiva (`w-[380px] xl:w-[420px]` mantém, sem botão de toggle, sem aba "Coach IA" duplicada — Coach IA já está dentro da aba Nina).
+- Remover o `col4Tab` ("ficha" / "coach"). O `FichaPanelBeta` é o único conteúdo.
+
+**Mudanças no header do chat (`ChatWindowBeta.tsx`)**
+- Reorganizar todos os botões do header em **duas linhas** controladas (`flex flex-wrap`), com altura do header passando de fixa `h-14` para `min-h-14`, permitindo quebrar.
+- Linha 1 (informativa): nome do cliente + telefone + status da ficha + status do bot.
+- Linha 2 (ações), agrupadas em blocos com `Separator` vertical:
+  - Bloco "Conversa": Buscar mensagens, Exportar transcrição, Notas, Histórico do bot.
+  - Bloco "Atribuição": Abrir conversa, Atribuir operador, Assumir.
+  - Bloco "Cliente / Pós-venda" (vindo do painel direito): **Av. Prestador**, **Satisfação (NPS)**.
+- Cada botão recebe `size="sm"`, `h-8`, ícone + label curto, com `title` para tooltip.
+- Em telas estreitas, o `flex-wrap` quebra naturalmente em 2+ linhas sem cortar nada.
+
+**Critérios de aceite**
+- Coluna 4 nunca pode ser fechada; sempre visível em `lg+`.
+- Header nunca corta botão. Em qualquer largura `≥ 1024px`, todos os botões são alcançáveis sem scroll horizontal.
+- Botões "Av. Prestador", "Satisfação", "Abrir" e "Assumir" só aparecem agora no header do chat (zero duplicação no painel direito).
+- Os 4 quadrados de status saem do painel direito.
+- Nome do prestador aparece na aba Resumo.
+- Contagens "Ficha Criada / Orçamento Enviado / Visita Técnica / Agendado" do Dashboard TV passam a ser idênticas às da sidebar do Chat BETA.
+- Marcar como lido remove a bolinha e ela não volta sozinha.
+
+---
+
+### Salvaguardas
+- Nenhuma migração de banco. Nenhuma alteração em `mensagens`, `clientes.ultima_interacao`, horários de agendamento, `fichas_de_servico` etc.
+- Mudança no Dashboard TV é só de **fonte de leitura**, sem escrita.
+- Remoção de `unreadMessages` é puramente de UI; a tabela `mensagem_leitura_operador` continua intacta como fonte de verdade.
+- Botões movidos preservam exatamente os mesmos componentes (`AvaliacaoPrestadorFlowPanel`, `NPSFlowPanel`, `AbrirConversaDialog`) — só mudam de container.
+
+### Arquivos afetados
+- `src/components/AcompanhamentoConversas.tsx`
 - `src/components/ConversationListBeta.tsx`
 - `src/components/ChatWindowBeta.tsx`
-- `src/components/ConversationCard.tsx`
-- `src/components/NotificationSystem.tsx`
-- `src/components/chat-beta/ChatBetaFilterSidebar.tsx`
-- migrações ligadas a `mensagem_leitura_operador`
-- qualquer trecho compartilhado do chat clássico que hoje contamine a mesma lógica
-Também vou criar uma documentação técnica curta em `documentação/` registrando:
-- fonte de verdade
-- ciclo de leitura
-- eventos que marcam como lido
-- diferença entre “não lido real” e “não lido manual”
+- `src/components/FichaPanelBeta.tsx`
+- `src/components/chat-beta/ResumoFichaTab.tsx`
+- `src/pages/ChatBeta.tsx`
 
-5. Safeguards para não quebrar dados existentes
-- Não vou alterar `mensagens.data_hora`, `clientes.ultima_interacao`, horários de agendamento nem qualquer campo sensível a datas.
-- A migração vai preservar os registros atuais e fazer backfill seguro:
-  - `manual_unread = true` quando o estado atual realmente representar marcação manual ativa
-- O sistema antigo não será removido de forma destrutiva no primeiro passo; primeiro entra a nova lógica, depois limpo o legado somente se tudo validar.
-- Nada de “seed” automático de leitura durante carregamento da lista.
-
-6. Ajustes paralelos que entram junto
-Como o unread hoje afeta filtros e contadores, vou alinhar junto:
-- filtros de “não lidas” passam a usar só o snapshot novo
-- contadores laterais usam a mesma regra da lista
-- o alerta “precisando de resposta” passa a usar a mesma base de conversa atual para não misturar terminal/perdido indevidamente
-
-7. Critérios de aceite
-Vou considerar concluído quando estes cenários funcionarem:
-- marcar uma conversa como não lida mantém a bolinha estável
-- abrir essa conversa não recria nem apaga errado, conforme a regra final da ação manual
-- ler uma mensagem e trocar de conversa remove a bolinha e ela não volta sozinha
-- nova mensagem do cliente em conversa fechada gera badge corretamente
-- nova mensagem do cliente em conversa aberta não cria badge para o operador atual
-- operadores diferentes têm estados independentes
-- filtro “não lidas” mostra exatamente o mesmo conjunto da bolinha
-- filtros do chat beta não deixam “Perdido” vazar em listas que dependem do estado atual acionável
-
-8. Implementação em ordem
-1. Auditar e registrar o fluxo atual em documentação técnica
-2. Criar migração segura para explicitar o estado manual
-3. Criar função/view de snapshot do Chat Beta no backend
-4. Refatorar `/chat-beta` para consumir só esse snapshot
-5. Remover a dependência de `unreadMessages` no beta
-6. Reescrever as ações de marcar lido/não lido
-7. Ajustar realtime/polling para só invalidar snapshot, sem recalcular badge em dois lugares
-8. Validar cenários reais de troca de conversa, leitura, marcação manual e filtros
