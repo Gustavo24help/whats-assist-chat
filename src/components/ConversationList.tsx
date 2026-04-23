@@ -19,7 +19,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY, type StatusAlertRule } from "@/lib/statusAlertConfig";
-import { markConversationRead, markConversationUnread } from "@/lib/chatBetaUnread";
 
 interface Cliente {
   telefone: string;
@@ -183,17 +182,6 @@ export const ConversationList = ({
       )
       .subscribe();
 
-    const leituraChannel = user?.id
-      ? supabase
-          .channel(`chat-leitura-operador-${user.id}`)
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'mensagem_leitura_operador', filter: `user_id=eq.${user.id}` },
-            () => fetchClientes()
-          )
-          .subscribe()
-      : null;
-
     // 🆕 Canal realtime para novos orçamentos
     const orcamentosChannel = supabase
       .channel('orcamentos-new-classic')
@@ -221,7 +209,6 @@ export const ConversationList = ({
       supabase.removeChannel(tagsChannel);
       supabase.removeChannel(fichasChannel);
       supabase.removeChannel(mensagensChannel);
-      if (leituraChannel) supabase.removeChannel(leituraChannel);
       supabase.removeChannel(orcamentosChannel);
       window.clearInterval(pollingInterval);
     };
@@ -874,56 +861,6 @@ export const ConversationList = ({
         });
       }
 
-      // ✅ Query extra: Buscar leitura per-operator para determinar não lido
-      let operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread: boolean; manual_unread_at: string | null }>();
-      if (user?.id) {
-        const { data: readData } = await (supabase as any)
-          .from('mensagem_leitura_operador')
-          .select('cliente_telefone, last_read_at, manual_unread, manual_unread_at')
-          .eq('user_id', user.id);
-        readData?.forEach((r: any) => {
-          operatorReadMap.set(r.cliente_telefone, {
-            last_read_at: r.last_read_at,
-            manual_unread: r.manual_unread === true,
-            manual_unread_at: r.manual_unread_at,
-          });
-        });
-      }
-
-      // ✅ Buscar última mensagem de CLIENTE por telefone para comparar com leitura
-      // Mensagens do cliente podem ter remetente='cliente' (legado) OU tipo_remetente='cliente' (webhook/Twilio)
-      const { data: ultimasMensagensClienteLegado } = await supabase
-        .from('mensagens')
-        .select('cliente_id, data_hora')
-        .in('cliente_id', telefones)
-        .eq('remetente', 'cliente')
-        .order('data_hora', { ascending: false })
-        .limit(1000);
-
-      const { data: ultimasMensagensClienteTipo } = await supabase
-        .from('mensagens')
-        .select('cliente_id, data_hora')
-        .in('cliente_id', telefones)
-        .eq('tipo_remetente', 'cliente')
-        .order('data_hora', { ascending: false })
-        .limit(1000);
-
-      const ultimaMsgClienteMap = new Map<string, string>();
-      // Map: cliente_id -> Set<data_hora> deduplicada para contagem real de não lidas
-      const todasMsgsClienteMap = new Map<string, Set<string>>();
-      [...(ultimasMensagensClienteLegado || []), ...(ultimasMensagensClienteTipo || [])].forEach(msg => {
-        const existing = ultimaMsgClienteMap.get(msg.cliente_id);
-        if (!existing || new Date(msg.data_hora) > new Date(existing)) {
-          ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
-        }
-        let set = todasMsgsClienteMap.get(msg.cliente_id);
-        if (!set) {
-          set = new Set<string>();
-          todasMsgsClienteMap.set(msg.cliente_id, set);
-        }
-        set.add(msg.data_hora);
-      });
-
       // ✅ Combinar tudo SEM QUERIES EXTRAS
       const clientesComFicha = clientesData.map(cliente => {
         // Calcular janela 24h
@@ -969,40 +906,16 @@ export const ConversationList = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
-        // Per-operator unread: usa a flag persistente manual_unread como fonte principal,
-        // com fallback para manual_unread_at legado, e depois compara last_read_at.
-        const readRecord = operatorReadMap.get(cliente.telefone);
-        const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
-        const allClientMsgDates = todasMsgsClienteMap.get(cliente.telefone);
-        let perOperatorUnread = false;
-        let unreadCountReal = 0;
-        if (readRecord?.manual_unread === true || !!readRecord?.manual_unread_at) {
-          // Marcação manual sempre tem prioridade — independe de bot_ja_desligado_alguma_vez
-          perOperatorUnread = true;
-          const ref = readRecord.last_read_at;
-          unreadCountReal = ref && allClientMsgDates
-            ? Array.from(allClientMsgDates).filter(d => d > ref).length
-            : 0;
-        } else if (lastClientMsg) {
-          const lastRead = readRecord?.last_read_at;
-          if (!lastRead || new Date(lastClientMsg) > new Date(lastRead)) {
-            perOperatorUnread = true;
-            unreadCountReal = allClientMsgDates
-              ? Array.from(allClientMsgDates).filter(d => !lastRead || d > lastRead).length
-              : 0;
-          }
-        }
-
         return {
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
           status_ficha: fichaData?.status || undefined,
-          unread_count_real: perOperatorUnread ? unreadCountReal : 0,
+          unread_count_real: cliente.marcado_nao_lido ? 1 : 0,
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
           bot_desligado_manualmente: cliente.bot_desligado_manualmente,
-          marcado_nao_lido: perOperatorUnread,
+          marcado_nao_lido: !!cliente.marcado_nao_lido,
           orcamentos_count: orcamentosCount,
           pagamento_link: (fichaData as any)?.pagamento_link || null,
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
@@ -1118,16 +1031,13 @@ export const ConversationList = ({
   };
 
   const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
-    if (!user?.id) return;
+    const { error } = await supabase
+      .from('clientes')
+      .update({ marcado_nao_lido: !currentState })
+      .eq('telefone', telefone);
 
-    try {
-      if (currentState) {
-        await markConversationRead(telefone, user.id);
-      } else {
-        await markConversationUnread(telefone, user.id);
-      }
-    } catch (err) {
-      console.error('[ConversationList] toggleUnreadMark erro:', err);
+    if (error) {
+      console.error('[ConversationList] toggleUnreadMark erro:', error);
       toast.error("Erro ao marcar conversa");
       return;
     }
