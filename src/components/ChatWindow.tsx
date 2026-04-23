@@ -409,12 +409,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         fetchClienteData(), // Nova função consolidada
         fetchAtendentes()
       ]);
-      // Marcar como lido (global) ao abrir a conversa — respeita marcação manual
+      // Marcar como lido (global) ao ABRIR a conversa — limpa também o lock manual,
+      // pois o ato de abrir significa intenção explícita de ler.
       await supabase
         .from('clientes')
-        .update({ marcado_nao_lido: false })
-        .eq('telefone', clienteTelefone)
-        .is('marcado_nao_lido_manual_em', null);
+        .update({ marcado_nao_lido: false, marcado_nao_lido_manual_em: null })
+        .eq('telefone', clienteTelefone);
       setIsLoadingMessages(false);
     };
     
