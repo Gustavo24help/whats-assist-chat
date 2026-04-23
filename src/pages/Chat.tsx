@@ -212,7 +212,6 @@ const Chat = () => {
                 <ConversationList
                   selectedClienteTelefone={selectedCliente?.telefone || null}
                   onSelectCliente={handleSelectCliente}
-                  unreadMessages={unreadMessages}
                   isCollapsed={sidebarCollapsed}
                   onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                   botDisabledAcknowledged={botDisabledAcknowledged}
