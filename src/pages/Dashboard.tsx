@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayoutProvider } from "@/contexts/DashboardLayoutContext";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
 import { PageLayout } from "@/components/PageLayout";
+import type { ComparisonMode } from "@/hooks/useOperationalKPIs";
 
 type PeriodOption = 'today' | '7days' | '30days' | 'month' | 'custom';
 
@@ -16,6 +17,8 @@ const Dashboard = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('30days');
   const [customDateRange, setCustomDateRange] = useState<{ from: Date; to: Date } | undefined>();
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('previous-month');
+  const [comparisonRange, setComparisonRange] = useState<{ from: Date; to: Date } | undefined>();
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -27,6 +30,11 @@ const Dashboard = () => {
     if (dateRange) {
       setCustomDateRange(dateRange);
     }
+  };
+
+  const handleComparisonChange = (mode: ComparisonMode, range?: { from: Date; to: Date }) => {
+    setComparisonMode(mode);
+    setComparisonRange(range);
   };
 
   const handleSearch = (query: string) => {
@@ -43,6 +51,9 @@ const Dashboard = () => {
             onRefresh={handleRefresh}
             onSearch={handleSearch}
             onPeriodChange={handlePeriodChange}
+            comparisonMode={comparisonMode}
+            comparisonRange={comparisonRange}
+            onComparisonChange={handleComparisonChange}
             isRefreshing={isRefreshing}
             notificationCount={0}
             className="pr-4"
@@ -54,6 +65,8 @@ const Dashboard = () => {
           <DashboardContent 
             period={selectedPeriod}
             customDateRange={customDateRange}
+            comparisonMode={comparisonMode}
+            comparisonRange={comparisonRange}
           />
 
           <footer className="py-4 px-6 border-t bg-background/50 text-center">
