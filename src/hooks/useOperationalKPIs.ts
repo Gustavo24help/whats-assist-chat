@@ -312,7 +312,15 @@ async function fetchFichasComEvento(
     fichasFromHist.set(f.id, f);
   }
 
-  return { fichas: Array.from(fichasFromHist.values()) };
+  // 3. Aplica exclusão por status atual (regra de negócio):
+  //    Ex.: para "Agendado", se a ficha hoje está como "Perdido", desconta.
+  //    Status válidos a manter: Agendado, Em andamento, Finalizado, Garantia, Retorno.
+  let fichas = Array.from(fichasFromHist.values());
+  if (excludeCurrentStatuses.length > 0) {
+    fichas = fichas.filter((f) => !excludeCurrentStatuses.includes(f.status));
+  }
+
+  return { fichas };
 }
 
 // ============================================================
