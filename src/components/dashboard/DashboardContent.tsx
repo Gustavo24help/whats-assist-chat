@@ -5,20 +5,34 @@ import { GoogleAdsSection } from './GoogleAdsSection';
 import { ConversionFunnel, ServicesLineChart, AdsPerformanceChart, TicketMedioChart, ROIChart } from './index';
 import { ExportReportSection } from './ExportReportSection';
 import { SectionHeader } from './SectionHeader';
-import { useOperationalKPIs, FALLBACK_OPERATIONAL_KPIS, type PeriodOption } from '@/hooks/useOperationalKPIs';
+import {
+  useOperationalKPIs,
+  FALLBACK_OPERATIONAL_KPIS,
+  type PeriodOption,
+  type ComparisonMode,
+} from '@/hooks/useOperationalKPIs';
 
 interface DashboardContentProps {
   period: PeriodOption;
   customDateRange?: { from: Date; to: Date };
+  comparisonMode?: ComparisonMode;
+  comparisonRange?: { from: Date; to: Date };
 }
 
-export const DashboardContent = ({ period, customDateRange }: DashboardContentProps) => {
+export const DashboardContent = ({
+  period,
+  customDateRange,
+  comparisonMode = 'previous-month',
+  comparisonRange,
+}: DashboardContentProps) => {
   const { blocks } = useDashboardLayout();
-  
+
   // Buscar KPIs operacionais para usar nas taxas de conversão
   const { data: kpis } = useOperationalKPIs({
     period,
     customRange: customDateRange,
+    comparisonMode,
+    comparisonRange,
   });
 
   const kpiData = kpis || FALLBACK_OPERATIONAL_KPIS;
@@ -34,7 +48,9 @@ export const DashboardContent = ({ period, customDateRange }: DashboardContentPr
           <OperationalKPIsSection 
             key={blockId}
             period={period} 
-            customDateRange={customDateRange} 
+            customDateRange={customDateRange}
+            comparisonMode={comparisonMode}
+            comparisonRange={comparisonRange}
           />
         );
 
