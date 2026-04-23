@@ -409,11 +409,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         fetchClienteData(), // Nova função consolidada
         fetchAtendentes()
       ]);
-      // Marcar como lido (global) ao abrir a conversa
+      // Marcar como lido (global) ao abrir a conversa — respeita marcação manual
       await supabase
         .from('clientes')
         .update({ marcado_nao_lido: false })
-        .eq('telefone', clienteTelefone);
+        .eq('telefone', clienteTelefone)
+        .is('marcado_nao_lido_manual_em', null);
       setIsLoadingMessages(false);
     };
     
@@ -436,11 +437,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           const NUMERO_24HELP = 'whatsapp:+554138911555';
           const isMensagemCliente = novaMensagem.remetente !== NUMERO_24HELP && novaMensagem.remetente !== 'atendente' && novaMensagem.remetente !== 'bot';
           if (isMensagemCliente) {
-            // Conversa está aberta — marca como lida (global)
+            // Conversa está aberta — marca como lida (global), mas respeita marcação manual
             await supabase
               .from('clientes')
               .update({ marcado_nao_lido: false })
-              .eq('telefone', clienteTelefone);
+              .eq('telefone', clienteTelefone)
+              .is('marcado_nao_lido_manual_em', null);
           }
 
           let replyTo: Mensagem | null = null;
