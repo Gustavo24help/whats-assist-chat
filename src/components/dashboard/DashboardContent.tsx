@@ -59,7 +59,7 @@ export const DashboardContent = ({
           <div key={blockId} className="space-y-6">
             <ConversionRatesSection
               fsCriadas={kpiData.fsCriadas}
-              servicosAgendados={kpiData.servicoAgendadoTotal}
+              servicosAgendados={kpiData.servicoAgendado}
               servicosFinalizados={kpiData.servicoFinalizado}
               finalizadosPagos={kpiData.finalizadoPago}
             />
