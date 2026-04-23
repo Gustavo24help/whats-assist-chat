@@ -409,6 +409,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         fetchClienteData(), // Nova função consolidada
         fetchAtendentes()
       ]);
+      await supabase
+        .from('clientes')
+        .update({ marcado_nao_lido: false })
+        .eq('telefone', clienteTelefone);
       setIsLoadingMessages(false);
     };
     
@@ -427,6 +431,15 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         async (payload) => {
           console.log('[ChatWindow] Nova mensagem detectada, adicionando em tempo real');
           const novaMensagem = payload.new as Mensagem;
+
+          const NUMERO_24HELP = 'whatsapp:+554138911555';
+          const isMensagemCliente = novaMensagem.remetente !== NUMERO_24HELP && novaMensagem.remetente !== 'atendente' && novaMensagem.remetente !== 'bot';
+          if (isMensagemCliente) {
+            await supabase
+              .from('clientes')
+              .update({ marcado_nao_lido: false })
+              .eq('telefone', clienteTelefone);
+          }
 
           let replyTo: Mensagem | null = null;
           if (novaMensagem.reply_to_message_id) {
