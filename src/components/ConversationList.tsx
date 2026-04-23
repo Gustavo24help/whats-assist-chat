@@ -29,6 +29,7 @@ interface Cliente {
   nome_ficha?: string;
   status_ficha?: string;
   unread_count?: number;
+  unread_count_real?: number;
   dentroJanela?: boolean;
   bot_habilitado?: boolean;
   bot_desativado_notificacao_vista?: boolean;
@@ -303,7 +304,7 @@ export const ConversationList = ({
     // Filtro por mensagens não lidas
     if (unreadFilter !== "todas") {
       filtered = filtered.filter(c => {
-        const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
+        const hasUnread = !!c.marcado_nao_lido;
         if (unreadFilter === "nao_lidas") {
           return hasUnread;
         } else {
@@ -374,10 +375,10 @@ export const ConversationList = ({
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
     return clientes.filter(c => {
-      const hasUnread = (unreadMessages[c.telefone] || 0) > 0 || c.marcado_nao_lido;
+      const hasUnread = !!c.marcado_nao_lido;
       return hasUnread && !showArchived;
     }).length;
-  }, [clientes, unreadMessages, showArchived]);
+  }, [clientes, showArchived]);
 
   // ✅ Extrair tags únicas (memoizado)
   const allTags = useMemo(() => {
@@ -935,7 +936,8 @@ export const ConversationList = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
-        // Per-operator unread: manual_unread_at takes priority; fallback compares last_read_at with latest client message
+        // Per-operator unread: manual_unread_at takes priority; fallback compares
+        // last_read_at with the latest client message, independent of local UI state.
         const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
         let perOperatorUnread = false;
@@ -945,8 +947,7 @@ export const ConversationList = ({
         } else if (lastClientMsg) {
           const lastRead = readRecord?.last_read_at;
           if (!lastRead || new Date(lastClientMsg) > new Date(lastRead)) {
-            // Only mark unread automatically if bot was already disabled at some point (same logic as trigger)
-            perOperatorUnread = cliente.bot_ja_desligado_alguma_vez === true;
+            perOperatorUnread = true;
           }
         }
 
@@ -955,6 +956,7 @@ export const ConversationList = ({
           nome_ficha: fichaData?.nome_ficha || undefined,
           status_ficha: fichaData?.status || undefined,
           unread_count: unreadMessages[cliente.telefone] || 0,
+          unread_count_real: perOperatorUnread ? (unreadMessages[cliente.telefone] || 0) : 0,
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
@@ -1502,7 +1504,7 @@ export const ConversationList = ({
                       statusConversa={cliente.status_conversa}
                       ultimaInteracao={cliente.ultima_interacao}
                       isSelected={selectedClienteTelefone === cliente.telefone}
-                      unreadCount={unreadMessages[cliente.telefone] || 0}
+                      unreadCount={cliente.unread_count_real || 0}
                       onClick={() => {
                         if (selectionMode) {
                           toggleClienteSelection(cliente.telefone);

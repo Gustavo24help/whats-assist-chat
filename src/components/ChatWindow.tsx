@@ -413,7 +413,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     };
     
     loadInitialData();
-    clearUnreadMark();
 
     const channel = supabase
       .channel(`mensagens-${clienteTelefone}`)
@@ -1039,50 +1038,6 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
     } catch (err) {
       console.error('Erro ao buscar dados do cliente:', err);
     }
-  };
-
-  // Timestamp da montagem deste chat (atualizado quando clienteTelefone muda).
-  // Usado para preservar marcações manuais de "não lido" feitas DEPOIS de abrir o chat.
-  const mountTimestampRef = useRef<string>(new Date().toISOString());
-  const lastClearedTelefoneRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    mountTimestampRef.current = new Date().toISOString();
-    lastClearedTelefoneRef.current = null;
-  }, [clienteTelefone]);
-
-  const clearUnreadMark = async () => {
-    if (!user) return;
-    // Idempotência: só roda uma vez por sessão de visualização do chat
-    if (lastClearedTelefoneRef.current === clienteTelefone) return;
-    lastClearedTelefoneRef.current = clienteTelefone;
-
-    const mountedAt = mountTimestampRef.current;
-
-    const { data: existing } = await (supabase as any)
-      .from('mensagem_leitura_operador')
-      .select('manual_unread_at, last_read_at')
-      .eq('cliente_telefone', clienteTelefone)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    // Preserva marcação manual se: foi feita após abrir o chat OU é mais recente
-    // que o último last_read_at (intenção do operador é mais nova que sua leitura).
-    const manualAt = existing?.manual_unread_at;
-    const lastRead = existing?.last_read_at;
-    const preserveManual =
-      !!manualAt && (manualAt > mountedAt || !lastRead || manualAt > lastRead);
-
-    const payload: any = {
-      cliente_telefone: clienteTelefone,
-      user_id: user.id,
-      last_read_at: new Date().toISOString(),
-    };
-    if (!preserveManual) payload.manual_unread_at = null;
-
-    await (supabase as any)
-      .from('mensagem_leitura_operador')
-      .upsert(payload, { onConflict: 'cliente_telefone,user_id' });
   };
 
   // ✅ Removidas funções duplicadas - consolidadas em fetchClienteData()
