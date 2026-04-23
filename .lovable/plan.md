@@ -1,58 +1,96 @@
 
+Objetivo: desmontar o sistema atual de lido/não lido do /chat-beta e reconstruí-lo com uma única fonte de verdade, garantindo que “Marcar como não lido” funcione de forma previsível e não volte a quebrar por polling, realtime ou estado local.
 
-## Diagnóstico — divergência no alerta "precisando de resposta"
+1. Causa raiz identificada
+- Hoje o /chat-beta usa 2 sistemas ao mesmo tempo para “não lido”:
+  - estado local em `ChatBeta.tsx` / `NotificationSystem.tsx` (`unreadMessages`)
+  - estado persistido em `mensagem_leitura_operador`
+- A lista mistura os dois com `OR`, então um sistema limpa e o outro recria a bolinha alguns segundos depois.
+- `ChatWindowBeta.tsx` limpa leitura automaticamente ao abrir a conversa e também ao chegar nova mensagem, enquanto `ConversationListBeta.tsx` tenta preservar/forçar estado manual. Essas regras competem entre si.
+- O “marcar como não lido” no beta foi implementado com acoplamento frágil entre `manual_unread_at` e `last_read_at`, inclusive reescrevendo `last_read_at` para trás. Isso torna o comportamento dependente de timing.
+- `fetchClientes()` hoje também escreve no banco durante carregamento da lista (seed de leitura), o que não deveria acontecer numa rotina de leitura.
+- Resultado: o badge reaparece, some errado, e o estado manual não é confiável.
 
-Você tem **3 fichas com status "Ficha Criada"** e **6 com "Orçamento Enviado"** (total = 9). O alerta no Chat BETA mostra **5**. A divergência tem duas causas distintas que se combinam.
+2. O que será reconstruído do zero
+Vou refazer todo o fluxo de leitura do Chat Beta com esta arquitetura:
+- Uma única fonte de verdade para unread/read: backend.
+- O frontend não vai mais “inventar” contagem local para badge.
+- “Marcar como não lido” vira estado explícito e separado da leitura automática.
+- Abertura da conversa, chegada de nova mensagem, troca de conversa e ação manual passam a usar regras únicas e centralizadas.
 
-### Causa 1 — A regra atual NÃO conta todas as fichas no escopo
+3. Nova arquitetura proposta
+Backend
+- Evoluir `mensagem_leitura_operador` para um modelo explícito:
+  - `last_read_at`
+  - `manual_unread` boolean
+  - `manual_unread_at` apenas como auditoria/ordenação, não como regra principal
+- Criar uma função/view de snapshot do Chat Beta para retornar por conversa:
+  - último timestamp de mensagem do cliente
+  - quantidade de mensagens do cliente após `last_read_at`
+  - flag manual de não lido
+  - badge final derivado
+  - dados da ficha atual usados pela lista/filtros
+- Regra final:
+  - se `manual_unread = true`, a conversa fica não lida até ação explícita de marcar como lida
+  - se `manual_unread = false`, não lido = mensagens do cliente posteriores a `last_read_at`
+  - abrir a conversa marca como lida
+  - nova mensagem do cliente enquanto a conversa está aberta marca como lida automaticamente só para aquele operador
 
-Hoje a regra do alerta (em `ConversationListBeta.tsx`, linhas 1137-1143 e 441-447) exige **três condições simultâneas**:
+Frontend
+- Remover o uso de `unreadMessages` como fonte de badge no `/chat-beta`
+- `NotificationSystem` fica só com toast/som; não controla mais bolinha
+- `ConversationListBeta` passa a renderizar badge/filtro apenas a partir do snapshot
+- `ChatWindowBeta` passa a chamar ações únicas:
+  - `markConversationRead`
+  - `markConversationUnread`
+- “Marcar como não lido” não vai mais mexer em `last_read_at`; só ativa a flag manual
 
-1. `bot_habilitado = false` (bot desligado)
-2. `marcado_nao_lido = true` (a conversa foi marcada como não lida pelo operador)
-3. status da ficha em `Ficha Criada` ou `Orçamento Enviado` **OU** Visita Técnica já passou
+4. Arquivos e áreas que serão revisados/registrados
+Vou documentar e alinhar tudo que hoje participa da visualização/leitura:
+- `src/pages/ChatBeta.tsx`
+- `src/components/ConversationListBeta.tsx`
+- `src/components/ChatWindowBeta.tsx`
+- `src/components/ConversationCard.tsx`
+- `src/components/NotificationSystem.tsx`
+- `src/components/chat-beta/ChatBetaFilterSidebar.tsx`
+- migrações ligadas a `mensagem_leitura_operador`
+- qualquer trecho compartilhado do chat clássico que hoje contamine a mesma lógica
+Também vou criar uma documentação técnica curta em `documentação/` registrando:
+- fonte de verdade
+- ciclo de leitura
+- eventos que marcam como lido
+- diferença entre “não lido real” e “não lido manual”
 
-Pelo banco hoje: das 9 fichas no escopo (3 + 6), nenhuma tem `bot_habilitado = false` E `marcado_nao_lido = true` ao mesmo tempo. A contagem real pela regra atual seria **0**, não 5 nem 9.
+5. Safeguards para não quebrar dados existentes
+- Não vou alterar `mensagens.data_hora`, `clientes.ultima_interacao`, horários de agendamento nem qualquer campo sensível a datas.
+- A migração vai preservar os registros atuais e fazer backfill seguro:
+  - `manual_unread = true` quando o estado atual realmente representar marcação manual ativa
+- O sistema antigo não será removido de forma destrutiva no primeiro passo; primeiro entra a nova lógica, depois limpo o legado somente se tudo validar.
+- Nada de “seed” automático de leitura durante carregamento da lista.
 
-Conclusão: a regra está restritiva demais. Você quer que **toda conversa em "Ficha Criada" / "Orçamento Enviado" / "Visita Técnica passada" entre no alerta** — independente de bot/leitura. É isso que bate com o número 9 esperado.
+6. Ajustes paralelos que entram junto
+Como o unread hoje afeta filtros e contadores, vou alinhar junto:
+- filtros de “não lidas” passam a usar só o snapshot novo
+- contadores laterais usam a mesma regra da lista
+- o alerta “precisando de resposta” passa a usar a mesma base de conversa atual para não misturar terminal/perdido indevidamente
 
-### Causa 2 — O "5" que aparece é estado obsoleto
+7. Critérios de aceite
+Vou considerar concluído quando estes cenários funcionarem:
+- marcar uma conversa como não lida mantém a bolinha estável
+- abrir essa conversa não recria nem apaga errado, conforme a regra final da ação manual
+- ler uma mensagem e trocar de conversa remove a bolinha e ela não volta sozinha
+- nova mensagem do cliente em conversa fechada gera badge corretamente
+- nova mensagem do cliente em conversa aberta não cria badge para o operador atual
+- operadores diferentes têm estados independentes
+- filtro “não lidas” mostra exatamente o mesmo conjunto da bolinha
+- filtros do chat beta não deixam “Perdido” vazar em listas que dependem do estado atual acionável
 
-As 3 conversas que hoje têm `bot off + não lido` não estão no escopo (estão em Perdido / Agendado / Finalizado). Ou seja, com a regra atual, deveria mostrar **0**. O "5" provavelmente vem de um snapshot anterior (antes do último ajuste) que ainda não atualizou na sua tela, ou de fichas que mudaram de status depois que a contagem foi feita.
-
----
-
-## Mudança proposta
-
-Reescrever a regra de elegibilidade do alerta e do filtro para refletir exatamente o que você descreveu antes:
-
-**Nova regra:** uma conversa entra no alerta/filtro "precisando de resposta" se:
-
-- A ficha ativa está em status **"Ficha Criada"** ou **"Orçamento Enviado"**, **OU**
-- A ficha ativa tem uma **Visita Técnica agendada cuja hora já passou** (independente do status atual da ficha)
-
-Removidas as exigências de `bot_habilitado = false` e `marcado_nao_lido = true` — elas não fazem parte do critério que você definiu.
-
-### Detalhes técnicos
-
-Arquivo: `src/components/ConversationListBeta.tsx`
-
-1. **Função `isAguardandoRespostaEligivel`** (linhas 50-66): manter como está (já implementa a regra correta de status + VT passada).
-
-2. **`aguardandoRespostaCount`** (linhas 1137-1143): remover as duas checagens extras, mantendo só `isAguardandoRespostaEligivel(c)`.
-
-3. **Filtro `showAguardandoRespostaOnly`** (linhas 441-447): mesma simplificação — aplicar apenas `isAguardandoRespostaEligivel(c)`.
-
-### Resultado esperado
-
-Com os dados atuais do banco:
-- Alerta passará a mostrar **9** (3 Ficha Criada + 6 Orçamento Enviado + 0 VT passada)
-- Ao clicar no alerta, o filtro listará exatamente essas 9 conversas
-
-### Garantias de segurança
-
-- Não altera nenhum dado armazenado (apenas lógica de exibição em memória)
-- Não toca em fuso/horário/agendamento
-- Não modifica RLS, schema ou Edge Functions
-- A função helper já existente é reaproveitada — comportamento continua determinístico
-
+8. Implementação em ordem
+1. Auditar e registrar o fluxo atual em documentação técnica
+2. Criar migração segura para explicitar o estado manual
+3. Criar função/view de snapshot do Chat Beta no backend
+4. Refatorar `/chat-beta` para consumir só esse snapshot
+5. Remover a dependência de `unreadMessages` no beta
+6. Reescrever as ações de marcar lido/não lido
+7. Ajustar realtime/polling para só invalidar snapshot, sem recalcular badge em dois lugares
+8. Validar cenários reais de troca de conversa, leitura, marcação manual e filtros
