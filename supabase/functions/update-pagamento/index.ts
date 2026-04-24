@@ -142,11 +142,18 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Snapshot anterior para detectar transição de pagamento_realizado false→true
+    const { data: fichaAnterior } = await supabase
+      .from('fichas_de_servico')
+      .select('pagamento_realizado, recibo_enviado, telefone_cliente')
+      .eq('id', fichaId)
+      .maybeSingle();
+
     const { data, error } = await supabase
       .from('fichas_de_servico')
       .update(updateData)
       .eq('id', fichaId)
-      .select('id, pagamento_link, pagamento_realizado')
+      .select('id, pagamento_link, pagamento_realizado, telefone_cliente')
       .single();
 
     if (error) {
@@ -162,6 +169,30 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Ficha não encontrada' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // ===== DISPARO AUTOMÁTICO DE RECIBO =====
+    // Só dispara se pagamento_realizado transicionou para true E recibo ainda não foi enviado
+    const transitionToPago = pagamentoRealizado === true && fichaAnterior?.pagamento_realizado !== true;
+    if (transitionToPago && fichaAnterior?.recibo_enviado !== true && data.telefone_cliente) {
+      try {
+        const reciboRes = await fetch(`${supabaseUrl}/functions/v1/send-recibo`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            ficha_id: fichaId,
+            telefone_cliente: data.telefone_cliente,
+            origem: authSource === 'make' ? 'make' : 'update-pagamento',
+          }),
+        });
+        const txt = await reciboRes.text();
+        console.log(`[update-pagamento] 📧 send-recibo status: ${reciboRes.status} body: ${txt.substring(0, 200)}`);
+      } catch (reciboErr) {
+        console.warn(`[update-pagamento] ⚠️ Falha não-bloqueante ao disparar recibo:`, reciboErr);
+      }
     }
 
     const duration = Date.now() - startTime;
