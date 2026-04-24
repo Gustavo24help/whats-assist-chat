@@ -95,7 +95,7 @@ export const DashboardContent = ({
               servicosFinalizados={kpiData.servicoFinalizado}
               finalizadosPagos={kpiData.finalizadoPago}
             />
-            <ConversionFunnel data={funnelData} isLoading={isLoadingKpis || isLoadingAds} />
+            <ConversionFunnel data={funnelData} isLoading={isLoadingKpis} />
           </div>
         );
 
