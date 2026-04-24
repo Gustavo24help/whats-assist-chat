@@ -539,8 +539,10 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
   return {
     conversasIniciadas: safeMetrics.conversasIniciadas,
     fsCriadas: safeMetrics.fsCriadas,
+    fsComOrcamento: safeMetrics.fsComOrcamento,
     visitaAgendada: safeMetrics.visitaAgendada,
     servicoAgendado: safeMetrics.servicoAgendado,
+    servicoAgendadoBruto: safeMetrics.servicoAgendadoBruto,
     servicoAgendadoTotal,
     servicoFinalizado: safeMetrics.servicoFinalizado,
     finalizadoPago: safeMetrics.finalizadoPago,
@@ -553,8 +555,10 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
     variations: {
       conversasIniciadas: calculateVariation(safeMetrics.conversasIniciadas, avg('conversasIniciadas')),
       fsCriadas: calculateVariation(safeMetrics.fsCriadas, avg('fsCriadas')),
+      fsComOrcamento: calculateVariation(safeMetrics.fsComOrcamento, avg('fsComOrcamento')),
       visitaAgendada: calculateVariation(safeMetrics.visitaAgendada, avg('visitaAgendada')),
       servicoAgendado: calculateVariation(safeMetrics.servicoAgendado, avg('servicoAgendado')),
+      servicoAgendadoBruto: calculateVariation(safeMetrics.servicoAgendadoBruto, avg('servicoAgendadoBruto')),
       servicoFinalizado: calculateVariation(safeMetrics.servicoFinalizado, avg('servicoFinalizado')),
       finalizadoPago: calculateVariation(safeMetrics.finalizadoPago, avg('finalizadoPago')),
       pagoAoPrestador: calculateVariation(safeMetrics.pagoAoPrestador, avg('pagoAoPrestador')),
@@ -568,8 +572,10 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
 export const FALLBACK_OPERATIONAL_KPIS: OperationalKPIs = {
   conversasIniciadas: 0,
   fsCriadas: 0,
+  fsComOrcamento: 0,
   visitaAgendada: 0,
   servicoAgendado: 0,
+  servicoAgendadoBruto: 0,
   servicoAgendadoTotal: 0,
   servicoFinalizado: 0,
   finalizadoPago: 0,
@@ -582,8 +588,10 @@ export const FALLBACK_OPERATIONAL_KPIS: OperationalKPIs = {
   variations: {
     conversasIniciadas: null,
     fsCriadas: null,
+    fsComOrcamento: null,
     visitaAgendada: null,
     servicoAgendado: null,
+    servicoAgendadoBruto: null,
     servicoFinalizado: null,
     finalizadoPago: null,
     pagoAoPrestador: null,
