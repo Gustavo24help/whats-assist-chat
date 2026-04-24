@@ -370,7 +370,8 @@ async function fetchMetricsForWindow(
     agendadoFichas,
     agendadoBrutoFichas,
     finalizadoFichas,
-    pagoPrestadorRes,
+    transacoesPagasRes,
+    totalOrcamentosRes,
   ] = await Promise.all([
     // FS Criadas (= Conversas Iniciadas) — count direto
     (async () => {
@@ -404,20 +405,20 @@ async function fetchMetricsForWindow(
     fetchFichasComEvento('Agendado', fromStr, toStr, filters, []),
     // Serviço Finalizado — eventos de status
     fetchFichasComEvento('Finalizado', fromStr, toStr, filters),
-    // Pago ao prestador — transacoes_financeiras (mesma fonte do módulo Financeiro/Contas a Pagar)
+    // Transações pagas ao prestador no período — fonte de verdade financeira.
+    // Buscamos os campos necessários para calcular: pagoAoPrestador (count),
+    // valorPagoPrestadores, valorLiquido24help (= lucro_bruto) e margem bruta.
     (async () => {
-      // Busca transações pagas no período. Usa LEFT join opcional para herdar
-      // filtros — se não houver filtros de ficha, evita inner join (que poderia
-      // descartar transações cuja ficha tenha sido reescrita).
       const hasFichaFilters = !!(
         filters.categoriaId || filters.prestadorCpf || filters.clienteTelefone
       );
+      const selectCols =
+        'id, valor_a_pagar_prestador, valor_cliente_final, valor_lucro_bruto';
       if (hasFichaFilters) {
         let q: any = supabase
           .from('transacoes_financeiras')
           .select(
-            `id, ficha_id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)`,
-            { count: 'exact', head: true },
+            `${selectCols}, ficha_id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)`,
           )
           .eq('status_pagamento_prestador', 'pago')
           .gte('data_pagamento_realizada', fromStr)
@@ -427,12 +428,37 @@ async function fetchMetricsForWindow(
       }
       return await supabase
         .from('transacoes_financeiras')
-        .select('id', { count: 'exact', head: true })
+        .select(selectCols)
         .eq('status_pagamento_prestador', 'pago')
         .gte('data_pagamento_realizada', fromStr)
         .lte('data_pagamento_realizada', toStr);
     })(),
+    // Total de orçamentos enviados no período (linhas em `orcamentos`).
+    // Filtros de ficha são aplicados via inner join quando necessário.
+    (async () => {
+      const hasFichaFilters = !!(
+        filters.categoriaId || filters.prestadorCpf || filters.clienteTelefone
+      );
+      if (hasFichaFilters) {
+        let q: any = supabase
+          .from('orcamentos')
+          .select(
+            'id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)',
+            { count: 'exact', head: true },
+          )
+          .gte('created_at', fromStr)
+          .lte('created_at', toStr);
+        q = applyEmbeddedFichaFilters(q, filters);
+        return await q;
+      }
+      return await supabase
+        .from('orcamentos')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', fromStr)
+        .lte('created_at', toStr);
+    })(),
   ]);
+
 
   const fsCriadas = fsCriadasRes.count || 0;
   const visitaAgendada = visitaFichas.fichas.length;
