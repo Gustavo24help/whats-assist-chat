@@ -21,6 +21,10 @@ import {
   Banknote,
   Hammer,
   Package,
+  ClipboardList,
+  HandCoins,
+  PiggyBank,
+  Percent,
 } from 'lucide-react';
 
 interface OperationalKPIsSectionProps {
@@ -84,7 +88,7 @@ export const OperationalKPIsSection = ({
         </SectionHeader>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
-          {[...Array(10)].map((_, i) => (
+          {[...Array(14)].map((_, i) => (
             <Card key={i} className="p-4">
               <Skeleton className="h-4 w-24 mb-2" />
               <Skeleton className="h-8 w-16 mb-2" />
