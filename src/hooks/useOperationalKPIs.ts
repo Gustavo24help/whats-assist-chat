@@ -27,8 +27,10 @@ export interface OperationalKPIs {
   // Quantidades
   conversasIniciadas: number;
   fsCriadas: number;
+  fsComOrcamento: number;
   visitaAgendada: number;
   servicoAgendado: number;
+  servicoAgendadoBruto: number; // inclui fichas que viraram "Perdido" depois
   servicoAgendadoTotal: number; // legado p/ funil = agendado + finalizado/pago
   servicoFinalizado: number;
   finalizadoPago: number;
@@ -43,8 +45,10 @@ export interface OperationalKPIs {
   variations: {
     conversasIniciadas: number | null;
     fsCriadas: number | null;
+    fsComOrcamento: number | null;
     visitaAgendada: number | null;
     servicoAgendado: number | null;
+    servicoAgendadoBruto: number | null;
     servicoFinalizado: number | null;
     finalizadoPago: number | null;
     pagoAoPrestador: number | null;
@@ -160,8 +164,10 @@ type RawFichaFiltros = {
 type WindowMetrics = {
   conversasIniciadas: number;
   fsCriadas: number;
+  fsComOrcamento: number;
   visitaAgendada: number;
   servicoAgendado: number;
+  servicoAgendadoBruto: number;
   servicoFinalizado: number;
   finalizadoPago: number;
   pagoAoPrestador: number;
@@ -173,8 +179,10 @@ type WindowMetrics = {
 const EMPTY_METRICS: WindowMetrics = {
   conversasIniciadas: 0,
   fsCriadas: 0,
+  fsComOrcamento: 0,
   visitaAgendada: 0,
   servicoAgendado: 0,
+  servicoAgendadoBruto: 0,
   servicoFinalizado: 0,
   finalizadoPago: 0,
   pagoAoPrestador: 0,
@@ -336,8 +344,10 @@ async function fetchMetricsForWindow(
 
   const [
     fsCriadasRes,
+    fichasNoPeriodoRes,
     visitaFichas,
     agendadoFichas,
+    agendadoBrutoFichas,
     finalizadoFichas,
     pagoPrestadorRes,
   ] = await Promise.all([
@@ -351,6 +361,16 @@ async function fetchMetricsForWindow(
       q = applyFichaFilters(q, filters);
       return await q;
     })(),
+    // Fichas no período (com campos necessários para calcular fsComOrcamento)
+    (async () => {
+      let q: any = supabase
+        .from('fichas_de_servico')
+        .select('id, valor_total, formulario_orcamento_data_primeiro_envio')
+        .gte('created_at', fromStr)
+        .lte('created_at', toStr);
+      q = applyFichaFilters(q, filters);
+      return await q;
+    })(),
     // Visita Agendada — eventos de status
     fetchFichasComEvento('Visita Técnica', fromStr, toStr, filters),
     // Serviço Agendado — eventos de status
@@ -358,6 +378,9 @@ async function fetchMetricsForWindow(
     // Status válidos a manter: Agendado, Em andamento, Finalizado, Garantia, Retorno
     // (qualquer status que não seja "Perdido" preserva o agendamento histórico).
     fetchFichasComEvento('Agendado', fromStr, toStr, filters, ['Perdido']),
+    // Serviço Agendado BRUTO — todos os eventos "Agendado" no período,
+    // INCLUINDO fichas que depois viraram "Perdido". Usado no funil.
+    fetchFichasComEvento('Agendado', fromStr, toStr, filters, []),
     // Serviço Finalizado — eventos de status
     fetchFichasComEvento('Finalizado', fromStr, toStr, filters),
     // Pago ao prestador — transacoes_financeiras (mesma fonte do módulo Financeiro/Contas a Pagar)
@@ -393,6 +416,49 @@ async function fetchMetricsForWindow(
   const fsCriadas = fsCriadasRes.count || 0;
   const visitaAgendada = visitaFichas.fichas.length;
   const servicoAgendado = agendadoFichas.fichas.length;
+  const servicoAgendadoBruto = agendadoBrutoFichas.fichas.length;
+
+  // ===== FS com Orçamento =====
+  // Uma ficha conta se:
+  //   (a) tem ao menos 1 registro em `orcamentos` (ficha_nome = ficha.id), OU
+  //   (b) tem valor_total > 0 E formulario_orcamento_data_primeiro_envio != null
+  //       (orçamento foi enviado ao cliente mesmo sem registro na tabela orcamentos)
+  const fichasNoPeriodo = (fichasNoPeriodoRes.data as Array<{
+    id: string;
+    valor_total: number | null;
+    formulario_orcamento_data_primeiro_envio: string | null;
+  }>) || [];
+
+  let fsComOrcamento = 0;
+  if (fichasNoPeriodo.length > 0) {
+    const fichaIds = fichasNoPeriodo.map((f) => f.id);
+    // Busca em chunks para evitar URLs muito grandes
+    const orcamentosFichaIds = new Set<string>();
+    const chunkSize = 200;
+    for (let i = 0; i < fichaIds.length; i += chunkSize) {
+      const chunk = fichaIds.slice(i, i + chunkSize);
+      const r = await supabase
+        .from('orcamentos')
+        .select('ficha_nome')
+        .in('ficha_nome', chunk);
+      for (const row of (r.data as Array<{ ficha_nome: string }>) || []) {
+        orcamentosFichaIds.add(row.ficha_nome);
+      }
+    }
+
+    fsComOrcamento = fichasNoPeriodo.filter((f) => {
+      // Condição (a)
+      if (orcamentosFichaIds.has(f.id)) return true;
+      // Condição (b)
+      if (
+        Number(f.valor_total ?? 0) > 0 &&
+        f.formulario_orcamento_data_primeiro_envio != null
+      ) {
+        return true;
+      }
+      return false;
+    }).length;
+  }
 
   // Para "Finalizado" - separar finalizadas vs finalizadas+pagas, e somar valores
   const servicoFinalizado = finalizadoFichas.fichas.length;
@@ -419,8 +485,10 @@ async function fetchMetricsForWindow(
   return {
     conversasIniciadas: fsCriadas, // mesma definição operacional
     fsCriadas,
+    fsComOrcamento,
     visitaAgendada,
     servicoAgendado,
+    servicoAgendadoBruto,
     servicoFinalizado,
     finalizadoPago,
     pagoAoPrestador,
@@ -471,8 +539,10 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
   return {
     conversasIniciadas: safeMetrics.conversasIniciadas,
     fsCriadas: safeMetrics.fsCriadas,
+    fsComOrcamento: safeMetrics.fsComOrcamento,
     visitaAgendada: safeMetrics.visitaAgendada,
     servicoAgendado: safeMetrics.servicoAgendado,
+    servicoAgendadoBruto: safeMetrics.servicoAgendadoBruto,
     servicoAgendadoTotal,
     servicoFinalizado: safeMetrics.servicoFinalizado,
     finalizadoPago: safeMetrics.finalizadoPago,
@@ -485,8 +555,10 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
     variations: {
       conversasIniciadas: calculateVariation(safeMetrics.conversasIniciadas, avg('conversasIniciadas')),
       fsCriadas: calculateVariation(safeMetrics.fsCriadas, avg('fsCriadas')),
+      fsComOrcamento: calculateVariation(safeMetrics.fsComOrcamento, avg('fsComOrcamento')),
       visitaAgendada: calculateVariation(safeMetrics.visitaAgendada, avg('visitaAgendada')),
       servicoAgendado: calculateVariation(safeMetrics.servicoAgendado, avg('servicoAgendado')),
+      servicoAgendadoBruto: calculateVariation(safeMetrics.servicoAgendadoBruto, avg('servicoAgendadoBruto')),
       servicoFinalizado: calculateVariation(safeMetrics.servicoFinalizado, avg('servicoFinalizado')),
       finalizadoPago: calculateVariation(safeMetrics.finalizadoPago, avg('finalizadoPago')),
       pagoAoPrestador: calculateVariation(safeMetrics.pagoAoPrestador, avg('pagoAoPrestador')),
@@ -500,8 +572,10 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
 export const FALLBACK_OPERATIONAL_KPIS: OperationalKPIs = {
   conversasIniciadas: 0,
   fsCriadas: 0,
+  fsComOrcamento: 0,
   visitaAgendada: 0,
   servicoAgendado: 0,
+  servicoAgendadoBruto: 0,
   servicoAgendadoTotal: 0,
   servicoFinalizado: 0,
   finalizadoPago: 0,
@@ -514,8 +588,10 @@ export const FALLBACK_OPERATIONAL_KPIS: OperationalKPIs = {
   variations: {
     conversasIniciadas: null,
     fsCriadas: null,
+    fsComOrcamento: null,
     visitaAgendada: null,
     servicoAgendado: null,
+    servicoAgendadoBruto: null,
     servicoFinalizado: null,
     finalizadoPago: null,
     pagoAoPrestador: null,

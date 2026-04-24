@@ -12,7 +12,6 @@ import {
   type PeriodOption,
   type ComparisonMode,
 } from '@/hooks/useOperationalKPIs';
-import { useGoogleAdsMetrics, FALLBACK_METRICS } from '@/hooks/useGoogleAdsMetrics';
 
 interface DashboardContentProps {
   period: PeriodOption;
@@ -29,7 +28,7 @@ export const DashboardContent = ({
 }: DashboardContentProps) => {
   const { blocks } = useDashboardLayout();
 
-  // Buscar KPIs operacionais para usar nas taxas de conversão
+  // Buscar KPIs operacionais para usar nas taxas de conversão e no funil
   const { data: kpis, isLoading: isLoadingKpis } = useOperationalKPIs({
     period,
     customRange: customDateRange,
@@ -37,39 +36,28 @@ export const DashboardContent = ({
     comparisonRange,
   });
 
-  // Buscar métricas do Google Ads para o funil (Impressões e Cliques)
-  const { data: adsMetrics, isLoading: isLoadingAds } = useGoogleAdsMetrics(period, customDateRange);
-
   const kpiData = kpis || FALLBACK_OPERATIONAL_KPIS;
-  const adsData = adsMetrics || FALLBACK_METRICS;
 
   const funnelData: FunnelStepData[] = [
     {
-      id: 'impressions',
-      label: 'Impressões',
-      value: adsData.impressoes,
-      variation: adsData.variations.impressoes,
+      id: 'fs-criadas',
+      label: 'Conversas Iniciadas / FS Criadas',
+      value: kpiData.fsCriadas,
+      variation: kpiData.variations.fsCriadas,
       bgColor: 'bg-brand-green',
     },
     {
-      id: 'clicks',
-      label: 'Cliques no anúncio',
-      value: adsData.cliques,
-      variation: adsData.variations.cliques,
-      bgColor: 'bg-brand-green/80',
-    },
-    {
-      id: 'conversations',
-      label: 'Conversas Iniciadas',
-      value: kpiData.conversasIniciadas,
-      variation: kpiData.variations.conversasIniciadas,
+      id: 'fs-orcamento',
+      label: 'FS com Orçamento',
+      value: kpiData.fsComOrcamento,
+      variation: kpiData.variations.fsComOrcamento,
       bgColor: 'bg-brand-yellow',
     },
     {
-      id: 'fs',
-      label: 'FS Criadas',
-      value: kpiData.fsCriadas,
-      variation: kpiData.variations.fsCriadas,
+      id: 'agendados',
+      label: 'Serviços Agendados',
+      value: kpiData.servicoAgendadoBruto,
+      variation: kpiData.variations.servicoAgendadoBruto,
       bgColor: 'bg-brand-coral',
     },
     {
@@ -107,7 +95,7 @@ export const DashboardContent = ({
               servicosFinalizados={kpiData.servicoFinalizado}
               finalizadosPagos={kpiData.finalizadoPago}
             />
-            <ConversionFunnel data={funnelData} isLoading={isLoadingKpis || isLoadingAds} />
+            <ConversionFunnel data={funnelData} isLoading={isLoadingKpis} />
           </div>
         );
 
