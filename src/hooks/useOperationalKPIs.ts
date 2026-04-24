@@ -527,12 +527,46 @@ async function fetchMetricsForWindow(
     0,
   );
 
-  const pagoAoPrestador = pagoPrestadorRes.count || 0;
+  // Transações pagas no período
+  const transacoesPagas =
+    (transacoesPagasRes.data as Array<{
+      valor_a_pagar_prestador: number | null;
+      valor_cliente_final: number | null;
+      valor_lucro_bruto: number | null;
+    }>) || [];
+  const pagoAoPrestador = transacoesPagas.length;
+  const valorPagoPrestadores = transacoesPagas.reduce(
+    (sum, t) => sum + Number(t.valor_a_pagar_prestador ?? 0),
+    0,
+  );
+  // Líquido 24help = valor cliente final - valor pago ao prestador
+  // (equivale ao valor_lucro_bruto, mas calculamos a partir dos campos brutos
+  // como fallback caso lucro_bruto não esteja preenchido em alguma transação).
+  const valorLiquido24help = transacoesPagas.reduce((sum, t) => {
+    const lucro = t.valor_lucro_bruto;
+    if (lucro != null) return sum + Number(lucro);
+    return (
+      sum +
+      Number(t.valor_cliente_final ?? 0) -
+      Number(t.valor_a_pagar_prestador ?? 0)
+    );
+  }, 0);
+  const margemBruta24help =
+    valorPagoPrestadores > 0
+      ? Number(((valorLiquido24help / valorPagoPrestadores) * 100).toFixed(1))
+      : 0;
+
+  // Total de orçamentos enviados no período (linhas em `orcamentos`)
+  const totalOrcamentos = totalOrcamentosRes.count || 0;
+  const mediaOrcamentosPorFS =
+    fsComOrcamento > 0 ? Number((totalOrcamentos / fsComOrcamento).toFixed(2)) : 0;
 
   return {
     conversasIniciadas: fsCriadas, // mesma definição operacional
     fsCriadas,
     fsComOrcamento,
+    totalOrcamentos,
+    mediaOrcamentosPorFS,
     visitaAgendada,
     servicoAgendado,
     servicoAgendadoBruto,
@@ -542,6 +576,9 @@ async function fetchMetricsForWindow(
     valorTotalOS,
     valorMaoObra,
     valorPecas,
+    valorPagoPrestadores,
+    valorLiquido24help,
+    margemBruta24help,
   };
 }
 
