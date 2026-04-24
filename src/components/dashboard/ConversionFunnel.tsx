@@ -168,11 +168,21 @@ export const ConversionFunnel = ({ data, isLoading }: ConversionFunnelProps) => 
                 </div>
               </div>
 
-              {/* Taxa entre etapas */}
+              {/* Taxa entre etapas: vs etapa anterior + vs Conversas Iniciadas */}
               {conversionToNext !== null && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground py-1">
-                  <ArrowRight className="h-3 w-3 rotate-90" />
-                  <span>Taxa: {conversionToNext}%</span>
+                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground py-1">
+                  <div className="flex items-center gap-1">
+                    <ArrowRight className="h-3 w-3 rotate-90" />
+                    <span>
+                      <span className="font-medium text-foreground">{conversionToNext}%</span>
+                      {' '}vs etapa anterior
+                    </span>
+                  </div>
+                  {baseValue > 0 && (
+                    <span className="text-muted-foreground/70">
+                      ({((data[index + 1].value / baseValue) * 100).toFixed(1)}% vs {data[0].label})
+                    </span>
+                  )}
                 </div>
               )}
             </div>
