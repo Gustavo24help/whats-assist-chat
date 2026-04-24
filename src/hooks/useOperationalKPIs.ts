@@ -164,8 +164,10 @@ type RawFichaFiltros = {
 type WindowMetrics = {
   conversasIniciadas: number;
   fsCriadas: number;
+  fsComOrcamento: number;
   visitaAgendada: number;
   servicoAgendado: number;
+  servicoAgendadoBruto: number;
   servicoFinalizado: number;
   finalizadoPago: number;
   pagoAoPrestador: number;
@@ -177,8 +179,10 @@ type WindowMetrics = {
 const EMPTY_METRICS: WindowMetrics = {
   conversasIniciadas: 0,
   fsCriadas: 0,
+  fsComOrcamento: 0,
   visitaAgendada: 0,
   servicoAgendado: 0,
+  servicoAgendadoBruto: 0,
   servicoFinalizado: 0,
   finalizadoPago: 0,
   pagoAoPrestador: 0,
