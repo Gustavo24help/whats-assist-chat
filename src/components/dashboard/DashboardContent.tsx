@@ -30,14 +30,56 @@ export const DashboardContent = ({
   const { blocks } = useDashboardLayout();
 
   // Buscar KPIs operacionais para usar nas taxas de conversão
-  const { data: kpis } = useOperationalKPIs({
+  const { data: kpis, isLoading: isLoadingKpis } = useOperationalKPIs({
     period,
     customRange: customDateRange,
     comparisonMode,
     comparisonRange,
   });
 
+  // Buscar métricas do Google Ads para o funil (Impressões e Cliques)
+  const { data: adsMetrics, isLoading: isLoadingAds } = useGoogleAdsMetrics(period, customDateRange);
+
   const kpiData = kpis || FALLBACK_OPERATIONAL_KPIS;
+  const adsData = adsMetrics || FALLBACK_METRICS;
+
+  const funnelData: FunnelStepData[] = [
+    {
+      id: 'impressions',
+      label: 'Impressões',
+      value: adsData.impressoes,
+      variation: adsData.variations.impressoes,
+      bgColor: 'bg-brand-green',
+    },
+    {
+      id: 'clicks',
+      label: 'Cliques no anúncio',
+      value: adsData.cliques,
+      variation: adsData.variations.cliques,
+      bgColor: 'bg-brand-green/80',
+    },
+    {
+      id: 'conversations',
+      label: 'Conversas Iniciadas',
+      value: kpiData.conversasIniciadas,
+      variation: kpiData.variations.conversasIniciadas,
+      bgColor: 'bg-brand-yellow',
+    },
+    {
+      id: 'fs',
+      label: 'FS Criadas',
+      value: kpiData.fsCriadas,
+      variation: kpiData.variations.fsCriadas,
+      bgColor: 'bg-brand-coral',
+    },
+    {
+      id: 'finalized',
+      label: 'Serviços Finalizados',
+      value: kpiData.servicoFinalizado,
+      variation: kpiData.variations.servicoFinalizado,
+      bgColor: 'bg-brand-coral/80',
+    },
+  ];
 
   const sortedBlocks = [...blocks]
     .filter(block => block.enabled)
