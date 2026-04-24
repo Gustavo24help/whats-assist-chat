@@ -404,7 +404,8 @@ serve(async (req) => {
             .from("clientes")
             .update({ 
               ultima_interacao: new Date().toISOString(),
-              ultima_mensagem_recebida: new Date().toISOString()
+              ultima_mensagem_recebida: new Date().toISOString(),
+              marcado_nao_lido: true
             })
             .eq("telefone", cliente.telefone);
         }
