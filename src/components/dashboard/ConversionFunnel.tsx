@@ -127,6 +127,16 @@ export const ConversionFunnel = ({ data, isLoading }: ConversionFunnelProps) => 
                     <div className="space-y-1">
                       <p className="font-medium">{step.label}</p>
                       <p>Valor: {step.value.toLocaleString('pt-BR')}</p>
+                      {conversionFromPrev !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          {conversionFromPrev}% vs etapa anterior
+                        </p>
+                      )}
+                      {conversionFromBase !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          {conversionFromBase}% vs {data[0].label}
+                        </p>
+                      )}
                       {variation !== null && (
                         <p className={variation >= 0 ? "text-brand-green" : "text-brand-red"}>
                           Variação: {variation >= 0 ? '+' : ''}{variation.toFixed(1)}%
