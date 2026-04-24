@@ -133,6 +133,18 @@ export const OperationalKPIsSection = ({
           tooltip="Fichas de serviço criadas no período (data de criação)."
         />
         <KPICard
+          label="Nº Serviços Orçados"
+          value={String(kpis.totalOrcamentos)}
+          subValue={`${kpis.mediaOrcamentosPorFS.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por FS`}
+          variation={kpis.variations.totalOrcamentos}
+          comparisonLabel={compLabel}
+          icon={<ClipboardList className="h-5 w-5" />}
+          iconColor="yellow"
+          size="sm"
+          animationDelay={75}
+          tooltip="Total de orçamentos enviados pelos prestadores no período (cada linha em 'orcamentos' conta). O subtítulo mostra a média de orçamentos por FS com orçamento."
+        />
+        <KPICard
           label="Visita Agendada"
           value={String(kpis.visitaAgendada)}
           variation={kpis.variations.visitaAgendada}
