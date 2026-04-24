@@ -27,8 +27,10 @@ export interface OperationalKPIs {
   // Quantidades
   conversasIniciadas: number;
   fsCriadas: number;
+  fsComOrcamento: number;
   visitaAgendada: number;
   servicoAgendado: number;
+  servicoAgendadoBruto: number; // inclui fichas que viraram "Perdido" depois
   servicoAgendadoTotal: number; // legado p/ funil = agendado + finalizado/pago
   servicoFinalizado: number;
   finalizadoPago: number;
@@ -43,8 +45,10 @@ export interface OperationalKPIs {
   variations: {
     conversasIniciadas: number | null;
     fsCriadas: number | null;
+    fsComOrcamento: number | null;
     visitaAgendada: number | null;
     servicoAgendado: number | null;
+    servicoAgendadoBruto: number | null;
     servicoFinalizado: number | null;
     finalizadoPago: number | null;
     pagoAoPrestador: number | null;
