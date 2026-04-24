@@ -58,10 +58,17 @@ export const ConversionFunnel = ({ data, isLoading }: ConversionFunnelProps) => 
     return Math.max(pct, 18);
   };
 
-  // Taxa de conversão entre etapas
+  // Taxa de conversão entre etapas (vs etapa imediatamente anterior)
   const conversionRates = data.slice(1).map((step, index) => {
     const prev = data[index].value;
     const rate = prev > 0 ? (step.value / prev) * 100 : 0;
+    return rate.toFixed(1);
+  });
+
+  // Taxa de conversão vs primeira etapa (Conversas Iniciadas / FS Criadas)
+  const baseValue = data[0]?.value ?? 0;
+  const conversionRatesVsBase = data.slice(1).map((step) => {
+    const rate = baseValue > 0 ? (step.value / baseValue) * 100 : 0;
     return rate.toFixed(1);
   });
 
@@ -72,6 +79,9 @@ export const ConversionFunnel = ({ data, isLoading }: ConversionFunnelProps) => 
           const width = getWidth(step.value);
           const nextWidth = index < data.length - 1 ? getWidth(data[index + 1].value) : width;
           const conversionToNext = index < data.length - 1 ? conversionRates[index] : null;
+          // Para a etapa atual: taxa em relação à anterior e em relação à 1ª etapa
+          const conversionFromPrev = index > 0 ? conversionRates[index - 1] : null;
+          const conversionFromBase = index > 0 ? conversionRatesVsBase[index - 1] : null;
           const variation = step.variation;
           const isHovered = hoveredStep === step.id;
 
