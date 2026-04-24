@@ -3,6 +3,7 @@ import { OperationalKPIsSection } from './OperationalKPIsSection';
 import { ConversionRatesSection } from './ConversionRatesSection';
 import { GoogleAdsSection } from './GoogleAdsSection';
 import { ConversionFunnel, ServicesLineChart, AdsPerformanceChart, TicketMedioChart, ROIChart } from './index';
+import type { FunnelStepData } from './ConversionFunnel';
 import { ExportReportSection } from './ExportReportSection';
 import { SectionHeader } from './SectionHeader';
 import {
@@ -11,6 +12,7 @@ import {
   type PeriodOption,
   type ComparisonMode,
 } from '@/hooks/useOperationalKPIs';
+import { useGoogleAdsMetrics, FALLBACK_METRICS } from '@/hooks/useGoogleAdsMetrics';
 
 interface DashboardContentProps {
   period: PeriodOption;
