@@ -1,8 +1,7 @@
 import { useDashboardLayout } from '@/contexts/DashboardLayoutContext';
 import { OperationalKPIsSection } from './OperationalKPIsSection';
 import { ConversionRatesSection } from './ConversionRatesSection';
-import { GoogleAdsSection } from './GoogleAdsSection';
-import { ConversionFunnel, ServicesLineChart, AdsPerformanceChart, TicketMedioChart, ROIChart } from './index';
+import { ConversionFunnel, ServicesLineChart, TicketMedioChart } from './index';
 import type { FunnelStepData } from './ConversionFunnel';
 import { ExportReportSection } from './ExportReportSection';
 import { SectionHeader } from './SectionHeader';
@@ -100,13 +99,8 @@ export const DashboardContent = ({
         );
 
       case 'google-ads':
-        return (
-          <GoogleAdsSection 
-            key={blockId}
-            period={period}
-            customDateRange={customDateRange}
-          />
-        );
+        // Google Ads removido temporariamente do dashboard.
+        return null;
 
       case 'charts':
         return (
@@ -117,9 +111,7 @@ export const DashboardContent = ({
             />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
               <ServicesLineChart />
-              <AdsPerformanceChart />
               <TicketMedioChart />
-              <ROIChart />
             </div>
           </section>
         );
