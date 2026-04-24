@@ -233,6 +233,39 @@ export const OperationalKPIsSection = ({
           animationDelay={450}
           tooltip="Soma de valor_final_pecas (ou valor_pecas como fallback) das fichas finalizadas e pagas no período."
         />
+        <KPICard
+          label="Pago a Prestadores"
+          value={formatCurrency(kpis.valorPagoPrestadores)}
+          variation={kpis.variations.valorPagoPrestadores}
+          comparisonLabel={compLabel}
+          icon={<HandCoins className="h-5 w-5" />}
+          iconColor="coral"
+          size="sm"
+          animationDelay={500}
+          tooltip="Total pago aos prestadores no período (soma de valor_a_pagar_prestador das transações com status 'pago' ao prestador). Inclui mão de obra e o valor de peças quando NÃO são pagas pela 24help."
+        />
+        <KPICard
+          label="Líquido 24help"
+          value={formatCurrency(kpis.valorLiquido24help)}
+          variation={kpis.variations.valorLiquido24help}
+          comparisonLabel={compLabel}
+          icon={<PiggyBank className="h-5 w-5" />}
+          iconColor="brand-green"
+          size="sm"
+          animationDelay={550}
+          tooltip="Receita líquida da 24help: valor recebido do cliente menos o valor pago ao prestador. Quando o material é pago pela 24help, esse custo já está embutido na composição do pagamento ao prestador (sai do líquido)."
+        />
+        <KPICard
+          label="Margem Bruta 24help"
+          value={`${kpis.margemBruta24help.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}
+          variation={kpis.variations.margemBruta24help}
+          comparisonLabel={compLabel}
+          icon={<Percent className="h-5 w-5" />}
+          iconColor="yellow"
+          size="sm"
+          animationDelay={600}
+          tooltip="Margem bruta = Líquido 24help / Pago a Prestadores × 100. Indica quanto a 24help retém como margem em relação ao custo direto do serviço."
+        />
       </div>
     </section>
   );
