@@ -21,6 +21,10 @@ import {
   Banknote,
   Hammer,
   Package,
+  ClipboardList,
+  HandCoins,
+  PiggyBank,
+  Percent,
 } from 'lucide-react';
 
 interface OperationalKPIsSectionProps {
@@ -84,7 +88,7 @@ export const OperationalKPIsSection = ({
         </SectionHeader>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
-          {[...Array(10)].map((_, i) => (
+          {[...Array(14)].map((_, i) => (
             <Card key={i} className="p-4">
               <Skeleton className="h-4 w-24 mb-2" />
               <Skeleton className="h-8 w-16 mb-2" />
@@ -127,6 +131,18 @@ export const OperationalKPIsSection = ({
           size="sm"
           animationDelay={50}
           tooltip="Fichas de serviço criadas no período (data de criação)."
+        />
+        <KPICard
+          label="Nº Serviços Orçados"
+          value={String(kpis.totalOrcamentos)}
+          subValue={`${kpis.mediaOrcamentosPorFS.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por FS`}
+          variation={kpis.variations.totalOrcamentos}
+          comparisonLabel={compLabel}
+          icon={<ClipboardList className="h-5 w-5" />}
+          iconColor="yellow"
+          size="sm"
+          animationDelay={75}
+          tooltip="Total de orçamentos enviados pelos prestadores no período (cada linha em 'orcamentos' conta). O subtítulo mostra a média de orçamentos por FS com orçamento."
         />
         <KPICard
           label="Visita Agendada"
@@ -216,6 +232,39 @@ export const OperationalKPIsSection = ({
           size="sm"
           animationDelay={450}
           tooltip="Soma de valor_final_pecas (ou valor_pecas como fallback) das fichas finalizadas e pagas no período."
+        />
+        <KPICard
+          label="Pago a Prestadores"
+          value={formatCurrency(kpis.valorPagoPrestadores)}
+          variation={kpis.variations.valorPagoPrestadores}
+          comparisonLabel={compLabel}
+          icon={<HandCoins className="h-5 w-5" />}
+          iconColor="coral"
+          size="sm"
+          animationDelay={500}
+          tooltip="Total pago aos prestadores no período (soma de valor_a_pagar_prestador das transações com status 'pago' ao prestador). Inclui mão de obra e o valor de peças quando NÃO são pagas pela 24help."
+        />
+        <KPICard
+          label="Líquido 24help"
+          value={formatCurrency(kpis.valorLiquido24help)}
+          variation={kpis.variations.valorLiquido24help}
+          comparisonLabel={compLabel}
+          icon={<PiggyBank className="h-5 w-5" />}
+          iconColor="brand-green"
+          size="sm"
+          animationDelay={550}
+          tooltip="Receita líquida da 24help: valor recebido do cliente menos o valor pago ao prestador. Quando o material é pago pela 24help, esse custo já está embutido na composição do pagamento ao prestador (sai do líquido)."
+        />
+        <KPICard
+          label="Margem Bruta 24help"
+          value={`${kpis.margemBruta24help.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}
+          variation={kpis.variations.margemBruta24help}
+          comparisonLabel={compLabel}
+          icon={<Percent className="h-5 w-5" />}
+          iconColor="yellow"
+          size="sm"
+          animationDelay={600}
+          tooltip="Margem bruta = Líquido 24help / Pago a Prestadores × 100. Indica quanto a 24help retém como margem em relação ao custo direto do serviço."
         />
       </div>
     </section>

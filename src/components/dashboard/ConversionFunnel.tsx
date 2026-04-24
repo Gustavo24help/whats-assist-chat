@@ -58,10 +58,17 @@ export const ConversionFunnel = ({ data, isLoading }: ConversionFunnelProps) => 
     return Math.max(pct, 18);
   };
 
-  // Taxa de conversão entre etapas
+  // Taxa de conversão entre etapas (vs etapa imediatamente anterior)
   const conversionRates = data.slice(1).map((step, index) => {
     const prev = data[index].value;
     const rate = prev > 0 ? (step.value / prev) * 100 : 0;
+    return rate.toFixed(1);
+  });
+
+  // Taxa de conversão vs primeira etapa (Conversas Iniciadas / FS Criadas)
+  const baseValue = data[0]?.value ?? 0;
+  const conversionRatesVsBase = data.slice(1).map((step) => {
+    const rate = baseValue > 0 ? (step.value / baseValue) * 100 : 0;
     return rate.toFixed(1);
   });
 
@@ -72,6 +79,9 @@ export const ConversionFunnel = ({ data, isLoading }: ConversionFunnelProps) => 
           const width = getWidth(step.value);
           const nextWidth = index < data.length - 1 ? getWidth(data[index + 1].value) : width;
           const conversionToNext = index < data.length - 1 ? conversionRates[index] : null;
+          // Para a etapa atual: taxa em relação à anterior e em relação à 1ª etapa
+          const conversionFromPrev = index > 0 ? conversionRates[index - 1] : null;
+          const conversionFromBase = index > 0 ? conversionRatesVsBase[index - 1] : null;
           const variation = step.variation;
           const isHovered = hoveredStep === step.id;
 
@@ -117,6 +127,16 @@ export const ConversionFunnel = ({ data, isLoading }: ConversionFunnelProps) => 
                     <div className="space-y-1">
                       <p className="font-medium">{step.label}</p>
                       <p>Valor: {step.value.toLocaleString('pt-BR')}</p>
+                      {conversionFromPrev !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          {conversionFromPrev}% vs etapa anterior
+                        </p>
+                      )}
+                      {conversionFromBase !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          {conversionFromBase}% vs {data[0].label}
+                        </p>
+                      )}
                       {variation !== null && (
                         <p className={variation >= 0 ? "text-brand-green" : "text-brand-red"}>
                           Variação: {variation >= 0 ? '+' : ''}{variation.toFixed(1)}%
@@ -148,11 +168,21 @@ export const ConversionFunnel = ({ data, isLoading }: ConversionFunnelProps) => 
                 </div>
               </div>
 
-              {/* Taxa entre etapas */}
+              {/* Taxa entre etapas: vs etapa anterior + vs Conversas Iniciadas */}
               {conversionToNext !== null && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground py-1">
-                  <ArrowRight className="h-3 w-3 rotate-90" />
-                  <span>Taxa: {conversionToNext}%</span>
+                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground py-1">
+                  <div className="flex items-center gap-1">
+                    <ArrowRight className="h-3 w-3 rotate-90" />
+                    <span>
+                      <span className="font-medium text-foreground">{conversionToNext}%</span>
+                      {' '}vs etapa anterior
+                    </span>
+                  </div>
+                  {baseValue > 0 && (
+                    <span className="text-muted-foreground/70">
+                      ({((data[index + 1].value / baseValue) * 100).toFixed(1)}% vs {data[0].label})
+                    </span>
+                  )}
                 </div>
               )}
             </div>

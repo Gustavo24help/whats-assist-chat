@@ -28,6 +28,8 @@ export interface OperationalKPIs {
   conversasIniciadas: number;
   fsCriadas: number;
   fsComOrcamento: number;
+  totalOrcamentos: number; // total de linhas em `orcamentos` no período
+  mediaOrcamentosPorFS: number; // totalOrcamentos / fsComOrcamento
   visitaAgendada: number;
   servicoAgendado: number;
   servicoAgendadoBruto: number; // inclui fichas que viraram "Perdido" depois
@@ -39,6 +41,10 @@ export interface OperationalKPIs {
   valorTotalOS: number;
   valorMaoObra: number;
   valorPecas: number;
+  // Financeiro (transações pagas no período)
+  valorPagoPrestadores: number; // soma de valor_a_pagar_prestador
+  valorLiquido24help: number; // soma de (valor_cliente_final - valor_a_pagar_prestador)
+  margemBruta24help: number; // % = valorLiquido24help / valorPagoPrestadores * 100
   // Taxas
   taxaAgendamento: number;
   taxaFinalizacao: number;
@@ -46,6 +52,8 @@ export interface OperationalKPIs {
     conversasIniciadas: number | null;
     fsCriadas: number | null;
     fsComOrcamento: number | null;
+    totalOrcamentos: number | null;
+    mediaOrcamentosPorFS: number | null;
     visitaAgendada: number | null;
     servicoAgendado: number | null;
     servicoAgendadoBruto: number | null;
@@ -55,6 +63,9 @@ export interface OperationalKPIs {
     valorTotalOS: number | null;
     valorMaoObra: number | null;
     valorPecas: number | null;
+    valorPagoPrestadores: number | null;
+    valorLiquido24help: number | null;
+    margemBruta24help: number | null;
   };
 }
 
@@ -165,6 +176,8 @@ type WindowMetrics = {
   conversasIniciadas: number;
   fsCriadas: number;
   fsComOrcamento: number;
+  totalOrcamentos: number;
+  mediaOrcamentosPorFS: number;
   visitaAgendada: number;
   servicoAgendado: number;
   servicoAgendadoBruto: number;
@@ -174,12 +187,17 @@ type WindowMetrics = {
   valorTotalOS: number;
   valorMaoObra: number;
   valorPecas: number;
+  valorPagoPrestadores: number;
+  valorLiquido24help: number;
+  margemBruta24help: number;
 };
 
 const EMPTY_METRICS: WindowMetrics = {
   conversasIniciadas: 0,
   fsCriadas: 0,
   fsComOrcamento: 0,
+  totalOrcamentos: 0,
+  mediaOrcamentosPorFS: 0,
   visitaAgendada: 0,
   servicoAgendado: 0,
   servicoAgendadoBruto: 0,
@@ -189,6 +207,9 @@ const EMPTY_METRICS: WindowMetrics = {
   valorTotalOS: 0,
   valorMaoObra: 0,
   valorPecas: 0,
+  valorPagoPrestadores: 0,
+  valorLiquido24help: 0,
+  margemBruta24help: 0,
 };
 
 // ============================================================
@@ -349,7 +370,8 @@ async function fetchMetricsForWindow(
     agendadoFichas,
     agendadoBrutoFichas,
     finalizadoFichas,
-    pagoPrestadorRes,
+    transacoesPagasRes,
+    totalOrcamentosRes,
   ] = await Promise.all([
     // FS Criadas (= Conversas Iniciadas) — count direto
     (async () => {
@@ -383,20 +405,20 @@ async function fetchMetricsForWindow(
     fetchFichasComEvento('Agendado', fromStr, toStr, filters, []),
     // Serviço Finalizado — eventos de status
     fetchFichasComEvento('Finalizado', fromStr, toStr, filters),
-    // Pago ao prestador — transacoes_financeiras (mesma fonte do módulo Financeiro/Contas a Pagar)
+    // Transações pagas ao prestador no período — fonte de verdade financeira.
+    // Buscamos os campos necessários para calcular: pagoAoPrestador (count),
+    // valorPagoPrestadores, valorLiquido24help (= lucro_bruto) e margem bruta.
     (async () => {
-      // Busca transações pagas no período. Usa LEFT join opcional para herdar
-      // filtros — se não houver filtros de ficha, evita inner join (que poderia
-      // descartar transações cuja ficha tenha sido reescrita).
       const hasFichaFilters = !!(
         filters.categoriaId || filters.prestadorCpf || filters.clienteTelefone
       );
+      const selectCols =
+        'id, valor_a_pagar_prestador, valor_cliente_final, valor_lucro_bruto';
       if (hasFichaFilters) {
         let q: any = supabase
           .from('transacoes_financeiras')
           .select(
-            `id, ficha_id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)`,
-            { count: 'exact', head: true },
+            `${selectCols}, ficha_id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)`,
           )
           .eq('status_pagamento_prestador', 'pago')
           .gte('data_pagamento_realizada', fromStr)
@@ -406,12 +428,37 @@ async function fetchMetricsForWindow(
       }
       return await supabase
         .from('transacoes_financeiras')
-        .select('id', { count: 'exact', head: true })
+        .select(selectCols)
         .eq('status_pagamento_prestador', 'pago')
         .gte('data_pagamento_realizada', fromStr)
         .lte('data_pagamento_realizada', toStr);
     })(),
+    // Total de orçamentos enviados no período (linhas em `orcamentos`).
+    // Filtros de ficha são aplicados via inner join quando necessário.
+    (async () => {
+      const hasFichaFilters = !!(
+        filters.categoriaId || filters.prestadorCpf || filters.clienteTelefone
+      );
+      if (hasFichaFilters) {
+        let q: any = supabase
+          .from('orcamentos')
+          .select(
+            'id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)',
+            { count: 'exact', head: true },
+          )
+          .gte('created_at', fromStr)
+          .lte('created_at', toStr);
+        q = applyEmbeddedFichaFilters(q, filters);
+        return await q;
+      }
+      return await supabase
+        .from('orcamentos')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', fromStr)
+        .lte('created_at', toStr);
+    })(),
   ]);
+
 
   const fsCriadas = fsCriadasRes.count || 0;
   const visitaAgendada = visitaFichas.fichas.length;
@@ -480,12 +527,46 @@ async function fetchMetricsForWindow(
     0,
   );
 
-  const pagoAoPrestador = pagoPrestadorRes.count || 0;
+  // Transações pagas no período
+  const transacoesPagas =
+    (transacoesPagasRes.data as Array<{
+      valor_a_pagar_prestador: number | null;
+      valor_cliente_final: number | null;
+      valor_lucro_bruto: number | null;
+    }>) || [];
+  const pagoAoPrestador = transacoesPagas.length;
+  const valorPagoPrestadores = transacoesPagas.reduce(
+    (sum, t) => sum + Number(t.valor_a_pagar_prestador ?? 0),
+    0,
+  );
+  // Líquido 24help = valor cliente final - valor pago ao prestador
+  // (equivale ao valor_lucro_bruto, mas calculamos a partir dos campos brutos
+  // como fallback caso lucro_bruto não esteja preenchido em alguma transação).
+  const valorLiquido24help = transacoesPagas.reduce((sum, t) => {
+    const lucro = t.valor_lucro_bruto;
+    if (lucro != null) return sum + Number(lucro);
+    return (
+      sum +
+      Number(t.valor_cliente_final ?? 0) -
+      Number(t.valor_a_pagar_prestador ?? 0)
+    );
+  }, 0);
+  const margemBruta24help =
+    valorPagoPrestadores > 0
+      ? Number(((valorLiquido24help / valorPagoPrestadores) * 100).toFixed(1))
+      : 0;
+
+  // Total de orçamentos enviados no período (linhas em `orcamentos`)
+  const totalOrcamentos = totalOrcamentosRes.count || 0;
+  const mediaOrcamentosPorFS =
+    fsComOrcamento > 0 ? Number((totalOrcamentos / fsComOrcamento).toFixed(2)) : 0;
 
   return {
     conversasIniciadas: fsCriadas, // mesma definição operacional
     fsCriadas,
     fsComOrcamento,
+    totalOrcamentos,
+    mediaOrcamentosPorFS,
     visitaAgendada,
     servicoAgendado,
     servicoAgendadoBruto,
@@ -495,6 +576,9 @@ async function fetchMetricsForWindow(
     valorTotalOS,
     valorMaoObra,
     valorPecas,
+    valorPagoPrestadores,
+    valorLiquido24help,
+    margemBruta24help,
   };
 }
 
@@ -540,6 +624,8 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
     conversasIniciadas: safeMetrics.conversasIniciadas,
     fsCriadas: safeMetrics.fsCriadas,
     fsComOrcamento: safeMetrics.fsComOrcamento,
+    totalOrcamentos: safeMetrics.totalOrcamentos,
+    mediaOrcamentosPorFS: safeMetrics.mediaOrcamentosPorFS,
     visitaAgendada: safeMetrics.visitaAgendada,
     servicoAgendado: safeMetrics.servicoAgendado,
     servicoAgendadoBruto: safeMetrics.servicoAgendadoBruto,
@@ -550,12 +636,17 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
     valorTotalOS: safeMetrics.valorTotalOS,
     valorMaoObra: safeMetrics.valorMaoObra,
     valorPecas: safeMetrics.valorPecas,
+    valorPagoPrestadores: safeMetrics.valorPagoPrestadores,
+    valorLiquido24help: safeMetrics.valorLiquido24help,
+    margemBruta24help: safeMetrics.margemBruta24help,
     taxaAgendamento,
     taxaFinalizacao,
     variations: {
       conversasIniciadas: calculateVariation(safeMetrics.conversasIniciadas, avg('conversasIniciadas')),
       fsCriadas: calculateVariation(safeMetrics.fsCriadas, avg('fsCriadas')),
       fsComOrcamento: calculateVariation(safeMetrics.fsComOrcamento, avg('fsComOrcamento')),
+      totalOrcamentos: calculateVariation(safeMetrics.totalOrcamentos, avg('totalOrcamentos')),
+      mediaOrcamentosPorFS: calculateVariation(safeMetrics.mediaOrcamentosPorFS, avg('mediaOrcamentosPorFS')),
       visitaAgendada: calculateVariation(safeMetrics.visitaAgendada, avg('visitaAgendada')),
       servicoAgendado: calculateVariation(safeMetrics.servicoAgendado, avg('servicoAgendado')),
       servicoAgendadoBruto: calculateVariation(safeMetrics.servicoAgendadoBruto, avg('servicoAgendadoBruto')),
@@ -565,6 +656,9 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
       valorTotalOS: calculateVariation(safeMetrics.valorTotalOS, avg('valorTotalOS')),
       valorMaoObra: calculateVariation(safeMetrics.valorMaoObra, avg('valorMaoObra')),
       valorPecas: calculateVariation(safeMetrics.valorPecas, avg('valorPecas')),
+      valorPagoPrestadores: calculateVariation(safeMetrics.valorPagoPrestadores, avg('valorPagoPrestadores')),
+      valorLiquido24help: calculateVariation(safeMetrics.valorLiquido24help, avg('valorLiquido24help')),
+      margemBruta24help: calculateVariation(safeMetrics.margemBruta24help, avg('margemBruta24help')),
     },
   };
 }
@@ -573,6 +667,8 @@ export const FALLBACK_OPERATIONAL_KPIS: OperationalKPIs = {
   conversasIniciadas: 0,
   fsCriadas: 0,
   fsComOrcamento: 0,
+  totalOrcamentos: 0,
+  mediaOrcamentosPorFS: 0,
   visitaAgendada: 0,
   servicoAgendado: 0,
   servicoAgendadoBruto: 0,
@@ -583,12 +679,17 @@ export const FALLBACK_OPERATIONAL_KPIS: OperationalKPIs = {
   valorTotalOS: 0,
   valorMaoObra: 0,
   valorPecas: 0,
+  valorPagoPrestadores: 0,
+  valorLiquido24help: 0,
+  margemBruta24help: 0,
   taxaAgendamento: 0,
   taxaFinalizacao: 0,
   variations: {
     conversasIniciadas: null,
     fsCriadas: null,
     fsComOrcamento: null,
+    totalOrcamentos: null,
+    mediaOrcamentosPorFS: null,
     visitaAgendada: null,
     servicoAgendado: null,
     servicoAgendadoBruto: null,
@@ -598,6 +699,9 @@ export const FALLBACK_OPERATIONAL_KPIS: OperationalKPIs = {
     valorTotalOS: null,
     valorMaoObra: null,
     valorPecas: null,
+    valorPagoPrestadores: null,
+    valorLiquido24help: null,
+    margemBruta24help: null,
   },
 };
 
