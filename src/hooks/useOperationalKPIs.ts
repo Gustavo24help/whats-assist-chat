@@ -28,6 +28,8 @@ export interface OperationalKPIs {
   conversasIniciadas: number;
   fsCriadas: number;
   fsComOrcamento: number;
+  totalOrcamentos: number; // total de linhas em `orcamentos` no período
+  mediaOrcamentosPorFS: number; // totalOrcamentos / fsComOrcamento
   visitaAgendada: number;
   servicoAgendado: number;
   servicoAgendadoBruto: number; // inclui fichas que viraram "Perdido" depois
@@ -39,6 +41,10 @@ export interface OperationalKPIs {
   valorTotalOS: number;
   valorMaoObra: number;
   valorPecas: number;
+  // Financeiro (transações pagas no período)
+  valorPagoPrestadores: number; // soma de valor_a_pagar_prestador
+  valorLiquido24help: number; // soma de (valor_cliente_final - valor_a_pagar_prestador)
+  margemBruta24help: number; // % = valorLiquido24help / valorPagoPrestadores * 100
   // Taxas
   taxaAgendamento: number;
   taxaFinalizacao: number;
@@ -46,6 +52,8 @@ export interface OperationalKPIs {
     conversasIniciadas: number | null;
     fsCriadas: number | null;
     fsComOrcamento: number | null;
+    totalOrcamentos: number | null;
+    mediaOrcamentosPorFS: number | null;
     visitaAgendada: number | null;
     servicoAgendado: number | null;
     servicoAgendadoBruto: number | null;
@@ -55,6 +63,9 @@ export interface OperationalKPIs {
     valorTotalOS: number | null;
     valorMaoObra: number | null;
     valorPecas: number | null;
+    valorPagoPrestadores: number | null;
+    valorLiquido24help: number | null;
+    margemBruta24help: number | null;
   };
 }
 
@@ -165,6 +176,8 @@ type WindowMetrics = {
   conversasIniciadas: number;
   fsCriadas: number;
   fsComOrcamento: number;
+  totalOrcamentos: number;
+  mediaOrcamentosPorFS: number;
   visitaAgendada: number;
   servicoAgendado: number;
   servicoAgendadoBruto: number;
@@ -174,12 +187,17 @@ type WindowMetrics = {
   valorTotalOS: number;
   valorMaoObra: number;
   valorPecas: number;
+  valorPagoPrestadores: number;
+  valorLiquido24help: number;
+  margemBruta24help: number;
 };
 
 const EMPTY_METRICS: WindowMetrics = {
   conversasIniciadas: 0,
   fsCriadas: 0,
   fsComOrcamento: 0,
+  totalOrcamentos: 0,
+  mediaOrcamentosPorFS: 0,
   visitaAgendada: 0,
   servicoAgendado: 0,
   servicoAgendadoBruto: 0,
@@ -189,6 +207,9 @@ const EMPTY_METRICS: WindowMetrics = {
   valorTotalOS: 0,
   valorMaoObra: 0,
   valorPecas: 0,
+  valorPagoPrestadores: 0,
+  valorLiquido24help: 0,
+  margemBruta24help: 0,
 };
 
 // ============================================================
