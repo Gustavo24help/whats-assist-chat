@@ -54,6 +54,7 @@ export const KPICard = ({
   animationDelay = 0,
   className,
   tooltip,
+  onClick,
 }: KPICardProps) => {
   const { cardMode, accentIntensity } = useVisualMode();
 
