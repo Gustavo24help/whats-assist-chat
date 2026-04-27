@@ -57,13 +57,28 @@ export function AgendamentoCard({
   // Slot histórico de visita técnica (status atual ≠ 'Visita Técnica')
   const isVisitaHistorica = tipoSlot === 'visita' && (ficha.status || '') !== 'Visita Técnica';
 
+  const [coresCustom, setCoresCustom] = useState<CoresStatusMap>(() => carregarCoresStatus());
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as CoresStatusMap | undefined;
+      setCoresCustom(detail || carregarCoresStatus());
+    };
+    window.addEventListener("calendario:cores-atualizadas", handler);
+    return () => window.removeEventListener("calendario:cores-atualizadas", handler);
+  }, []);
+
   const corFundo = useMemo(() => {
-    if (tipoSlot === 'visita') return '#FBBF24';
-    if (tipoSlot === 'retorno' && (ficha.status || '') === 'Retorno') return '#F97316';
-    const statusCor = CORES_POR_STATUS[ficha.status || ''];
+    if (tipoSlot === 'visita') return coresCustom['Visita Técnica'] || '#FBBF24';
+    if (tipoSlot === 'retorno' && (ficha.status || '') === 'Retorno') {
+      return coresCustom['Retorno'] || '#F97316';
+    }
+    const status = ficha.status || '';
+    // Override para status presentes no painel de cores
+    if (coresCustom[status]) return coresCustom[status];
+    const statusCor = CORES_POR_STATUS_PADRAO[status];
     if (statusCor) return statusCor;
     return estado.cor;
-  }, [ficha.status, estado.cor, tipoSlot]);
+  }, [ficha.status, estado.cor, tipoSlot, coresCustom]);
 
   const horaStr = useMemo(() => {
     // Quando temos um slot específico (visita/retorno), priorizamos seu horário
