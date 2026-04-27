@@ -18,13 +18,16 @@ export type LogCategoria =
   | "user_action"
   | "auth"
   | "system"
-  | "unhandled";
+  | "unhandled"
+  | "chat";
 
 interface LogPayload {
   nivel: LogNivel;
   categoria: LogCategoria;
   mensagem: string;
   detalhes?: Record<string, any> | null;
+  /** Se true, ignora deduplicação (eventos por telefone/operador). */
+  skipDedup?: boolean;
 }
 
 interface UserContext {
