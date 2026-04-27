@@ -87,8 +87,10 @@ export function setLoggerUserContext(ctx: UserContext) {
 
 export function logSystemEvent(payload: LogPayload) {
   try {
-    const dedupKey = `${payload.nivel}:${payload.categoria}:${payload.mensagem}`.slice(0, 200);
-    if (shouldSkipDuplicate(dedupKey)) return;
+    if (!payload.skipDedup) {
+      const dedupKey = `${payload.nivel}:${payload.categoria}:${payload.mensagem}`.slice(0, 200);
+      if (shouldSkipDuplicate(dedupKey)) return;
+    }
 
     buffer.push({
       nivel: payload.nivel,
@@ -110,6 +112,35 @@ export function logSystemEvent(payload: LogPayload) {
   } catch {
     // ignore
   }
+}
+
+/**
+ * Helper específico para o Chat de Atendimento.
+ * Use para registrar QUALQUER ação relevante feita por um operador no chat.
+ *
+ *   logChatEvent("mensagem_enviada", { telefone, ficha_id, ... });
+ */
+export function logChatEvent(
+  acao: string,
+  detalhes: Record<string, any> = {},
+  options: { nivel?: LogNivel; mensagem?: string } = {},
+) {
+  const telefone = detalhes.telefone || detalhes.cliente_telefone || detalhes.to;
+  const ficha = detalhes.ficha_id || detalhes.fichaId;
+  const partes: string[] = [`[chat] ${acao}`];
+  if (telefone) partes.push(String(telefone));
+  if (ficha) partes.push(`ficha=${ficha}`);
+  const mensagem = options.mensagem || partes.join(" • ");
+
+  logSystemEvent({
+    nivel: options.nivel || "info",
+    categoria: "chat",
+    mensagem,
+    // Eventos do chat NÃO devem ser deduplicados — operadores diferentes podem
+    // executar a mesma ação em conversas diferentes na mesma janela de tempo.
+    skipDedup: true,
+    detalhes: { acao, ...detalhes },
+  });
 }
 
 export function initSystemLogger() {
