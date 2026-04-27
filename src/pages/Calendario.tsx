@@ -233,6 +233,7 @@ export default function Calendario() {
           <span className="text-muted-foreground font-medium mr-1">Status:</span>
           {STATUS_CALENDARIO.map(s => {
             const active = filtroStatus.includes(s.value);
+            const cor = coresStatus[s.value] || s.cor;
             return (
               <button
                 key={s.value}
@@ -246,7 +247,7 @@ export default function Calendario() {
                 title={active ? `Ocultar ${s.label}` : `Mostrar ${s.label}`}
               >
                 <Checkbox checked={active} className="h-3 w-3 pointer-events-none" />
-                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: s.cor }} />
+                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: cor }} />
                 <span>{s.label}</span>
                 <span className="font-bold">({contadoresStatus[s.value] || 0})</span>
               </button>
