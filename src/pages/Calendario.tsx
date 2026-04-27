@@ -303,6 +303,12 @@ export default function Calendario() {
         onClose={() => setSelectedFicha(null)}
         onSaved={fetchData}
       />
+
+      <EditarCoresStatusModal
+        open={editarCoresOpen}
+        onOpenChange={setEditarCoresOpen}
+        statusList={STATUS_CALENDARIO.map(s => ({ value: s.value, label: s.label }))}
+      />
     </PageLayout>
   );
 }
