@@ -429,7 +429,7 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
       }
     }
   } else if (filters.kpi === 'visitaAgendada') {
-    const m = await fetchFichaIdsComEvento('Visita Técnica', fromStr, toStr, baseFilters);
+    const m = await fetchFichaIdsComEvento('Visita Técnica', fromStr, toStr, baseFilters, ['Perdido']);
     fichaIds = Array.from(m.keys());
     evento = new Map(m);
   } else if (filters.kpi === 'servicoAgendado') {
@@ -437,7 +437,7 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
     fichaIds = Array.from(m.keys());
     evento = new Map(m);
   } else if (filters.kpi === 'servicoFinalizado') {
-    const m = await fetchFichaIdsComEvento('Finalizado', fromStr, toStr, baseFilters);
+    const m = await fetchFichaIdsComEvento('Finalizado', fromStr, toStr, baseFilters, ['Perdido']);
     fichaIds = Array.from(m.keys());
     evento = new Map(m);
   } else if (
@@ -446,8 +446,8 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
     filters.kpi === 'valorMaoObra' ||
     filters.kpi === 'valorPecas'
   ) {
-    // Finalizadas no período E pagas pelo cliente
-    const m = await fetchFichaIdsComEvento('Finalizado', fromStr, toStr, baseFilters);
+    // Finalizadas no período E pagas pelo cliente (exclui fichas atualmente "Perdido")
+    const m = await fetchFichaIdsComEvento('Finalizado', fromStr, toStr, baseFilters, ['Perdido']);
     const candidateIds = Array.from(m.keys());
     const fichaMap = await loadFichasByIds(candidateIds, baseFilters);
     fichaIds = candidateIds.filter((id) => fichaMap.get(id)?.pagamento_realizado === true);
