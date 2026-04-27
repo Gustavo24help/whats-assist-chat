@@ -20,6 +20,7 @@ import { DailyGoalsManager } from "@/components/DailyGoalsManager";
 import { StatusAlertSettings } from "@/components/StatusAlertSettings";
 import { getSameTabPreference, setSameTabPreference } from "@/hooks/useOpenInNewTab";
 import { PageLayout } from "@/components/PageLayout";
+import { SystemLogsViewer } from "@/components/SystemLogsViewer";
 
 const Settings = () => {
   const navigate = useNavigate();
