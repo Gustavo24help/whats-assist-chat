@@ -6,6 +6,13 @@ import { redistributeChats } from "@/hooks/useLogoutRedistribution";
 const INACTIVITY_TIMEOUT = 4 * 60 * 60 * 1000; // 4 hours
 const WARNING_BEFORE = 15 * 60 * 1000; // 15 minutes before
 const LAST_ACTIVITY_KEY = "last-activity-timestamp";
+// Grace period após (re)montar o hook em uma nova página/aba — evita logout
+// imediato baseado em timestamp obsoleto do localStorage quando o usuário
+// retoma a sessão (ex.: trocar de rota, voltar para a aba).
+const MOUNT_GRACE_MS = 60 * 1000; // 60s
+// Após uma navegação interna ou mudança de visibilidade da aba, esperar
+// um pequeno intervalo antes de avaliar inatividade.
+const NAVIGATION_GRACE_MS = 30 * 1000; // 30s
 
 export function useInactivityLogout() {
   const [showWarning, setShowWarning] = useState(false);
