@@ -589,53 +589,72 @@ const PrestadorDetalhes = () => {
                       <TableRow>
                         <TableHead>Ficha</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Comparecimento</TableHead>
                         <TableHead className="text-right">Mão de Obra</TableHead>
                         <TableHead className="text-right">Material</TableHead>
                         <TableHead>Bairro</TableHead>
                         <TableHead>Data Agendamento</TableHead>
                         <TableHead>Data Finalização</TableHead>
                         <TableHead>Data Pgto Prestador</TableHead>
+                        <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {servicos.map((s) => (
-                        <TableRow key={s.ficha_id}>
-                          <TableCell className="font-medium">
-                            {s.nome_ficha || s.ficha_id}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={
-                              s.status === "Finalizado" ? "default" :
-                              s.status === "Perdido" ? "destructive" :
-                              "secondary"
-                            }>
-                              {s.status || "-"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {s.valor_mao_obra != null ? `R$ ${Number(s.valor_mao_obra).toFixed(2)}` : "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {s.valor_pecas != null ? `R$ ${Number(s.valor_pecas).toFixed(2)}` : "-"}
-                          </TableCell>
-                          <TableCell>{s.bairro || "-"}</TableCell>
-                          <TableCell>
-                            {s.horario_agendamento
-                              ? new Date(s.horario_agendamento).toLocaleDateString("pt-BR")
-                              : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {s.data_finalizacao
-                              ? new Date(s.data_finalizacao).toLocaleDateString("pt-BR")
-                              : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {s.data_pagamento_prestador
-                              ? new Date(s.data_pagamento_prestador).toLocaleDateString("pt-BR")
-                              : <span className="text-muted-foreground">Pendente</span>}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {servicos.map((s) => {
+                        const linkHandlers = getLinkHandlers(`/ficha/${encodeURIComponent(s.ficha_id)}`);
+                        const comp = s.comparecimento_prestador
+                          ? COMPARECIMENTO_BADGE[s.comparecimento_prestador] || { variant: "outline" as const, label: s.comparecimento_prestador }
+                          : null;
+                        return (
+                          <TableRow
+                            key={s.ficha_id}
+                            {...linkHandlers}
+                            className="cursor-pointer hover:bg-muted/40"
+                            title="Abrir ficha em nova aba"
+                          >
+                            <TableCell className="font-medium">
+                              {s.nome_ficha || s.ficha_id}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={
+                                s.status === "Finalizado" ? "default" :
+                                s.status === "Perdido" ? "destructive" :
+                                "secondary"
+                              }>
+                                {s.status || "-"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {comp ? <Badge variant={comp.variant}>{comp.label}</Badge> : <span className="text-muted-foreground text-xs">—</span>}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {s.valor_mao_obra != null ? `R$ ${Number(s.valor_mao_obra).toFixed(2)}` : "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {s.valor_pecas != null ? `R$ ${Number(s.valor_pecas).toFixed(2)}` : "-"}
+                            </TableCell>
+                            <TableCell>{s.bairro || "-"}</TableCell>
+                            <TableCell>
+                              {s.horario_agendamento
+                                ? new Date(s.horario_agendamento).toLocaleDateString("pt-BR")
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {s.data_finalizacao
+                                ? new Date(s.data_finalizacao).toLocaleDateString("pt-BR")
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {s.data_pagamento_prestador
+                                ? new Date(s.data_pagamento_prestador).toLocaleDateString("pt-BR")
+                                : <span className="text-muted-foreground">Pendente</span>}
+                            </TableCell>
+                            <TableCell>
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
