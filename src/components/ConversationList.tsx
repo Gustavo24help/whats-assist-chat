@@ -1532,6 +1532,8 @@ export const ConversationList = ({
                       statusAlertColor={cliente.statusAlertColor}
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
                       hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
+                      bookmarked={bookmarks.has(cliente.telefone)}
+                      onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
                     />
                   </div>
                 </div>
