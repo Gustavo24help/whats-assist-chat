@@ -430,8 +430,10 @@ export const ChatWindowPrestadores = ({
             {prestadorCpf && ` · CPF: ${prestadorCpf}`}
           </p>
         </div>
-        <FichaVinculoSelector prestadorTelefone={prestadorTelefone} />
-      </div>
+        {/* Painel lateral mostra info detalhada em desktop; em mobile/tablet mantém botão de vínculo aqui */}
+        <div className="lg:hidden">
+          <FichaVinculoSelector prestadorTelefone={prestadorTelefone} />
+        </div>
 
       {/* Ficha selector with search */}
       {fichasAtivas.length > 0 && (
