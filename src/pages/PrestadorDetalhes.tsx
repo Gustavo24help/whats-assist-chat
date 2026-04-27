@@ -176,10 +176,10 @@ const PrestadorDetalhes = () => {
   const fetchHistorico = useCallback(async (prestadorCpf: string) => {
     const { data, error } = await supabase
       .from("prestador_historico")
-      .select("id, tipo_evento, descricao, created_at")
+      .select("id, tipo_evento, descricao, created_at, ficha_id, dados_extras")
       .eq("prestador_cpf", prestadorCpf)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(200);
 
     if (error) {
       toast({
