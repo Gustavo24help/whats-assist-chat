@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus, ClipboardCheck, Link2 } from "lucide-react";
+import { X, FileText, DollarSign, Plus, ClipboardCheck, Link2, History } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
 import { OrcamentosTab } from "./OrcamentosTab";
 import { AcompanhamentoTab } from "./AcompanhamentoTab";
+import { FichaHistoricoTab } from "./FichaHistoricoTab";
 import { CriarFichaDialog } from "./CriarFichaDialog";
 import { VincularFichaDialog } from "./VincularFichaDialog";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
