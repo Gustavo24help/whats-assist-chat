@@ -145,6 +145,13 @@ const OrcamentoPublico = () => {
       console.log("OrcamentoPublico - fichaId após verificação:", currentFichaId);
       setFichaId(currentFichaId);
       setVerificandoUrl(false);
+
+      // Normaliza URL antiga (?ficha=) para path parameter, evitando truncamento
+      // em in-app browsers (WhatsApp) em recargas/compartilhamentos futuros.
+      if (currentFichaId && !params.fichaId && typeof window !== 'undefined') {
+        const novaUrl = `/orcamento/${encodeURIComponent(currentFichaId)}`;
+        window.history.replaceState({}, '', novaUrl);
+      }
     }, 150);
     
     return () => clearTimeout(timer);
