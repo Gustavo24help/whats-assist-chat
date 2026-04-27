@@ -1141,7 +1141,7 @@ export const ConversationList = ({
           {!isCollapsed && (
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-base md:text-lg">
-                {showArchived ? "Arquivadas" : "Conversas"}
+                {showBookmarked ? "Marcadas" : showArchived ? "Arquivadas" : "Conversas"}
               </h2>
               {/* Toggle Meus/Todos para todos os operadores */}
               {!showArchived && (
