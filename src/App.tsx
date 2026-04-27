@@ -53,6 +53,7 @@ import Tarefas from "./pages/Tarefas";
 import TarefasOperacionais from "./pages/TarefasOperacionais";
 import AdminPrestadorPortal from "./pages/AdminPrestadorPortal";
 import VisibilitySettings from "./pages/VisibilitySettings";
+import SystemLogs from "./pages/SystemLogs";
 import Orcamentos from "./pages/Orcamentos";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
