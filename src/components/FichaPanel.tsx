@@ -194,11 +194,15 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
               </TabsTrigger>
               <TabsTrigger value="acompanhamento" className="flex-1 text-xs h-7">
                 <ClipboardCheck className="mr-1 h-3 w-3" />
-                Acompanhamento
+                Acomp.
               </TabsTrigger>
               <TabsTrigger value="orcamentos" className="flex-1 text-xs h-7">
                 <DollarSign className="mr-1 h-3 w-3" />
-                Orçamentos
+                Orçam.
+              </TabsTrigger>
+              <TabsTrigger value="historico" className="flex-1 text-xs h-7">
+                <History className="mr-1 h-3 w-3" />
+                Histórico
               </TabsTrigger>
             </TabsList>
             <TabsContent value="ficha" className="flex-1 overflow-y-auto p-2.5 m-0 animate-in fade-in-50 duration-200">
@@ -209,6 +213,9 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
             </TabsContent>
             <TabsContent value="orcamentos" className="flex-1 overflow-y-auto p-2.5 m-0 animate-in fade-in-50 duration-200">
               <OrcamentosTab fichaId={fichaAtual} />
+            </TabsContent>
+            <TabsContent value="historico" className="flex-1 overflow-y-auto p-2.5 m-0 animate-in fade-in-50 duration-200">
+              <FichaHistoricoTab fichaId={fichaAtual} />
             </TabsContent>
           </Tabs>
         </div>
