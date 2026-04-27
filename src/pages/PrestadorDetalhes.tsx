@@ -119,6 +119,7 @@ const PrestadorDetalhes = () => {
   const navigate = useNavigate();
   const { cpf } = useParams();
   const { toast } = useToast();
+  const { getLinkHandlers } = useOpenInNewTab();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
