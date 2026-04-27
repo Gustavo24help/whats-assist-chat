@@ -20,7 +20,7 @@ import { DailyGoalsManager } from "@/components/DailyGoalsManager";
 import { StatusAlertSettings } from "@/components/StatusAlertSettings";
 import { getSameTabPreference, setSameTabPreference } from "@/hooks/useOpenInNewTab";
 import { PageLayout } from "@/components/PageLayout";
-import { SystemLogsViewer } from "@/components/SystemLogsViewer";
+
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -190,13 +190,19 @@ const Settings = () => {
 
   return (
     <PageLayout>
-      <header className="border-b border-border bg-card px-6 py-4">
+      <header className="border-b border-border bg-card px-6 py-4 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
           <p className="text-sm text-muted-foreground">
             Gerencie as configurações do sistema
           </p>
         </div>
+        {isAdmin && (
+          <Button variant="outline" onClick={() => navigate("/system-logs")}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Logs do Sistema
+          </Button>
+        )}
       </header>
 
       <main className="container mx-auto p-6">
@@ -219,7 +225,6 @@ const Settings = () => {
               {isAdmin && <TabsTrigger value="alertas">Alertas de Status</TabsTrigger>}
               {isAdmin && <TabsTrigger value="metas">Metas Diárias</TabsTrigger>}
               {isAdmin && <TabsTrigger value="ferramentas">Ferramentas</TabsTrigger>}
-              {isAdmin && <TabsTrigger value="logs">Logs do Sistema</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="account" className="space-y-4">
@@ -481,12 +486,6 @@ const Settings = () => {
           {isAdmin && (
             <TabsContent value="ferramentas" className="space-y-4">
               <FerramentasManutencao />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="logs" className="space-y-4">
-              <SystemLogsViewer />
             </TabsContent>
           )}
           </Tabs>
