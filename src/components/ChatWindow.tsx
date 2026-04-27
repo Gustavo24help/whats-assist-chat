@@ -1851,6 +1851,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
         if (data?.success) {
           setBotDesabilitado(true);
+          logChatEvent("bot_desabilitado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "stop-twilio-flow", execution_sid: data.executionSid }, { nivel: "warn" });
           toast.success(`Bot desabilitado por ${userName}`);
           setUltimaAcaoBot({
             acao: 'desabilitado',
@@ -1870,8 +1871,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           });
 
           if (toggleError) throw toggleError;
-          
+
           setBotDesabilitado(true);
+          logChatEvent("bot_desabilitado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "toggle-bot-status" }, { nivel: "warn" });
           toast.success(`Bot desabilitado por ${userName}`);
           setUltimaAcaoBot({
             acao: 'desabilitado',
@@ -1893,6 +1895,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         if (error) throw error;
 
         setBotDesabilitado(false);
+        logChatEvent("bot_reativado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "toggle-bot-status" });
         toast.success(`Bot reativado por ${userName}`);
         setUltimaAcaoBot({
           acao: 'habilitado',
