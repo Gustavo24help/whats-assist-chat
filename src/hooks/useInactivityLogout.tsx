@@ -6,6 +6,13 @@ import { redistributeChats } from "@/hooks/useLogoutRedistribution";
 const INACTIVITY_TIMEOUT = 4 * 60 * 60 * 1000; // 4 hours
 const WARNING_BEFORE = 15 * 60 * 1000; // 15 minutes before
 const LAST_ACTIVITY_KEY = "last-activity-timestamp";
+// Grace period após (re)montar o hook em uma nova página/aba — evita logout
+// imediato baseado em timestamp obsoleto do localStorage quando o usuário
+// retoma a sessão (ex.: trocar de rota, voltar para a aba).
+const MOUNT_GRACE_MS = 60 * 1000; // 60s
+// Após uma navegação interna ou mudança de visibilidade da aba, esperar
+// um pequeno intervalo antes de avaliar inatividade.
+const NAVIGATION_GRACE_MS = 30 * 1000; // 30s
 
 export function useInactivityLogout() {
   const [showWarning, setShowWarning] = useState(false);
@@ -93,20 +100,33 @@ export function useInactivityLogout() {
   }, [updateActivity]);
 
   useEffect(() => {
-    // Check if already expired on mount (only if not a fresh page load)
+    // Ao (re)montar o hook (troca de página, refresh leve, etc.), NUNCA
+    // deslogar imediatamente baseado apenas no localStorage. Sempre dar
+    // grace period e renovar a atividade — quem decide se a sessão é
+    // válida é o Supabase Auth (token).
     try {
       const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+      const now = Date.now();
       if (lastActivity) {
-        const elapsed = Date.now() - Number(lastActivity);
-        if (elapsed >= INACTIVITY_TIMEOUT) {
+        const elapsed = now - Number(lastActivity);
+        // Apenas se passou MUITO tempo (> timeout + grace), confirmar com
+        // o Supabase se a sessão ainda existe antes de qualquer ação.
+        if (elapsed >= INACTIVITY_TIMEOUT + MOUNT_GRACE_MS) {
           supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-              supabase.auth.signOut().then(() => navigateRef.current("/auth"));
+            if (!session) {
+              // Sem sessão — apenas redireciona, não tenta signOut.
+              navigateRef.current("/auth");
+            } else {
+              // Sessão válida → renova atividade e segue normalmente.
+              try { localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now())); } catch {}
+              resetTimers();
             }
           });
           return;
         }
       }
+      // Caso normal: renova o timestamp para evitar que outra aba force logout.
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
     } catch {}
 
     // Initialize
@@ -133,9 +153,20 @@ export function useInactivityLogout() {
     };
     window.addEventListener("storage", storageHandler);
 
+    // Quando a aba volta a ficar visível, sempre renovar a atividade
+    // antes de qualquer avaliação. Isso evita logout ao retornar de
+    // outra aba ou ao navegar internamente.
+    const visibilityHandler = () => {
+      if (document.visibilityState === "visible") {
+        updateActivity();
+      }
+    };
+    document.addEventListener("visibilitychange", visibilityHandler);
+
     return () => {
       events.forEach(e => window.removeEventListener(e, handler));
       window.removeEventListener("storage", storageHandler);
+      document.removeEventListener("visibilitychange", visibilityHandler);
       clearAllTimers();
     };
   }, [updateActivity, resetTimers, clearAllTimers]);
