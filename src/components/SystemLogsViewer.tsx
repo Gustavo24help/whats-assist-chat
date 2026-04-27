@@ -45,7 +45,7 @@ interface LogRow {
 }
 
 const NIVEIS = ["todos", "info", "warn", "error", "debug"];
-const CATEGORIAS = ["todas", "console", "network", "user_action", "auth", "system", "unhandled"];
+const CATEGORIAS = ["todas", "console", "network", "user_action", "auth", "system", "unhandled", "chat"];
 
 export const SystemLogsViewer = () => {
   const { isAdminTI } = useAuth();

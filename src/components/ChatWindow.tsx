@@ -11,6 +11,7 @@ import { AudioRecorder } from "./AudioRecorder";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { logChatEvent } from "@/lib/systemLogger";
 import { jsPDF } from "jspdf";
 import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
 import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";
@@ -1106,9 +1107,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .eq('telefone', clienteTelefone);
 
     if (error) {
+      logChatEvent("atribuicao_erro", { telefone: clienteTelefone, operador_id: operadorId, operador_nome: operadorNome, is_self: isSelf, erro: error.message }, { nivel: "error" });
       toast.error('Erro ao atribuir operador');
     } else {
       setAtendenteAtual({ id: operadorId, nome: operadorNome });
+      logChatEvent(isSelf ? "atribuicao_self" : "atribuicao_a_outro", { telefone: clienteTelefone, ficha_id: fichaId || null, operador_id: operadorId, operador_nome: operadorNome, descricao: descricao || null });
       toast.success(`Atribuído para ${operadorNome}`);
 
       // Register as atribuicao_chat task in tarefas_operacionais
@@ -1178,9 +1181,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .single();
     
     if (error) {
+      logChatEvent("takeover_solicitar_erro", { telefone: clienteTelefone, ficha_id: fichaId || null, erro: error.message }, { nivel: "error" });
       toast.error('Erro ao solicitar takeover');
       return;
     }
+    logChatEvent("takeover_solicitado", { telefone: clienteTelefone, ficha_id: fichaId || null, request_id: request.id, operador_atual_id: atendenteAtual.id, operador_atual_nome: atendenteAtual.nome });
     
     // Enviar broadcast
     takeoverChannelRef.current?.send({
@@ -1224,6 +1229,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       }
     });
     
+    logChatEvent("takeover_aprovado", { telefone: clienteTelefone, ficha_id: fichaId || null, request_id: takeoverRequestId });
     toast.info('Conversa transferida.');
   };
 
@@ -1247,6 +1253,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       }
     });
     
+    logChatEvent("takeover_negado", { telefone: clienteTelefone, ficha_id: fichaId || null, request_id: takeoverRequestId }, { nivel: "warn" });
     toast.info('Solicitação de takeover negada.');
   };
 
@@ -1272,9 +1279,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .eq('telefone', clienteTelefone);
 
     if (error) {
+      logChatEvent("atribuicao_remover_erro", { telefone: clienteTelefone, erro: error.message }, { nivel: "error" });
       toast.error('Erro ao remover atribuição');
     } else {
       setAtendenteAtual(null);
+      logChatEvent("atribuicao_removida", { telefone: clienteTelefone, ficha_id: fichaId || null });
       toast.success('Atribuição removida');
     }
   };
@@ -1515,12 +1524,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         throw new Error(data.error || "Erro ao enviar mídia");
       }
 
+      logChatEvent("midia_enviada", { telefone: clienteTelefone, ficha_id: fichaId || null, tipo: pendingFile.type, conversation_id: convId, message_sid: data?.message_sid || null });
       toast.success(`${pendingFile.type === 'imagem' ? 'Imagem' : pendingFile.type === 'video' ? 'Vídeo' : pendingFile.type === 'audio' ? 'Áudio' : 'Arquivo'} enviado via WhatsApp`);
       
       // Limpar arquivo pendente
       removePendingFile();
     } catch (error) {
       console.error("Erro ao enviar mídia:", error);
+      logChatEvent("midia_envio_erro", { telefone: clienteTelefone, ficha_id: fichaId || null, tipo: pendingFile?.type, erro: (error as any)?.message || String(error) }, { nivel: "error" });
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mídia");
     } finally {
       setUploading(false);
@@ -1613,9 +1624,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         throw new Error(data.error || "Erro ao enviar áudio");
       }
 
+      logChatEvent("audio_enviado", { telefone: clienteTelefone, ficha_id: fichaId || null, conversation_id: convId, message_sid: data?.message_sid || null });
       toast.success("Áudio enviado!");
     } catch (error) {
       console.error("Erro ao enviar áudio:", error);
+      logChatEvent("audio_envio_erro", { telefone: clienteTelefone, ficha_id: fichaId || null, erro: (error as any)?.message || String(error) }, { nivel: "error" });
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar o áudio");
     } finally {
       setUploading(false);
@@ -1705,17 +1718,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         setMensagens(prev => prev.filter(m => m.id !== tempId));
         
         if (data.error === 'FORA_JANELA_24H') {
+          logChatEvent("mensagem_envio_fora_janela", { telefone: clienteTelefone, ficha_id: fichaId || null }, { nivel: "warn" });
           toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
           return;
         }
         throw new Error(data.error || "Erro ao enviar mensagem");
       }
 
+      logChatEvent("mensagem_enviada", { telefone: clienteTelefone, ficha_id: fichaId || null, conversation_id: convId, message_sid: data?.message_sid || null, reply_to: replyId, len: mensagemTexto.length });
       // Mensagem enviada com sucesso - o realtime vai atualizar com a mensagem real do banco
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       // Remover mensagem temporária em caso de erro
       setMensagens(prev => prev.filter(m => !m.id.startsWith('temp-')));
+      logChatEvent("mensagem_envio_erro", { telefone: clienteTelefone, ficha_id: fichaId || null, erro: (error as any)?.message || String(error) }, { nivel: "error" });
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mensagem");
       setNovaMsg(mensagemTexto); // Restaurar texto original (capturado na linha 1412)
     } finally {
@@ -1835,6 +1851,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
         if (data?.success) {
           setBotDesabilitado(true);
+          logChatEvent("bot_desabilitado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "stop-twilio-flow", execution_sid: data.executionSid }, { nivel: "warn" });
           toast.success(`Bot desabilitado por ${userName}`);
           setUltimaAcaoBot({
             acao: 'desabilitado',
@@ -1854,8 +1871,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           });
 
           if (toggleError) throw toggleError;
-          
+
           setBotDesabilitado(true);
+          logChatEvent("bot_desabilitado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "toggle-bot-status" }, { nivel: "warn" });
           toast.success(`Bot desabilitado por ${userName}`);
           setUltimaAcaoBot({
             acao: 'desabilitado',
@@ -1877,6 +1895,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         if (error) throw error;
 
         setBotDesabilitado(false);
+        logChatEvent("bot_reativado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "toggle-bot-status" });
         toast.success(`Bot reativado por ${userName}`);
         setUltimaAcaoBot({
           acao: 'habilitado',

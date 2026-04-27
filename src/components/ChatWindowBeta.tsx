@@ -13,6 +13,7 @@ import { AudioRecorder } from "./AudioRecorder";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { logChatEvent } from "@/lib/systemLogger";
 import { jsPDF } from "jspdf";
 import { StatusConexaoTwilio } from "./StatusConexaoTwilio";
 import { MensagensPadronizadasDropdown } from "./MensagensPadronizadasDropdown";

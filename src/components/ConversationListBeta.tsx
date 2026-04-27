@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY, type StatusAlertRule } from "@/lib/statusAlertConfig";
 import { Bookmark } from "lucide-react";
 import { getBookmarks, toggleBookmark, subscribeBookmarks } from "@/lib/conversationBookmarks";
+import { logChatEvent } from "@/lib/systemLogger";
 
 interface Cliente {
   telefone: string;
@@ -1202,8 +1203,10 @@ export const ConversationListBeta = ({
       .eq('telefone', telefone);
 
     if (error) {
+      logChatEvent("contato_arquivar_erro", { telefone, erro: error.message }, { nivel: "error" });
       toast.error("Erro ao arquivar contato");
     } else {
+      logChatEvent("contato_arquivado", { telefone });
       toast.success("Contato arquivado com sucesso");
       fetchClientes();
     }
@@ -1216,8 +1219,10 @@ export const ConversationListBeta = ({
       .eq('telefone', telefone);
 
     if (error) {
+      logChatEvent("contato_desarquivar_erro", { telefone, erro: error.message }, { nivel: "error" });
       toast.error("Erro ao desarquivar contato");
     } else {
+      logChatEvent("contato_desarquivado", { telefone });
       toast.success("Contato restaurado com sucesso");
       fetchClientes();
     }
@@ -1231,6 +1236,7 @@ export const ConversationListBeta = ({
       .eq('cliente_id', telefone);
 
     if (msgError) {
+      logChatEvent("contato_deletar_erro", { telefone, etapa: "mensagens", erro: msgError.message }, { nivel: "error" });
       toast.error("Erro ao deletar mensagens do contato");
       return;
     }
@@ -1242,6 +1248,7 @@ export const ConversationListBeta = ({
       .eq('telefone_cliente', telefone);
 
     if (fichaError) {
+      logChatEvent("contato_deletar_erro", { telefone, etapa: "fichas", erro: fichaError.message }, { nivel: "error" });
       toast.error("Erro ao deletar fichas do contato");
       return;
     }
@@ -1253,8 +1260,10 @@ export const ConversationListBeta = ({
       .eq('telefone', telefone);
 
     if (clienteError) {
+      logChatEvent("contato_deletar_erro", { telefone, etapa: "cliente", erro: clienteError.message }, { nivel: "error" });
       toast.error("Erro ao deletar contato");
     } else {
+      logChatEvent("contato_deletado", { telefone }, { nivel: "warn" });
       toast.success("Contato deletado permanentemente");
       fetchClientes();
     }
@@ -1272,10 +1281,12 @@ export const ConversationListBeta = ({
       }
     } catch (err) {
       console.error('[ConversationListBeta] toggleUnreadMark erro:', err);
+      logChatEvent("marcar_nao_lida_erro", { telefone, novo_estado: !currentState, erro: (err as any)?.message }, { nivel: "error" });
       toast.error("Erro ao marcar conversa");
       return;
     }
 
+    logChatEvent(currentState ? "marcada_como_lida" : "marcada_como_nao_lida", { telefone });
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
     // Atualiza estado local imediatamente — não espera realtime
     setClientes(prev => prev.map(c =>
