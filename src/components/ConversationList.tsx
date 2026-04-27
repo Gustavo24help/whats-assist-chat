@@ -92,6 +92,12 @@ export const ConversationList = ({
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
   const isFirstLoadRef = useRef(true);
+
+  // ⚡ Performance: coalescer chamadas de refresh disparadas por eventos Realtime
+  // (evita travamento/"tela branca" quando há rajadas de mensagens/atualizações)
+  const refreshScheduledRef = useRef(false);
+  const lastRefreshAtRef = useRef(0);
+  const REFRESH_MIN_INTERVAL_MS = 4000; // no máximo 1 refresh a cada 4s vindo de Realtime
   
   // 🆕 Rastrear orçamentos recém-chegados
   const [recentOrcamentoFichas, setRecentOrcamentoFichas] = useState<Set<string>>(new Set());
