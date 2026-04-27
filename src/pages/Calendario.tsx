@@ -10,12 +10,14 @@ import { CalendarioSemanal } from "@/components/calendario/CalendarioSemanal";
 import { CalendarioDiario } from "@/components/calendario/CalendarioDiario";
 import { AgendamentoDetalhesModal } from "@/components/calendario/AgendamentoDetalhesModal";
 import { Logo } from "@/components/Logo";
-import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, Palette } from "lucide-react";
 import { addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { PageLayout } from "@/components/PageLayout";
+import { EditarCoresStatusModal } from "@/components/calendario/EditarCoresStatusModal";
+import { carregarCoresStatus, type CoresStatusMap } from "@/lib/calendarioStatusCores";
 
 const tiposAgendamento = [
   { value: 'all', label: 'Todos' },
