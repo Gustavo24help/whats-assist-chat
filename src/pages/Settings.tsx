@@ -482,12 +482,6 @@ const Settings = () => {
               <FerramentasManutencao />
             </TabsContent>
           )}
-
-          {isAdmin && (
-            <TabsContent value="logs" className="space-y-4">
-              <SystemLogsViewer />
-            </TabsContent>
-          )}
           </Tabs>
         )}
       </main>
