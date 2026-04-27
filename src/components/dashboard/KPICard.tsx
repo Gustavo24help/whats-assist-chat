@@ -25,6 +25,8 @@ export interface KPICardProps {
   className?: string;
   /** Texto explicativo da fonte/evento usado neste KPI. Renderiza ícone (i) com tooltip. */
   tooltip?: string;
+  /** Quando definido, o card vira clicável e abre o drill-down. */
+  onClick?: () => void;
 }
 
 const iconColorClasses: Record<IconColor, string> = {
@@ -52,6 +54,7 @@ export const KPICard = ({
   animationDelay = 0,
   className,
   tooltip,
+  onClick,
 }: KPICardProps) => {
   const { cardMode, accentIntensity } = useVisualMode();
 
@@ -91,10 +94,21 @@ export const KPICard = ({
         'kpi-card animate-fade-in',
         sizes.wrapper,
         getCardModeClass(),
+        onClick &&
+          'cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className,
       )}
       style={{ animationDelay: `${animationDelay}ms` }}
       data-icon-color={iconColor}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       <div className="flex items-start justify-between mb-4">
         {icon && (
