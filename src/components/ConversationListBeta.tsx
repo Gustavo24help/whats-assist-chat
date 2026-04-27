@@ -1767,6 +1767,8 @@ export const ConversationListBeta = ({
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
                       hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
                       hasSuggestion={conversasComSugestao.has(cliente.telefone)}
+                      bookmarked={bookmarks.has(cliente.telefone)}
+                      onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
                     />
                   </div>
                 </div>
