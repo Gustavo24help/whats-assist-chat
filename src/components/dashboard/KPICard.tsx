@@ -25,6 +25,8 @@ export interface KPICardProps {
   className?: string;
   /** Texto explicativo da fonte/evento usado neste KPI. Renderiza ícone (i) com tooltip. */
   tooltip?: string;
+  /** Quando definido, o card vira clicável e abre o drill-down. */
+  onClick?: () => void;
 }
 
 const iconColorClasses: Record<IconColor, string> = {
