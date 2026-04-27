@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ConversationListPrestadores } from "@/components/prestador-chat/ConversationListPrestadores";
 import { ChatWindowPrestadores } from "@/components/prestador-chat/ChatWindowPrestadores";
+import { PrestadorInfoPanel } from "@/components/prestador-chat/PrestadorInfoPanel";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { LogOut, Settings, Home, Wrench } from "lucide-react";
