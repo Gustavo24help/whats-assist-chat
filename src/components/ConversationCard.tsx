@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot, Check, XCircle, Sparkles } from "lucide-react";
+import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot, Check, XCircle, Sparkles, Bookmark } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,8 @@ interface ConversationCardProps {
   tempoNoStatusMinutos?: number;
   hasNewOrcamento?: boolean;
   hasSuggestion?: boolean;
+  bookmarked?: boolean;
+  onToggleBookmark?: () => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -95,7 +97,9 @@ export const ConversationCard = memo(({
   statusAlertColor = null,
   tempoNoStatusMinutos,
   hasNewOrcamento = false,
-  hasSuggestion = false
+  hasSuggestion = false,
+  bookmarked = false,
+  onToggleBookmark,
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -161,6 +165,22 @@ export const ConversationCard = memo(({
         </div>
         
         <div className="flex items-center gap-1">
+          {onToggleBookmark && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 shrink-0 -mt-1"
+              title={bookmarked ? "Remover da página marcada" : "Marcar página"}
+              onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
+            >
+              <Bookmark
+                className={cn(
+                  "h-3.5 w-3.5",
+                  bookmarked ? "fill-amber-500 text-amber-500" : "text-muted-foreground"
+                )}
+              />
+            </Button>
+          )}
           <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 -mt-1">

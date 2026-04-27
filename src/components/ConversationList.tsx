@@ -19,6 +19,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY, type StatusAlertRule } from "@/lib/statusAlertConfig";
+import { Bookmark } from "lucide-react";
+import { getBookmarks, toggleBookmark, subscribeBookmarks } from "@/lib/conversationBookmarks";
 
 interface Cliente {
   telefone: string;
@@ -73,6 +75,8 @@ export const ConversationList = ({
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [currentTagClient, setCurrentTagClient] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [showBookmarked, setShowBookmarked] = useState(false);
+  const [bookmarks, setBookmarks] = useState<Set<string>>(() => getBookmarks(null));
   const [archivedCount, setArchivedCount] = useState(0);
   const [showBotDisabledOnly, setShowBotDisabledOnly] = useState(false);
   const [clientesTelefonesPorPrestador, setClientesTelefonesPorPrestador] = useState<string[]>([]);
@@ -239,9 +243,28 @@ export const ConversationList = ({
     };
   }, [user?.id]);
 
-  // ✅ Memoizar filtros pesados para melhor performance
+  // Bookmarks (Marcar página) por operador, persistidos em localStorage
+  useEffect(() => {
+    setBookmarks(getBookmarks(user?.id));
+    const unsub = subscribeBookmarks(user?.id, () => {
+      setBookmarks(getBookmarks(user?.id));
+    });
+    return unsub;
+  }, [user?.id]);
+
+  const handleToggleBookmark = useCallback((telefone: string) => {
+    toggleBookmark(user?.id, telefone);
+  }, [user?.id]);
+
+
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
+
+    // Aba "Marcadas" (Marcar página): exibe apenas conversas marcadas pelo operador
+    if (showBookmarked) {
+      filtered = filtered.filter(c => bookmarks.has(c.telefone));
+    }
+
 
     // 🔍 Variável que indica se deve ignorar filtros de atendente e status para busca especial
     // Quando buscando por ID de ficha ou mensagem, mostramos o resultado independente do dono ou status
@@ -403,7 +426,7 @@ export const ConversationList = ({
     });
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS, showBookmarked, bookmarks]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
@@ -1118,7 +1141,7 @@ export const ConversationList = ({
           {!isCollapsed && (
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-base md:text-lg">
-                {showArchived ? "Arquivadas" : "Conversas"}
+                {showBookmarked ? "Marcadas" : showArchived ? "Arquivadas" : "Conversas"}
               </h2>
               {/* Toggle Meus/Todos para todos os operadores */}
               {!showArchived && (
@@ -1509,6 +1532,8 @@ export const ConversationList = ({
                       statusAlertColor={cliente.statusAlertColor}
                       tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
                       hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
+                      bookmarked={bookmarks.has(cliente.telefone)}
+                      onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
                     />
                   </div>
                 </div>
@@ -1553,9 +1578,26 @@ export const ConversationList = ({
         </div>
       )}
 
-      {/* Botão flutuante de arquivados */}
+      {/* Botões flutuantes: Marcadas + Arquivadas */}
       {!isCollapsed && !selectionMode && (
-        <div className="absolute bottom-4 right-4 z-10">
+        <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2 items-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-10 w-10 rounded-full shadow-md hover:shadow-lg transition-all relative",
+              showBookmarked ? "bg-amber-500 text-white hover:bg-amber-500/90" : "bg-muted hover:bg-muted/80"
+            )}
+            onClick={() => { setShowBookmarked(!showBookmarked); if (!showBookmarked) setShowArchived(false); }}
+            title={showBookmarked ? "Ver todas as conversas" : "Ver conversas marcadas"}
+          >
+            <Bookmark className={cn("h-4 w-4", showBookmarked && "fill-current")} />
+            {!showBookmarked && bookmarks.size > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {bookmarks.size}
+              </span>
+            )}
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -1563,7 +1605,7 @@ export const ConversationList = ({
               "h-10 w-10 rounded-full shadow-md hover:shadow-lg transition-all",
               showArchived ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted hover:bg-muted/80"
             )}
-            onClick={() => setShowArchived(!showArchived)}
+            onClick={() => { setShowArchived(!showArchived); if (!showArchived) setShowBookmarked(false); }}
             title={showArchived ? "Ver conversas ativas" : "Ver conversas arquivadas"}
           >
             <Archive className="h-4 w-4" />
