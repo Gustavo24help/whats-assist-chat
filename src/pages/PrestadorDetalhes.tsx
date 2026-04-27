@@ -239,7 +239,7 @@ const PrestadorDetalhes = () => {
       pagamentoMap.set(t.ficha_id, t.data_pagamento_realizada);
     });
 
-    const result: ServicoDetalhado[] = fichas.map((f) => ({
+    const result: ServicoDetalhado[] = fichas.map((f: any) => ({
       ficha_id: f.id,
       nome_ficha: f.nome_ficha,
       valor_mao_obra: f.valor_mao_obra,
@@ -249,6 +249,7 @@ const PrestadorDetalhes = () => {
       data_finalizacao: finalizacaoMap.get(f.id) || null,
       data_pagamento_prestador: pagamentoMap.get(f.id) || null,
       status: f.status,
+      comparecimento_prestador: f.comparecimento_prestador ?? null,
     }));
 
     setServicos(result);
