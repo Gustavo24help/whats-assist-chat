@@ -199,7 +199,7 @@ const PrestadorDetalhes = () => {
     // Buscar fichas do prestador
     const { data: fichas, error: fichasError } = await supabase
       .from("fichas_de_servico")
-      .select("id, nome_ficha, valor_mao_obra, valor_pecas, bairro, horario_agendamento, status")
+      .select("id, nome_ficha, valor_mao_obra, valor_pecas, bairro, horario_agendamento, status, comparecimento_prestador")
       .eq("prestador_id", prestadorCpf)
       .order("created_at", { ascending: false });
 
