@@ -393,8 +393,8 @@ async function fetchMetricsForWindow(
       q = applyFichaFilters(q, filters);
       return await q;
     })(),
-    // Visita Agendada — eventos de status
-    fetchFichasComEvento('Visita Técnica', fromStr, toStr, filters),
+    // Visita Agendada — eventos de status (exclui fichas atualmente "Perdido")
+    fetchFichasComEvento('Visita Técnica', fromStr, toStr, filters, ['Perdido']),
     // Serviço Agendado — eventos de status
     // Regra: se a ficha hoje está como "Perdido", o agendamento NÃO é contado.
     // Status válidos a manter: Agendado, Em andamento, Finalizado, Garantia, Retorno
@@ -403,8 +403,8 @@ async function fetchMetricsForWindow(
     // Serviço Agendado BRUTO — todos os eventos "Agendado" no período,
     // INCLUINDO fichas que depois viraram "Perdido". Usado no funil.
     fetchFichasComEvento('Agendado', fromStr, toStr, filters, []),
-    // Serviço Finalizado — eventos de status
-    fetchFichasComEvento('Finalizado', fromStr, toStr, filters),
+    // Serviço Finalizado — eventos de status (exclui fichas atualmente "Perdido")
+    fetchFichasComEvento('Finalizado', fromStr, toStr, filters, ['Perdido']),
     // Transações pagas ao prestador no período — fonte de verdade financeira.
     // Buscamos os campos necessários para calcular: pagoAoPrestador (count),
     // valorPagoPrestadores, valorLiquido24help (= lucro_bruto) e margem bruta.
