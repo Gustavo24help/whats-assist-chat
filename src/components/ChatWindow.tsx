@@ -1107,9 +1107,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .eq('telefone', clienteTelefone);
 
     if (error) {
+      logChatEvent("atribuicao_erro", { telefone: clienteTelefone, operador_id: operadorId, operador_nome: operadorNome, is_self: isSelf, erro: error.message }, { nivel: "error" });
       toast.error('Erro ao atribuir operador');
     } else {
       setAtendenteAtual({ id: operadorId, nome: operadorNome });
+      logChatEvent(isSelf ? "atribuicao_self" : "atribuicao_a_outro", { telefone: clienteTelefone, ficha_id: fichaId || null, operador_id: operadorId, operador_nome: operadorNome, descricao: descricao || null });
       toast.success(`Atribuído para ${operadorNome}`);
 
       // Register as atribuicao_chat task in tarefas_operacionais
@@ -1273,9 +1275,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .eq('telefone', clienteTelefone);
 
     if (error) {
+      logChatEvent("atribuicao_remover_erro", { telefone: clienteTelefone, erro: error.message }, { nivel: "error" });
       toast.error('Erro ao remover atribuição');
     } else {
       setAtendenteAtual(null);
+      logChatEvent("atribuicao_removida", { telefone: clienteTelefone, ficha_id: fichaId || null });
       toast.success('Atribuição removida');
     }
   };
