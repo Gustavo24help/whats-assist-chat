@@ -100,20 +100,33 @@ export function useInactivityLogout() {
   }, [updateActivity]);
 
   useEffect(() => {
-    // Check if already expired on mount (only if not a fresh page load)
+    // Ao (re)montar o hook (troca de página, refresh leve, etc.), NUNCA
+    // deslogar imediatamente baseado apenas no localStorage. Sempre dar
+    // grace period e renovar a atividade — quem decide se a sessão é
+    // válida é o Supabase Auth (token).
     try {
       const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+      const now = Date.now();
       if (lastActivity) {
-        const elapsed = Date.now() - Number(lastActivity);
-        if (elapsed >= INACTIVITY_TIMEOUT) {
+        const elapsed = now - Number(lastActivity);
+        // Apenas se passou MUITO tempo (> timeout + grace), confirmar com
+        // o Supabase se a sessão ainda existe antes de qualquer ação.
+        if (elapsed >= INACTIVITY_TIMEOUT + MOUNT_GRACE_MS) {
           supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-              supabase.auth.signOut().then(() => navigateRef.current("/auth"));
+            if (!session) {
+              // Sem sessão — apenas redireciona, não tenta signOut.
+              navigateRef.current("/auth");
+            } else {
+              // Sessão válida → renova atividade e segue normalmente.
+              try { localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now())); } catch {}
+              resetTimers();
             }
           });
           return;
         }
       }
+      // Caso normal: renova o timestamp para evitar que outra aba force logout.
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
     } catch {}
 
     // Initialize
