@@ -237,12 +237,50 @@ serve(async (req) => {
     const sendFromNumber = to.startsWith('whatsapp:') && !activePhoneNumber!.startsWith('whatsapp:') 
       ? `whatsapp:${activePhoneNumber}` 
       : activePhoneNumber!;
-    
+
+    // ========== Quote textual para "responder mensagem" ==========
+    // Twilio/WhatsApp Business API NÃO suporta enviar contexto de citação real.
+    // Para que o cliente veja a referência, prefixamos a mensagem com o trecho citado
+    // usando o formato de citação do WhatsApp (linhas iniciadas por "> ").
+    let finalMessage = message;
+    if (replyToMessageId && message) {
+      try {
+        const tabelaQuote = isPrestadorMessage ? 'mensagens_prestadores' : 'mensagens';
+        const { data: msgOriginal } = await supabase
+          .from(tabelaQuote)
+          .select('texto, tipo, arquivo_url')
+          .eq('id', replyToMessageId)
+          .maybeSingle();
+
+        if (msgOriginal) {
+          let trecho = (msgOriginal.texto || '').trim();
+          if (!trecho) {
+            // Mídia sem texto: descrever pelo tipo
+            const tipoMap: Record<string, string> = {
+              audio: '🎤 Áudio',
+              imagem: '🖼️ Imagem',
+              video: '🎬 Vídeo',
+              arquivo: '📎 Arquivo',
+            };
+            trecho = tipoMap[msgOriginal.tipo as string] || 'Mensagem';
+          }
+          // Limitar a 180 chars para não ficar gigante
+          if (trecho.length > 180) trecho = trecho.substring(0, 177) + '...';
+          // Prefixar cada linha com "> " (formato de citação)
+          const quoted = trecho.split('\n').map(l => `> ${l}`).join('\n');
+          finalMessage = `${quoted}\n\n${message}`;
+          console.log('[send-whatsapp] 💬 Quote textual aplicado para replyToMessageId:', replyToMessageId);
+        }
+      } catch (e) {
+        console.warn('[send-whatsapp] Falha ao montar quote textual:', e);
+      }
+    }
+
     const body = new URLSearchParams();
     body.append('To', to);
     body.append('From', sendFromNumber);
-    if (message) {
-      body.append('Body', message);
+    if (finalMessage) {
+      body.append('Body', finalMessage);
     }
     if (mediaUrl) {
       body.append('MediaUrl', mediaUrl);
