@@ -426,7 +426,7 @@ export const ConversationList = ({
     });
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS]);
+  }, [clientes, debouncedSearchTerm, searchMode, statusFilter, conversaFilter, unreadFilter, botFilter, fichaFilter, pagamentoFilter, selectedTags, showBotDisabledOnly, showServicosParaFinalizarOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, user, isSupervisor, ticketView, conversaStatusFilter, STATUS_INATIVOS, showBookmarked, bookmarks]);
 
   // Contagem de conversas não lidas (para os botões)
   const unreadCount = useMemo(() => {
