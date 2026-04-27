@@ -853,11 +853,28 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       // Inverter para ordem cronológica (mais antigas primeiro)
       const mensagensOrdenadas = mensagensComReply.reverse();
       
+      // Defensive dedup: remove duplicates by id and message_sid before merging
+      // (protects against fetch + Realtime race conditions inserting the same message twice)
+      const dedupMessages = (msgs: Mensagem[]): Mensagem[] => {
+        const seenIds = new Set<string>();
+        const seenSids = new Set<string>();
+        return msgs.filter((m) => {
+          if (seenIds.has(m.id)) return false;
+          seenIds.add(m.id);
+          const sid = (m as any).message_sid;
+          if (sid) {
+            if (seenSids.has(sid)) return false;
+            seenSids.add(sid);
+          }
+          return true;
+        });
+      };
+
       if (loadMore) {
         // Adicionar mensagens mais antigas no início
-        setMensagens(prev => [...(mensagensOrdenadas as Mensagem[]), ...prev]);
+        setMensagens(prev => dedupMessages([...(mensagensOrdenadas as Mensagem[]), ...prev]));
       } else {
-        setMensagens(mensagensOrdenadas as Mensagem[]);
+        setMensagens(dedupMessages(mensagensOrdenadas as Mensagem[]));
       }
       
       // Atualizar estado de paginação
