@@ -314,9 +314,27 @@ export const ConversationListBeta = ({
     };
   }, [user?.id]);
 
+  // Bookmarks (Marcar página) por operador, persistidos em localStorage
+  useEffect(() => {
+    setBookmarks(getBookmarks(user?.id));
+    const unsub = subscribeBookmarks(user?.id, () => {
+      setBookmarks(getBookmarks(user?.id));
+    });
+    return unsub;
+  }, [user?.id]);
+
+  const handleToggleBookmark = useCallback((telefone: string) => {
+    toggleBookmark(user?.id, telefone);
+  }, [user?.id]);
+
   // ✅ Memoizar filtros pesados para melhor performance
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
+
+    // Aba "Marcadas" (Marcar página): exibe apenas conversas marcadas pelo operador
+    if (showBookmarked) {
+      filtered = filtered.filter(c => bookmarks.has(c.telefone));
+    }
 
     const ignorarFiltrosBuscaId = (searchMode === 'id_ficha' || searchMode === 'mensagem') && debouncedSearchTerm;
 
