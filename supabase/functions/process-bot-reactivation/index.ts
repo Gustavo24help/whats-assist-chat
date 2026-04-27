@@ -59,6 +59,29 @@ Deno.serve(async (req) => {
       try {
         console.log(`[process-bot-reactivation] Processando reativação para ${schedule.telefone_cliente}`);
 
+        // 🛡️ COOLDOWN: respeitar desligamento manual recente (< 60s)
+        const { data: clienteAtual } = await supabase
+          .from('clientes')
+          .select('bot_habilitado, data_bot_desabilitado, bot_desligado_manualmente')
+          .eq('telefone', schedule.telefone_cliente)
+          .maybeSingle();
+
+        if (clienteAtual?.bot_desligado_manualmente && clienteAtual?.data_bot_desabilitado) {
+          const segundosDesdeDesligamento =
+            (Date.now() - new Date(clienteAtual.data_bot_desabilitado).getTime()) / 1000;
+          if (segundosDesdeDesligamento < 60) {
+            console.log(
+              `[process-bot-reactivation] ⏸️  Cooldown ativo para ${schedule.telefone_cliente} ` +
+              `(desligado manualmente há ${segundosDesdeDesligamento.toFixed(0)}s). Adiando 5min.`
+            );
+            await supabase
+              .from('bot_reactivation_schedule')
+              .update({ scheduled_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() })
+              .eq('id', schedule.id);
+            continue;
+          }
+        }
+
         // Reativar bot
         const { error: updateError } = await supabase
           .from('clientes')

@@ -89,6 +89,16 @@ Deno.serve(async (req) => {
     const desligadoManualmente = bot_status === "disabled" ? isManual : false;
     const notificacaoVista = bot_status === "disabled" ? isManual : null;
 
+    // 📋 Capturar estado ANTERIOR para auditoria
+    const { data: clienteAntes } = await supabase
+      .from("clientes")
+      .select("bot_habilitado, data_bot_desabilitado, bot_desligado_manualmente")
+      .eq("telefone", telefone)
+      .maybeSingle();
+
+    const estadoAnterior = clienteAntes?.bot_habilitado === false ? "desabilitado" : "habilitado";
+    const desligadoManualmenteAntes = clienteAntes?.bot_desligado_manualmente === true;
+
     // Atualizar status do bot no cliente
     const { error: updateError } = await supabase
       .from("clientes")
@@ -119,13 +129,17 @@ Deno.serve(async (req) => {
       `[toggle-bot-status] Auditoria: UA=${userAgent.substring(0, 50)}..., IP=${ipAddress}, RequestID=${requestId}`,
     );
 
-    // Registrar no histórico
+    // Registrar no histórico (com estado anterior para diagnóstico)
+    const observacaoDetalhada =
+      `Bot ${bot_status === "enabled" ? "ativado" : "desativado"} via toggle-bot-status ` +
+      `[anterior: ${estadoAnterior}${desligadoManualmenteAntes ? "/manual" : ""}]`;
+
     const { error: historicoError } = await supabase.from("bot_historico").insert({
       telefone_cliente: telefone,
       acao: bot_status === "enabled" ? "ligado" : "desligado",
       origem: origem,
       executado_por_id,
-      observacao: `Bot ${bot_status === "enabled" ? "ativado" : "desativado"} via toggle-bot-status`,
+      observacao: observacaoDetalhada,
       user_agent: userAgent,
       ip_address: ipAddress,
       request_id: requestId,
