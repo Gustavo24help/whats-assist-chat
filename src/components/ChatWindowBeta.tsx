@@ -591,14 +591,18 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
           setMensagens((prev) => {
             // Dedup: skip if real ID already exists
-            if (prev.some((msg) => msg.id === novaMensagem.id)) return prev;
-
-            // Dedup by message_sid (sync-twilio-messages can re-insert same Twilio msg with different DB id)
-            if (novaMensagem.message_sid && prev.some((msg) => (msg as any).message_sid === novaMensagem.message_sid)) {
+            if (prev.some((msg) => msg.id === novaMensagem.id)) {
+              console.warn('[ChatWindowBeta] Dedup descartou mensagem duplicada por ID:', novaMensagem.id);
               return prev;
             }
 
-            // Dedup: same text + same sender within 30s window = duplicate
+            // Dedup by message_sid (sync-twilio-messages can re-insert same Twilio msg with different DB id)
+            if (novaMensagem.message_sid && prev.some((msg) => (msg as any).message_sid === novaMensagem.message_sid)) {
+              console.warn('[ChatWindowBeta] Dedup descartou mensagem duplicada por message_sid:', novaMensagem.message_sid);
+              return prev;
+            }
+
+            // Dedup: same text + same sender within 60s window = duplicate
             // Skip content-based dedup for media messages (images, videos, audio, files)
             // because multiple media items often have the same generic text like "Arquivo 1"
             const isMediaMessage = novaMensagem.tipo && novaMensagem.tipo !== 'texto';
@@ -610,9 +614,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                   msg.texto === novaMensagem.texto &&
                   msg.remetente === novaMensagem.remetente &&
                   msg.data_hora &&
-                  Math.abs(new Date(msg.data_hora).getTime() - msgTime) < 30000
+                  Math.abs(new Date(msg.data_hora).getTime() - msgTime) < 60000
               );
-              if (isDuplicateByContent) return prev;
+              if (isDuplicateByContent) {
+                console.warn('[ChatWindowBeta] Dedup descartou mensagem duplicada por conteúdo+tempo (60s):', { texto: novaMensagem.texto?.slice(0, 50), remetente: novaMensagem.remetente });
+                return prev;
+              }
             }
 
             // Check if this is a duplicate of an optimistic (temp) message
