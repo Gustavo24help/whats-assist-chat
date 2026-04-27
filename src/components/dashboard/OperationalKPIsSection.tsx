@@ -15,7 +15,6 @@ import { Card } from '@/components/ui/card';
 import {
   MessageCircle,
   FileText,
-  CalendarCheck,
   Wrench,
   CheckCircle2,
   DollarSign,
