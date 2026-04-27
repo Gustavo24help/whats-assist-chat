@@ -688,19 +688,39 @@ const PrestadorDetalhes = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {historico.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum evento no histórico.</p>
               ) : (
-                historico.map((item) => (
-                  <div key={item.id} className="rounded-lg border p-3">
-                    <p className="text-sm font-medium uppercase text-muted-foreground">{item.tipo_evento}</p>
-                    <p className="mt-1 text-sm">{item.descricao}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {new Date(item.created_at).toLocaleString("pt-BR")}
-                    </p>
-                  </div>
-                ))
+                historico.map((item) => {
+                  const cfg = HISTORICO_ICON[item.tipo_evento] || { icon: Clock, color: "text-muted-foreground", label: item.tipo_evento };
+                  const Icon = cfg.icon;
+                  const fichaLink = item.ficha_id ? getLinkHandlers(`/ficha/${encodeURIComponent(item.ficha_id)}`) : null;
+                  return (
+                    <div key={item.id} className="rounded-lg border p-3 flex gap-3">
+                      <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${cfg.color}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {cfg.label}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatHistoricoMeta(item)}
+                          </p>
+                        </div>
+                        <p className="mt-1 text-sm">{item.descricao}</p>
+                        {fichaLink && (
+                          <button
+                            {...fichaLink}
+                            className="mt-1 text-xs text-primary inline-flex items-center gap-1 hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Abrir ficha
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </CardContent>
