@@ -1578,9 +1578,26 @@ export const ConversationList = ({
         </div>
       )}
 
-      {/* Botão flutuante de arquivados */}
+      {/* Botões flutuantes: Marcadas + Arquivadas */}
       {!isCollapsed && !selectionMode && (
-        <div className="absolute bottom-4 right-4 z-10">
+        <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2 items-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-10 w-10 rounded-full shadow-md hover:shadow-lg transition-all relative",
+              showBookmarked ? "bg-amber-500 text-white hover:bg-amber-500/90" : "bg-muted hover:bg-muted/80"
+            )}
+            onClick={() => { setShowBookmarked(!showBookmarked); if (!showBookmarked) setShowArchived(false); }}
+            title={showBookmarked ? "Ver todas as conversas" : "Ver conversas marcadas"}
+          >
+            <Bookmark className={cn("h-4 w-4", showBookmarked && "fill-current")} />
+            {!showBookmarked && bookmarks.size > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {bookmarks.size}
+              </span>
+            )}
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -1588,7 +1605,7 @@ export const ConversationList = ({
               "h-10 w-10 rounded-full shadow-md hover:shadow-lg transition-all",
               showArchived ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted hover:bg-muted/80"
             )}
-            onClick={() => setShowArchived(!showArchived)}
+            onClick={() => { setShowArchived(!showArchived); if (!showArchived) setShowBookmarked(false); }}
             title={showArchived ? "Ver conversas ativas" : "Ver conversas arquivadas"}
           >
             <Archive className="h-4 w-4" />
