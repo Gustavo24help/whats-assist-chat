@@ -1524,12 +1524,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         throw new Error(data.error || "Erro ao enviar mídia");
       }
 
+      logChatEvent("midia_enviada", { telefone: clienteTelefone, ficha_id: fichaId || null, tipo: pendingFile.type, conversation_id: convId, message_sid: data?.message_sid || null });
       toast.success(`${pendingFile.type === 'imagem' ? 'Imagem' : pendingFile.type === 'video' ? 'Vídeo' : pendingFile.type === 'audio' ? 'Áudio' : 'Arquivo'} enviado via WhatsApp`);
       
       // Limpar arquivo pendente
       removePendingFile();
     } catch (error) {
       console.error("Erro ao enviar mídia:", error);
+      logChatEvent("midia_envio_erro", { telefone: clienteTelefone, ficha_id: fichaId || null, tipo: pendingFile?.type, erro: (error as any)?.message || String(error) }, { nivel: "error" });
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mídia");
     } finally {
       setUploading(false);
@@ -1622,9 +1624,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         throw new Error(data.error || "Erro ao enviar áudio");
       }
 
+      logChatEvent("audio_enviado", { telefone: clienteTelefone, ficha_id: fichaId || null, conversation_id: convId, message_sid: data?.message_sid || null });
       toast.success("Áudio enviado!");
     } catch (error) {
       console.error("Erro ao enviar áudio:", error);
+      logChatEvent("audio_envio_erro", { telefone: clienteTelefone, ficha_id: fichaId || null, erro: (error as any)?.message || String(error) }, { nivel: "error" });
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar o áudio");
     } finally {
       setUploading(false);
@@ -1714,17 +1718,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         setMensagens(prev => prev.filter(m => m.id !== tempId));
         
         if (data.error === 'FORA_JANELA_24H') {
+          logChatEvent("mensagem_envio_fora_janela", { telefone: clienteTelefone, ficha_id: fichaId || null }, { nivel: "warn" });
           toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
           return;
         }
         throw new Error(data.error || "Erro ao enviar mensagem");
       }
 
+      logChatEvent("mensagem_enviada", { telefone: clienteTelefone, ficha_id: fichaId || null, conversation_id: convId, message_sid: data?.message_sid || null, reply_to: replyId, len: mensagemTexto.length });
       // Mensagem enviada com sucesso - o realtime vai atualizar com a mensagem real do banco
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       // Remover mensagem temporária em caso de erro
       setMensagens(prev => prev.filter(m => !m.id.startsWith('temp-')));
+      logChatEvent("mensagem_envio_erro", { telefone: clienteTelefone, ficha_id: fichaId || null, erro: (error as any)?.message || String(error) }, { nivel: "error" });
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mensagem");
       setNovaMsg(mensagemTexto); // Restaurar texto original (capturado na linha 1412)
     } finally {
