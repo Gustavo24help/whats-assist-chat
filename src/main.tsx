@@ -3,6 +3,10 @@ import { createRoot } from "react-dom/client";
 import { Toaster } from "sonner";
 import App from "./App.tsx";
 import "./index.css";
+import { initSystemLogger, logSystemEvent } from "@/lib/systemLogger";
+
+// Inicializa logger de sistema (captura console.error/warn, fetch falhas, erros não tratados)
+initSystemLogger();
 
 // Handler global para erros assíncronos não tratados
 window.addEventListener('unhandledrejection', (event) => {
