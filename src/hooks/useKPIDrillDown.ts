@@ -458,36 +458,23 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
     filters.kpi === 'valorLiquido24help' ||
     filters.kpi === 'margemBruta24help'
   ) {
-    // Transações pagas ao prestador no período
-    const hasFichaFilters = !!(
-      baseFilters.categoriaId || baseFilters.prestadorCpf || baseFilters.clienteTelefone
-    );
-    let q: any;
-    if (hasFichaFilters) {
-      q = supabase
-        .from('transacoes_financeiras')
-        .select(
-          'ficha_id, data_pagamento_realizada, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)',
-        )
-        .eq('status_pagamento_prestador', 'pago')
-        .gte('data_pagamento_realizada', fromStr)
-        .lte('data_pagamento_realizada', toStr)
-        .order('data_pagamento_realizada', { ascending: false });
-      if (baseFilters.categoriaId)
-        q = q.eq('fichas_de_servico.categoria_id', baseFilters.categoriaId);
-      if (baseFilters.prestadorCpf)
-        q = q.eq('fichas_de_servico.prestador_id', baseFilters.prestadorCpf);
-      if (baseFilters.clienteTelefone)
-        q = q.eq('fichas_de_servico.telefone_cliente', baseFilters.clienteTelefone);
-    } else {
-      q = supabase
-        .from('transacoes_financeiras')
-        .select('ficha_id, data_pagamento_realizada')
-        .eq('status_pagamento_prestador', 'pago')
-        .gte('data_pagamento_realizada', fromStr)
-        .lte('data_pagamento_realizada', toStr)
-        .order('data_pagamento_realizada', { ascending: false });
-    }
+    // Transações pagas ao prestador no período (exclui fichas atualmente "Perdido")
+    let q: any = supabase
+      .from('transacoes_financeiras')
+      .select(
+        'ficha_id, data_pagamento_realizada, fichas_de_servico!inner(id, status, categoria_id, prestador_id, telefone_cliente)',
+      )
+      .eq('status_pagamento_prestador', 'pago')
+      .neq('fichas_de_servico.status', 'Perdido')
+      .gte('data_pagamento_realizada', fromStr)
+      .lte('data_pagamento_realizada', toStr)
+      .order('data_pagamento_realizada', { ascending: false });
+    if (baseFilters.categoriaId)
+      q = q.eq('fichas_de_servico.categoria_id', baseFilters.categoriaId);
+    if (baseFilters.prestadorCpf)
+      q = q.eq('fichas_de_servico.prestador_id', baseFilters.prestadorCpf);
+    if (baseFilters.clienteTelefone)
+      q = q.eq('fichas_de_servico.telefone_cliente', baseFilters.clienteTelefone);
     const { data } = await q;
     for (const t of (data as any[]) || []) {
       const fId = t.ficha_id;
