@@ -19,6 +19,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY, type StatusAlertRule } from "@/lib/statusAlertConfig";
+import { Bookmark } from "lucide-react";
+import { getBookmarks, toggleBookmark, subscribeBookmarks } from "@/lib/conversationBookmarks";
 
 interface Cliente {
   telefone: string;
@@ -142,6 +144,8 @@ export const ConversationListBeta = ({
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [currentTagClient, setCurrentTagClient] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [showBookmarked, setShowBookmarked] = useState(false);
+  const [bookmarks, setBookmarks] = useState<Set<string>>(() => getBookmarks(null));
   const [archivedCount, setArchivedCount] = useState(0);
   const [showBotDisabledOnly, setShowBotDisabledOnly] = useState(false);
   const [clientesTelefonesPorPrestador, setClientesTelefonesPorPrestador] = useState<string[]>([]);
