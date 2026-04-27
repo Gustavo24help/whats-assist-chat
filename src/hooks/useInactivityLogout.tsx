@@ -153,9 +153,20 @@ export function useInactivityLogout() {
     };
     window.addEventListener("storage", storageHandler);
 
+    // Quando a aba volta a ficar visível, sempre renovar a atividade
+    // antes de qualquer avaliação. Isso evita logout ao retornar de
+    // outra aba ou ao navegar internamente.
+    const visibilityHandler = () => {
+      if (document.visibilityState === "visible") {
+        updateActivity();
+      }
+    };
+    document.addEventListener("visibilitychange", visibilityHandler);
+
     return () => {
       events.forEach(e => window.removeEventListener(e, handler));
       window.removeEventListener("storage", storageHandler);
+      document.removeEventListener("visibilitychange", visibilityHandler);
       clearAllTimers();
     };
   }, [updateActivity, resetTimers, clearAllTimers]);
