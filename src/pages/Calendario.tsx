@@ -56,6 +56,17 @@ export default function Calendario() {
   const [visaoHorario, setVisaoHorario] = useState<HorarioContexto>('cliente');
   const [filtroStatus, setFiltroStatus] = useState<string[]>([...STATUS_VALUES]);
   const [mostrarVisitaHistorica, setMostrarVisitaHistorica] = useState<boolean>(true);
+  const [coresStatus, setCoresStatus] = useState<CoresStatusMap>(() => carregarCoresStatus());
+  const [editarCoresOpen, setEditarCoresOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as CoresStatusMap | undefined;
+      setCoresStatus(detail || carregarCoresStatus());
+    };
+    window.addEventListener("calendario:cores-atualizadas", handler);
+    return () => window.removeEventListener("calendario:cores-atualizadas", handler);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
