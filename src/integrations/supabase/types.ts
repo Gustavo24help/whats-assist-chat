@@ -2207,6 +2207,48 @@ export type Database = {
         }
         Relationships: []
       }
+      system_logs: {
+        Row: {
+          categoria: string
+          created_at: string
+          detalhes: Json | null
+          id: string
+          mensagem: string
+          nivel: string
+          url: string | null
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          detalhes?: Json | null
+          id?: string
+          mensagem: string
+          nivel?: string
+          url?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          detalhes?: Json | null
+          id?: string
+          mensagem?: string
+          nivel?: string
+          url?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       tags: {
         Row: {
           cor: string
