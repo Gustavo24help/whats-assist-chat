@@ -264,7 +264,7 @@ export default function Calendario() {
             title="Mostrar/ocultar visitas técnicas já realizadas"
           >
             <Checkbox checked={mostrarVisitaHistorica} className="h-3 w-3 pointer-events-none" />
-            <div className="w-3 h-3 rounded-sm border border-dashed border-foreground/40" style={{ backgroundColor: '#FBBF24' }} />
+            <div className="w-3 h-3 rounded-sm border border-dashed border-foreground/40" style={{ backgroundColor: coresStatus['Visita Técnica'] || '#FBBF24' }} />
             <span>Visita Técnica (histórico)</span>
           </button>
           <div className="flex gap-1 ml-auto">
