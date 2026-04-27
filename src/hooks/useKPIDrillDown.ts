@@ -429,7 +429,7 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
       }
     }
   } else if (filters.kpi === 'visitaAgendada') {
-    const m = await fetchFichaIdsComEvento('Visita Técnica', fromStr, toStr, baseFilters);
+    const m = await fetchFichaIdsComEvento('Visita Técnica', fromStr, toStr, baseFilters, ['Perdido']);
     fichaIds = Array.from(m.keys());
     evento = new Map(m);
   } else if (filters.kpi === 'servicoAgendado') {
@@ -437,7 +437,7 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
     fichaIds = Array.from(m.keys());
     evento = new Map(m);
   } else if (filters.kpi === 'servicoFinalizado') {
-    const m = await fetchFichaIdsComEvento('Finalizado', fromStr, toStr, baseFilters);
+    const m = await fetchFichaIdsComEvento('Finalizado', fromStr, toStr, baseFilters, ['Perdido']);
     fichaIds = Array.from(m.keys());
     evento = new Map(m);
   } else if (
@@ -446,8 +446,8 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
     filters.kpi === 'valorMaoObra' ||
     filters.kpi === 'valorPecas'
   ) {
-    // Finalizadas no período E pagas pelo cliente
-    const m = await fetchFichaIdsComEvento('Finalizado', fromStr, toStr, baseFilters);
+    // Finalizadas no período E pagas pelo cliente (exclui fichas atualmente "Perdido")
+    const m = await fetchFichaIdsComEvento('Finalizado', fromStr, toStr, baseFilters, ['Perdido']);
     const candidateIds = Array.from(m.keys());
     const fichaMap = await loadFichasByIds(candidateIds, baseFilters);
     fichaIds = candidateIds.filter((id) => fichaMap.get(id)?.pagamento_realizado === true);
@@ -458,36 +458,23 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
     filters.kpi === 'valorLiquido24help' ||
     filters.kpi === 'margemBruta24help'
   ) {
-    // Transações pagas ao prestador no período
-    const hasFichaFilters = !!(
-      baseFilters.categoriaId || baseFilters.prestadorCpf || baseFilters.clienteTelefone
-    );
-    let q: any;
-    if (hasFichaFilters) {
-      q = supabase
-        .from('transacoes_financeiras')
-        .select(
-          'ficha_id, data_pagamento_realizada, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)',
-        )
-        .eq('status_pagamento_prestador', 'pago')
-        .gte('data_pagamento_realizada', fromStr)
-        .lte('data_pagamento_realizada', toStr)
-        .order('data_pagamento_realizada', { ascending: false });
-      if (baseFilters.categoriaId)
-        q = q.eq('fichas_de_servico.categoria_id', baseFilters.categoriaId);
-      if (baseFilters.prestadorCpf)
-        q = q.eq('fichas_de_servico.prestador_id', baseFilters.prestadorCpf);
-      if (baseFilters.clienteTelefone)
-        q = q.eq('fichas_de_servico.telefone_cliente', baseFilters.clienteTelefone);
-    } else {
-      q = supabase
-        .from('transacoes_financeiras')
-        .select('ficha_id, data_pagamento_realizada')
-        .eq('status_pagamento_prestador', 'pago')
-        .gte('data_pagamento_realizada', fromStr)
-        .lte('data_pagamento_realizada', toStr)
-        .order('data_pagamento_realizada', { ascending: false });
-    }
+    // Transações pagas ao prestador no período (exclui fichas atualmente "Perdido")
+    let q: any = supabase
+      .from('transacoes_financeiras')
+      .select(
+        'ficha_id, data_pagamento_realizada, fichas_de_servico!inner(id, status, categoria_id, prestador_id, telefone_cliente)',
+      )
+      .eq('status_pagamento_prestador', 'pago')
+      .neq('fichas_de_servico.status', 'Perdido')
+      .gte('data_pagamento_realizada', fromStr)
+      .lte('data_pagamento_realizada', toStr)
+      .order('data_pagamento_realizada', { ascending: false });
+    if (baseFilters.categoriaId)
+      q = q.eq('fichas_de_servico.categoria_id', baseFilters.categoriaId);
+    if (baseFilters.prestadorCpf)
+      q = q.eq('fichas_de_servico.prestador_id', baseFilters.prestadorCpf);
+    if (baseFilters.clienteTelefone)
+      q = q.eq('fichas_de_servico.telefone_cliente', baseFilters.clienteTelefone);
     const { data } = await q;
     for (const t of (data as any[]) || []) {
       const fId = t.ficha_id;

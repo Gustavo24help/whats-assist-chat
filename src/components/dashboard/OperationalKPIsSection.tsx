@@ -15,7 +15,6 @@ import { Card } from '@/components/ui/card';
 import {
   MessageCircle,
   FileText,
-  CalendarCheck,
   Wrench,
   CheckCircle2,
   DollarSign,
@@ -95,7 +94,7 @@ export const OperationalKPIsSection = ({
         </SectionHeader>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
-          {[...Array(14)].map((_, i) => (
+          {[...Array(13)].map((_, i) => (
             <Card key={i} className="p-4">
               <Skeleton className="h-4 w-24 mb-2" />
               <Skeleton className="h-8 w-16 mb-2" />
@@ -154,18 +153,7 @@ export const OperationalKPIsSection = ({
           tooltip="Total de orçamentos enviados pelos prestadores no período (cada linha em 'orcamentos' conta). O subtítulo mostra a média de orçamentos por FS com orçamento."
           onClick={openDrill('totalOrcamentos', 'Nº Serviços Orçados')}
         />
-        <KPICard
-          label="Visita Agendada"
-          value={String(kpis.visitaAgendada)}
-          variation={kpis.variations.visitaAgendada}
-          comparisonLabel={compLabel}
-          icon={<CalendarCheck className="h-5 w-5" />}
-          iconColor="yellow"
-          size="sm"
-          animationDelay={100}
-          tooltip="Fichas cujo status mudou para 'Visita Técnica' no período (histórico de status). Para fichas antigas sem histórico, usa data de criação como aproximação."
-          onClick={openDrill('visitaAgendada', 'Visita Agendada')}
-        />
+        {/* "Visita Agendada" removido do dashboard a pedido — métrica não confiável. */}
         <KPICard
           label="Serviço Agendado"
           value={String(kpis.servicoAgendado)}
