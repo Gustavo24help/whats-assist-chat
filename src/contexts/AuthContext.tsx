@@ -119,6 +119,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const profileData = buildProfile(profileResult.data?.full_name || 'Sem nome', role);
       setUserProfile(profileData);
 
+      // Atualiza contexto do logger de sistema
+      try {
+        const { setLoggerUserContext } = await import('@/lib/systemLogger');
+        setLoggerUserContext({
+          user_id: profileData.id,
+          user_email: profileData.email,
+          user_name: profileData.fullName,
+        });
+      } catch {}
+
       console.log('✅ AuthContext - Perfil definido:', {
         userId,
         role,
