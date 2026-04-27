@@ -12,6 +12,7 @@ import {
   Users,
   Wrench,
   ClipboardList,
+  ScrollText,
   MessageSquare,
   DollarSign,
   Clock3,
