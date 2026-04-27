@@ -171,6 +171,10 @@ export default function Calendario() {
           <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
+        <Button variant="outline" size="sm" onClick={() => setEditarCoresOpen(true)} className="ml-2">
+          <Palette className="h-4 w-4 mr-1" />
+          Cores
+        </Button>
       </header>
 
       <main className="flex-1 p-4 space-y-4">
