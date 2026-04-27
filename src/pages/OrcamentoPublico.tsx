@@ -424,45 +424,80 @@ const OrcamentoPublico = () => {
     );
   }
 
-  if (!fichaId) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center space-y-3">
-            <p className="text-muted-foreground font-medium">Link inválido</p>
-            <p className="text-xs text-muted-foreground">
-              O parâmetro da ficha não foi encontrado na URL.
-            </p>
-            <p className="text-xs text-muted-foreground break-all bg-muted/50 p-2 rounded">
-              URL: {typeof window !== 'undefined' ? window.location.href : 'N/A'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Por favor, use o link completo fornecido pela 24Help.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Tela de erro reutilizável para link inválido / ficha não encontrada
+  const renderLinkInvalido = (motivo: "sem_id" | "ficha_nao_encontrada") => {
+    const urlAtual = typeof window !== 'undefined' ? window.location.href : '';
+    const numeroSuporte = "5541988723455"; // WhatsApp 24help
+    const mensagemSuporte =
+      motivo === "sem_id"
+        ? `Olá, recebi um link de orçamento que não abriu corretamente (sem identificação da ficha). URL recebida: ${urlAtual}`
+        : `Olá, recebi um link de orçamento mas a ficha "${fichaId}" não foi encontrada. URL: ${urlAtual}`;
+    const linkSuporte = `https://api.whatsapp.com/send?phone=${numeroSuporte}&text=${encodeURIComponent(mensagemSuporte)}`;
 
-  // Ficha não encontrada no banco de dados
-  if (!fichaExists) {
+    const titulo =
+      motivo === "sem_id" ? "Link de orçamento inválido" : "Ficha não encontrada";
+    const descricao =
+      motivo === "sem_id"
+        ? "O link que você abriu está incompleto. Isso costuma acontecer quando o navegador do WhatsApp corta a URL no meio."
+        : `Não localizamos a ficha "${fichaId}" no sistema. O link pode estar desatualizado ou ter sido digitado errado.`;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center space-y-3">
-            <p className="text-muted-foreground font-medium">Ficha não encontrada</p>
-            <p className="text-xs text-muted-foreground">
-              A ficha "{fichaId}" não foi encontrada no sistema.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Verifique se o link está correto ou entre em contato com a 24Help.
+          <CardContent className="p-6 text-center space-y-4">
+            <div className="mx-auto h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+              <X className="h-6 w-6 text-destructive" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-lg font-semibold text-foreground">{titulo}</p>
+              <p className="text-sm text-muted-foreground">{descricao}</p>
+            </div>
+
+            <div className="text-left space-y-2 bg-muted/40 p-3 rounded text-xs">
+              <p className="font-medium text-foreground">O que fazer:</p>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                <li>Volte para a conversa no WhatsApp.</li>
+                <li>Toque e segure no link enviado pela 24help e escolha <span className="font-medium">"Copiar link"</span>.</li>
+                <li>Cole no navegador (Chrome / Safari) fora do WhatsApp.</li>
+                <li>Se ainda assim não abrir, peça um novo link no botão abaixo.</li>
+              </ol>
+            </div>
+
+            {urlAtual && (
+              <p className="text-[10px] text-muted-foreground break-all bg-muted/30 p-2 rounded">
+                URL recebida: {urlAtual}
+              </p>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <Button
+                asChild
+                className="w-full bg-[#25D366] hover:bg-[#1faa54] text-white"
+              >
+                <a href={linkSuporte} target="_blank" rel="noopener noreferrer">
+                  Pedir link correto pelo WhatsApp
+                </a>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => window.location.reload()}
+              >
+                Tentar novamente
+              </Button>
+            </div>
+
+            <p className="text-[10px] text-muted-foreground">
+              Suporte 24help · {numeroSuporte.replace(/^55/, "+55 ")}
             </p>
           </CardContent>
         </Card>
       </div>
     );
-  }
+  };
+
+  if (!fichaId) return renderLinkInvalido("sem_id");
+  if (!fichaExists) return renderLinkInvalido("ficha_nao_encontrada");
 
   if (fichaExists && !formularioAtivo) {
     return (
