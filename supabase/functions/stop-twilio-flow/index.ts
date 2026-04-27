@@ -199,8 +199,13 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        executionSid: activeExecution.sid,
-        message: 'Bot encerrado com sucesso',
+        executionSid: activeExecution?.sid ?? null,
+        stoppedSids,
+        stoppedCount: stoppedSids.length,
+        failedCount: failedStops.length,
+        message: stoppedSids.length > 0
+          ? `Bot encerrado: ${stoppedSids.length} execução(ões) finalizada(s)`
+          : 'Bot desabilitado (nenhuma execução ativa encontrada)',
         timestamp: new Date().toISOString()
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
