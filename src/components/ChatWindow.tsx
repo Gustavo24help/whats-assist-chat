@@ -1181,9 +1181,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       .single();
     
     if (error) {
+      logChatEvent("takeover_solicitar_erro", { telefone: clienteTelefone, ficha_id: fichaId || null, erro: error.message }, { nivel: "error" });
       toast.error('Erro ao solicitar takeover');
       return;
     }
+    logChatEvent("takeover_solicitado", { telefone: clienteTelefone, ficha_id: fichaId || null, request_id: request.id, operador_atual_id: atendenteAtual.id, operador_atual_nome: atendenteAtual.nome });
     
     // Enviar broadcast
     takeoverChannelRef.current?.send({
@@ -1227,6 +1229,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       }
     });
     
+    logChatEvent("takeover_aprovado", { telefone: clienteTelefone, ficha_id: fichaId || null, request_id: takeoverRequestId });
     toast.info('Conversa transferida.');
   };
 
@@ -1250,6 +1253,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       }
     });
     
+    logChatEvent("takeover_negado", { telefone: clienteTelefone, ficha_id: fichaId || null, request_id: takeoverRequestId }, { nivel: "warn" });
     toast.info('Solicitação de takeover negada.');
   };
 
