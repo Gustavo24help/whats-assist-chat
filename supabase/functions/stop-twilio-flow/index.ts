@@ -37,66 +37,88 @@ Deno.serve(async (req) => {
 
     console.log(`[stop-twilio-flow] Iniciando encerramento para: ${telefone}`);
 
-    // 3. Buscar execuções ativas no Twilio Studio
+    // 3. Buscar TODAS execuções ativas no Twilio Studio (com paginação)
     const auth = btoa(`${accountSid}:${authToken}`);
-    const executionsUrl = `https://studio.twilio.com/v2/Flows/${flowSid}/Executions`;
+    const baseUrl = `https://studio.twilio.com/v2/Flows/${flowSid}/Executions?PageSize=100`;
 
-    const executionsResponse = await fetch(executionsUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const activeExecutions: any[] = [];
+    let nextUrl: string | null = baseUrl;
+    let pages = 0;
 
-    if (!executionsResponse.ok) {
-      const error = await executionsResponse.text();
-      console.error('[stop-twilio-flow] Erro ao buscar execuções:', error);
-      throw new Error('Erro ao consultar Twilio Studio');
+    while (nextUrl && pages < 10) {
+      pages++;
+      const executionsResponse: Response = await fetch(nextUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!executionsResponse.ok) {
+        const error = await executionsResponse.text();
+        console.error('[stop-twilio-flow] Erro ao buscar execuções:', error);
+        throw new Error('Erro ao consultar Twilio Studio');
+      }
+
+      const executionsData: any = await executionsResponse.json();
+      const matched = (executionsData.executions || []).filter(
+        (exec: any) =>
+          exec.contact_channel_address === telefone &&
+          exec.status === 'active'
+      );
+      activeExecutions.push(...matched);
+
+      // Paginação Twilio: meta.next_page_url é absoluto ou null
+      nextUrl = executionsData?.meta?.next_page_url || null;
+
+      // Otimização: se já achamos algumas e a página atual veio sem matches recentes,
+      // ainda assim continuamos por segurança até o limite de páginas.
     }
 
-    const executionsData = await executionsResponse.json();
-    console.log(`[stop-twilio-flow] Execuções encontradas: ${executionsData.executions?.length || 0}`);
+    console.log(`[stop-twilio-flow] Execuções ativas encontradas para ${telefone}: ${activeExecutions.length}`);
 
-    // 4. Encontrar execução ativa para o telefone
-    const activeExecution = executionsData.executions?.find(
-      (exec: any) => 
-        exec.contact_channel_address === telefone && 
-        exec.status === 'active'
+    if (activeExecutions.length === 0) {
+      console.log(`[stop-twilio-flow] Nenhuma execução ativa para ${telefone}`);
+      // ainda assim seguimos para desabilitar bot no banco abaixo
+    }
+
+    // 5. Encerrar TODAS execuções ativas (em paralelo)
+    const stopResults = await Promise.allSettled(
+      activeExecutions.map(async (exec: any) => {
+        const stopUrl = `https://studio.twilio.com/v2/Flows/${flowSid}/Executions/${exec.sid}`;
+        const stopResponse = await fetch(stopUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({ 'Status': 'ended' }),
+        });
+
+        if (!stopResponse.ok) {
+          const error = await stopResponse.text();
+          throw new Error(`Falha ao encerrar ${exec.sid}: ${error}`);
+        }
+
+        console.log(`[stop-twilio-flow] ✅ Execução ${exec.sid} encerrada`);
+        return exec.sid;
+      })
     );
 
-    if (!activeExecution) {
-      console.log(`[stop-twilio-flow] Nenhuma execução ativa para ${telefone}`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Nenhuma execução ativa encontrada'
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const stoppedSids = stopResults
+      .filter((r) => r.status === 'fulfilled')
+      .map((r: any) => r.value);
+    const failedStops = stopResults
+      .filter((r) => r.status === 'rejected')
+      .map((r: any) => r.reason?.message || 'erro desconhecido');
+
+    if (failedStops.length > 0) {
+      console.error('[stop-twilio-flow] Algumas execuções falharam:', failedStops);
     }
 
-    console.log(`[stop-twilio-flow] Execução ativa encontrada: ${activeExecution.sid}`);
-
-    // 5. Encerrar a execução
-    const stopUrl = `https://studio.twilio.com/v2/Flows/${flowSid}/Executions/${activeExecution.sid}`;
-    
-    const stopResponse = await fetch(stopUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ 'Status': 'ended' }),
-    });
-
-    if (!stopResponse.ok) {
-      const error = await stopResponse.text();
-      console.error('[stop-twilio-flow] Erro ao encerrar execução:', error);
-      throw new Error('Erro ao encerrar execução no Twilio');
-    }
-
-    console.log(`[stop-twilio-flow] ✅ Execução ${activeExecution.sid} encerrada`);
+    // Compatibilidade com o caller antigo: usa primeira execução como "executionSid"
+    const activeExecution = activeExecutions[0] || null;
 
     // 6. Desabilitar bot no banco de dados
     const supabase = createClient(
