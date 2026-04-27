@@ -19,7 +19,7 @@ interface AgendamentoCardProps {
 
 const statusCancelados = ['Não foi adiante', 'Perdido', 'Orçamento Não Aprovado'];
 
-const CORES_POR_STATUS: Record<string, string> = {
+const CORES_POR_STATUS_PADRAO: Record<string, string> = {
   'Em andamento': '#3B82F6',
   'Finalizado': '#6B7280',
   'Garantia': '#A855F7',
