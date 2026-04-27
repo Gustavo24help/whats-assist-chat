@@ -243,7 +243,20 @@ export const ConversationList = ({
     };
   }, [user?.id]);
 
-  // ✅ Memoizar filtros pesados para melhor performance
+  // Bookmarks (Marcar página) por operador, persistidos em localStorage
+  useEffect(() => {
+    setBookmarks(getBookmarks(user?.id));
+    const unsub = subscribeBookmarks(user?.id, () => {
+      setBookmarks(getBookmarks(user?.id));
+    });
+    return unsub;
+  }, [user?.id]);
+
+  const handleToggleBookmark = useCallback((telefone: string) => {
+    toggleBookmark(user?.id, telefone);
+  }, [user?.id]);
+
+
   const filteredClientes = useMemo(() => {
     let filtered = clientes;
 
