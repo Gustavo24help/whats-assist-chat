@@ -218,8 +218,7 @@ const Settings = () => {
               <TabsTrigger value="geral">Geral</TabsTrigger>
               {isAdmin && <TabsTrigger value="alertas">Alertas de Status</TabsTrigger>}
               {isAdmin && <TabsTrigger value="metas">Metas Diárias</TabsTrigger>}
-              {isAdmin && <TabsTrigger value="ferramentas">Ferramentas</TabsTrigger>}
-              {isAdmin && <TabsTrigger value="logs">Logs do Sistema</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="ferramentas">Ferramentas</TabsTrigger>
             </TabsList>
 
             <TabsContent value="account" className="space-y-4">
