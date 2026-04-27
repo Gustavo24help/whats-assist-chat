@@ -12,6 +12,7 @@ import {
   Users,
   Wrench,
   ClipboardList,
+  ScrollText,
   MessageSquare,
   DollarSign,
   Clock3,
@@ -111,6 +112,7 @@ const sidebarEntries: SidebarEntry[] = [
     items: [
       { label: "Configurações", icon: Settings, route: "/settings" },
       { label: "Manutenção", icon: Wrench, route: "/manutencao" },
+      { label: "Logs do Sistema", icon: ScrollText, route: "/system-logs" },
     ],
   },
 ];
