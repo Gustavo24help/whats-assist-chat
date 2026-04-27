@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Download, PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowLeft, Save, Trash2, Download, PlusCircle, ChevronDown, ChevronUp,
+  ExternalLink, CheckCircle2, AlertTriangle, XCircle, Wrench, RotateCcw, MessageSquare, Clock,
+} from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +15,31 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { PageLayout } from "@/components/PageLayout";
+import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
+
+const COMPARECIMENTO_BADGE: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
+  "Foi": { variant: "default", label: "Foi" },
+  "Atrasou": { variant: "secondary", label: "Atrasou" },
+  "Atrasou e avisou": { variant: "secondary", label: "Atrasou (avisou)" },
+  "Não foi": { variant: "destructive", label: "Não foi" },
+  "Não foi e avisou": { variant: "destructive", label: "Não foi (avisou)" },
+};
+
+const HISTORICO_ICON: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
+  comparecimento: { icon: AlertTriangle, color: "text-amber-600", label: "Comparecimento" },
+  visita_tecnica: { icon: Wrench, color: "text-blue-600", label: "Visita Técnica" },
+  servico_executado: { icon: CheckCircle2, color: "text-green-600", label: "Serviço Executado" },
+  retorno: { icon: RotateCcw, color: "text-purple-600", label: "Retorno" },
+  ocorrencia: { icon: MessageSquare, color: "text-muted-foreground", label: "Ocorrência" },
+};
+
+const formatHistoricoMeta = (item: { tipo_evento: string; dados_extras?: any; created_at: string }) => {
+  const dataEvento = item.dados_extras?.data_evento;
+  if (dataEvento) {
+    return new Date(dataEvento).toLocaleString("pt-BR");
+  }
+  return new Date(item.created_at).toLocaleString("pt-BR");
+};
 
 type Prestador = {
   cpf: string;
