@@ -8,14 +8,15 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect } from "react";
 
 const SystemLogs = () => {
-  const { isAdmin, loading } = useAuth();
+  const { user, userProfile, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
+  const aguardandoPerfil = loading || (!!user && !userProfile);
 
   useEffect(() => {
-    if (!loading && !isAdmin) {
+    if (!aguardandoPerfil && !isAdmin) {
       navigate("/settings", { replace: true });
     }
-  }, [loading, isAdmin, navigate]);
+  }, [aguardandoPerfil, isAdmin, navigate]);
 
   return (
     <PageLayout>
@@ -32,7 +33,7 @@ const SystemLogs = () => {
       </header>
 
       <main className="container mx-auto p-6">
-        {loading ? (
+        {aguardandoPerfil ? (
           <Card>
             <CardContent className="p-6">
               <p className="text-sm text-muted-foreground">Carregando...</p>
