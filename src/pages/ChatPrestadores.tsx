@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ConversationListPrestadores } from "@/components/prestador-chat/ConversationListPrestadores";
 import { ChatWindowPrestadores } from "@/components/prestador-chat/ChatWindowPrestadores";
+import { PrestadorInfoPanel } from "@/components/prestador-chat/PrestadorInfoPanel";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { LogOut, Settings, Home, Wrench } from "lucide-react";
@@ -69,15 +70,25 @@ const ChatPrestadores = () => {
         </div>
 
         {selectedPrestador ? (
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <ChatWindowPrestadores
-              key={selectedPrestador.telefone}
-              prestadorTelefone={selectedPrestador.telefone}
-              prestadorNome={selectedPrestador.nome}
-              prestadorCpf={selectedPrestador.cpf}
-              onBack={() => setSelectedPrestador(null)}
-            />
-          </div>
+          <>
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              <ChatWindowPrestadores
+                key={selectedPrestador.telefone}
+                prestadorTelefone={selectedPrestador.telefone}
+                prestadorNome={selectedPrestador.nome}
+                prestadorCpf={selectedPrestador.cpf}
+                onBack={() => setSelectedPrestador(null)}
+              />
+            </div>
+            <div className="hidden lg:flex border-l bg-background shrink-0 w-[360px] xl:w-[380px] flex-col overflow-hidden">
+              <PrestadorInfoPanel
+                key={`info-${selectedPrestador.telefone}`}
+                prestadorTelefone={selectedPrestador.telefone}
+                prestadorCpf={selectedPrestador.cpf}
+                prestadorNome={selectedPrestador.nome}
+              />
+            </div>
+          </>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-muted/20">
             <div className="text-center p-8">
