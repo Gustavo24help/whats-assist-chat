@@ -190,13 +190,19 @@ const Settings = () => {
 
   return (
     <PageLayout>
-      <header className="border-b border-border bg-card px-6 py-4">
+      <header className="border-b border-border bg-card px-6 py-4 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
           <p className="text-sm text-muted-foreground">
             Gerencie as configurações do sistema
           </p>
         </div>
+        {isAdmin && (
+          <Button variant="outline" onClick={() => navigate("/system-logs")}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Logs do Sistema
+          </Button>
+        )}
       </header>
 
       <main className="container mx-auto p-6">
