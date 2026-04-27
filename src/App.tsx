@@ -325,6 +325,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/system-logs"
+                element={
+                  <ProtectedRoute>
+                    <SystemLogs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/admin-prestador"
                 element={
                   <ProtectedRoute>
