@@ -1,52 +1,85 @@
-## Refatoração do Funil de Conversão
+## O que aconteceu (caso Gabriel Benatti — 27/04/2026)
 
-Objetivo: remover dependência de dados do Google Ads (Impressões/Cliques) e exibir um funil enxuto de 4 etapas baseado nos dados operacionais já existentes, respeitando o filtro de período do dashboard.
+Reconstruí a timeline do telefone `whatsapp:+554188338794`:
 
-### Etapas do novo funil
+```text
+15:30:15  Valentina envia "Bom dia Gabriel..."     (operadora)
+15:30:34  BOT responde "Bom dia, Gabriel! ☀️..."   ← bot ainda ATIVO
+15:31:08  BOT responde de novo
+15:31:39  Valentina DESLIGA o bot (toggle-bot-status, manual)
+15:31:40  BOT responde (1s depois do desligamento)
+15:31:54  BOT responde de novo
+15:33:13  Valentina envia "Pedimos desculpa pelas mensagens automáticas"
+15:33:20  BOT responde mais uma vez
+15:33:58  Bot é LIGADO (toggle-bot-status manual, mesmo user_id)
+15:34:04  Valentina DESLIGA novamente
+15:34:38  BOT responde de novo
+```
 
-1. **Conversas Iniciadas / FS Criadas** — usa `fsCriadas` (mesmo número de hoje, apenas relabel).
-2. **FS com Orçamento** — nova métrica `fsComOrcamento`: contagem **distinta** de fichas (criadas no período) que satisfaçam **uma das condições**:
-   - existe registro em `orcamentos` cujo `ficha_nome` = ficha.id, **OU**
-   - `fichas_de_servico.valor_total > 0` E `formulario_orcamento_data_primeiro_envio IS NOT NULL`.
-3. **Serviços Agendados (bruto)** — nova métrica `servicoAgendadoBruto`: usa `fetchFichasComEvento('Agendado', ...)` **sem** excluir status atual `Perdido` (conta todos que algum dia foram agendados, mesmo que perdidos depois).
-4. **Serviços Finalizados** — usa `servicoFinalizado` existente.
+Histórico do `bot_historico` confirma os 3 toques manuais (desligado 15:31:39, ligado 15:33:58, desligado 15:34:04 — todos pelo `executado_por_id` da Valentina).
 
-### Mudanças técnicas
+## Causas-raiz identificadas
 
-**`src/hooks/useOperationalKPIs.ts`**
-- Adicionar campos a `WindowMetrics`: `fsComOrcamento`, `servicoAgendadoBruto`.
-- Adicionar a `OperationalKPIs` (e `FALLBACK_OPERATIONAL_KPIS`) os mesmos campos + variações.
-- Em `fetchMetricsForWindow`:
-  - Continuar chamando `fetchFichasComEvento('Agendado', ..., ['Perdido'])` para **manter** `servicoAgendado` atual (usado em outras seções como `ConversionRatesSection` e funil legado).
-  - Adicionar nova chamada `fetchFichasComEvento('Agendado', ..., [])` → `servicoAgendadoBruto`.
-  - Adicionar query nova para `fsComOrcamento`:
-    1. Buscar IDs de fichas criadas no período (já temos `fsCriadasRes` via head/count — trocar para `select('id, valor_total, formulario_orcamento_data_primeiro_envio')` quando precisarmos da lista; manter o count separado para preservar `fsCriadas`).
-    2. Buscar `orcamentos.ficha_nome` no mesmo período (ou via IN nas fichas).
-    3. Aplicar regra: ficha qualifica se está em `orcamentos` OU `valor_total > 0 && formulario_orcamento_data_primeiro_envio != null`.
-    4. Contar distintos.
-- **Salvaguarda de dados**: nenhuma métrica existente é alterada — apenas adicionamos novas. `servicoAgendado` (líquido, sem Perdido) continua igual para não quebrar `ConversionRatesSection`, gráficos e KPIs operacionais.
+**1. Twilio Studio Flow tem `allow_concurrent_calls: true`**
+Cada mensagem do cliente abre uma execução paralela. Quando o operador clica em "desligar bot", a função `stop-twilio-flow` percorre apenas a PRIMEIRA execução ativa (`executions.find(...)`), não TODAS. As outras execuções já passaram pelo widget `VERIFICAR_BOT` antes do flag mudar e continuam respondendo até terminar — exatamente as 4 mensagens-fantasma após 15:31:39.
 
-**`src/components/dashboard/DashboardContent.tsx`**
-- Remover do `funnelData` os passos `impressions` e `clicks`.
-- Remover `useGoogleAdsMetrics` e `isLoadingAds` deste componente (Google Ads continua disponível na seção `GoogleAdsSection`, sem mudança).
-- Novo `funnelData` com 4 itens:
-  - `Conversas Iniciadas / FS Criadas` → `kpiData.fsCriadas`
-  - `FS com Orçamento` → `kpiData.fsComOrcamento`
-  - `Serviços Agendados` → `kpiData.servicoAgendadoBruto`
-  - `Serviços Finalizados` → `kpiData.servicoFinalizado`
-- Cores: manter paleta brand (green → yellow → coral) para preservar o visual atual.
+**2. Reativação manual sem confirmação**
+Hoje, ligar o bot via dialog "Assumir conversa" exige só um clique (já há prevenção de double-click, mas não há confirmação por palavra-chave). Desligar pede `LIGAR` digitado; ligar não pede nada. A Valentina provavelmente clicou no botão errado às 15:33:58 (estado do dialog ainda mostrava "ligar" porque ela acabara de desligar).
 
-**`src/components/dashboard/ConversionFunnel.tsx`**
-- Nenhuma mudança estrutural. O componente já é genérico e renderiza N etapas com taxa entre etapas. Apenas receberá 4 itens em vez de 5.
+**3. `stop-twilio-flow` mata 1 execução por chamada**
+Mesmo após desligar, se houver 2-3 execuções concorrentes residuais, só 1 é encerrada. As demais continuam.
 
-### Garantias de não-regressão
+**4. Sem "guarda" no flow após VERIFICAR_BOT**
+O flow consulta `bot_status` no início mas nunca reverifica antes de cada `reply_*`. Como cada execução leva alguns segundos (chamada à OpenAI, etc.), o estado pode mudar no meio.
 
-- `servicoAgendado` (líquido) **permanece intacto** → `ConversionRatesSection`, gráficos e métricas operacionais não mudam.
-- `useGoogleAdsMetrics` **não é removido** do projeto — apenas deixa de alimentar o funil. `GoogleAdsSection` continua funcionando normalmente quando os dados voltarem do Make.com.
-- Filtro de período (`period`, `customDateRange`, `comparisonMode`, `comparisonRange`) continua sendo propagado pelo hook `useOperationalKPIs`, então as 4 etapas respeitam a mesma janela.
-- Nenhuma migração de banco de dados necessária.
+## Correções propostas
 
-### Arquivos a modificar
+### Correção 1 — `stop-twilio-flow` encerra TODAS as execuções ativas
+Trocar `executions.find(...)` por `executions.filter(...)` e iterar encerrando cada uma. Continuar paginando se `meta.next_page_url` existir. Garantir que mensagem do operador silencia o bot 100%.
 
-- `src/hooks/useOperationalKPIs.ts`
-- `src/components/dashboard/DashboardContent.tsx`
+Arquivo: `supabase/functions/stop-twilio-flow/index.ts`.
+
+### Correção 2 — Confirmação ao RELIGAR o bot manualmente
+No diálogo de "Assumir conversa" (`src/components/ChatWindow.tsx` e `ChatWindowBeta.tsx`):
+- Quando o estado capturado for "bot desligado" e a ação for **religar**, exigir digitação de `LIGAR` (mesmo padrão hoje aplicado para confirmar; já existe a string "LIGAR" no dialog mas o disabled está invertido — verificar também).
+- Mostrar aviso vermelho explícito: "Religar o bot interromperá seu atendimento. Tem certeza?".
+
+Memória `mem://features/bot-security-audit-history` já documenta a regra do "LIGAR"; vamos garantir que está aplicada corretamente também ao caminho de reativação.
+
+### Correção 3 — Re-checagem do bot dentro do Twilio Studio Flow
+Antes de cada widget que envia mensagem ao cliente nas etapas mais longas (`reply_AiResponse`, `reply_AskAgain`, `msg_AskForServiceOrder`, `msg_TransferingService`), inserir nova chamada a `check-bot-status` e abortar se `disabled`. Isso fecha a janela de corrida das execuções concorrentes.
+
+> Esta etapa é uma alteração no Twilio Studio Flow (JSON `tmp/twlliodef.txt` é só referência local — a aplicação real é no Console Twilio). Vou entregar o JSON pronto e instruções de import; quem aplica é admin.
+
+### Correção 4 — Auto-detecção: operador enviou mensagem → desliga bot agressivamente
+Quando o operador envia mensagem e o bot ainda está habilitado, hoje o código pede para "Assumir Conversa". Vamos garantir que ao apertar "Assumir e desligar bot" o fluxo chame `stop-twilio-flow` (que será corrigido no item 1) **e** marque um cooldown de 60s impedindo qualquer re-ativação automática (cron `reactivate-bots-24h` ignora se `data_bot_desabilitado` < 60s).
+
+Pequena alteração em `supabase/functions/reactivate-bots-24h/index.ts` para respeitar cooldown.
+
+### Correção 5 — Auditoria: log do "antes/depois" no toggle
+Adicionar no `bot_historico.observacao` o estado anterior (`bot_habilitado_anterior`) para facilitar análise futura ("foi ligado a partir de quê?"). Pequeno ajuste em `toggle-bot-status`.
+
+## Arquivos que serão alterados
+
+| Arquivo | O que muda |
+|---|---|
+| `supabase/functions/stop-twilio-flow/index.ts` | Loop em todas execuções ativas + paginação |
+| `supabase/functions/reactivate-bots-24h/index.ts` | Cooldown de 60s após desligamento manual |
+| `supabase/functions/toggle-bot-status/index.ts` | Registrar estado anterior no histórico |
+| `src/components/ChatWindow.tsx` | Confirmação `LIGAR` para religar bot manualmente |
+| `src/components/ChatWindowBeta.tsx` | Mesma confirmação |
+| `tmp/twlliodef.txt` (referência) + entrega do JSON novo do flow | Re-checagem `check-bot-status` antes de `reply_*` (aplicado manualmente no Console Twilio) |
+
+## O que NÃO será alterado (preservação de dados)
+
+- Nenhuma migration de banco. Tabelas `clientes`, `bot_historico`, `bot_reactivation_schedule`, `mensagens` ficam intactas.
+- Triggers existentes (`schedule_bot_reactivation`, etc.) preservados.
+- Histórico antigo do bot do Gabriel Benatti continua acessível.
+- Lógica de reativação automática após 10 dias (Agendado/Visita) e 24h (outros) mantida — apenas adicionamos o cooldown.
+
+## Resultado esperado
+
+- Operador desliga o bot → todas execuções concorrentes do Twilio são encerradas em 1 chamada.
+- Mesmo se sobrar alguma, ela reverifica `bot_status` antes de responder e aborta.
+- Reativar o bot manualmente passa a exigir digitar `LIGAR`, evitando clique acidental.
+- Cron de reativação respeita cooldown de 60s, então um desligamento manual não é "engolido" por um job de 5 em 5 min.
