@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Download, PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowLeft, Save, Trash2, Download, PlusCircle, ChevronDown, ChevronUp,
+  ExternalLink, CheckCircle2, AlertTriangle, XCircle, Wrench, RotateCcw, MessageSquare, Clock,
+} from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +15,31 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { PageLayout } from "@/components/PageLayout";
+import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
+
+const COMPARECIMENTO_BADGE: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
+  "Foi": { variant: "default", label: "Foi" },
+  "Atrasou": { variant: "secondary", label: "Atrasou" },
+  "Atrasou e avisou": { variant: "secondary", label: "Atrasou (avisou)" },
+  "Não foi": { variant: "destructive", label: "Não foi" },
+  "Não foi e avisou": { variant: "destructive", label: "Não foi (avisou)" },
+};
+
+const HISTORICO_ICON: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
+  comparecimento: { icon: AlertTriangle, color: "text-amber-600", label: "Comparecimento" },
+  visita_tecnica: { icon: Wrench, color: "text-blue-600", label: "Visita Técnica" },
+  servico_executado: { icon: CheckCircle2, color: "text-green-600", label: "Serviço Executado" },
+  retorno: { icon: RotateCcw, color: "text-purple-600", label: "Retorno" },
+  ocorrencia: { icon: MessageSquare, color: "text-muted-foreground", label: "Ocorrência" },
+};
+
+const formatHistoricoMeta = (item: { tipo_evento: string; dados_extras?: any; created_at: string }) => {
+  const dataEvento = item.dados_extras?.data_evento;
+  if (dataEvento) {
+    return new Date(dataEvento).toLocaleString("pt-BR");
+  }
+  return new Date(item.created_at).toLocaleString("pt-BR");
+};
 
 type Prestador = {
   cpf: string;
@@ -39,6 +67,8 @@ type PrestadorHistoricoItem = {
   tipo_evento: string;
   descricao: string;
   created_at: string;
+  ficha_id: string | null;
+  dados_extras: any;
 };
 
 type ServicoDetalhado = {
@@ -51,6 +81,7 @@ type ServicoDetalhado = {
   data_finalizacao: string | null;
   data_pagamento_prestador: string | null;
   status: string | null;
+  comparecimento_prestador: string | null;
 };
 
 const sanitizeNumericField = (value: string | null): string | null => {
@@ -88,6 +119,7 @@ const PrestadorDetalhes = () => {
   const navigate = useNavigate();
   const { cpf } = useParams();
   const { toast } = useToast();
+  const { getLinkHandlers } = useOpenInNewTab();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,10 +177,10 @@ const PrestadorDetalhes = () => {
   const fetchHistorico = useCallback(async (prestadorCpf: string) => {
     const { data, error } = await supabase
       .from("prestador_historico")
-      .select("id, tipo_evento, descricao, created_at")
+      .select("id, tipo_evento, descricao, created_at, ficha_id, dados_extras")
       .eq("prestador_cpf", prestadorCpf)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(200);
 
     if (error) {
       toast({
@@ -168,7 +200,7 @@ const PrestadorDetalhes = () => {
     // Buscar fichas do prestador
     const { data: fichas, error: fichasError } = await supabase
       .from("fichas_de_servico")
-      .select("id, nome_ficha, valor_mao_obra, valor_pecas, bairro, horario_agendamento, status")
+      .select("id, nome_ficha, valor_mao_obra, valor_pecas, bairro, horario_agendamento, status, comparecimento_prestador")
       .eq("prestador_id", prestadorCpf)
       .order("created_at", { ascending: false });
 
@@ -208,7 +240,7 @@ const PrestadorDetalhes = () => {
       pagamentoMap.set(t.ficha_id, t.data_pagamento_realizada);
     });
 
-    const result: ServicoDetalhado[] = fichas.map((f) => ({
+    const result: ServicoDetalhado[] = fichas.map((f: any) => ({
       ficha_id: f.id,
       nome_ficha: f.nome_ficha,
       valor_mao_obra: f.valor_mao_obra,
@@ -218,6 +250,7 @@ const PrestadorDetalhes = () => {
       data_finalizacao: finalizacaoMap.get(f.id) || null,
       data_pagamento_prestador: pagamentoMap.get(f.id) || null,
       status: f.status,
+      comparecimento_prestador: f.comparecimento_prestador ?? null,
     }));
 
     setServicos(result);
@@ -556,53 +589,72 @@ const PrestadorDetalhes = () => {
                       <TableRow>
                         <TableHead>Ficha</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Comparecimento</TableHead>
                         <TableHead className="text-right">Mão de Obra</TableHead>
                         <TableHead className="text-right">Material</TableHead>
                         <TableHead>Bairro</TableHead>
                         <TableHead>Data Agendamento</TableHead>
                         <TableHead>Data Finalização</TableHead>
                         <TableHead>Data Pgto Prestador</TableHead>
+                        <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {servicos.map((s) => (
-                        <TableRow key={s.ficha_id}>
-                          <TableCell className="font-medium">
-                            {s.nome_ficha || s.ficha_id}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={
-                              s.status === "Finalizado" ? "default" :
-                              s.status === "Perdido" ? "destructive" :
-                              "secondary"
-                            }>
-                              {s.status || "-"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {s.valor_mao_obra != null ? `R$ ${Number(s.valor_mao_obra).toFixed(2)}` : "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {s.valor_pecas != null ? `R$ ${Number(s.valor_pecas).toFixed(2)}` : "-"}
-                          </TableCell>
-                          <TableCell>{s.bairro || "-"}</TableCell>
-                          <TableCell>
-                            {s.horario_agendamento
-                              ? new Date(s.horario_agendamento).toLocaleDateString("pt-BR")
-                              : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {s.data_finalizacao
-                              ? new Date(s.data_finalizacao).toLocaleDateString("pt-BR")
-                              : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {s.data_pagamento_prestador
-                              ? new Date(s.data_pagamento_prestador).toLocaleDateString("pt-BR")
-                              : <span className="text-muted-foreground">Pendente</span>}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {servicos.map((s) => {
+                        const linkHandlers = getLinkHandlers(`/ficha/${encodeURIComponent(s.ficha_id)}`);
+                        const comp = s.comparecimento_prestador
+                          ? COMPARECIMENTO_BADGE[s.comparecimento_prestador] || { variant: "outline" as const, label: s.comparecimento_prestador }
+                          : null;
+                        return (
+                          <TableRow
+                            key={s.ficha_id}
+                            {...linkHandlers}
+                            className="cursor-pointer hover:bg-muted/40"
+                            title="Abrir ficha em nova aba"
+                          >
+                            <TableCell className="font-medium">
+                              {s.nome_ficha || s.ficha_id}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={
+                                s.status === "Finalizado" ? "default" :
+                                s.status === "Perdido" ? "destructive" :
+                                "secondary"
+                              }>
+                                {s.status || "-"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {comp ? <Badge variant={comp.variant}>{comp.label}</Badge> : <span className="text-muted-foreground text-xs">—</span>}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {s.valor_mao_obra != null ? `R$ ${Number(s.valor_mao_obra).toFixed(2)}` : "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {s.valor_pecas != null ? `R$ ${Number(s.valor_pecas).toFixed(2)}` : "-"}
+                            </TableCell>
+                            <TableCell>{s.bairro || "-"}</TableCell>
+                            <TableCell>
+                              {s.horario_agendamento
+                                ? new Date(s.horario_agendamento).toLocaleDateString("pt-BR")
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {s.data_finalizacao
+                                ? new Date(s.data_finalizacao).toLocaleDateString("pt-BR")
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {s.data_pagamento_prestador
+                                ? new Date(s.data_pagamento_prestador).toLocaleDateString("pt-BR")
+                                : <span className="text-muted-foreground">Pendente</span>}
+                            </TableCell>
+                            <TableCell>
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -636,19 +688,39 @@ const PrestadorDetalhes = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {historico.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum evento no histórico.</p>
               ) : (
-                historico.map((item) => (
-                  <div key={item.id} className="rounded-lg border p-3">
-                    <p className="text-sm font-medium uppercase text-muted-foreground">{item.tipo_evento}</p>
-                    <p className="mt-1 text-sm">{item.descricao}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {new Date(item.created_at).toLocaleString("pt-BR")}
-                    </p>
-                  </div>
-                ))
+                historico.map((item) => {
+                  const cfg = HISTORICO_ICON[item.tipo_evento] || { icon: Clock, color: "text-muted-foreground", label: item.tipo_evento };
+                  const Icon = cfg.icon;
+                  const fichaLink = item.ficha_id ? getLinkHandlers(`/ficha/${encodeURIComponent(item.ficha_id)}`) : null;
+                  return (
+                    <div key={item.id} className="rounded-lg border p-3 flex gap-3">
+                      <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${cfg.color}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {cfg.label}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatHistoricoMeta(item)}
+                          </p>
+                        </div>
+                        <p className="mt-1 text-sm">{item.descricao}</p>
+                        {fichaLink && (
+                          <button
+                            {...fichaLink}
+                            className="mt-1 text-xs text-primary inline-flex items-center gap-1 hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Abrir ficha
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </CardContent>
