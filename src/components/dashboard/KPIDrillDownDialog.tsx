@@ -290,7 +290,7 @@ export const KPIDrillDownDialog = ({
                       </td>
                       <td className="p-2 border-t text-center">
                         <Link
-                          to={`/fichas/${r.ficha_id}`}
+                          to={`/ficha/${r.ficha_id}`}
                           target="_blank"
                           className="inline-flex items-center text-muted-foreground hover:text-foreground"
                           title="Abrir ficha"
