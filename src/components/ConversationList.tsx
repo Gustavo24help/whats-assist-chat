@@ -92,6 +92,12 @@ export const ConversationList = ({
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
   const isFirstLoadRef = useRef(true);
+
+  // ⚡ Performance: coalescer chamadas de refresh disparadas por eventos Realtime
+  // (evita travamento/"tela branca" quando há rajadas de mensagens/atualizações)
+  const refreshScheduledRef = useRef(false);
+  const lastRefreshAtRef = useRef(0);
+  const REFRESH_MIN_INTERVAL_MS = 4000; // no máximo 1 refresh a cada 4s vindo de Realtime
   
   // 🆕 Rastrear orçamentos recém-chegados
   const [recentOrcamentoFichas, setRecentOrcamentoFichas] = useState<Set<string>>(new Set());
@@ -145,13 +151,30 @@ export const ConversationList = ({
     };
     
     loadInitialData();
-    
+
+    // ⚡ Coalescer rajadas de eventos Realtime em no máximo 1 fetch a cada REFRESH_MIN_INTERVAL_MS.
+    // Antes: cada INSERT/UPDATE em `mensagens` (tabela com 50k+ linhas) disparava um fetchClientes
+    // completo (1500 clientes + 1000 mensagens + fichas + orçamentos), enfileirando dezenas de
+    // execuções por minuto e travando a UI ("tela branca") em sessões longas.
+    const scheduleClientesRefresh = () => {
+      const now = Date.now();
+      const elapsed = now - lastRefreshAtRef.current;
+      if (refreshScheduledRef.current) return;
+      const wait = elapsed >= REFRESH_MIN_INTERVAL_MS ? 0 : REFRESH_MIN_INTERVAL_MS - elapsed;
+      refreshScheduledRef.current = true;
+      window.setTimeout(() => {
+        refreshScheduledRef.current = false;
+        lastRefreshAtRef.current = Date.now();
+        fetchClientes();
+      }, wait);
+    };
+
     const channel = supabase
       .channel('clientes-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'clientes' },
-        () => fetchClientes()
+        () => scheduleClientesRefresh()
       )
       .subscribe();
 
@@ -173,12 +196,14 @@ export const ConversationList = ({
       )
       .subscribe();
 
+    // ⚡ Apenas INSERT em `mensagens` aciona refresh — UPDATEs (status de entrega/leitura
+    // do Twilio) são muito frequentes e não alteram a lista de conversas.
     const mensagensChannel = supabase
       .channel('chat-mensagens-unread-classic')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'mensagens' },
-        () => fetchClientes()
+        { event: 'INSERT', schema: 'public', table: 'mensagens' },
+        () => scheduleClientesRefresh()
       )
       .subscribe();
 
