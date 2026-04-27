@@ -477,7 +477,7 @@ export const ConversationListBeta = ({
     // Manter ordem original do banco (ultima_interacao DESC)
 
     return filtered;
-  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, showAguardandoRespostaOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS, externalSelectedOperadorId]);
+  }, [clientes, debouncedSearchTerm, searchMode, effectiveStatusFilter, effectiveConversaFilter, effectiveUnreadFilter, effectiveBotFilter, effectiveFichaFilter, effectivePagamentoFilter, effectiveSelectedTags, effectiveShowBotDisabledOnly, showServicosParaFinalizarOnly, showAguardandoRespostaOnly, clientesTelefonesPorPrestador, clientesTelefonesPorFicha, clientesTelefonesPorIdFicha, clientesTelefonesPorMensagem, clientesComServicoParaFinalizar, clientesSemOrcamento, unreadMessages, user, isSupervisor, effectiveTicketView, effectiveConversaStatusFilter, STATUS_INATIVOS, externalSelectedOperadorId, showBookmarked, bookmarks]);
 
   // Contagem de conversas não lidas (para os botões) — fonte única: snapshot
   const unreadCount = useMemo(() => {
