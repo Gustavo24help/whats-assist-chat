@@ -20,6 +20,7 @@ import { DailyGoalsManager } from "@/components/DailyGoalsManager";
 import { StatusAlertSettings } from "@/components/StatusAlertSettings";
 import { getSameTabPreference, setSameTabPreference } from "@/hooks/useOpenInNewTab";
 import { PageLayout } from "@/components/PageLayout";
+import { SystemLogsViewer } from "@/components/SystemLogsViewer";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -218,6 +219,7 @@ const Settings = () => {
               {isAdmin && <TabsTrigger value="alertas">Alertas de Status</TabsTrigger>}
               {isAdmin && <TabsTrigger value="metas">Metas Diárias</TabsTrigger>}
               {isAdmin && <TabsTrigger value="ferramentas">Ferramentas</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="logs">Logs do Sistema</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="account" className="space-y-4">
@@ -479,6 +481,12 @@ const Settings = () => {
           {isAdmin && (
             <TabsContent value="ferramentas" className="space-y-4">
               <FerramentasManutencao />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="logs" className="space-y-4">
+              <SystemLogsViewer />
             </TabsContent>
           )}
           </Tabs>
