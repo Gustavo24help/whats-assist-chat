@@ -434,6 +434,7 @@ export const ChatWindowPrestadores = ({
         <div className="lg:hidden">
           <FichaVinculoSelector prestadorTelefone={prestadorTelefone} />
         </div>
+      </div>
 
       {/* Ficha selector with search */}
       {fichasAtivas.length > 0 && (
