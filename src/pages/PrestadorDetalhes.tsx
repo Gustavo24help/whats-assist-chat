@@ -67,6 +67,8 @@ type PrestadorHistoricoItem = {
   tipo_evento: string;
   descricao: string;
   created_at: string;
+  ficha_id: string | null;
+  dados_extras: any;
 };
 
 type ServicoDetalhado = {
@@ -79,6 +81,7 @@ type ServicoDetalhado = {
   data_finalizacao: string | null;
   data_pagamento_prestador: string | null;
   status: string | null;
+  comparecimento_prestador: string | null;
 };
 
 const sanitizeNumericField = (value: string | null): string | null => {
