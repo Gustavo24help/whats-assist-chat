@@ -2363,6 +2363,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
               {/* 🔒 Usar botStatusNoDialog ao invés de botDesabilitado para evitar race condition */}
               {botStatusNoDialog ? (
                 <div className="space-y-4">
+                  <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    <strong>Atenção:</strong> ao reativar o bot, o atendimento humano será interrompido e o cliente voltará a receber respostas automáticas. Confirme apenas se quiser realmente devolver a conversa para o bot.
+                  </div>
                   <p>Deseja reativar o bot automático para este cliente?</p>
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-destructive">
