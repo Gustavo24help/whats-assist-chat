@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { calcularEstadoAgendamento, type AgendamentoData, type TipoSlot } from "@/lib/calcularEstadoAgendamento";
 import { formatJanela, getJanelaHorario, type HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { format } from "date-fns";
+import { carregarCoresStatus, type CoresStatusMap } from "@/lib/calendarioStatusCores";
 
 interface AgendamentoCardProps {
   ficha: any;
