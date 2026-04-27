@@ -10,12 +10,14 @@ import { CalendarioSemanal } from "@/components/calendario/CalendarioSemanal";
 import { CalendarioDiario } from "@/components/calendario/CalendarioDiario";
 import { AgendamentoDetalhesModal } from "@/components/calendario/AgendamentoDetalhesModal";
 import { Logo } from "@/components/Logo";
-import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, Palette } from "lucide-react";
 import { addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { PageLayout } from "@/components/PageLayout";
+import { EditarCoresStatusModal } from "@/components/calendario/EditarCoresStatusModal";
+import { carregarCoresStatus, type CoresStatusMap } from "@/lib/calendarioStatusCores";
 
 const tiposAgendamento = [
   { value: 'all', label: 'Todos' },
@@ -54,6 +56,17 @@ export default function Calendario() {
   const [visaoHorario, setVisaoHorario] = useState<HorarioContexto>('cliente');
   const [filtroStatus, setFiltroStatus] = useState<string[]>([...STATUS_VALUES]);
   const [mostrarVisitaHistorica, setMostrarVisitaHistorica] = useState<boolean>(true);
+  const [coresStatus, setCoresStatus] = useState<CoresStatusMap>(() => carregarCoresStatus());
+  const [editarCoresOpen, setEditarCoresOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as CoresStatusMap | undefined;
+      setCoresStatus(detail || carregarCoresStatus());
+    };
+    window.addEventListener("calendario:cores-atualizadas", handler);
+    return () => window.removeEventListener("calendario:cores-atualizadas", handler);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -158,6 +171,10 @@ export default function Calendario() {
           <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
+        <Button variant="outline" size="sm" onClick={() => setEditarCoresOpen(true)} className="ml-2">
+          <Palette className="h-4 w-4 mr-1" />
+          Cores
+        </Button>
       </header>
 
       <main className="flex-1 p-4 space-y-4">
@@ -216,6 +233,7 @@ export default function Calendario() {
           <span className="text-muted-foreground font-medium mr-1">Status:</span>
           {STATUS_CALENDARIO.map(s => {
             const active = filtroStatus.includes(s.value);
+            const cor = coresStatus[s.value] || s.cor;
             return (
               <button
                 key={s.value}
@@ -229,7 +247,7 @@ export default function Calendario() {
                 title={active ? `Ocultar ${s.label}` : `Mostrar ${s.label}`}
               >
                 <Checkbox checked={active} className="h-3 w-3 pointer-events-none" />
-                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: s.cor }} />
+                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: cor }} />
                 <span>{s.label}</span>
                 <span className="font-bold">({contadoresStatus[s.value] || 0})</span>
               </button>
@@ -246,7 +264,7 @@ export default function Calendario() {
             title="Mostrar/ocultar visitas técnicas já realizadas"
           >
             <Checkbox checked={mostrarVisitaHistorica} className="h-3 w-3 pointer-events-none" />
-            <div className="w-3 h-3 rounded-sm border border-dashed border-foreground/40" style={{ backgroundColor: '#FBBF24' }} />
+            <div className="w-3 h-3 rounded-sm border border-dashed border-foreground/40" style={{ backgroundColor: coresStatus['Visita Técnica'] || '#FBBF24' }} />
             <span>Visita Técnica (histórico)</span>
           </button>
           <div className="flex gap-1 ml-auto">
@@ -284,6 +302,12 @@ export default function Calendario() {
         open={!!selectedFicha}
         onClose={() => setSelectedFicha(null)}
         onSaved={fetchData}
+      />
+
+      <EditarCoresStatusModal
+        open={editarCoresOpen}
+        onOpenChange={setEditarCoresOpen}
+        statusList={STATUS_CALENDARIO.map(s => ({ value: s.value, label: s.label }))}
       />
     </PageLayout>
   );
