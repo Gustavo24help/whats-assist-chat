@@ -237,28 +237,36 @@ export const ExportReportSection = () => {
     try {
       const range = getDateRange();
       
-      // Buscar fichas - sem filtro de pagamento aqui (será filtrado depois via transações)
-      let query = supabase
-        .from("fichas_de_servico")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Buscar fichas paginadas (até 5.000 linhas) — Supabase limita a 1.000/req por padrão
+      const MAX_EXPORT_ROWS = 5000;
+      const PAGE_SIZE = 1000;
+      const buildBaseQuery = () => {
+        let q = supabase
+          .from("fichas_de_servico")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      // Filtro de período
-      if (range.from) {
-        query = query.gte("created_at", range.from.toISOString());
+        if (range.from) q = q.gte("created_at", range.from.toISOString());
+        if (range.to) q = q.lte("created_at", range.to.toISOString());
+        if (selectedStatus !== "todos") q = q.eq("status", selectedStatus as any);
+        return q;
+      };
+
+      const fichas: any[] = [];
+      let truncated = false;
+      for (let from = 0; from < MAX_EXPORT_ROWS; from += PAGE_SIZE) {
+        const to = Math.min(from + PAGE_SIZE - 1, MAX_EXPORT_ROWS - 1);
+        const { data: page, error: pageError } = await buildBaseQuery().range(from, to);
+        if (pageError) throw pageError;
+        if (!page || page.length === 0) break;
+        fichas.push(...page);
+        if (page.length < (to - from + 1)) break;
+        if (fichas.length >= MAX_EXPORT_ROWS) {
+          truncated = true;
+          break;
+        }
       }
-      if (range.to) {
-        query = query.lte("created_at", range.to.toISOString());
-      }
 
-      // Filtro de status
-      if (selectedStatus !== "todos") {
-        query = query.eq("status", selectedStatus as any);
-      }
-
-      const { data: fichas, error: fichasError } = await query;
-
-      if (fichasError) throw fichasError;
       if (!fichas || fichas.length === 0) {
         toast.warning("Nenhuma ficha encontrada com os filtros selecionados");
         setIsExporting(false);
@@ -272,21 +280,52 @@ export const ExportReportSection = () => {
 
       // Buscar categorias, prestadores, histórico e transações em paralelo
       const needsFinanceiro = selectedColumns.some(c => c.startsWith("fin_")) || selectedPagamento !== "todos";
-      
-      const [categoriasResult, prestadoresResult, historicoResult, transacoesResult] = await Promise.all([
-        categoriaIds.length > 0 
+
+      // Helper: busca em chunks por .in() + paginação interna para superar o limite de 1.000 do Supabase
+      const fetchInChunksPaginated = async <T,>(
+        table: string,
+        select: string,
+        column: string,
+        ids: (string | number)[],
+        order?: { column: string; ascending: boolean },
+      ): Promise<T[]> => {
+        const CHUNK = 500;
+        const PAGE = 1000;
+        const all: T[] = [];
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const slice = ids.slice(i, i + CHUNK);
+          let from = 0;
+          while (true) {
+            let q: any = supabase.from(table as any).select(select).in(column, slice as any);
+            if (order) q = q.order(order.column, { ascending: order.ascending });
+            const { data, error } = await q.range(from, from + PAGE - 1);
+            if (error) throw error;
+            if (!data || data.length === 0) break;
+            all.push(...(data as T[]));
+            if (data.length < PAGE) break;
+            from += PAGE;
+          }
+        }
+        return all;
+      };
+
+      const [categoriasResult, prestadoresResult, historicoData, transacoesData] = await Promise.all([
+        categoriaIds.length > 0
           ? supabase.from("categorias").select("id, nome").in("id", categoriaIds)
-          : { data: [] },
+          : Promise.resolve({ data: [] as any[] }),
         prestadorIds.length > 0
           ? supabase.from("prestadores").select("cpf, nome").in("cpf", prestadorIds)
-          : { data: [] },
-        selectedColumns.includes("historico_status")
-          ? supabase.from("ficha_status_historico").select("*").in("ficha_id", fichaIds).order("data_inicio", { ascending: true })
-          : { data: [] },
-        needsFinanceiro
-          ? supabase.from("transacoes_financeiras").select("*").in("ficha_id", fichaIds)
-          : { data: [] }
+          : Promise.resolve({ data: [] as any[] }),
+        selectedColumns.includes("historico_status") && fichaIds.length > 0
+          ? fetchInChunksPaginated<any>("ficha_status_historico", "*", "ficha_id", fichaIds, { column: "data_inicio", ascending: true })
+          : Promise.resolve([] as any[]),
+        needsFinanceiro && fichaIds.length > 0
+          ? fetchInChunksPaginated<any>("transacoes_financeiras", "*", "ficha_id", fichaIds)
+          : Promise.resolve([] as any[]),
       ]);
+
+      const historicoResult = { data: historicoData as any[] };
+      const transacoesResult = { data: transacoesData as any[] };
 
       const categoriasMap = new Map((categoriasResult.data || []).map(c => [c.id, c.nome]));
       const prestadoresMap = new Map((prestadoresResult.data || []).map(p => [p.cpf, p.nome]));
@@ -405,6 +444,9 @@ export const ExportReportSection = () => {
       document.body.removeChild(link);
 
       toast.success(`${fichasFiltradas.length} fichas exportadas com sucesso!`);
+      if (truncated) {
+        toast.warning("Exportação limitada a 5.000 linhas. Refine os filtros para incluir registros mais antigos.");
+      }
     } catch (error) {
       console.error("Erro ao exportar:", error);
       toast.error("Erro ao exportar relatório");
