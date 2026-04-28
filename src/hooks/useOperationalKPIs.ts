@@ -526,33 +526,63 @@ async function fetchMetricsForWindow(
     0,
   );
 
-  // Transações pagas no período
-  const transacoesPagas =
-    (transacoesPagasRes.data as Array<{
-      valor_a_pagar_prestador: number | null;
-      valor_cliente_final: number | null;
-      valor_lucro_bruto: number | null;
-    }>) || [];
-  const pagoAoPrestador = transacoesPagas.length;
-  const valorPagoPrestadores = transacoesPagas.reduce(
-    (sum, t) => sum + Number(t.valor_a_pagar_prestador ?? 0),
-    0,
+  // ===== KPIs Financeiros (nova regra) =====
+  // Vinculamos pelo MÊS DA FICHA (created_at) — não pela data do repasse.
+  // Considera fichas com status financeiramente válido: Finalizado, Garantia, Retorno.
+  // (exclui Perdido, Ficha Criada, Visita Técnica, Agendado, etc.)
+  //
+  //   Pago a Prestadores  = Σ valor_a_pagar_prestador (todas as transações da ficha)
+  //   Líquido 24help      = Σ valor_total da FS − Pago a Prestadores − Σ valor_material
+  //                         (apenas quando a transação tem material_pago_24help = true)
+  //   % Take Rate 24help  = Líquido 24help / Σ valor_total das FS × 100
+  const STATUS_FINANCEIROS = new Set(['Finalizado', 'Garantia', 'Retorno']);
+  const fichasFinanceiras = fichasNoPeriodo.filter((f) =>
+    STATUS_FINANCEIROS.has(f.status || ''),
   );
-  // Líquido 24help = valor cliente final - valor pago ao prestador
-  // (equivale ao valor_lucro_bruto, mas calculamos a partir dos campos brutos
-  // como fallback caso lucro_bruto não esteja preenchido em alguma transação).
-  const valorLiquido24help = transacoesPagas.reduce((sum, t) => {
-    const lucro = t.valor_lucro_bruto;
-    if (lucro != null) return sum + Number(lucro);
-    return (
-      sum +
-      Number(t.valor_cliente_final ?? 0) -
-      Number(t.valor_a_pagar_prestador ?? 0)
+
+  let valorPagoPrestadores = 0;
+  let somaValorMaterial24help = 0;
+  let pagoAoPrestador = 0; // count de transações encontradas
+  let somaValorTotalFichasFinanceiras = 0;
+
+  if (fichasFinanceiras.length > 0) {
+    somaValorTotalFichasFinanceiras = fichasFinanceiras.reduce(
+      (s, f) => s + Number(f.valor_total ?? 0),
+      0,
     );
-  }, 0);
+
+    const fichaIds = fichasFinanceiras.map((f) => f.id);
+    const chunkSize = 200;
+    for (let i = 0; i < fichaIds.length; i += chunkSize) {
+      const chunk = fichaIds.slice(i, i + chunkSize);
+      const r = await supabase
+        .from('transacoes_financeiras')
+        .select('ficha_id, valor_a_pagar_prestador, valor_material, material_pago_24help')
+        .in('ficha_id', chunk);
+      const txs = (r.data as Array<{
+        ficha_id: string | null;
+        valor_a_pagar_prestador: number | null;
+        valor_material: number | null;
+        material_pago_24help: boolean | null;
+      }>) || [];
+      for (const t of txs) {
+        valorPagoPrestadores += Number(t.valor_a_pagar_prestador ?? 0);
+        if (t.material_pago_24help) {
+          somaValorMaterial24help += Number(t.valor_material ?? 0);
+        }
+        pagoAoPrestador += 1;
+      }
+    }
+  }
+
+  const valorLiquido24help =
+    somaValorTotalFichasFinanceiras - valorPagoPrestadores - somaValorMaterial24help;
+  // % Take Rate 24help = Líquido / Valor total das FS × 100
+  // (mantemos o campo `margemBruta24help` no payload para compatibilidade
+  // com consumidores existentes — o card foi renomeado na UI.)
   const margemBruta24help =
-    valorPagoPrestadores > 0
-      ? Number(((valorLiquido24help / valorPagoPrestadores) * 100).toFixed(1))
+    somaValorTotalFichasFinanceiras > 0
+      ? Number(((valorLiquido24help / somaValorTotalFichasFinanceiras) * 100).toFixed(1))
       : 0;
 
   // Total de orçamentos enviados no período (linhas em `orcamentos`)
