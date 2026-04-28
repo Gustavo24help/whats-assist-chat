@@ -3060,6 +3060,14 @@ export type Database = {
         Args: { p_user1: string; p_user2: string }
         Returns: string
       }
+      get_unread_cliente_msgs: {
+        Args: { _read_map: Json; _telefones: string[] }
+        Returns: {
+          cliente_id: string
+          total_nao_lidas: number
+          ultima_data: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
