@@ -1023,36 +1023,57 @@ export const ConversationListBeta = ({
         });
       }
 
-      // ✅ Buscar TODAS as mensagens de CLIENTE por telefone para contar não lidas
-      // Mensagens do cliente podem ter remetente='cliente' (legado) OU tipo_remetente='cliente' (webhook/Twilio)
-      const mensagensClienteLegado = await chunkedIn(
-        'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
-        (q) => q.eq('remetente', 'cliente'),
-        'data_hora'
-      );
-      const mensagensClienteTipo = await chunkedIn(
-        'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
-        (q) => q.eq('tipo_remetente', 'cliente'),
-        'data_hora'
-      );
-
-      // Map: cliente_id -> { lastDate, allDates[] (deduplicated) }
+      // ✅ Agregação server-side via RPC (contorna o limite de 1000 do PostgREST).
+      // Antes: duas queries SELECT que truncavam em 1000 linhas → operadores com last_read_at
+      // antigo nunca viam mensagens novas (a "última msg" retornada era anterior ao last_read_at).
+      // Agora a função SQL devolve por telefone: ultima_data + total_nao_lidas (após last_read_at).
       const ultimaMsgClienteMap = new Map<string, string>();
-      const todasMsgsClienteMap = new Map<string, Set<string>>();
-      [...(mensagensClienteLegado || []), ...(mensagensClienteTipo || [])].forEach(msg => {
-        // Latest date
-        const existing = ultimaMsgClienteMap.get(msg.cliente_id);
-        if (!existing || new Date(msg.data_hora) > new Date(existing)) {
-          ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
-        }
-        // Dedupe by exact data_hora to avoid double-counting messages that match BOTH remetente AND tipo_remetente filters
-        let set = todasMsgsClienteMap.get(msg.cliente_id);
-        if (!set) {
-          set = new Set<string>();
-          todasMsgsClienteMap.set(msg.cliente_id, set);
-        }
-        set.add(msg.data_hora);
+      const unreadCountByTelefone = new Map<string, number>();
+      const readMapPayload: Record<string, string | null> = {};
+      operatorReadMap.forEach((v, telefone) => {
+        readMapPayload[telefone] = v.last_read_at;
       });
+      try {
+        const { data: aggData, error: aggError } = await (supabase as any).rpc(
+          'get_unread_cliente_msgs',
+          { _telefones: telefones, _read_map: readMapPayload }
+        );
+        if (aggError) throw aggError;
+        (aggData || []).forEach((row: any) => {
+          if (row.ultima_data) ultimaMsgClienteMap.set(row.cliente_id, row.ultima_data);
+          unreadCountByTelefone.set(row.cliente_id, row.total_nao_lidas || 0);
+        });
+      } catch (rpcErr) {
+        console.error('[ConversationListBeta] RPC get_unread_cliente_msgs falhou, usando fallback chunked:', rpcErr);
+        // Fallback (mantém comportamento anterior, mesmo que truncado, para não piorar a UX em caso de falha da RPC)
+        const mensagensClienteLegado = await chunkedIn(
+          'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
+          (q) => q.eq('remetente', 'cliente'),
+          'data_hora'
+        );
+        const mensagensClienteTipo = await chunkedIn(
+          'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
+          (q) => q.eq('tipo_remetente', 'cliente'),
+          'data_hora'
+        );
+        const dedupePorTelefone = new Map<string, Set<string>>();
+        [...(mensagensClienteLegado || []), ...(mensagensClienteTipo || [])].forEach((msg: any) => {
+          const existing = ultimaMsgClienteMap.get(msg.cliente_id);
+          if (!existing || new Date(msg.data_hora) > new Date(existing)) {
+            ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
+          }
+          let set = dedupePorTelefone.get(msg.cliente_id);
+          if (!set) { set = new Set<string>(); dedupePorTelefone.set(msg.cliente_id, set); }
+          set.add(msg.data_hora);
+        });
+        dedupePorTelefone.forEach((set, telefone) => {
+          const ref = operatorReadMap.get(telefone)?.last_read_at;
+          const count = ref
+            ? Array.from(set).filter(d => d > ref).length
+            : set.size;
+          unreadCountByTelefone.set(telefone, count);
+        });
+      }
 
       // ✅ Combinar tudo SEM QUERIES EXTRAS
       const clientesComFicha = clientesData.map(cliente => {
@@ -1104,24 +1125,19 @@ export const ConversationListBeta = ({
         //   senão  → não lido se existir mensagem do cliente após last_read_at
         const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
-        const allClientMsgDates = todasMsgsClienteMap.get(cliente.telefone);
+        const unreadFromMsgs = unreadCountByTelefone.get(cliente.telefone) ?? 0;
         let perOperatorUnread = false;
         let unreadCountReal = 0;
 
         if (readRecord?.manual_unread === true) {
           perOperatorUnread = true;
-          // Conta só msgs após last_read_at (se houver). Caso contrário 0 → mostra "•".
-          const ref = readRecord.last_read_at;
-          unreadCountReal = ref && allClientMsgDates
-            ? Array.from(allClientMsgDates).filter(d => d > ref).length
-            : 0;
+          // Pode ser 0 → ConversationCard mostra "•" para indicar marcação manual.
+          unreadCountReal = unreadFromMsgs;
         } else if (lastClientMsg) {
           const lastReadAt = readRecord?.last_read_at ?? null;
           if (!lastReadAt || new Date(lastClientMsg) > new Date(lastReadAt)) {
             perOperatorUnread = true;
-            unreadCountReal = allClientMsgDates
-              ? Array.from(allClientMsgDates).filter(d => !lastReadAt || d > lastReadAt).length
-              : 0;
+            unreadCountReal = unreadFromMsgs;
           }
         }
 

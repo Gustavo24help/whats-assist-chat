@@ -1,85 +1,127 @@
+## Problema
 
-## Diagnóstico atual
+Para alguns operadores, conversas com mensagem nova **não exibem a bolinha de não lido**, mas a notificação (toast + som) aparece normalmente. Isso só acontece com quem tem histórico antigo de leitura registrado em `mensagem_leitura_operador`.
 
-Hoje, no dashboard, os 3 cards usam a tabela `transacoes_financeiras` filtrando por `data_pagamento_realizada` (data em que a 24help pagou o prestador) dentro da janela do dashboard. Resultado: enquanto o repasse não é feito, o KPI fica zerado — mesmo com a ficha já finalizada e paga pelo cliente. Além disso, há um erro paralelo na consulta de `orcamentos` (colunas inexistentes) que está derrubando todo o `Promise.all` e zerando ainda mais cards. Vou consertar tudo no mesmo passe.
+## Causa raiz
 
-## Regras de negócio (suas, reescritas para confirmação)
+Em `src/components/ConversationListBeta.tsx`, o cálculo de "não lido" (linhas 1011–1126) depende de duas queries que buscam **todas** as mensagens dos clientes (`tipo_remetente='cliente'` e `remetente='cliente'`):
 
-Para cada **ficha** dentro da janela do dashboard (período = mês da ficha, definido pelo `created_at` da ficha — mesma regra já usada em "Operational KPIs"), considerando apenas fichas em status financeiramente válido (`Finalizado`, `Garantia`, `Retorno` — exclui `Perdido`):
-
-- **Pago a Prestadores** = soma de `valor_a_pagar_prestador` da `transacoes_financeiras` vinculada à ficha. Não depende mais de `status_pagamento_prestador = 'pago'` nem de `data_pagamento_realizada` — basta a transação existir vinculada à ficha do mês.
-- **Líquido 24help** = `valor_total` (FS) − `valor_a_pagar_prestador` − (`valor_material` **se** `material_pago_24help = true`).
-- **% Take Rate 24help** = `Líquido 24help / Σ valor_total das fichas × 100`. Renomear o card de "Margem Bruta 24help" para **"% Take Rate 24help"**.
-
-Tooltip novo do Take Rate: "Quanto a 24help retém sobre o valor total faturado nas fichas do período (Líquido 24help ÷ Valor total das FS)."
-
-## Plano de implementação
-
-### 1. Corrigir a fonte de dados em `src/hooks/useOperationalKPIs.ts`
-
-Substituir a branch `transacoesPagasRes` (linhas ~412–424) por uma busca que:
-- Pega as fichas do período (mesma lista já usada em `fichasNoPeriodoRes`) — incluindo `valor_total` e `status`.
-- Filtra fichas com status em `['Finalizado','Garantia','Retorno']`.
-- Busca em `transacoes_financeiras` por `ficha_id IN (chunks de 200)` os campos: `ficha_id, valor_a_pagar_prestador, valor_material, material_pago_24help`.
-- Para cada ficha elegível, agrupa as transações pelo `ficha_id` (uma ficha pode ter 2 transações em caso de troca de prestador — somar ambas).
-
-### 2. Recalcular os 3 valores (linhas ~519–546)
-
-```ts
-let somaFS = 0;
-let somaPrestador = 0;
-let somaMaterial24help = 0;
-
-for (const f of fichasElegiveis) {
-  const fsValor = Number(f.valor_total ?? 0);
-  somaFS += fsValor;
-  const txs = txsByFicha.get(f.id) ?? [];
-  for (const t of txs) {
-    somaPrestador += Number(t.valor_a_pagar_prestador ?? 0);
-    if (t.material_pago_24help) {
-      somaMaterial24help += Number(t.valor_material ?? 0);
-    }
-  }
-}
-
-const valorPagoPrestadores = somaPrestador;
-const valorLiquido24help   = somaFS - somaPrestador - somaMaterial24help;
-const takeRate24help       = somaFS > 0 ? Number(((valorLiquido24help / somaFS) * 100).toFixed(1)) : 0;
+```
+mensagensClienteLegado = chunkedIn('mensagens', ..., telefones, q => q.eq('remetente','cliente'))
+mensagensClienteTipo   = chunkedIn('mensagens', ..., telefones, q => q.eq('tipo_remetente','cliente'))
 ```
 
-Manter o nome do campo `margemBruta24help` no objeto (para não quebrar outros consumidores) e apenas mudar o **rótulo + tooltip** no card. Alternativa mais limpa: adicionar `takeRate24help` e marcar `margemBruta24help` como deprecated/alias do mesmo número — decido por **alias** para evitar refactor amplo.
+O helper `chunkedIn` faz blocos de 500 telefones, mas **não usa paginação por range** — então cada chunk respeita o limite padrão de **1000 linhas do Supabase**. Hoje a base tem ~25.000 mensagens de cliente, então a maioria das mensagens recentes simplesmente não volta no resultado.
 
-### 3. Renomear card em `src/components/dashboard/OperationalKPIsSection.tsx` (linha ~267)
+Consequência:
+- `ultimaMsgClienteMap` fica desatualizado (pega mensagem antiga, não a nova).
+- Para operadores **sem** registro em `mensagem_leitura_operador`, ainda aparece como não lido (cai no ramo `if (lastClientMsg)` com `lastReadAt = null`).
+- Para operadores **com** `last_read_at` antigo (qualquer um que já abriu a conversa uma vez no passado), a "última mensagem do cliente" retornada pela query truncada é **mais antiga** que o `last_read_at` → `perOperatorUnread = false` → bolinha some.
+- A notificação funciona porque o `NotificationSystem` reage ao evento `INSERT` em tempo real, sem depender dessa query.
 
-- `label="Margem Bruta 24help"` → `label="% Take Rate 24help"`.
-- Atualizar `tooltip` para a nova fórmula.
-- O drill-down mantém a chave `'margemBruta24help'` por baixo dos panos, mas o título fica `% Take Rate 24help`.
+Por isso o sintoma é "um operador não vê", e não um bug global.
 
-### 4. Corrigir bug paralelo que zera tudo
+## Correção
 
-A branch `totalOrcamentosRes` (linhas ~427–448) consulta `orcamentos.created_at` e `orcamentos.ficha_id`, colunas que **não existem** (a tabela usa `data_criacao` e `ficha_nome`). Isso está disparando erros no Postgres e quebrando o `Promise.all` inteiro — daí os zeros que você está vendo agora. Vou:
-- Trocar `created_at` → `data_criacao`.
-- Trocar `fichas_de_servico!inner` (que precisa de FK `ficha_id`) por busca em duas etapas via `ficha_nome IN (chunks)`, igual ao padrão já usado em `fsComOrcamento`.
-- Trocar o `Promise.all` por `Promise.allSettled` para que uma futura falha isolada não derrube a seção inteira.
+Substituir as duas queries truncadas por uma busca **por telefone** que retorne só o que importa para o cálculo: a **última mensagem de cliente posterior ao `last_read_at`** de cada conversa. Não precisamos trazer 25k linhas para o frontend.
 
-### 5. Drill-down (`KPIDrillDownDialog`)
+### Estratégia
 
-Quando o usuário clicar em qualquer dos 3 cards, abrir a lista de **fichas do período** com colunas: ID, status, `valor_total`, `valor_a_pagar_prestador` (somado das transações), `valor_material` (se `material_pago_24help`), e o líquido individual. Hoje o drill já existe — só ajusto a fonte para refletir a nova lógica.
+1. **Preservar o comportamento atual** quando há poucos clientes/mensagens (sem regressão de UX nem de dados).
+2. Em vez de buscar todas as mensagens dos clientes em massa, fazer **uma única query agregada por última data**:
 
-### 6. Não alterar dados existentes
+   - Buscar para os telefones da lista o `MAX(data_hora)` das mensagens com `tipo_remetente='cliente' OR remetente='cliente'`. Isso pode ser feito via:
+     - opção A (preferida): RPC SQL nova `get_ultima_msg_cliente_por_telefone(telefones text[])` retornando `(cliente_id, ultima_data, total_apos timestamp)` — uma chamada, sem limite de 1000.
+     - opção B (fallback sem migration): fazer chunk de 500 telefones, mas com `order('data_hora', { ascending: false })` + `range(0, 999)` repetido por telefone agrupado — inviável em escala.
 
-Apenas leitura. Nenhuma migração, nenhum `update`, nenhuma mudança em transação ou ficha. As regras antigas que dependiam de `data_pagamento_realizada` continuam disponíveis em outros lugares (ex.: `/contas-pagar`) e não são tocadas.
+   Vamos com a **opção A** (criar RPC SQL).
 
-### 7. Verificação
+3. A RPC só **lê** dados que o frontend já consome hoje, sem alterar nenhuma linha de mensagem. Não há risco de mexer em horários ou em status.
 
-Após o deploy, com período padrão "Últimos 30 dias" e contexto atual (abril/2026):
-- Fichas elegíveis no período: rodar `SELECT count(*), sum(valor_total) FROM fichas_de_servico WHERE created_at >= ... AND status IN ('Finalizado','Garantia','Retorno')` e bater com o card.
-- Conferir manualmente 2–3 fichas (ex.: `FS1-260423`, `FGM3@260414`) para validar que o Líquido bate com `FS − prestador − material(se 24help paga)`.
+4. Manter `unread_count_real` (contagem para o badge numérico) usando o mesmo retorno da RPC: `count(*) FILTER (WHERE data_hora > last_read_at)` por telefone.
 
-## Resumo do que muda na tela
+### Mudanças concretas
 
-| Card                       | Antes                                          | Depois                                                                |
-|----------------------------|------------------------------------------------|-----------------------------------------------------------------------|
-| Pago a Prestadores         | Só somava transações com repasse já efetuado   | Soma do `valor_a_pagar_prestador` de toda ficha do mês (Fin/Gar/Ret)  |
-| Líquido 24help             | `valor_cliente_final − prestador`              | `FS − prestador − material(se 24help paga)`                           |
-| Margem Bruta 24help        | `Líquido / Pago Prestadores × 100`             | Renomeado para **% Take Rate 24help** = `Líquido / Σ FS × 100`        |
+**A. Migration (nova função SQL — somente leitura)**
+
+```sql
+create or replace function public.get_unread_cliente_msgs(
+  _telefones text[],
+  _read_map jsonb  -- { "telefone": "iso-timestamp-or-null", ... }
+)
+returns table (
+  cliente_id text,
+  ultima_data timestamptz,
+  total_nao_lidas int
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    m.cliente_id,
+    max(m.data_hora) as ultima_data,
+    count(*) filter (
+      where (_read_map ->> m.cliente_id) is null
+         or m.data_hora > (_read_map ->> m.cliente_id)::timestamptz
+    )::int as total_nao_lidas
+  from public.mensagens m
+  where m.cliente_id = any(_telefones)
+    and (m.tipo_remetente = 'cliente' or m.remetente = 'cliente')
+  group by m.cliente_id;
+$$;
+
+grant execute on function public.get_unread_cliente_msgs(text[], jsonb) to anon, authenticated;
+```
+
+Sem alteração em tabelas, sem trigger, sem mudança de tipos. Função é `stable` e `security definer` (só `select`).
+
+**B. Frontend — `src/components/ConversationListBeta.tsx`**
+
+- Remover as duas queries `mensagensClienteLegado` / `mensagensClienteTipo` (linhas ~1028–1055).
+- Antes da iteração `clientesData.map(...)`, montar `readMap` a partir do `operatorReadMap` já existente (`{ telefone: last_read_at | null }`).
+- Chamar `supabase.rpc('get_unread_cliente_msgs', { _telefones: telefones, _read_map: readMap })`.
+- Construir `ultimaMsgClienteMap` (telefone → ultima_data) e `unreadCountByTelefone` (telefone → total_nao_lidas) a partir do retorno.
+- Reescrever o bloco de cálculo (linhas 1102–1126) usando esses dois mapas:
+
+```ts
+const readRecord = operatorReadMap.get(cliente.telefone);
+const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
+const unreadFromMsgs = unreadCountByTelefone.get(cliente.telefone) ?? 0;
+
+let perOperatorUnread = false;
+let unreadCountReal = 0;
+
+if (readRecord?.manual_unread === true) {
+  perOperatorUnread = true;
+  unreadCountReal = unreadFromMsgs; // pode ser 0 → ConversationCard mostra "•"
+} else if (lastClientMsg) {
+  const lastReadAt = readRecord?.last_read_at ?? null;
+  if (!lastReadAt || new Date(lastClientMsg) > new Date(lastReadAt)) {
+    perOperatorUnread = true;
+    unreadCountReal = unreadFromMsgs;
+  }
+}
+```
+
+Comportamento exibido permanece exatamente o mesmo das regras descritas em `documentação/chat-beta-leitura.md` — só a fonte deixa de ser truncada.
+
+**C. Sem mudanças** em:
+- `src/lib/chatBetaUnread.ts` (escrita continua igual).
+- `ChatWindowBeta.tsx`, `NotificationSystem.tsx` (notificação já funciona).
+- RLS / dados existentes.
+
+## Salvaguardas (project-knowledge)
+
+- Função SQL é `stable` e só faz `select` — **não altera nenhuma linha** de `mensagens`, `clientes`, `mensagem_leitura_operador`, nem qualquer outra tabela.
+- Nenhuma mudança em fuso horário, formatação de data ou em colunas de horário.
+- Resultado da nova RPC reproduz **a mesma lógica** que já está em `documentação/chat-beta-leitura.md`; o teste de regressão é: para conversas que **hoje** mostram bolinha, devem continuar mostrando; para as que escondem indevidamente, a bolinha volta.
+- Em caso de falha da RPC, cai num fallback que mantém o comportamento atual (sem bolinha) — nunca cria estado pior do que o presente.
+
+## Validação após implementar
+
+1. Logar como o operador afetado, abrir o Chat BETA, confirmar que conversas com mensagens novas (após o último `last_read_at`) voltam a exibir a bolinha.
+2. Marcar como lida → bolinha some.
+3. Marcar como não lida → bolinha aparece e persiste após reload.
+4. Verificar com um operador "novo" (sem registros em `mensagem_leitura_operador`) que tudo segue não lido por padrão.
