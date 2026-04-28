@@ -383,11 +383,11 @@ async function fetchMetricsForWindow(
       q = applyFichaFilters(q, filters);
       return await q;
     })(),
-    // Fichas no período (com campos necessários para calcular fsComOrcamento)
+    // Fichas no período (com campos necessários para calcular fsComOrcamento e KPIs financeiros)
     (async () => {
       let q: any = supabase
         .from('fichas_de_servico')
-        .select('id, valor_total, formulario_orcamento_data_primeiro_envio')
+        .select('id, valor_total, status, formulario_orcamento_data_primeiro_envio')
         .gte('created_at', fromStr)
         .lte('created_at', toStr);
       q = applyFichaFilters(q, filters);
@@ -405,46 +405,55 @@ async function fetchMetricsForWindow(
     fetchFichasComEvento('Agendado', fromStr, toStr, filters, []),
     // Serviço Finalizado — eventos de status (exclui fichas atualmente "Perdido")
     fetchFichasComEvento('Finalizado', fromStr, toStr, filters, ['Perdido']),
-    // Transações pagas ao prestador no período — fonte de verdade financeira.
-    // Buscamos os campos necessários para calcular: pagoAoPrestador (count),
-    // valorPagoPrestadores, valorLiquido24help (= lucro_bruto) e margem bruta.
-    // Sempre fazemos inner join para conseguir filtrar fichas com status atual "Perdido".
-    (async () => {
-      const selectCols =
-        'id, valor_a_pagar_prestador, valor_cliente_final, valor_lucro_bruto, ficha_id, fichas_de_servico!inner(id, status, categoria_id, prestador_id, telefone_cliente)';
-      let q: any = supabase
-        .from('transacoes_financeiras')
-        .select(selectCols)
-        .eq('status_pagamento_prestador', 'pago')
-        .neq('fichas_de_servico.status', 'Perdido')
-        .gte('data_pagamento_realizada', fromStr)
-        .lte('data_pagamento_realizada', toStr);
-      q = applyEmbeddedFichaFilters(q, filters);
-      return await q;
-    })(),
+    // Transações financeiras vinculadas a fichas do período.
+    // NÃO filtramos mais por status_pagamento_prestador / data_pagamento_realizada:
+    // o KPI passa a refletir o financeiro da FS no mês em que foi criada,
+    // independentemente de o repasse ao prestador já ter sido executado.
+    // A consulta é feita em duas etapas (busca os IDs primeiro) para evitar
+    // o erro `transacoes.created_at` no inner join e respeitar limites de URL.
+    // Aqui devolvemos uma promessa "stub" com `data: null`; a busca real
+    // acontece logo abaixo, depois que tivermos `fichasNoPeriodoRes`.
+    Promise.resolve({ data: null as null }),
     // Total de orçamentos enviados no período (linhas em `orcamentos`).
-    // Filtros de ficha são aplicados via inner join quando necessário.
+    // A tabela usa `data_criacao` (não `created_at`) e referencia fichas por
+    // `ficha_nome` (texto), não por `ficha_id`. Quando há filtros de ficha
+    // fazemos a busca em duas etapas para evitar o inner join via FK inexistente.
     (async () => {
       const hasFichaFilters = !!(
         filters.categoriaId || filters.prestadorCpf || filters.clienteTelefone
       );
-      if (hasFichaFilters) {
-        let q: any = supabase
+
+      if (!hasFichaFilters) {
+        return await supabase
           .from('orcamentos')
-          .select(
-            'id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)',
-            { count: 'exact', head: true },
-          )
-          .gte('created_at', fromStr)
-          .lte('created_at', toStr);
-        q = applyEmbeddedFichaFilters(q, filters);
-        return await q;
+          .select('id', { count: 'exact', head: true })
+          .gte('data_criacao', fromStr)
+          .lte('data_criacao', toStr);
       }
-      return await supabase
-        .from('orcamentos')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', fromStr)
-        .lte('created_at', toStr);
+
+      // Com filtros: 1) buscar fichas elegíveis, 2) contar orçamentos cujo
+      // ficha_nome esteja em chunks dessas fichas.
+      let fq: any = supabase
+        .from('fichas_de_servico')
+        .select('id');
+      fq = applyFichaFilters(fq, filters);
+      const fr = await fq;
+      const fichaIds: string[] = ((fr.data as Array<{ id: string }>) || []).map((f) => f.id);
+      if (fichaIds.length === 0) return { count: 0 } as any;
+
+      let total = 0;
+      const chunkSize = 200;
+      for (let i = 0; i < fichaIds.length; i += chunkSize) {
+        const chunk = fichaIds.slice(i, i + chunkSize);
+        const r = await supabase
+          .from('orcamentos')
+          .select('id', { count: 'exact', head: true })
+          .in('ficha_nome', chunk)
+          .gte('data_criacao', fromStr)
+          .lte('data_criacao', toStr);
+        total += r.count || 0;
+      }
+      return { count: total } as any;
     })(),
   ]);
 
@@ -462,6 +471,7 @@ async function fetchMetricsForWindow(
   const fichasNoPeriodo = (fichasNoPeriodoRes.data as Array<{
     id: string;
     valor_total: number | null;
+    status: string | null;
     formulario_orcamento_data_primeiro_envio: string | null;
   }>) || [];
 
@@ -516,33 +526,63 @@ async function fetchMetricsForWindow(
     0,
   );
 
-  // Transações pagas no período
-  const transacoesPagas =
-    (transacoesPagasRes.data as Array<{
-      valor_a_pagar_prestador: number | null;
-      valor_cliente_final: number | null;
-      valor_lucro_bruto: number | null;
-    }>) || [];
-  const pagoAoPrestador = transacoesPagas.length;
-  const valorPagoPrestadores = transacoesPagas.reduce(
-    (sum, t) => sum + Number(t.valor_a_pagar_prestador ?? 0),
-    0,
+  // ===== KPIs Financeiros (nova regra) =====
+  // Vinculamos pelo MÊS DA FICHA (created_at) — não pela data do repasse.
+  // Considera fichas com status financeiramente válido: Finalizado, Garantia, Retorno.
+  // (exclui Perdido, Ficha Criada, Visita Técnica, Agendado, etc.)
+  //
+  //   Pago a Prestadores  = Σ valor_a_pagar_prestador (todas as transações da ficha)
+  //   Líquido 24help      = Σ valor_total da FS − Pago a Prestadores − Σ valor_material
+  //                         (apenas quando a transação tem material_pago_24help = true)
+  //   % Take Rate 24help  = Líquido 24help / Σ valor_total das FS × 100
+  const STATUS_FINANCEIROS = new Set(['Finalizado', 'Garantia', 'Retorno']);
+  const fichasFinanceiras = fichasNoPeriodo.filter((f) =>
+    STATUS_FINANCEIROS.has(f.status || ''),
   );
-  // Líquido 24help = valor cliente final - valor pago ao prestador
-  // (equivale ao valor_lucro_bruto, mas calculamos a partir dos campos brutos
-  // como fallback caso lucro_bruto não esteja preenchido em alguma transação).
-  const valorLiquido24help = transacoesPagas.reduce((sum, t) => {
-    const lucro = t.valor_lucro_bruto;
-    if (lucro != null) return sum + Number(lucro);
-    return (
-      sum +
-      Number(t.valor_cliente_final ?? 0) -
-      Number(t.valor_a_pagar_prestador ?? 0)
+
+  let valorPagoPrestadores = 0;
+  let somaValorMaterial24help = 0;
+  let pagoAoPrestador = 0; // count de transações encontradas
+  let somaValorTotalFichasFinanceiras = 0;
+
+  if (fichasFinanceiras.length > 0) {
+    somaValorTotalFichasFinanceiras = fichasFinanceiras.reduce(
+      (s, f) => s + Number(f.valor_total ?? 0),
+      0,
     );
-  }, 0);
+
+    const fichaIds = fichasFinanceiras.map((f) => f.id);
+    const chunkSize = 200;
+    for (let i = 0; i < fichaIds.length; i += chunkSize) {
+      const chunk = fichaIds.slice(i, i + chunkSize);
+      const r = await supabase
+        .from('transacoes_financeiras')
+        .select('ficha_id, valor_a_pagar_prestador, valor_material, material_pago_24help')
+        .in('ficha_id', chunk);
+      const txs = (r.data as Array<{
+        ficha_id: string | null;
+        valor_a_pagar_prestador: number | null;
+        valor_material: number | null;
+        material_pago_24help: boolean | null;
+      }>) || [];
+      for (const t of txs) {
+        valorPagoPrestadores += Number(t.valor_a_pagar_prestador ?? 0);
+        if (t.material_pago_24help) {
+          somaValorMaterial24help += Number(t.valor_material ?? 0);
+        }
+        pagoAoPrestador += 1;
+      }
+    }
+  }
+
+  const valorLiquido24help =
+    somaValorTotalFichasFinanceiras - valorPagoPrestadores - somaValorMaterial24help;
+  // % Take Rate 24help = Líquido / Valor total das FS × 100
+  // (mantemos o campo `margemBruta24help` no payload para compatibilidade
+  // com consumidores existentes — o card foi renomeado na UI.)
   const margemBruta24help =
-    valorPagoPrestadores > 0
-      ? Number(((valorLiquido24help / valorPagoPrestadores) * 100).toFixed(1))
+    somaValorTotalFichasFinanceiras > 0
+      ? Number(((valorLiquido24help / somaValorTotalFichasFinanceiras) * 100).toFixed(1))
       : 0;
 
   // Total de orçamentos enviados no período (linhas em `orcamentos`)

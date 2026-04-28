@@ -248,7 +248,7 @@ export const OperationalKPIsSection = ({
           iconColor="coral"
           size="sm"
           animationDelay={500}
-          tooltip="Total pago aos prestadores no período (soma de valor_a_pagar_prestador das transações com status 'pago' ao prestador). Inclui mão de obra e o valor de peças quando NÃO são pagas pela 24help."
+          tooltip="Soma do valor_a_pagar_prestador de todas as transações vinculadas às fichas do período (status Finalizado, Garantia ou Retorno). Independe de o repasse já ter sido executado."
           onClick={openDrill('valorPagoPrestadores', 'Pago a Prestadores')}
         />
         <KPICard
@@ -260,11 +260,11 @@ export const OperationalKPIsSection = ({
           iconColor="brand-green"
           size="sm"
           animationDelay={550}
-          tooltip="Receita líquida da 24help: valor recebido do cliente menos o valor pago ao prestador. Quando o material é pago pela 24help, esse custo já está embutido na composição do pagamento ao prestador (sai do líquido)."
+          tooltip="Líquido 24help = Valor da FS − Valor pago ao prestador − Valor de material (apenas quando o material é pago pela 24help). Soma considerando todas as fichas do período em status Finalizado, Garantia ou Retorno."
           onClick={openDrill('valorLiquido24help', 'Líquido 24help')}
         />
         <KPICard
-          label="Margem Bruta 24help"
+          label="% Take Rate 24help"
           value={`${kpis.margemBruta24help.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}
           variation={kpis.variations.margemBruta24help}
           comparisonLabel={compLabel}
@@ -272,8 +272,8 @@ export const OperationalKPIsSection = ({
           iconColor="yellow"
           size="sm"
           animationDelay={600}
-          tooltip="Margem bruta = Líquido 24help / Pago a Prestadores × 100. Indica quanto a 24help retém como margem em relação ao custo direto do serviço."
-          onClick={openDrill('margemBruta24help', 'Margem Bruta 24help')}
+          tooltip="% Take Rate 24help = Líquido 24help ÷ Valor total das FS × 100. Quanto a 24help retém sobre o valor faturado das fichas do período."
+          onClick={openDrill('margemBruta24help', '% Take Rate 24help')}
         />
       </div>
 
