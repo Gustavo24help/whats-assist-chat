@@ -405,23 +405,15 @@ async function fetchMetricsForWindow(
     fetchFichasComEvento('Agendado', fromStr, toStr, filters, []),
     // Serviço Finalizado — eventos de status (exclui fichas atualmente "Perdido")
     fetchFichasComEvento('Finalizado', fromStr, toStr, filters, ['Perdido']),
-    // Transações pagas ao prestador no período — fonte de verdade financeira.
-    // Buscamos os campos necessários para calcular: pagoAoPrestador (count),
-    // valorPagoPrestadores, valorLiquido24help (= lucro_bruto) e margem bruta.
-    // Sempre fazemos inner join para conseguir filtrar fichas com status atual "Perdido".
-    (async () => {
-      const selectCols =
-        'id, valor_a_pagar_prestador, valor_cliente_final, valor_lucro_bruto, ficha_id, fichas_de_servico!inner(id, status, categoria_id, prestador_id, telefone_cliente)';
-      let q: any = supabase
-        .from('transacoes_financeiras')
-        .select(selectCols)
-        .eq('status_pagamento_prestador', 'pago')
-        .neq('fichas_de_servico.status', 'Perdido')
-        .gte('data_pagamento_realizada', fromStr)
-        .lte('data_pagamento_realizada', toStr);
-      q = applyEmbeddedFichaFilters(q, filters);
-      return await q;
-    })(),
+    // Transações financeiras vinculadas a fichas do período.
+    // NÃO filtramos mais por status_pagamento_prestador / data_pagamento_realizada:
+    // o KPI passa a refletir o financeiro da FS no mês em que foi criada,
+    // independentemente de o repasse ao prestador já ter sido executado.
+    // A consulta é feita em duas etapas (busca os IDs primeiro) para evitar
+    // o erro `transacoes.created_at` no inner join e respeitar limites de URL.
+    // Aqui devolvemos uma promessa "stub" com `data: null`; a busca real
+    // acontece logo abaixo, depois que tivermos `fichasNoPeriodoRes`.
+    Promise.resolve({ data: null as null }),
     // Total de orçamentos enviados no período (linhas em `orcamentos`).
     // Filtros de ficha são aplicados via inner join quando necessário.
     (async () => {
