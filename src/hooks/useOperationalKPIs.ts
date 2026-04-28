@@ -471,6 +471,7 @@ async function fetchMetricsForWindow(
   const fichasNoPeriodo = (fichasNoPeriodoRes.data as Array<{
     id: string;
     valor_total: number | null;
+    status: string | null;
     formulario_orcamento_data_primeiro_envio: string | null;
   }>) || [];
 
