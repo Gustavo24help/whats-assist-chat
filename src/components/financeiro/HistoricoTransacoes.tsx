@@ -78,10 +78,43 @@ export const HistoricoTransacoes = () => {
     return { valorCliente, valorPrestador, lucro, margem };
   }, [transacoes]);
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
+    // Exporta até 5.000 linhas respeitando os filtros atuais (paginando 1.000 por requisição)
+    const MAX_EXPORT = 5000;
+    const PAGE = 1000;
+    const buildQuery = () => {
+      let q = supabase
+        .from("transacoes_financeiras")
+        .select("*")
+        .gte("data_execucao", `${dataInicio}T00:00:00`)
+        .lte("data_execucao", `${dataFim}T23:59:59`)
+        .order("data_execucao", { ascending: false });
+      if (prestadorBusca) q = q.ilike("prestador_nome", `%${prestadorBusca}%`);
+      if (statusCliente !== "todos") q = q.eq("status_pagamento_cliente", statusCliente);
+      if (statusPrestador !== "todos") q = q.eq("status_pagamento_prestador", statusPrestador);
+      return q;
+    };
+
+    const all: any[] = [];
+    let truncated = false;
+    try {
+      for (let from = 0; from < MAX_EXPORT; from += PAGE) {
+        const to = Math.min(from + PAGE - 1, MAX_EXPORT - 1);
+        const { data, error } = await buildQuery().range(from, to);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < (to - from + 1)) break;
+        if (all.length >= MAX_EXPORT) { truncated = true; break; }
+      }
+    } catch (e) {
+      console.error("Erro ao exportar CSV:", e);
+      return;
+    }
+
     const BOM = "\uFEFF";
     const headers = ["Data Execução", "Ficha", "Prestador", "Categoria", "Valor Cliente", "Valor Prestador", "Lucro", "Margem %", "Status Cliente", "Status Prestador"];
-    const rows = transacoes.map((t) => [
+    const rows = all.map((t) => [
       format(parseISO(t.data_execucao), "dd/MM/yyyy HH:mm"),
       t.ficha_id,
       t.prestador_nome,
@@ -98,7 +131,7 @@ export const HistoricoTransacoes = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `historico_financeiro_${dataInicio}_${dataFim}.csv`;
+    a.download = `historico_financeiro_${dataInicio}_${dataFim}${truncated ? "_5000linhas" : ""}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
