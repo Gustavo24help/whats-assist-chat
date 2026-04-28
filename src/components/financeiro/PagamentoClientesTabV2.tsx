@@ -106,12 +106,12 @@ export const PagamentoClientesTabV2 = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     
-    // Fetch pending (not paid, Finalizado OR Garantia)
+    // Fetch pending (not paid, Finalizado OR Garantia OR Retorno)
     const { data: pendentes } = await supabase
       .from("fichas_de_servico")
       .select("id, nome_cliente, telefone_cliente, status, valor_total, pagamento_realizado, pagamento_link, pagamento_tipo, updated_at, created_at, notas, pagamento_visto_por_chefe")
       .or("pagamento_realizado.eq.false,pagamento_realizado.is.null")
-      .in("status", ["Finalizado", "Garantia"] as any)
+      .in("status", ["Finalizado", "Garantia", "Retorno"] as any)
       .gt("valor_total", 0)
       .order("updated_at", { ascending: false });
 
