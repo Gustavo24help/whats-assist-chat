@@ -1,7 +1,7 @@
 import React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { VisualModeProvider } from "@/contexts/VisualModeContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
@@ -62,7 +62,21 @@ import PagamentosOrfaos from "./pages/PagamentosOrfaos";
 
 const queryClient = new QueryClient();
 
-const InactivityWrapper = ({ children }: { children: React.ReactNode }) => {
+// Rotas públicas onde NÃO deve rodar hooks de inatividade/ponto/exit reminder.
+// Acessadas por prestadores/clientes sem login (via WhatsApp).
+const isPublicRoute = (pathname: string): boolean => {
+  const p = decodeURIComponent(pathname || "").toLowerCase();
+  return (
+    p.startsWith("/orcamento") ||
+    p.startsWith("/or%c3%a7amento") ||
+    p.startsWith("/orçamento") ||
+    p.startsWith("/prestador") ||
+    p.startsWith("/auth") ||
+    p.startsWith("/ficha-whatsapp-demo")
+  );
+};
+
+const InactivityHooks = () => {
   const { showWarning, minutesLeft, dismissWarning } = useInactivityLogout();
   const { showReminder, exitTime, dismiss: dismissReminder } = useExitReminder();
   const { showEndModal, dismissEndModal } = usePontoClock();
@@ -84,6 +98,17 @@ const InactivityWrapper = ({ children }: { children: React.ReactNode }) => {
       <InactivityWarningModal open={showWarning} minutesLeft={minutesLeft} onDismiss={dismissWarning} />
       <ExitReminderPopup open={showReminder} exitTime={exitTime} onDismiss={dismissReminder} onLogout={handleExitLogout} />
       <PontoEndModal open={showEndModal} onContinue={dismissEndModal} />
+    </>
+  );
+};
+
+const InactivityWrapper = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
+  const skip = isPublicRoute(location.pathname);
+
+  return (
+    <>
+      {!skip && <InactivityHooks />}
       {children}
     </>
   );
