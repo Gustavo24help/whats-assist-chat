@@ -280,21 +280,52 @@ export const ExportReportSection = () => {
 
       // Buscar categorias, prestadores, histórico e transações em paralelo
       const needsFinanceiro = selectedColumns.some(c => c.startsWith("fin_")) || selectedPagamento !== "todos";
-      
-      const [categoriasResult, prestadoresResult, historicoResult, transacoesResult] = await Promise.all([
-        categoriaIds.length > 0 
+
+      // Helper: busca em chunks por .in() + paginação interna para superar o limite de 1.000 do Supabase
+      const fetchInChunksPaginated = async <T,>(
+        table: string,
+        select: string,
+        column: string,
+        ids: (string | number)[],
+        order?: { column: string; ascending: boolean },
+      ): Promise<T[]> => {
+        const CHUNK = 500;
+        const PAGE = 1000;
+        const all: T[] = [];
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const slice = ids.slice(i, i + CHUNK);
+          let from = 0;
+          while (true) {
+            let q: any = supabase.from(table as any).select(select).in(column, slice as any);
+            if (order) q = q.order(order.column, { ascending: order.ascending });
+            const { data, error } = await q.range(from, from + PAGE - 1);
+            if (error) throw error;
+            if (!data || data.length === 0) break;
+            all.push(...(data as T[]));
+            if (data.length < PAGE) break;
+            from += PAGE;
+          }
+        }
+        return all;
+      };
+
+      const [categoriasResult, prestadoresResult, historicoData, transacoesData] = await Promise.all([
+        categoriaIds.length > 0
           ? supabase.from("categorias").select("id, nome").in("id", categoriaIds)
-          : { data: [] },
+          : Promise.resolve({ data: [] as any[] }),
         prestadorIds.length > 0
           ? supabase.from("prestadores").select("cpf, nome").in("cpf", prestadorIds)
-          : { data: [] },
-        selectedColumns.includes("historico_status")
-          ? supabase.from("ficha_status_historico").select("*").in("ficha_id", fichaIds).order("data_inicio", { ascending: true })
-          : { data: [] },
-        needsFinanceiro
-          ? supabase.from("transacoes_financeiras").select("*").in("ficha_id", fichaIds)
-          : { data: [] }
+          : Promise.resolve({ data: [] as any[] }),
+        selectedColumns.includes("historico_status") && fichaIds.length > 0
+          ? fetchInChunksPaginated<any>("ficha_status_historico", "*", "ficha_id", fichaIds, { column: "data_inicio", ascending: true })
+          : Promise.resolve([] as any[]),
+        needsFinanceiro && fichaIds.length > 0
+          ? fetchInChunksPaginated<any>("transacoes_financeiras", "*", "ficha_id", fichaIds)
+          : Promise.resolve([] as any[]),
       ]);
+
+      const historicoResult = { data: historicoData as any[] };
+      const transacoesResult = { data: transacoesData as any[] };
 
       const categoriasMap = new Map((categoriasResult.data || []).map(c => [c.id, c.nome]));
       const prestadoresMap = new Map((prestadoresResult.data || []).map(p => [p.cpf, p.nome]));
