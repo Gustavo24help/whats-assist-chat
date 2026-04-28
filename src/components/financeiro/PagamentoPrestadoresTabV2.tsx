@@ -146,7 +146,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     let query = supabase
       .from("fichas_de_servico")
       .select("id, nome_ficha, nome_cliente, telefone_cliente, status, valor_total, valor_mao_obra, valor_pecas, prestador_id, pagamento_realizado, pagamento_link, updated_at, created_at, observacao_financeira, observacao_financeira_por, material_pago_24help", { count: "exact" })
-      .eq("status", "Finalizado" as any)
+      .in("status", ["Finalizado", "Garantia"] as any)
       .gt("valor_total", 0)
       .not("prestador_id", "is", null)
       .order("created_at", { ascending: false });
