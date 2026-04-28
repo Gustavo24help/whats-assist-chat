@@ -444,6 +444,9 @@ export const ExportReportSection = () => {
       document.body.removeChild(link);
 
       toast.success(`${fichasFiltradas.length} fichas exportadas com sucesso!`);
+      if (truncated) {
+        toast.warning("Exportação limitada a 5.000 linhas. Refine os filtros para incluir registros mais antigos.");
+      }
     } catch (error) {
       console.error("Erro ao exportar:", error);
       toast.error("Erro ao exportar relatório");
