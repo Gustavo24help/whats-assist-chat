@@ -1125,24 +1125,19 @@ export const ConversationListBeta = ({
         //   senão  → não lido se existir mensagem do cliente após last_read_at
         const readRecord = operatorReadMap.get(cliente.telefone);
         const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
-        const allClientMsgDates = todasMsgsClienteMap.get(cliente.telefone);
+        const unreadFromMsgs = unreadCountByTelefone.get(cliente.telefone) ?? 0;
         let perOperatorUnread = false;
         let unreadCountReal = 0;
 
         if (readRecord?.manual_unread === true) {
           perOperatorUnread = true;
-          // Conta só msgs após last_read_at (se houver). Caso contrário 0 → mostra "•".
-          const ref = readRecord.last_read_at;
-          unreadCountReal = ref && allClientMsgDates
-            ? Array.from(allClientMsgDates).filter(d => d > ref).length
-            : 0;
+          // Pode ser 0 → ConversationCard mostra "•" para indicar marcação manual.
+          unreadCountReal = unreadFromMsgs;
         } else if (lastClientMsg) {
           const lastReadAt = readRecord?.last_read_at ?? null;
           if (!lastReadAt || new Date(lastClientMsg) > new Date(lastReadAt)) {
             perOperatorUnread = true;
-            unreadCountReal = allClientMsgDates
-              ? Array.from(allClientMsgDates).filter(d => !lastReadAt || d > lastReadAt).length
-              : 0;
+            unreadCountReal = unreadFromMsgs;
           }
         }
 
