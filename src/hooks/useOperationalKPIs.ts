@@ -415,28 +415,45 @@ async function fetchMetricsForWindow(
     // acontece logo abaixo, depois que tivermos `fichasNoPeriodoRes`.
     Promise.resolve({ data: null as null }),
     // Total de orçamentos enviados no período (linhas em `orcamentos`).
-    // Filtros de ficha são aplicados via inner join quando necessário.
+    // A tabela usa `data_criacao` (não `created_at`) e referencia fichas por
+    // `ficha_nome` (texto), não por `ficha_id`. Quando há filtros de ficha
+    // fazemos a busca em duas etapas para evitar o inner join via FK inexistente.
     (async () => {
       const hasFichaFilters = !!(
         filters.categoriaId || filters.prestadorCpf || filters.clienteTelefone
       );
-      if (hasFichaFilters) {
-        let q: any = supabase
+
+      if (!hasFichaFilters) {
+        return await supabase
           .from('orcamentos')
-          .select(
-            'id, fichas_de_servico!inner(id, categoria_id, prestador_id, telefone_cliente)',
-            { count: 'exact', head: true },
-          )
-          .gte('created_at', fromStr)
-          .lte('created_at', toStr);
-        q = applyEmbeddedFichaFilters(q, filters);
-        return await q;
+          .select('id', { count: 'exact', head: true })
+          .gte('data_criacao', fromStr)
+          .lte('data_criacao', toStr);
       }
-      return await supabase
-        .from('orcamentos')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', fromStr)
-        .lte('created_at', toStr);
+
+      // Com filtros: 1) buscar fichas elegíveis, 2) contar orçamentos cujo
+      // ficha_nome esteja em chunks dessas fichas.
+      let fq: any = supabase
+        .from('fichas_de_servico')
+        .select('id');
+      fq = applyFichaFilters(fq, filters);
+      const fr = await fq;
+      const fichaIds: string[] = ((fr.data as Array<{ id: string }>) || []).map((f) => f.id);
+      if (fichaIds.length === 0) return { count: 0 } as any;
+
+      let total = 0;
+      const chunkSize = 200;
+      for (let i = 0; i < fichaIds.length; i += chunkSize) {
+        const chunk = fichaIds.slice(i, i + chunkSize);
+        const r = await supabase
+          .from('orcamentos')
+          .select('id', { count: 'exact', head: true })
+          .in('ficha_nome', chunk)
+          .gte('data_criacao', fromStr)
+          .lte('data_criacao', toStr);
+        total += r.count || 0;
+      }
+      return { count: total } as any;
     })(),
   ]);
 
