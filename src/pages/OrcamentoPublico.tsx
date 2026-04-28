@@ -83,17 +83,17 @@ const OrcamentoPublico = () => {
     // 1. Path parameter (novo formato: /orcamento/ID)
     if (params.fichaId) {
       console.log("OrcamentoPublico - fichaId do path param:", params.fichaId);
-      return params.fichaId;
+      return decodeURIComponent(params.fichaId);
     }
-    
+
     // 2. Query parameter (formato antigo: /orcamento?ficha=ID)
     const fromRouter = searchParams.get("ficha");
     if (fromRouter) {
       console.log("OrcamentoPublico - fichaId do query param:", fromRouter);
       return fromRouter;
     }
-    
-    // Fallback: ler diretamente da URL do navegador
+
+    // 3. Fallback: ler diretamente da URL do navegador
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const fromWindow = urlParams.get("ficha");
@@ -101,8 +101,20 @@ const OrcamentoPublico = () => {
         console.log("OrcamentoPublico - fichaId do window.location (fallback):", fromWindow);
         return fromWindow;
       }
+
+      // 4. Fallback final: extrair do pathname (cobre /orcamento/ID/extra, /orçamento/ID, etc.)
+      try {
+        const path = decodeURIComponent(window.location.pathname);
+        const match = path.match(/\/or[cç]amento\/([^/?#]+)/i);
+        if (match && match[1]) {
+          console.log("OrcamentoPublico - fichaId extraído do pathname (fallback):", match[1]);
+          return match[1];
+        }
+      } catch (e) {
+        console.warn("OrcamentoPublico - erro ao decodificar pathname:", e);
+      }
     }
-    
+
     return null;
   };
   

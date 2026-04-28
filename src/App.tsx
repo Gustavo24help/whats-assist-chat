@@ -104,8 +104,15 @@ const App = () => (
               <TarefaOpPopupOverlay />
               <Routes>
               <Route path="/auth" element={<Auth />} />
-              <Route path="/orcamento/:fichaId" element={<OrcamentoPublico />} />
+              {/* Rotas públicas de orçamento — TODAS as variantes devem abrir sem login */}
               <Route path="/orcamento" element={<OrcamentoPublico />} />
+              <Route path="/orcamento/" element={<OrcamentoPublico />} />
+              <Route path="/orcamento/:fichaId" element={<OrcamentoPublico />} />
+              <Route path="/orcamento/:fichaId/*" element={<OrcamentoPublico />} />
+              <Route path="/orcamento/*" element={<OrcamentoPublico />} />
+              {/* Variante com acento (caso copiado/colado de algum lugar) */}
+              <Route path="/or%C3%A7amento" element={<OrcamentoPublico />} />
+              <Route path="/or%C3%A7amento/:fichaId" element={<OrcamentoPublico />} />
               <Route path="/ficha-whatsapp-demo" element={<FichaWhatsAppDemo />} />
               <Route path="/prestador" element={<PrestadorPortal />} />
               <Route
