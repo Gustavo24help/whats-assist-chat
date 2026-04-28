@@ -383,11 +383,11 @@ async function fetchMetricsForWindow(
       q = applyFichaFilters(q, filters);
       return await q;
     })(),
-    // Fichas no período (com campos necessários para calcular fsComOrcamento)
+    // Fichas no período (com campos necessários para calcular fsComOrcamento e KPIs financeiros)
     (async () => {
       let q: any = supabase
         .from('fichas_de_servico')
-        .select('id, valor_total, formulario_orcamento_data_primeiro_envio')
+        .select('id, valor_total, status, formulario_orcamento_data_primeiro_envio')
         .gte('created_at', fromStr)
         .lte('created_at', toStr);
       q = applyFichaFilters(q, filters);
