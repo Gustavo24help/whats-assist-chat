@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { List as VirtualList, type RowComponentProps } from "react-window";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,142 @@ const isAguardandoRespostaEligivel = (c: {
   }
   return false;
 };
+
+// ⚡ Linha virtualizada da lista de conversas. Recebe as props via `rowProps`
+// do react-window. Mantém comportamento idêntico ao antigo .map() — apenas
+// renderiza dentro do estilo posicional fornecido pelo react-window.
+type ConversationRowProps = {
+  filteredClientes: Cliente[];
+  selectionMode: boolean;
+  selectedClientes: Set<string>;
+  toggleClienteSelection: (telefone: string) => void;
+  tagsWithColors: Map<string, string>;
+  selectedClienteTelefone: string | null;
+  recentOrcamentoFichas: Set<string>;
+  setRecentOrcamentoFichas: React.Dispatch<React.SetStateAction<Set<string>>>;
+  setClientes: React.Dispatch<React.SetStateAction<Cliente[]>>;
+  onSelectCliente: (cliente: Cliente) => void;
+  openTagManager: (telefone: string) => void;
+  archiveContact: (telefone: string) => void;
+  unarchiveContact: (telefone: string) => void;
+  deleteContact: (telefone: string) => void;
+  showArchived: boolean;
+  toggleUnreadMark: (telefone: string, atual: boolean) => void;
+  clientesComServicoParaFinalizar: Set<string>;
+  clientesSemOrcamento: Set<string>;
+  conversasComSugestao: Set<string>;
+  bookmarks: Set<string>;
+  handleToggleBookmark: (telefone: string) => void;
+};
+
+function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
+  const {
+    index,
+    style,
+    filteredClientes,
+    selectionMode,
+    selectedClientes,
+    toggleClienteSelection,
+    tagsWithColors,
+    selectedClienteTelefone,
+    recentOrcamentoFichas,
+    setRecentOrcamentoFichas,
+    setClientes,
+    onSelectCliente,
+    openTagManager,
+    archiveContact,
+    unarchiveContact,
+    deleteContact,
+    showArchived,
+    toggleUnreadMark,
+    clientesComServicoParaFinalizar,
+    clientesSemOrcamento,
+    conversasComSugestao,
+    bookmarks,
+    handleToggleBookmark,
+  } = props;
+
+  const cliente = filteredClientes[index];
+  if (!cliente) return null;
+
+  return (
+    <div style={style} className="relative">
+      {selectionMode && (
+        <div
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleClienteSelection(cliente.telefone);
+          }}
+        >
+          <Checkbox
+            checked={selectedClientes.has(cliente.telefone)}
+            onCheckedChange={() => toggleClienteSelection(cliente.telefone)}
+            className="h-5 w-5"
+          />
+        </div>
+      )}
+      <div className={cn(selectionMode && "pl-8")}>
+        <ConversationCard
+          telefone={cliente.telefone}
+          nome={cliente.nome}
+          tags={cliente.tags || []}
+          tagsColors={tagsWithColors}
+          fichaId={cliente.nome_ficha}
+          fichaStatus={cliente.status_ficha}
+          statusConversa={cliente.status_conversa}
+          ultimaInteracao={cliente.ultima_interacao}
+          isSelected={selectedClienteTelefone === cliente.telefone}
+          unreadCount={cliente.unread_count_real || 0}
+          onClick={() => {
+            if (selectionMode) {
+              toggleClienteSelection(cliente.telefone);
+            } else {
+              if (cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)) {
+                setRecentOrcamentoFichas((prev) => {
+                  const next = new Set(prev);
+                  next.delete(cliente.ficha_id_real!);
+                  return next;
+                });
+              }
+              setClientes((prev) =>
+                prev.map((c) =>
+                  c.telefone === cliente.telefone
+                    ? { ...c, marcado_nao_lido: false, unread_count_real: 0 }
+                    : c
+                )
+              );
+              onSelectCliente(cliente);
+            }
+          }}
+          onOpenTagManager={() => openTagManager(cliente.telefone)}
+          onArchive={() => archiveContact(cliente.telefone)}
+          onUnarchive={() => unarchiveContact(cliente.telefone)}
+          onDelete={() => deleteContact(cliente.telefone)}
+          isArchived={showArchived}
+          marcadoNaoLido={cliente.marcado_nao_lido}
+          onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
+          botHabilitado={cliente.bot_habilitado}
+          botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
+          botDesligadoManualmente={cliente.bot_desligado_manualmente}
+          orcamentosCount={cliente.orcamentos_count}
+          atendenteNome={(cliente as any).atendente?.full_name}
+          temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
+          semOrcamento={clientesSemOrcamento.has(cliente.telefone)}
+          pagamentoLink={cliente.pagamento_link}
+          pagamentoRealizado={cliente.pagamento_realizado}
+          statusAlertColor={cliente.statusAlertColor}
+          tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
+          hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
+          hasSuggestion={conversasComSugestao.has(cliente.telefone)}
+          bookmarked={bookmarks.has(cliente.telefone)}
+          onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
+          ultimaMsgPor={cliente.ultima_msg_por}
+        />
+      </div>
+    </div>
+  );
+}
 
 interface ConversationListProps {
   selectedClienteTelefone: string | null;
@@ -218,6 +355,20 @@ export const ConversationListBeta = ({
     return () => debouncedSetSearch.cancel();
   }, [searchTerm, debouncedSetSearch]);
 
+  // Debounce de segurança para refetch da lista: agrupa rajadas de eventos
+  // (Realtime + atualizações de fichas/orcamentos) em uma única chamada após 1.5s ociosos.
+  // Evita disparar fetchClientes() dezenas de vezes por minuto.
+  const debouncedFetchClientesRef = useRef(
+    debounce(() => {
+      fetchClientes();
+    }, 1500, { leading: false, trailing: true, maxWait: 5000 })
+  );
+  const debouncedFetchServicosRef = useRef(
+    debounce(() => {
+      fetchServicosParaFinalizar();
+    }, 1500, { leading: false, trailing: true, maxWait: 5000 })
+  );
+
   useEffect(() => {
     // ✅ Carregar dados iniciais em paralelo
     const loadInitialData = async () => {
@@ -239,13 +390,16 @@ export const ConversationListBeta = ({
     };
     
     loadInitialData();
-    
+
+    const debouncedFetchClientes = debouncedFetchClientesRef.current;
+    const debouncedFetchServicos = debouncedFetchServicosRef.current;
+
     const channel = supabase
       .channel('clientes-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'clientes' },
-        () => fetchClientes()
+        () => debouncedFetchClientes()
       )
       .subscribe();
 
@@ -254,7 +408,7 @@ export const ConversationListBeta = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'mensagens' },
-        () => fetchClientes()
+        () => debouncedFetchClientes()
       )
       .subscribe();
 
@@ -272,7 +426,7 @@ export const ConversationListBeta = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'fichas_de_servico' },
-        () => fetchServicosParaFinalizar()
+        () => debouncedFetchServicos()
       )
       .subscribe();
 
@@ -297,16 +451,18 @@ export const ConversationListBeta = ({
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'mensagem_leitura_operador', filter: `user_id=eq.${user.id}` },
-            () => fetchClientes()
+            () => debouncedFetchClientes()
           )
           .subscribe()
       : null;
 
+    // Polling de rede de proteção: 5 minutos (Realtime já cobre o caso comum).
+    // Antes era 60s e disparava 3 fetchs pesados em sequência.
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
       fetchServicosParaFinalizar();
       fetchSemOrcamento();
-    }, 60000);
+    }, 5 * 60 * 1000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -316,6 +472,8 @@ export const ConversationListBeta = ({
       supabase.removeChannel(orcamentosChannel);
       if (leituraChannel) supabase.removeChannel(leituraChannel);
       window.clearInterval(pollingInterval);
+      debouncedFetchClientes.cancel();
+      debouncedFetchServicos.cancel();
     };
   }, [user?.id]);
 
@@ -1763,28 +1921,30 @@ export const ConversationListBeta = ({
         </button>
       )}
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {!isCollapsed && (
           // Vista expandida - mostra cards completos
           <>
             {isLoading ? (
               // ✅ Skeleton loading para melhor UX
-              <div className="space-y-1">
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} className="p-2.5 md:p-3 border-b">
-                    <div className="flex gap-1 mb-1.5">
-                      <Skeleton className="h-4 w-16" />
-                      <Skeleton className="h-4 w-12" />
+              <ScrollArea className="h-full">
+                <div className="space-y-1">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="p-2.5 md:p-3 border-b">
+                      <div className="flex gap-1 mb-1.5">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-12" />
+                      </div>
+                      <div className="flex justify-between mb-1">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                      <Skeleton className="h-4 w-40 mb-1" />
+                      <Skeleton className="h-3 w-20" />
                     </div>
-                    <div className="flex justify-between mb-1">
-                      <Skeleton className="h-5 w-32" />
-                      <Skeleton className="h-4 w-24" />
-                    </div>
-                    <Skeleton className="h-4 w-40 mb-1" />
-                    <Skeleton className="h-3 w-20" />
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </ScrollArea>
             ) : (isSearchingById || isSearchingByMessage) ? (
               <div className="flex items-center justify-center p-8 text-center">
                 <p className="text-muted-foreground text-sm">Buscando...</p>
@@ -1794,88 +1954,42 @@ export const ConversationListBeta = ({
                 <p className="text-muted-foreground text-sm">Nenhuma conversa encontrada</p>
               </div>
             ) : (
-              filteredClientes.map((cliente) => (
-                <div key={cliente.telefone} className="relative">
-                  {/* Checkbox de seleção em massa */}
-                  {selectionMode && (
-                    <div 
-                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleClienteSelection(cliente.telefone);
-                      }}
-                    >
-                      <Checkbox
-                        checked={selectedClientes.has(cliente.telefone)}
-                        onCheckedChange={() => toggleClienteSelection(cliente.telefone)}
-                        className="h-5 w-5"
-                      />
-                    </div>
-                  )}
-                  <div className={cn(selectionMode && "pl-8")}>
-                    <ConversationCard
-                      telefone={cliente.telefone}
-                      nome={cliente.nome}
-                      tags={cliente.tags || []}
-                      tagsColors={tagsWithColors}
-                      fichaId={cliente.nome_ficha}
-                      fichaStatus={cliente.status_ficha}
-                      statusConversa={cliente.status_conversa}
-                      ultimaInteracao={cliente.ultima_interacao}
-                      isSelected={selectedClienteTelefone === cliente.telefone}
-                      unreadCount={cliente.unread_count_real || 0}
-                      onClick={() => {
-                        if (selectionMode) {
-                          toggleClienteSelection(cliente.telefone);
-                        } else {
-                          // Limpar destaque de orçamento ao abrir conversa
-                          if (cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)) {
-                            setRecentOrcamentoFichas(prev => {
-                              const next = new Set(prev);
-                              next.delete(cliente.ficha_id_real!);
-                              return next;
-                            });
-                          }
-                          // ✅ Limpar marcado_nao_lido + contagem real localmente de imediato
-                          setClientes(prev => prev.map(c => 
-                            c.telefone === cliente.telefone 
-                              ? { ...c, marcado_nao_lido: false, unread_count_real: 0 }
-                              : c
-                          ));
-                          onSelectCliente(cliente);
-                        }
-                      }}
-                      onOpenTagManager={() => openTagManager(cliente.telefone)}
-                      onArchive={() => archiveContact(cliente.telefone)}
-                      onUnarchive={() => unarchiveContact(cliente.telefone)}
-                      onDelete={() => deleteContact(cliente.telefone)}
-                      isArchived={showArchived}
-                      marcadoNaoLido={cliente.marcado_nao_lido}
-                      onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
-                      botHabilitado={cliente.bot_habilitado}
-                      botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
-                      botDesligadoManualmente={cliente.bot_desligado_manualmente}
-                      orcamentosCount={cliente.orcamentos_count}
-                      atendenteNome={(cliente as any).atendente?.full_name}
-                      temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
-                      semOrcamento={clientesSemOrcamento.has(cliente.telefone)}
-                      pagamentoLink={cliente.pagamento_link}
-                      pagamentoRealizado={cliente.pagamento_realizado}
-                      statusAlertColor={cliente.statusAlertColor}
-                      tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
-                      hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
-                      hasSuggestion={conversasComSugestao.has(cliente.telefone)}
-                      bookmarked={bookmarks.has(cliente.telefone)}
-                      onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
-                      ultimaMsgPor={cliente.ultima_msg_por}
-                    />
-                  </div>
-                </div>
-              ))
+              // ⚡ Lista virtualizada (react-window) — renderiza só ~15 cards visíveis em vez de 1500+.
+              // Mantém comportamento, callbacks e dados idênticos ao .map() anterior.
+              <VirtualList
+                rowCount={filteredClientes.length}
+                rowHeight={108}
+                overscanCount={6}
+                style={{ height: "100%", width: "100%" }}
+                rowProps={{
+                  filteredClientes,
+                  selectionMode,
+                  selectedClientes,
+                  toggleClienteSelection,
+                  tagsWithColors,
+                  selectedClienteTelefone,
+                  recentOrcamentoFichas,
+                  setRecentOrcamentoFichas,
+                  setClientes,
+                  onSelectCliente,
+                  openTagManager,
+                  archiveContact,
+                  unarchiveContact,
+                  deleteContact,
+                  showArchived,
+                  toggleUnreadMark,
+                  clientesComServicoParaFinalizar,
+                  clientesSemOrcamento,
+                  conversasComSugestao,
+                  bookmarks,
+                  handleToggleBookmark,
+                }}
+                rowComponent={ConversationRow}
+              />
             )}
           </>
         )}
-      </ScrollArea>
+      </div>
 
       {/* 🆕 Barra de ações de seleção em massa */}
       {selectionMode && selectedClientes.size > 0 && !isCollapsed && (

@@ -200,7 +200,9 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [oldestMessageDate, setOldestMessageDate] = useState<string | null>(null);
-  const MESSAGES_PER_PAGE = 100;
+  // 30 mensagens no carregamento inicial para abrir conversa rápido;
+  // o botão "Carregar mais" puxa mais blocos sob demanda.
+  const MESSAGES_PER_PAGE = 30;
   
   // Estados para atribuição de operador
   const [atendenteAtual, setAtendenteAtual] = useState<{ id: string; nome: string } | null>(null);
@@ -741,9 +743,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         console.log('[ChatWindow] Status do canal bot-status:', status);
       });
 
-    // Fallback para redes com bloqueio de websocket/realtime (firewall/proxy):
-    // consulta uma janela recente para também recuperar mensagens sincronizadas com timestamp antigo.
-    const pollingInterval = window.setInterval(async () => {
+    // Catch-up sob demanda: quando a aba volta ao foco, busca a janela recente
+    // (substitui o polling de 30s — o Realtime cobre o caso comum, e este handler
+    // só corre quando o operador volta à aba). Mantém comportamento idempotente
+    // via dedup por id, sem alterar nenhum dado armazenado.
+    const runCatchUp = async () => {
+      if (document.visibilityState !== 'visible') return;
       const latestDate = latestMessageDateRef.current;
       const pollFromDate = latestDate
         ? new Date(new Date(latestDate).getTime() - 10 * 60 * 1000).toISOString()
@@ -782,9 +787,9 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           });
         });
       }
+    };
 
-      fetchClienteData();
-    }, 30000);
+    document.addEventListener('visibilitychange', runCatchUp);
 
     // Canal de broadcast para takeover requests
     const takeoverChannel = supabase
@@ -824,7 +829,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       supabase.removeChannel(botStatusChannel);
       supabase.removeChannel(takeoverChannel);
       takeoverChannelRef.current = null;
-      window.clearInterval(pollingInterval);
+      document.removeEventListener('visibilitychange', runCatchUp);
     };
   }, [clienteTelefone]);
 
@@ -930,9 +935,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   }, [onBack, chatSearchOpen]);
 
   // ✅ Função otimizada para buscar mensagens com paginação
+  // Carga inicial leve (MESSAGES_PER_PAGE = 30) e carga incremental maior (50) ao clicar "Carregar mais".
+  const LOAD_MORE_PAGE_SIZE = 50;
   const fetchMensagens = async (loadMore = false) => {
+    const pageSize = loadMore ? LOAD_MORE_PAGE_SIZE : MESSAGES_PER_PAGE;
     console.log('🔍 Buscando mensagens para:', clienteTelefone, loadMore ? '(carregando mais)' : '');
-    
+
     let query = supabase
       .from('mensagens')
       .select(`
@@ -941,8 +949,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       `)
       .eq('cliente_id', clienteTelefone)
       .order('data_hora', { ascending: false })
-      .limit(MESSAGES_PER_PAGE + 1); // +1 para verificar se há mais
-    
+      .limit(pageSize + 1); // +1 para verificar se há mais
+
     // Se carregando mais, buscar mensagens anteriores à mais antiga
     if (loadMore && oldestMessageDate) {
       query = query.lt('data_hora', oldestMessageDate);
@@ -958,8 +966,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     
     if (data) {
       // Verificar se há mais mensagens
-      const hasMore = data.length > MESSAGES_PER_PAGE;
-      const messagesToProcess = hasMore ? data.slice(0, MESSAGES_PER_PAGE) : data;
+      const hasMore = data.length > pageSize;
+      const messagesToProcess = hasMore ? data.slice(0, pageSize) : data;
       
       console.log('✅ Mensagens carregadas:', messagesToProcess.length, hasMore ? '(há mais)' : '(fim)');
       

@@ -1,54 +1,100 @@
-## Problema
+## Diagnóstico — o que está deixando o ChatBeta lento
 
-No `/chat-beta`, ao clicar no banner âmbar **"X atendimentos precisando de resposta"**:
+Investiguei `ConversationListBeta.tsx`, `ChatWindowBeta.tsx` e `useClienteSignalsBeta.ts`. Os gargalos são:
 
-1. O sistema ativa `showAguardandoRespostaOnly = true` e força `statusFilter="all"` + `conversaStatusFilter="todas"`.
-2. Conforme o operador trata as fichas (status sai de `Ficha Criada` / `Orçamento Enviado` / `Visita Técnica` vencida), elas deixam de ser elegíveis e a contagem cai.
-3. Quando `aguardandoRespostaCount` chega a **0**, o banner é desmontado (`{aguardandoRespostaCount > 0 && ...}`).
-4. Mas o estado `showAguardandoRespostaOnly` continua **true** — o filtro segue ativo e a lista mostra "Nenhuma conversa encontrada", mesmo havendo 1522 conversas.
+### 1. Lista de conversas refaz tudo a cada evento
+Em `ConversationListBeta.tsx` (linhas 243–309):
+- Qualquer INSERT/UPDATE/DELETE em `mensagens` (de QUALQUER cliente, do sistema todo) chama `fetchClientes()`.
+- Mesmo gatilho para `clientes`, `fichas_de_servico` e `mensagem_leitura_operador`.
+- Mais um `setInterval` de 60s rodando `fetchClientes` + `fetchServicosParaFinalizar` + `fetchSemOrcamento`.
+- Cada `fetchClientes()` executa ~7 queries grandes:
+  1. paginação completa de `clientes` (1000 em 1000),
+  2. `mensagens` (todos os telefones, em chunks de 500),
+  3. `mensagens` de novo só para a tag "última msg por X",
+  4. `fichas_de_servico` ativas,
+  5. `fichas_de_servico` últimas para quem não tem ativa,
+  6. `orcamentos`,
+  7. `ficha_status_historico`,
+  8. RPC `get_unread_cliente_msgs`.
 
-Resultado: o operador "perde" a lista inteira e não tem como destravar (o botão sumiu junto com o banner).
+Em ambiente real, isso roda dezenas de vezes por minuto. É a causa principal da lentidão na lista.
 
-Há ainda um efeito colateral: ao ativar o alerta, ele zera `statusFilter` e `conversaStatusFilter`, mas **não restaura** os valores anteriores quando o operador desativa manualmente — eles ficam `"all"` / `"todas"` permanentemente.
+### 2. Lista renderiza 1500+ cards sem virtualização
+Linha 1797: `filteredClientes.map(...)` renderiza todos os `ConversationCard` de uma vez. Com mais de 1.000 conversas, qualquer re-render trava o navegador. `react-window` já está instalado mas não é usado.
 
-## Solução
+### 3. Janela de conversa carrega 100 mensagens de cara
+`ChatWindowBeta.tsx` linha 203: `MESSAGES_PER_PAGE = 100`. Toda vez que abre uma conversa, busca 100 mensagens + busca todos os "reply_to" + roda `fetchClienteData` + `fetchAtendentes` em paralelo. Para conversas longas com mídia/áudio é pesado.
 
-Arquivo: `src/components/ConversationListBeta.tsx`
+### 4. Polling extra dentro do ChatWindow
+Linhas 746–787: a cada 30s busca até 200 mensagens recentes do cliente aberto + chama `fetchClienteData()`. O Realtime já cobre isso; o polling só serve de fallback para quem tem websocket bloqueado.
 
-### 1. Auto-desligar o filtro quando a contagem zera
+### 5. Coach IA dispara em toda mensagem nova
+`useClienteSignalsBeta.ts` re-busca 30 mensagens + ficha + orçamentos + chama edge function `vendas-assistant` a cada INSERT em `mensagens` daquele cliente.
 
-Adicionar um `useEffect` que, quando `aguardandoRespostaCount === 0` e `showAguardandoRespostaOnly === true`, desliga o filtro automaticamente e restaura filtros prévios.
+---
 
-### 2. Memorizar os filtros anteriores ao ativar
+## Plano de otimização
 
-Antes de forçar `statusFilter="all"` / `conversaStatusFilter="todas"`, salvar os valores correntes em refs (`prevStatusFilterRef`, `prevConversaStatusFilterRef`). Ao desativar o filtro (manual ou automático), restaurar esses valores.
+Foco: reduzir o número de queries, paralelizar carga inicial, virtualizar a lista, paginar mensagens sob demanda. **Sem mudar nenhum dado, sem alterar layout, sem tocar em RLS, sem alterar fusos.**
 
-### 3. Salvaguarda visual: manter o botão visível enquanto ativo
+### A. ConversationListBeta — refetch incremental e debounced
 
-Mudar a condição do banner para:
-```
-aguardandoRespostaCount > 0 || showAguardandoRespostaOnly
-```
-Quando ativo mas contagem = 0, mostrar texto **"Nenhum atendimento pendente"** com o `X` ainda clicável para sair do modo. Isso cobre o caso em que o `useEffect` ainda não rodou (corrida de renders).
+1. **Eliminar refetch global por evento Realtime.**  
+   Trocar os handlers que chamam `fetchClientes()` por uma estratégia incremental:
+   - INSERT/UPDATE em `mensagens`: atualizar apenas o cliente afetado no `state` (recalcular `ultima_msg_por`, `unread_count_real`, `dentroJanela`) — sem refetch.
+   - UPDATE em `clientes`: atualizar só aquele registro no array.
+   - INSERT/DELETE em `clientes`: aí sim refetch (raro).
+   - `fichas_de_servico` / `orcamentos`: atualizar só o cliente cujo `ficha_id_real` coincide.
 
-### 4. Revisão das outras regras de filtro
+2. **Debounce de segurança.**  
+   Quando refetch for inevitável, agrupar chamadas com debounce de 2s (`useDebouncedCallback`) para não disparar 10x em sequência.
 
-Auditar o mesmo padrão para evitar bugs análogos:
+3. **Reduzir o polling de 60s para 5min** como rede de proteção (Realtime já faz o trabalho).
 
-- **`showServicosParaFinalizarOnly`** — mesma classe de bug. Aplicar o mesmo tratamento (auto-desligar + manter botão enquanto ativo).
-- **`showBotDisabledOnly`** — controlado externamente; verificar se some quando contagem zera.
-- **`showBookmarked`** — só some se o operador remove todos os marcadores; mesmo padrão recomendado.
-- **`unreadFilter === "nao_lidas"`** — não deve auto-desligar (operador escolhe explicitamente).
+4. **Carregar dados auxiliares só quando necessário:**
+   - `ultimasMensagensQualquer` (a tag "última msg por X") atualmente faz uma 2ª varredura de `mensagens` em cima de TODOS os telefones. Mover esse dado para a mesma RPC `get_unread_cliente_msgs` (ampliando o retorno com `ultimo_remetente` e `ultimo_operador_nome`), ou tornar opcional.
 
-Para `showServicosParaFinalizarOnly` e `showBookmarked`, aplicar a mesma lógica defensiva: o toggle continua visível enquanto o filtro estiver ativo, com o ícone `X` para sair, mesmo que a contagem caia para 0.
+### B. ConversationListBeta — virtualização da lista
 
-## Garantias de não-regressão
+5. **Adotar `react-window` (`FixedSizeList`)** no `filteredClientes.map` (linha 1797). Cada card tem altura previsível (~88–96px). Isso faz a lista renderizar só ~15 cards visíveis em vez de 1500+.
 
-- Nenhum dado é alterado: somente estado de UI local.
-- O comportamento de **ativar** o banner permanece idêntico.
-- Operador que **manualmente** clicou para desligar continua tendo o mesmo efeito.
-- A restauração dos filtros prévios só acontece para valores que o próprio botão sobrescreveu — outros filtros (tags, bot, pagamento) ficam intactos.
+### C. ChatWindowBeta — abrir conversa rápido
 
-## Arquivos modificados
+6. **Reduzir página inicial de mensagens de 100 para 30.**  
+   `MESSAGES_PER_PAGE = 30` no carregamento inicial; o botão "Carregar mais" continua funcionando e busca em blocos de 50.
 
-- `src/components/ConversationListBeta.tsx` — adicionar refs, useEffect de auto-desligamento, ajustar condição de render do banner e replicar para os outros filtros "modo único".
+7. **Cortar o polling de 30s** dentro do ChatWindow. Realtime + reconexão automática do Supabase já cobrem o caso comum. Manter apenas um "catch-up" único quando a aba volta ao foco (`visibilitychange`), não a cada 30s.
+
+8. **Carregar `fetchClienteData` e `fetchAtendentes` em paralelo com `fetchMensagens`** (já é Promise.all, ok), mas **não bloquear a UI no `fetchAtendentes`** — pode rodar em background sem impactar `isLoadingMessages`.
+
+### D. useClienteSignalsBeta — não bloquear
+
+9. **Atrasar o disparo do coach IA em 1.5s após abrir a conversa** (já existe debounce parcial). Garantir que a chamada à edge function `vendas-assistant` não rode antes da conversa estar visível.
+10. **Cancelar fetch anterior** ao trocar de cliente (AbortController) para não desperdiçar request.
+
+### E. Memoização de cards
+
+11. **`ConversationCard` já está com `React.memo`** (verificado). Garantir que as props passadas no `.map` sejam estáveis (objetos derivados memoizados) para que `memo` realmente evite re-renders quando só um cliente muda.
+
+---
+
+## O que NÃO vai mudar (segurança)
+
+- Nenhuma alteração em queries de escrita, RLS, edge functions ou estrutura de tabelas.
+- Nenhuma mudança em horários/timezones/cálculos de janela 24h.
+- Nenhuma mudança em layout, cores, posicionamento ou comportamento de filtros.
+- Funcionalidade de "marcar como não lida", takeover, atribuição, busca, tags — tudo permanece igual.
+- Fallback de polling continua existindo (apenas em frequência muito menor) para redes que bloqueiam websocket.
+
+## Arquivos que vou tocar
+
+- `src/components/ConversationListBeta.tsx` — refetch incremental, debounce, virtualização, polling 5min.
+- `src/components/ChatWindowBeta.tsx` — `MESSAGES_PER_PAGE = 30`, remover polling 30s, manter catch-up por visibilitychange.
+- `src/hooks/useClienteSignalsBeta.ts` — debounce + AbortController.
+
+## Resultado esperado
+
+- Abrir o ChatBeta: de ~5–10s para ~1–2s.
+- Trocar de conversa: de ~2–4s para instantâneo.
+- Lista responsiva mesmo com 2.000+ conversas.
+- Reduzir drasticamente uso de CPU e tráfego com o backend.
