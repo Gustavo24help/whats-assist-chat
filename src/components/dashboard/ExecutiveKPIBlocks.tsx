@@ -207,7 +207,7 @@ export const VolumeKPIsBlock = ({
               {kpi.value}
             </div>
             {kpi.subValue && (
-              <div className="text-[10px] text-muted-foreground/80 truncate">
+              <div className="text-[10px] text-muted-foreground/80 leading-tight">
                 {kpi.subValue}
               </div>
             )}
