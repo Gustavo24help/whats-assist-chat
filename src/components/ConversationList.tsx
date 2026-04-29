@@ -1452,6 +1452,9 @@ export const ConversationList = ({
                 </ToggleGroupItem>
               </ToggleGroup>
               
+              {/* Botão Legenda */}
+              <ChatLegendPopover />
+
               {/* Botão de seleção em massa */}
               <Button
                 variant={selectionMode ? "default" : "outline"}
