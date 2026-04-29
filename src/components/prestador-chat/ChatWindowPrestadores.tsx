@@ -402,7 +402,7 @@ export const ChatWindowPrestadores = ({
                   </div>
                 </div>
               ) : (
-                msg.texto && <p className="whitespace-pre-wrap break-words">{msg.texto}</p>
+                msg.texto && <p className="whitespace-pre-wrap break-all">{msg.texto}</p>
               )}
               {msg.data_hora && (
                 <p className={cn("text-[10px] mt-1", isSystem ? "text-primary-foreground/70" : "text-muted-foreground")}>
