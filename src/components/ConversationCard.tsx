@@ -43,6 +43,7 @@ interface ConversationCardProps {
   hasSuggestion?: boolean;
   bookmarked?: boolean;
   onToggleBookmark?: () => void;
+  ultimaMsgPor?: string | null;
 }
 
 const getStatusColor = (status: string) => {
@@ -100,6 +101,7 @@ export const ConversationCard = memo(({
   hasSuggestion = false,
   bookmarked = false,
   onToggleBookmark,
+  ultimaMsgPor,
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -273,8 +275,18 @@ export const ConversationCard = memo(({
 
       {/* Horário e Badge de Não Lidas */}
       <div className="flex items-center justify-between mt-1.5 gap-2 overflow-hidden">
-        <span className="text-xs text-muted-foreground truncate">
-          {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
+        <span className="text-xs text-muted-foreground truncate flex items-center gap-1 min-w-0">
+          <span className="truncate">
+            {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
+          </span>
+          {ultimaMsgPor && (
+            <span
+              className="text-[10px] text-muted-foreground/70 italic shrink-0"
+              title={`Última mensagem por ${ultimaMsgPor}`}
+            >
+              · {ultimaMsgPor}
+            </span>
+          )}
         </span>
         
         <div className="flex items-center gap-1.5">

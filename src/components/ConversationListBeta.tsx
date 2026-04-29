@@ -47,6 +47,7 @@ interface Cliente {
   ficha_id_real?: string | null;
   horario_visita_tecnica?: string | null;
   data_visita_tecnica?: string | null;
+  ultima_msg_por?: string | null; // label discreto: "Cliente", "🤖 Bot" ou primeiro nome do operador
 }
 
 // Helper: conversa elegível para o alerta "precisando de resposta"
@@ -949,6 +950,36 @@ export const ConversationListBeta = ({
         }
       });
 
+      // ✅ Query 2b: Última mensagem QUALQUER (incluindo bot/atendente) para mostrar
+      // tag discreta "última msg por X" em cada cartão.
+      const ultimasMensagensQualquer = await chunkedIn(
+        'mensagens',
+        'cliente_id, data_hora, remetente, tipo_remetente, operador_nome',
+        'cliente_id',
+        telefones,
+        undefined,
+        'data_hora'
+      );
+
+      const ultimaMsgPorMap = new Map<string, string>();
+      const TWILIO_NUM = 'whatsapp:+554138911555';
+      ultimasMensagensQualquer.forEach((msg: any) => {
+        if (ultimaMsgPorMap.has(msg.cliente_id)) return; // já temos a mais recente
+        let label: string;
+        const isOutbound = msg.remetente === TWILIO_NUM
+          || msg.tipo_remetente === 'atendente'
+          || msg.tipo_remetente === 'bot';
+        if (!isOutbound) {
+          label = 'Cliente';
+        } else if (msg.tipo_remetente === 'atendente' && msg.operador_nome) {
+          label = msg.operador_nome.trim().split(/\s+/)[0]; // primeiro nome
+        } else {
+          label = '🤖 Bot';
+        }
+        ultimaMsgPorMap.set(msg.cliente_id, label);
+      });
+
+
       // ✅ Query 3: Buscar TODAS as fichas ativas de uma vez
       const fichasAtivasIds = clientesData
         .filter(c => c.ficha_ativa_id)
@@ -1181,7 +1212,8 @@ export const ConversationListBeta = ({
           statusAlertColor: escalatedAlertColor,
           ficha_id_real: fichaIdParaOrcamentos || null,
           horario_visita_tecnica: (fichaData as any)?.horario_visita_tecnica || null,
-          data_visita_tecnica: (fichaData as any)?.data_visita_tecnica || null
+          data_visita_tecnica: (fichaData as any)?.data_visita_tecnica || null,
+          ultima_msg_por: ultimaMsgPorMap.get(cliente.telefone) || null,
         };
       });
 
@@ -1835,6 +1867,7 @@ export const ConversationListBeta = ({
                       hasSuggestion={conversasComSugestao.has(cliente.telefone)}
                       bookmarked={bookmarks.has(cliente.telefone)}
                       onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
+                      ultimaMsgPor={cliente.ultima_msg_por}
                     />
                   </div>
                 </div>
