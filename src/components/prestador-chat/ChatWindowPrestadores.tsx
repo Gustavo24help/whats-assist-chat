@@ -402,7 +402,7 @@ export const ChatWindowPrestadores = ({
                   </div>
                 </div>
               ) : (
-                msg.texto && <p className="whitespace-pre-wrap break-words">{msg.texto}</p>
+                msg.texto && <p className="whitespace-pre-wrap break-all">{msg.texto}</p>
               )}
               {msg.data_hora && (
                 <p className={cn("text-[10px] mt-1", isSystem ? "text-primary-foreground/70" : "text-muted-foreground")}>
@@ -503,7 +503,7 @@ export const ChatWindowPrestadores = ({
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4 min-w-0 [&>[data-radix-scroll-area-viewport]>div]:!block">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
