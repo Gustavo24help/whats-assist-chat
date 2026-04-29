@@ -1746,6 +1746,10 @@ export const ConversationListBeta = ({
                             >
                               Limpar seleção
                             </Button>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   )}
 
                   <Popover>
@@ -1799,10 +1803,6 @@ export const ConversationListBeta = ({
                       </div>
                     </PopoverContent>
                   </Popover>
-                </div>
-                      </PopoverContent>
-                    </Popover>
-                  )}
                 </div>
 
                 {/* Ativas / Inativas / Todas + Botão Selecionar */}
