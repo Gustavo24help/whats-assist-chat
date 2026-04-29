@@ -2875,8 +2875,18 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                 </MessageContextMenu>
               </div>
             );
-           });
-            })()}
+            });
+             })()}
+
+            {coachingVisible && coaching && (
+              <SkillVendasCoach
+                coaching={coaching}
+                onCopiar={(texto) => {
+                  setNovaMsg(texto);
+                }}
+                onDescartar={() => setCoachingVisible(false)}
+              />
+            )}
           </>
         )}
         <div ref={messagesEndRef} />
