@@ -566,16 +566,6 @@ export const ConversationListBeta = ({
     }
   }, [onExternalStatusFilterChange, onExternalConversaStatusFilterChange]);
 
-  // Auto-desligar filtro "aguardando resposta" quando não há mais atendimentos pendentes,
-  // evitando que a lista fique presa em "Nenhuma conversa encontrada".
-  useEffect(() => {
-    if (showAguardandoRespostaOnly && aguardandoRespostaCount === 0) {
-      desligarAguardandoResposta();
-    }
-    // aguardandoRespostaCount é declarado abaixo (useMemo), mas a referência vive no closure do render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAguardandoRespostaOnly, aguardandoRespostaCount]);
-
   // Buscar clientes por nome da ficha (TODAS as fichas, não só a ativa) - usando debounced term
   useEffect(() => {
     const buscarClientesPorNomeFicha = async () => {
