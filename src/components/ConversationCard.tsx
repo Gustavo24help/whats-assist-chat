@@ -180,7 +180,7 @@ export const ConversationCard = memo(({
     <>
     <div
       className={cn(
-        "h-full p-2 md:p-2.5 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
+        "h-full p-2 pr-16 md:p-2.5 md:pr-16 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected && "bg-primary/10 ring-2 ring-primary",
         (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && !hasNewOrcamento && "bg-blue-100 dark:bg-blue-950/40",
         hasSuggestion && !isSelected && !hasNewOrcamento && !statusAlertColor && "animate-pulse bg-primary/5"
@@ -197,8 +197,63 @@ export const ConversationCard = memo(({
         </div>
       )}
 
+      <div className="absolute right-2 top-2 z-20 flex h-6 w-14 items-center justify-end gap-1">
+        {onToggleBookmark && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-foreground",
+              bookmarked && "text-primary"
+            )}
+            title={bookmarked ? "Remover marca página" : "Marcar página"}
+            onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
+          >
+            <Bookmark className={cn("h-4 w-4", bookmarked && "fill-current")} />
+          </Button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-foreground">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {!isArchived && (
+              <>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleUnread(); }}>
+                  {marcadoNaoLido ? (<><Circle className="mr-2 h-4 w-4" />Marcar como Lida</>) : (<><CircleDot className="mr-2 h-4 w-4" />Marcar como Não Lida</>)}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenTagManager(); }}>
+                  <Tag className="mr-2 h-4 w-4" />Gerenciar Tags
+                </DropdownMenuItem>
+                {onToggleBookmark && (
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}>
+                    <Bookmark className={cn("mr-2 h-4 w-4", bookmarked && "fill-current")} />
+                    {bookmarked ? "Remover marca página" : "Marcar página"}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
+                  <Archive className="mr-2 h-4 w-4" />Arquivar Contato
+                </DropdownMenuItem>
+              </>
+            )}
+            {isArchived && (
+              <>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUnarchive(); }}>
+                  <ArchiveRestore className="mr-2 h-4 w-4" />Restaurar Contato
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDeleteDialogOpen(true); }} className="text-destructive focus:text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />Deletar Permanentemente
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       {/* Linha 0: Nome + Tags + Menu */}
-      <div className="flex items-center justify-between gap-2 overflow-hidden">
+      <div className="flex items-center gap-2 overflow-hidden">
         <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
           <h3 className="font-semibold text-sm truncate min-w-0 leading-tight">{nome}</h3>
           <div className="flex gap-1 min-w-0 overflow-hidden">
