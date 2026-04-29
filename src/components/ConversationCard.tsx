@@ -101,6 +101,7 @@ export const ConversationCard = memo(({
   hasSuggestion = false,
   bookmarked = false,
   onToggleBookmark,
+  ultimaMsgPor,
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
