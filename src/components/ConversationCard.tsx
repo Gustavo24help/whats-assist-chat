@@ -176,10 +176,11 @@ export const ConversationCard = memo(({
         </div>
       )}
 
-      {/* Tags + Menu (linha 0 — só renderiza se houver tags) */}
-      {(tags.length > 0 || onToggleBookmark) && (
-        <div className="flex items-start justify-between mb-1 gap-2 overflow-hidden">
-          <div className="flex gap-1 flex-wrap flex-1 min-w-0 overflow-hidden">
+      {/* Linha 0: Nome + Tags + Menu */}
+      <div className="flex items-center justify-between mb-1 gap-2 overflow-hidden">
+        <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+          <h3 className="font-semibold text-sm truncate min-w-0">{nome}</h3>
+          <div className="flex gap-1 flex-wrap min-w-0 overflow-hidden">
             {tags.map((tag, idx) => {
               const tagColor = tagsColors?.get(tag) || '#6B7280';
               return (
