@@ -1373,6 +1373,7 @@ export const ConversationListBeta = ({
           horario_visita_tecnica: (fichaData as any)?.horario_visita_tecnica || null,
           data_visita_tecnica: (fichaData as any)?.data_visita_tecnica || null,
           ultima_msg_por: ultimaMsgPorMap.get(cliente.telefone) || null,
+          ficha_created_at: (fichaData as any)?.created_at || null,
         };
       });
 
