@@ -241,11 +241,10 @@ export const ConversationCard = memo(({
             </DropdownMenu>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* LINHA 1: Nome · Telefone · FS */}
+      {/* LINHA 1: Telefone · FS */}
       <div className="flex items-center gap-2 mb-0.5 w-full overflow-hidden whitespace-nowrap">
-        <h3 className="font-semibold text-sm truncate min-w-0">{nome}</h3>
         <span className="text-xs text-muted-foreground shrink-0" title={telefone}>
           {formatTelefoneDisplay(telefone)}
         </span>
