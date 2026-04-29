@@ -935,9 +935,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   }, [onBack, chatSearchOpen]);
 
   // ✅ Função otimizada para buscar mensagens com paginação
+  // Carga inicial leve (MESSAGES_PER_PAGE = 30) e carga incremental maior (50) ao clicar "Carregar mais".
+  const LOAD_MORE_PAGE_SIZE = 50;
   const fetchMensagens = async (loadMore = false) => {
+    const pageSize = loadMore ? LOAD_MORE_PAGE_SIZE : MESSAGES_PER_PAGE;
     console.log('🔍 Buscando mensagens para:', clienteTelefone, loadMore ? '(carregando mais)' : '');
-    
+
     let query = supabase
       .from('mensagens')
       .select(`
@@ -946,8 +949,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       `)
       .eq('cliente_id', clienteTelefone)
       .order('data_hora', { ascending: false })
-      .limit(MESSAGES_PER_PAGE + 1); // +1 para verificar se há mais
-    
+      .limit(pageSize + 1); // +1 para verificar se há mais
+
     // Se carregando mais, buscar mensagens anteriores à mais antiga
     if (loadMore && oldestMessageDate) {
       query = query.lt('data_hora', oldestMessageDate);
