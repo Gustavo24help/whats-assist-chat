@@ -291,10 +291,13 @@ export const ConversationCard = memo(({
       <div className="flex items-center gap-2 text-xs overflow-hidden whitespace-nowrap leading-tight">
         {fichaStatus && (
           <span
-            className={cn(
-              "truncate min-w-0 font-medium underline decoration-2 underline-offset-[3px] text-foreground/80",
-              getStatusColor(fichaStatus).replace("bg-", "decoration-")
-            )}
+            className="truncate min-w-0 font-medium text-foreground/80"
+            style={{
+              textDecorationLine: "underline",
+              textDecorationColor: getStatusUnderlineHex(fichaStatus),
+              textDecorationThickness: "2px",
+              textUnderlineOffset: "3px",
+            }}
           >
             {fichaStatus}
           </span>
