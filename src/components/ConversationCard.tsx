@@ -176,17 +176,17 @@ export const ConversationCard = memo(({
       )}
 
       {/* Linha 0: Nome + Tags + Menu */}
-      <div className="flex items-center justify-between mb-1 gap-2 overflow-hidden">
+      <div className="flex items-center justify-between gap-2 overflow-hidden">
         <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
-          <h3 className="font-semibold text-sm truncate min-w-0">{nome}</h3>
-          <div className="flex gap-1 flex-wrap min-w-0 overflow-hidden">
+          <h3 className="font-semibold text-sm truncate min-w-0 leading-tight">{nome}</h3>
+          <div className="flex gap-1 min-w-0 overflow-hidden">
             {tags.map((tag, idx) => {
               const tagColor = tagsColors?.get(tag) || '#6B7280';
               return (
                 <Badge
                   key={idx}
                   variant="secondary"
-                  className="text-xs px-1.5 py-0 h-4 border"
+                  className="text-[10px] px-1 py-0 h-4 border shrink-0"
                   style={{ backgroundColor: tagColor, borderColor: tagColor, color: '#FFFFFF' }}
                 >
                   {tag}
@@ -195,12 +195,12 @@ export const ConversationCard = memo(({
             })}
           </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
             {onToggleBookmark && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 shrink-0 -mt-1"
+                className="h-5 w-5 shrink-0"
                 title={bookmarked ? "Remover da página marcada" : "Marcar página"}
                 onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
               >
@@ -209,7 +209,7 @@ export const ConversationCard = memo(({
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 -mt-1">
+                <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0">
                   <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -243,12 +243,12 @@ export const ConversationCard = memo(({
         </div>
 
       {/* LINHA 1: Telefone · FS */}
-      <div className="flex items-center gap-2 mb-0.5 w-full overflow-hidden whitespace-nowrap">
+      <div className="flex items-center gap-2 w-full overflow-hidden whitespace-nowrap leading-tight">
         <span className="text-xs text-muted-foreground shrink-0" title={telefone}>
           {formatTelefoneDisplay(telefone)}
         </span>
         {fichaId && (
-          <span className="text-xs font-medium text-primary shrink-0">📋 {fichaId}</span>
+          <span className="text-xs font-medium text-primary shrink-0 truncate">📋 {fichaId}</span>
         )}
         {pagamentoLink && fichaStatus === "Finalizado" && (
           pagamentoRealizado
@@ -263,9 +263,9 @@ export const ConversationCard = memo(({
       </div>
 
       {/* LINHA 2: Status · ⏳ tempo no status · 🔥 Sem orçamento */}
-      <div className="flex items-center gap-2 mb-0.5 flex-wrap text-xs">
+      <div className="flex items-center gap-2 text-xs overflow-hidden whitespace-nowrap leading-tight">
         {fichaStatus && (
-          <span className="text-muted-foreground truncate">{fichaStatus}</span>
+          <span className="text-muted-foreground truncate min-w-0">{fichaStatus}</span>
         )}
         {typeof tempoNoStatusMinutos === "number" && (
           <span className={cn(
