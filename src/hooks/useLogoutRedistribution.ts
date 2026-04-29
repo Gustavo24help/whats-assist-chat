@@ -58,14 +58,27 @@ export async function redistributeChats(userId: string) {
     }
 
     // 6. Reassign all clients (set to null if no one available)
+    // Use silent RPC so the takeover trigger does NOT spam notifications
+    // ("Fulano atribuiu você à conversa") to the target user.
     const telefones = clients.map(c => c.telefone);
 
     for (let i = 0; i < telefones.length; i += 50) {
       const chunk = telefones.slice(i, i + 50);
-      await supabase
-        .from("clientes")
-        .update({ atendente_id: targetUserId })
-        .in("telefone", chunk);
+      const { error: rpcError } = await (supabase as any).rpc(
+        "redistribute_chats_silent",
+        { _telefones: chunk, _target_user_id: targetUserId }
+      );
+
+      // Fallback: if RPC isn't available yet, do the legacy update
+      // (this preserves current behavior — chats still migrate, just may
+      // emit notifications like before).
+      if (rpcError) {
+        console.warn("[redistributeChats] RPC silent falhou, usando update direto:", rpcError);
+        await supabase
+          .from("clientes")
+          .update({ atendente_id: targetUserId })
+          .in("telefone", chunk);
+      }
     }
 
     return { reassignedCount: telefones.length, targetUserId };
