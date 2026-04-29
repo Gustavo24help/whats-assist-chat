@@ -205,6 +205,7 @@ function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
           bookmarked={bookmarks.has(cliente.telefone)}
           onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
           ultimaMsgPor={cliente.ultima_msg_por}
+          fichaCreatedAt={cliente.ficha_created_at}
         />
       </div>
     </div>
