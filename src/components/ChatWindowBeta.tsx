@@ -743,9 +743,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         console.log('[ChatWindow] Status do canal bot-status:', status);
       });
 
-    // Fallback para redes com bloqueio de websocket/realtime (firewall/proxy):
-    // consulta uma janela recente para também recuperar mensagens sincronizadas com timestamp antigo.
-    const pollingInterval = window.setInterval(async () => {
+    // Catch-up sob demanda: quando a aba volta ao foco, busca a janela recente
+    // (substitui o polling de 30s — o Realtime cobre o caso comum, e este handler
+    // só corre quando o operador volta à aba). Mantém comportamento idempotente
+    // via dedup por id, sem alterar nenhum dado armazenado.
+    const runCatchUp = async () => {
+      if (document.visibilityState !== 'visible') return;
       const latestDate = latestMessageDateRef.current;
       const pollFromDate = latestDate
         ? new Date(new Date(latestDate).getTime() - 10 * 60 * 1000).toISOString()
@@ -784,9 +787,9 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           });
         });
       }
+    };
 
-      fetchClienteData();
-    }, 30000);
+    document.addEventListener('visibilitychange', runCatchUp);
 
     // Canal de broadcast para takeover requests
     const takeoverChannel = supabase
