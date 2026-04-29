@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { UserPlus, Loader2, Edit, Phone, User, ArrowRight, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   applyTemplateVariables,
   formatTemplatePlaceholder,
@@ -36,6 +37,7 @@ interface NovaConversaDialogProps {
 }
 
 export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps) => {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"number" | "template">("number");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -223,6 +225,7 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
           contentSid: selectedTemplate.content_sid,
           contentVariables,
           templateBody,
+          userId: user?.id,
         },
       });
 

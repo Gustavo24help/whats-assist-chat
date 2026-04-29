@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { MessageSquare, Loader2, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   applyTemplateVariables,
   formatTemplatePlaceholder,
@@ -37,6 +38,7 @@ interface AbrirConversaDialogProps {
 }
 
 export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConversaDialogProps) => {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -192,6 +194,7 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
           contentSid: selectedTemplate.content_sid,
           contentVariables,
           templateBody,
+          userId: user?.id,
         },
       });
 
