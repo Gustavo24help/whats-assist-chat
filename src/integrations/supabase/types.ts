@@ -3079,6 +3079,10 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      redistribute_chats_silent: {
+        Args: { _target_user_id: string; _telefones: string[] }
+        Returns: number
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "supervisor" | "chefe" | "admin_ti"
