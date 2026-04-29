@@ -2711,16 +2711,6 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
               </div>
             )}
             
-            {coachingVisible && coaching && (
-              <SkillVendasCoach
-                coaching={coaching}
-                onCopiar={(texto) => {
-                  setNovaMsg(texto);
-                }}
-                onDescartar={() => setCoachingVisible(false)}
-              />
-            )}
-
             {(() => {
               return mensagens.map((msg, index) => {
               const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
