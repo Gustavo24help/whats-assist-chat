@@ -195,7 +195,8 @@ export const ConversationCard = memo(({
               );
             })}
           </div>
-          <div className="flex items-center gap-1">
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
             {onToggleBookmark && (
               <Button
                 variant="ghost"
