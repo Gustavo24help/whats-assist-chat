@@ -78,12 +78,12 @@ const formatTelefoneDisplay = (tel: string): string => {
   return n || tel;
 };
 
-// Cor da borda do card baseada no status da ficha
+// Cor da borda do card baseada no status da ficha (sutil, com transparência)
 const getCardBorderClass = (fichaId?: string | null, fichaStatus?: string | null): string => {
-  if (!fichaId) return "border-yellow-500";
-  if (fichaStatus === "Ficha Criada") return "border-red-500";
-  if (fichaStatus === "Finalizado" || fichaStatus === "Perdido" || fichaStatus === "Garantia") return "border-green-500";
-  return "border-blue-500";
+  if (!fichaId) return "border-yellow-500/40";
+  if (fichaStatus === "Ficha Criada") return "border-red-500/40";
+  if (fichaStatus === "Finalizado" || fichaStatus === "Perdido" || fichaStatus === "Garantia") return "border-green-500/40";
+  return "border-blue-500/40";
 };
 
 // Formata tempo desde criação: "MMmin" se <60, senão "Xh" ou "Xd"
