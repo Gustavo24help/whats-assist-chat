@@ -15,6 +15,7 @@ export type DrillDownKPI =
   | 'totalOrcamentos'
   | 'visitaAgendada'
   | 'servicoAgendado'
+  | 'agendadoPerdido'
   | 'servicoFinalizado'
   | 'finalizadoPago'
   | 'pagoAoPrestador'
