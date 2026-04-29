@@ -503,7 +503,7 @@ export const ChatWindowPrestadores = ({
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4 min-w-0 [&>[data-radix-scroll-area-viewport]>div]:!block">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
