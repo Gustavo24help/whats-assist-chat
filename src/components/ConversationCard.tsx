@@ -268,7 +268,14 @@ export const ConversationCard = memo(({
       {/* LINHA 2: Status · ⏳ tempo no status · 🔥 Sem orçamento */}
       <div className="flex items-center gap-2 text-xs overflow-hidden whitespace-nowrap leading-tight">
         {fichaStatus && (
-          <span className="text-muted-foreground truncate min-w-0">{fichaStatus}</span>
+          <span
+            className={cn(
+              "truncate min-w-0 font-medium underline decoration-2 underline-offset-[3px] text-foreground/80",
+              getStatusColor(fichaStatus).replace("bg-", "decoration-")
+            )}
+          >
+            {fichaStatus}
+          </span>
         )}
         {typeof tempoNoStatusMinutos === "number" && (
           <span className={cn(
