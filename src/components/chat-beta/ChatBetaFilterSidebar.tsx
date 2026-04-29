@@ -72,22 +72,26 @@ const STATUS_ORDER = [
   "Cancelado",
 ];
 
-const getStatusDotColor = (status: string) => {
-  const s = status.toLowerCase();
-  if (s.includes("criada")) return "bg-blue-400";
-  if (s.includes("enviado")) return "bg-cyan-400";
-  if (s.includes("negociação") || s.includes("negociaç")) return "bg-amber-400";
-  if (s.includes("aprovado")) return "bg-emerald-400";
-  if (s.includes("agendado")) return "bg-indigo-400";
-  if (s.includes("andamento")) return "bg-orange-400";
-  if (s.includes("finalizado")) return "bg-green-600";
-  if (s.includes("garantia")) return "bg-purple-400";
-  if (s.includes("retorno")) return "bg-teal-400";
-  if (s.includes("dúvida") || s.includes("duvida")) return "bg-yellow-500";
-  if (s.includes("perdido")) return "bg-red-400";
-  if (s.includes("não foi") || s.includes("nao foi")) return "bg-gray-400";
-  if (s.includes("cancelado")) return "bg-red-600";
-  return "bg-muted-foreground";
+// Mapa idêntico ao usado no ConversationCard (chat de atendimento) para
+// garantir consistência visual de cores por status entre os dois chats.
+const getStatusDotColor = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    "Não foi adiante": "bg-gray-500",
+    "Ficha Criada": "bg-blue-500",
+    "Contato Inicial": "bg-cyan-500",
+    "Dúvida Prestador": "bg-yellow-500",
+    "Orçamento Enviado": "bg-amber-500",
+    "Negociação": "bg-orange-500",
+    "Visita Técnica": "bg-purple-500",
+    "Orçamento Aprovado / Agendamento": "bg-teal-500",
+    "Orçamento Não Aprovado": "bg-red-500",
+    "Agendado": "bg-indigo-500",
+    "Em andamento": "bg-green-500",
+    "Finalizado": "bg-emerald-600",
+    "Garantia": "bg-lime-500",
+    "Perdido": "bg-rose-500",
+  };
+  return statusMap[status] || "bg-gray-400";
 };
 
 export const ChatBetaFilterSidebar = ({
@@ -161,7 +165,7 @@ export const ChatBetaFilterSidebar = ({
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+      <div className="flex-1 overflow-y-auto p-2.5 flex flex-col gap-2">
 
         {/* Navigation: Conversas / Contatos + Nova lado a lado */}
         <div className="space-y-1">
@@ -243,65 +247,6 @@ export const ChatBetaFilterSidebar = ({
           onPagamentoFilterChange={onPagamentoFilterChange}
         />
 
-        {/* Tags */}
-        {allTags.length > 0 && (
-          <Popover open={tagsExpanded} onOpenChange={setTagsExpanded}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full h-7 justify-start text-[11px] gap-1.5">
-                <span>🏷️</span>
-                Tags
-                {selectedTags.length > 0 ? (
-                  <Badge variant="default" className="ml-auto h-4 px-1 text-[9px]">
-                    {selectedTags.length}
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="ml-auto h-4 px-1 text-[9px]">
-                    {allTags.length}
-                  </Badge>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-3 bg-popover z-50" align="start">
-              <div className="space-y-3">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar tags..."
-                    value={tagSearchTerm}
-                    onChange={(e) => setTagSearchTerm(e.target.value)}
-                    className="pl-7 h-7 text-xs"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                  {filteredTags.map((tag) => {
-                    const tagColor = tagsWithColors.get(tag) || '#6B7280';
-                    return (
-                      <Badge
-                        key={tag}
-                        variant={selectedTags.includes(tag) ? "default" : "outline"}
-                        className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
-                        onClick={() => onToggleTag(tag)}
-                        style={{
-                          backgroundColor: selectedTags.includes(tag) ? tagColor : 'transparent',
-                          borderColor: tagColor,
-                          color: selectedTags.includes(tag) ? '#FFFFFF' : tagColor
-                        }}
-                      >
-                        {tag}
-                      </Badge>
-                    );
-                  })}
-                </div>
-                {selectedTags.length > 0 && (
-                  <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={onClearTags}>
-                    Limpar seleção
-                  </Button>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
-
         {/* Status counts */}
         <div>
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -351,6 +296,67 @@ export const ChatBetaFilterSidebar = ({
             ))}
           </div>
         </div>
+
+        {/* Tags — sempre por último, ocupando o espaço restante na base */}
+        {allTags.length > 0 && (
+          <div className="mt-auto pt-2">
+            <Popover open={tagsExpanded} onOpenChange={setTagsExpanded}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full h-7 justify-start text-[11px] gap-1.5">
+                  <span>🏷️</span>
+                  Tags
+                  {selectedTags.length > 0 ? (
+                    <Badge variant="default" className="ml-auto h-4 px-1 text-[9px]">
+                      {selectedTags.length}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="ml-auto h-4 px-1 text-[9px]">
+                      {allTags.length}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3 bg-popover z-50" align="start">
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar tags..."
+                      value={tagSearchTerm}
+                      onChange={(e) => setTagSearchTerm(e.target.value)}
+                      className="pl-7 h-7 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                    {filteredTags.map((tag) => {
+                      const tagColor = tagsWithColors.get(tag) || '#6B7280';
+                      return (
+                        <Badge
+                          key={tag}
+                          variant={selectedTags.includes(tag) ? "default" : "outline"}
+                          className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
+                          onClick={() => onToggleTag(tag)}
+                          style={{
+                            backgroundColor: selectedTags.includes(tag) ? tagColor : 'transparent',
+                            borderColor: tagColor,
+                            color: selectedTags.includes(tag) ? '#FFFFFF' : tagColor
+                          }}
+                        >
+                          {tag}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                  {selectedTags.length > 0 && (
+                    <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={onClearTags}>
+                      Limpar seleção
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
       </div>
     </div>
   );
