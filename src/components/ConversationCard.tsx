@@ -283,7 +283,7 @@ export const ConversationCard = memo(({
       </div>
 
       {/* LINHA 3: Operador · ⏰ tempo desde criação · UM · alertas */}
-      <div className="flex items-center justify-between gap-2 overflow-hidden">
+      <div className="flex items-center justify-between gap-2 overflow-hidden leading-tight">
         <span className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5 min-w-0">
           {atendenteNome && (
             <span className="italic truncate">{atendenteNome}</span>
