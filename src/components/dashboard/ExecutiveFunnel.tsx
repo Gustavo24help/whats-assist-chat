@@ -16,6 +16,10 @@ export interface ExecutiveFunnelStep {
   variation: number | null;
   onClick?: () => void;
   tooltip?: string;
+  secondaryAction?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 interface ExecutiveFunnelProps {
@@ -109,7 +113,13 @@ export const ExecutiveFunnel = ({ steps, isLoading }: ExecutiveFunnelProps) => {
         {steps.map((step, index) => {
           const pctVsBase =
             baseValue > 0 ? (step.value / baseValue) * 100 : 0;
+          const prev = index > 0 ? steps[index - 1] : null;
+          const pctVsPrev =
+            prev && prev.value > 0 ? (step.value / prev.value) * 100 : 0;
           const isLast = index === steps.length - 1;
+          const next = !isLast ? steps[index + 1] : null;
+          const pctNext =
+            next && step.value > 0 ? (next.value / step.value) * 100 : 0;
 
           const stepInner = (
             <div
@@ -145,9 +155,12 @@ export const ExecutiveFunnel = ({ steps, isLoading }: ExecutiveFunnelProps) => {
                   ) : (
                     <span>
                       <span className="font-semibold text-foreground">
-                        {pctVsBase.toFixed(1)}%
+                        {pctVsPrev.toFixed(1)}%
                       </span>{" "}
-                      vs base
+                      vs etapa anterior
+                      <span className="ml-1 text-muted-foreground/70">
+                        · {pctVsBase.toFixed(1)}% vs base
+                      </span>
                     </span>
                   )}
                 </div>
@@ -166,6 +179,20 @@ export const ExecutiveFunnel = ({ steps, isLoading }: ExecutiveFunnelProps) => {
                     style={{ width: `${Math.min(pctVsBase, 100)}%` }}
                   />
                 </div>
+
+                {step.secondaryAction && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      step.secondaryAction!.onClick();
+                    }}
+                    className="mt-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-brand-red/10 text-brand-red hover:bg-brand-red/20 transition-colors"
+                  >
+                    <TrendingDown className="h-2.5 w-2.5" />
+                    {step.secondaryAction.label}
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -189,8 +216,20 @@ export const ExecutiveFunnel = ({ steps, isLoading }: ExecutiveFunnelProps) => {
                 )}
               </div>
               {!isLast && (
-                <div className="hidden sm:flex items-center justify-center w-3 -mx-1 z-10 pointer-events-none">
-                  <ChevronRight className="h-5 w-5 text-muted-foreground/50" />
+                <div className="hidden sm:flex flex-col items-center justify-center w-8 -mx-2 z-10 pointer-events-none">
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.5 rounded-full text-[10px] font-bold shadow-sm border bg-card",
+                      pctNext >= 70
+                        ? "text-brand-green border-brand-green/30"
+                        : pctNext >= 40
+                          ? "text-brand-yellow border-brand-yellow/40"
+                          : "text-brand-red border-brand-red/30",
+                    )}
+                  >
+                    {pctNext.toFixed(0)}%
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 mt-0.5" />
                 </div>
               )}
             </div>

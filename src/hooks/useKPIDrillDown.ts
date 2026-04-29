@@ -15,6 +15,7 @@ export type DrillDownKPI =
   | 'totalOrcamentos'
   | 'visitaAgendada'
   | 'servicoAgendado'
+  | 'agendadoPerdido'
   | 'servicoFinalizado'
   | 'finalizadoPago'
   | 'pagoAoPrestador'
@@ -188,6 +189,7 @@ async function fetchFichaIdsComEvento(
   toStr: string,
   filters: { categoriaId?: number; prestadorCpf?: string; clienteTelefone?: string },
   excludeCurrentStatuses: string[] = [],
+  includeOnlyCurrentStatuses?: string[],
 ): Promise<Map<string, string>> {
   // Map<ficha_id, data_evento>
   const out = new Map<string, string>();
@@ -213,6 +215,7 @@ async function fetchFichaIdsComEvento(
     const f = row.fichas_de_servico;
     if (!f) continue;
     if (excludeCurrentStatuses.includes(f.status)) continue;
+    if (includeOnlyCurrentStatuses && !includeOnlyCurrentStatuses.includes(f.status)) continue;
     if (!out.has(f.id)) out.set(f.id, row.created_at);
   }
 
@@ -242,6 +245,7 @@ async function fetchFichaIdsComEvento(
     for (const f of fbRows) {
       if (!semHistorico.has(f.id)) continue;
       if (excludeCurrentStatuses.includes(f.status)) continue;
+      if (includeOnlyCurrentStatuses && !includeOnlyCurrentStatuses.includes(f.status)) continue;
       if (!out.has(f.id)) out.set(f.id, f.created_at);
     }
   }
@@ -434,6 +438,11 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
     evento = new Map(m);
   } else if (filters.kpi === 'servicoAgendado') {
     const m = await fetchFichaIdsComEvento('Agendado', fromStr, toStr, baseFilters, ['Perdido']);
+    fichaIds = Array.from(m.keys());
+    evento = new Map(m);
+  } else if (filters.kpi === 'agendadoPerdido') {
+    // Fichas que foram agendadas no período e ATUALMENTE estão "Perdido"
+    const m = await fetchFichaIdsComEvento('Agendado', fromStr, toStr, baseFilters, [], ['Perdido']);
     fichaIds = Array.from(m.keys());
     evento = new Map(m);
   } else if (filters.kpi === 'servicoFinalizado') {
