@@ -829,7 +829,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       supabase.removeChannel(botStatusChannel);
       supabase.removeChannel(takeoverChannel);
       takeoverChannelRef.current = null;
-      window.clearInterval(pollingInterval);
+      document.removeEventListener('visibilitychange', runCatchUp);
     };
   }, [clienteTelefone]);
 
