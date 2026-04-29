@@ -440,6 +440,11 @@ async function fetchDrillDown(filters: DrillDownFilters): Promise<DrillDownRow[]
     const m = await fetchFichaIdsComEvento('Agendado', fromStr, toStr, baseFilters, ['Perdido']);
     fichaIds = Array.from(m.keys());
     evento = new Map(m);
+  } else if (filters.kpi === 'agendadoPerdido') {
+    // Fichas que foram agendadas no período e ATUALMENTE estão "Perdido"
+    const m = await fetchFichaIdsComEvento('Agendado', fromStr, toStr, baseFilters, [], ['Perdido']);
+    fichaIds = Array.from(m.keys());
+    evento = new Map(m);
   } else if (filters.kpi === 'servicoFinalizado') {
     const m = await fetchFichaIdsComEvento('Finalizado', fromStr, toStr, baseFilters, ['Perdido']);
     fichaIds = Array.from(m.keys());
