@@ -107,11 +107,11 @@ export const ExecutiveDashboardSection = ({
     {
       id: "agendados",
       label: "Agendados",
-      value: kpis.servicoAgendadoBruto,
-      variation: kpis.variations.servicoAgendadoBruto,
+      value: kpis.servicoAgendado,
+      variation: kpis.variations.servicoAgendado,
       onClick: openDrill("servicoAgendado", "Serviços Agendados"),
       tooltip:
-        "Mede o ATO de agendar (status virou 'Agendado'), não a data futura de execução.",
+        "Fichas cujo status virou 'Agendado' no período (exclui fichas que hoje estão como 'Perdido').",
     },
     {
       id: "finalizados",
