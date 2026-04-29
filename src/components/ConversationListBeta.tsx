@@ -1201,6 +1201,14 @@ export const ConversationListBeta = ({
     return clientes.filter(c => isAguardandoRespostaEligivel(c)).length;
   }, [clientes]);
 
+  // Auto-desligar filtro "aguardando resposta" quando não há mais atendimentos pendentes,
+  // evitando que a lista fique presa em "Nenhuma conversa encontrada".
+  useEffect(() => {
+    if (showAguardandoRespostaOnly && aguardandoRespostaCount === 0) {
+      desligarAguardandoResposta();
+    }
+  }, [showAguardandoRespostaOnly, aguardandoRespostaCount, desligarAguardandoResposta]);
+
 
   const fetchStatusAlertRules = async (): Promise<StatusAlertRule[]> => {
     const { data } = await supabase
