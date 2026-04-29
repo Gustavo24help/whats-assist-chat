@@ -263,19 +263,22 @@ export const ConversationCard = memo(({
         )}
       </div>
 
-      {/* LINHA 2: Status · Sem Orçamento */}
+      {/* LINHA 2: Status · ⏳ tempo no status · 🔥 Sem orçamento */}
       <div className="flex items-center gap-2 mb-0.5 flex-wrap text-xs">
         {fichaStatus && (
           <span className="text-muted-foreground truncate">{fichaStatus}</span>
         )}
+        {typeof tempoNoStatusMinutos === "number" && (
+          <span className={cn(
+            "text-[10px] font-semibold shrink-0",
+            statusAlertColor ? "text-orange-700 dark:text-orange-300" : "text-muted-foreground"
+          )} title="Tempo no status atual">
+            ⏳ {Math.floor(tempoNoStatusMinutos)}min
+          </span>
+        )}
         {semOrcamento && (
           <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
             🔥 Sem orçamento
-          </span>
-        )}
-        {statusAlertColor && (
-          <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-300 shrink-0">
-            ⏳ {typeof tempoNoStatusMinutos === "number" ? `${Math.floor(tempoNoStatusMinutos)}min no status` : "Status atrasado"}
           </span>
         )}
       </div>
