@@ -219,13 +219,13 @@ export const ExecutiveDashboardSection = ({
     {
       id: "servicos-orcados",
       label: "Serviços Orçados",
-      value: String(kpis.totalOrcamentos),
-      subValue: `${kpis.mediaOrcamentosPorFS.toLocaleString("pt-BR", {
+      value: String(kpis.fsComOrcamento),
+      subValue: `${kpis.totalOrcamentos} orç. · ${kpis.mediaOrcamentosPorFS.toLocaleString("pt-BR", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })} por FS`,
-      variation: kpis.variations.totalOrcamentos,
-      onClick: openDrill("totalOrcamentos", "Nº Serviços Orçados"),
+      variation: kpis.variations.fsComOrcamento,
+      onClick: openDrill("totalOrcamentos", "FS com Orçamento"),
     },
     {
       id: "servicos-agendados",
