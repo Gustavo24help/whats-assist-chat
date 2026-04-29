@@ -210,6 +210,7 @@ function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
   );
 }
 
+interface ConversationListProps {
   selectedClienteTelefone: string | null;
   onSelectCliente: (cliente: Cliente) => void;
   unreadMessages?: Record<string, number>;
