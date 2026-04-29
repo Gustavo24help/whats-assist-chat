@@ -284,7 +284,7 @@ export const ConversationCard = memo(({
               className="text-[10px] text-muted-foreground/70 italic shrink-0"
               title={`Última mensagem por ${ultimaMsgPor}`}
             >
-              · {ultimaMsgPor}
+              · UM: {ultimaMsgPor === "Cliente" ? "C" : "24"}
             </span>
           )}
         </span>
