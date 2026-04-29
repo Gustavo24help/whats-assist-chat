@@ -82,7 +82,7 @@ type ConversationRowProps = {
   selectionMode: boolean;
   selectedClientes: Set<string>;
   toggleClienteSelection: (telefone: string) => void;
-  tagsWithColors: Array<{ nome: string; cor: string }>;
+  tagsWithColors: Map<string, string>;
   selectedClienteTelefone: string | null;
   recentOrcamentoFichas: Set<string>;
   setRecentOrcamentoFichas: React.Dispatch<React.SetStateAction<Set<string>>>;
