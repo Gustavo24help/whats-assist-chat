@@ -272,60 +272,6 @@ export const ConversationCard = memo(({
             })}
           </div>
         </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-            {onToggleBookmark && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground",
-                  bookmarked && "text-primary"
-                )}
-                title={bookmarked ? "Remover marca página" : "Marcar página"}
-                onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
-              >
-                <Bookmark className={cn("h-4 w-4", bookmarked && "fill-current")} />
-              </Button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0">
-                  <MoreVertical className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {!isArchived && (
-                  <>
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleUnread(); }}>
-                      {marcadoNaoLido ? (<><Circle className="mr-2 h-4 w-4" />Marcar como Lida</>) : (<><CircleDot className="mr-2 h-4 w-4" />Marcar como Não Lida</>)}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenTagManager(); }}>
-                      <Tag className="mr-2 h-4 w-4" />Gerenciar Tags
-                    </DropdownMenuItem>
-                    {onToggleBookmark && (
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}>
-                        <Bookmark className={cn("mr-2 h-4 w-4", bookmarked && "fill-current")} />
-                        {bookmarked ? "Remover marca página" : "Marcar página"}
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
-                      <Archive className="mr-2 h-4 w-4" />Arquivar Contato
-                    </DropdownMenuItem>
-                  </>
-                )}
-                {isArchived && (
-                  <>
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUnarchive(); }}>
-                      <ArchiveRestore className="mr-2 h-4 w-4" />Restaurar Contato
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDeleteDialogOpen(true); }} className="text-destructive focus:text-destructive">
-                      <Trash2 className="mr-2 h-4 w-4" />Deletar Permanentemente
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
         </div>
 
       {/* LINHA 1: Telefone · FS */}
