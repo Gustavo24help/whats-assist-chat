@@ -133,6 +133,7 @@ export const ConversationCard = memo(({
   bookmarked = false,
   onToggleBookmark,
   ultimaMsgPor,
+  fichaCreatedAt,
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
