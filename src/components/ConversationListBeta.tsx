@@ -1785,28 +1785,30 @@ export const ConversationListBeta = ({
         </button>
       )}
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {!isCollapsed && (
           // Vista expandida - mostra cards completos
           <>
             {isLoading ? (
               // ✅ Skeleton loading para melhor UX
-              <div className="space-y-1">
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} className="p-2.5 md:p-3 border-b">
-                    <div className="flex gap-1 mb-1.5">
-                      <Skeleton className="h-4 w-16" />
-                      <Skeleton className="h-4 w-12" />
+              <ScrollArea className="h-full">
+                <div className="space-y-1">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="p-2.5 md:p-3 border-b">
+                      <div className="flex gap-1 mb-1.5">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-12" />
+                      </div>
+                      <div className="flex justify-between mb-1">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                      <Skeleton className="h-4 w-40 mb-1" />
+                      <Skeleton className="h-3 w-20" />
                     </div>
-                    <div className="flex justify-between mb-1">
-                      <Skeleton className="h-5 w-32" />
-                      <Skeleton className="h-4 w-24" />
-                    </div>
-                    <Skeleton className="h-4 w-40 mb-1" />
-                    <Skeleton className="h-3 w-20" />
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </ScrollArea>
             ) : (isSearchingById || isSearchingByMessage) ? (
               <div className="flex items-center justify-center p-8 text-center">
                 <p className="text-muted-foreground text-sm">Buscando...</p>
@@ -1816,88 +1818,42 @@ export const ConversationListBeta = ({
                 <p className="text-muted-foreground text-sm">Nenhuma conversa encontrada</p>
               </div>
             ) : (
-              filteredClientes.map((cliente) => (
-                <div key={cliente.telefone} className="relative">
-                  {/* Checkbox de seleção em massa */}
-                  {selectionMode && (
-                    <div 
-                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleClienteSelection(cliente.telefone);
-                      }}
-                    >
-                      <Checkbox
-                        checked={selectedClientes.has(cliente.telefone)}
-                        onCheckedChange={() => toggleClienteSelection(cliente.telefone)}
-                        className="h-5 w-5"
-                      />
-                    </div>
-                  )}
-                  <div className={cn(selectionMode && "pl-8")}>
-                    <ConversationCard
-                      telefone={cliente.telefone}
-                      nome={cliente.nome}
-                      tags={cliente.tags || []}
-                      tagsColors={tagsWithColors}
-                      fichaId={cliente.nome_ficha}
-                      fichaStatus={cliente.status_ficha}
-                      statusConversa={cliente.status_conversa}
-                      ultimaInteracao={cliente.ultima_interacao}
-                      isSelected={selectedClienteTelefone === cliente.telefone}
-                      unreadCount={cliente.unread_count_real || 0}
-                      onClick={() => {
-                        if (selectionMode) {
-                          toggleClienteSelection(cliente.telefone);
-                        } else {
-                          // Limpar destaque de orçamento ao abrir conversa
-                          if (cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)) {
-                            setRecentOrcamentoFichas(prev => {
-                              const next = new Set(prev);
-                              next.delete(cliente.ficha_id_real!);
-                              return next;
-                            });
-                          }
-                          // ✅ Limpar marcado_nao_lido + contagem real localmente de imediato
-                          setClientes(prev => prev.map(c => 
-                            c.telefone === cliente.telefone 
-                              ? { ...c, marcado_nao_lido: false, unread_count_real: 0 }
-                              : c
-                          ));
-                          onSelectCliente(cliente);
-                        }
-                      }}
-                      onOpenTagManager={() => openTagManager(cliente.telefone)}
-                      onArchive={() => archiveContact(cliente.telefone)}
-                      onUnarchive={() => unarchiveContact(cliente.telefone)}
-                      onDelete={() => deleteContact(cliente.telefone)}
-                      isArchived={showArchived}
-                      marcadoNaoLido={cliente.marcado_nao_lido}
-                      onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
-                      botHabilitado={cliente.bot_habilitado}
-                      botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
-                      botDesligadoManualmente={cliente.bot_desligado_manualmente}
-                      orcamentosCount={cliente.orcamentos_count}
-                      atendenteNome={(cliente as any).atendente?.full_name}
-                      temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
-                      semOrcamento={clientesSemOrcamento.has(cliente.telefone)}
-                      pagamentoLink={cliente.pagamento_link}
-                      pagamentoRealizado={cliente.pagamento_realizado}
-                      statusAlertColor={cliente.statusAlertColor}
-                      tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
-                      hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
-                      hasSuggestion={conversasComSugestao.has(cliente.telefone)}
-                      bookmarked={bookmarks.has(cliente.telefone)}
-                      onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
-                      ultimaMsgPor={cliente.ultima_msg_por}
-                    />
-                  </div>
-                </div>
-              ))
+              // ⚡ Lista virtualizada (react-window) — renderiza só ~15 cards visíveis em vez de 1500+.
+              // Mantém comportamento, callbacks e dados idênticos ao .map() anterior.
+              <VirtualList
+                rowCount={filteredClientes.length}
+                rowHeight={108}
+                overscanCount={6}
+                style={{ height: "100%", width: "100%" }}
+                rowProps={{
+                  filteredClientes,
+                  selectionMode,
+                  selectedClientes,
+                  toggleClienteSelection,
+                  tagsWithColors,
+                  selectedClienteTelefone,
+                  recentOrcamentoFichas,
+                  setRecentOrcamentoFichas,
+                  setClientes,
+                  onSelectCliente,
+                  openTagManager,
+                  archiveContact,
+                  unarchiveContact,
+                  deleteContact,
+                  showArchived,
+                  toggleUnreadMark,
+                  clientesComServicoParaFinalizar,
+                  clientesSemOrcamento,
+                  conversasComSugestao,
+                  bookmarks,
+                  handleToggleBookmark,
+                }}
+                rowComponent={ConversationRow}
+              />
             )}
           </>
         )}
-      </ScrollArea>
+      </div>
 
       {/* 🆕 Barra de ações de seleção em massa */}
       {selectionMode && selectedClientes.size > 0 && !isCollapsed && (
