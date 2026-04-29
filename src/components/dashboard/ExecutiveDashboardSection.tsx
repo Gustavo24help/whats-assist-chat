@@ -100,7 +100,7 @@ export const ExecutiveDashboardSection = ({
       label: "Com Orçamento",
       value: kpis.fsComOrcamento,
       variation: kpis.variations.fsComOrcamento,
-      onClick: openDrill("fsComOrcamento", "FS com Orçamento"),
+      onClick: openDrill("totalOrcamentos", "FS com Orçamento"),
       tooltip:
         "Fichas que receberam pelo menos 1 orçamento de prestador no período.",
     },
@@ -109,7 +109,7 @@ export const ExecutiveDashboardSection = ({
       label: "Agendados",
       value: kpis.servicoAgendadoBruto,
       variation: kpis.variations.servicoAgendadoBruto,
-      onClick: openDrill("servicoAgendadoBruto", "Serviços Agendados"),
+      onClick: openDrill("servicoAgendado", "Serviços Agendados"),
       tooltip:
         "Mede o ATO de agendar (status virou 'Agendado'), não a data futura de execução.",
     },
