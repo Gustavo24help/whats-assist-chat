@@ -200,7 +200,9 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [oldestMessageDate, setOldestMessageDate] = useState<string | null>(null);
-  const MESSAGES_PER_PAGE = 100;
+  // 30 mensagens no carregamento inicial para abrir conversa rápido;
+  // o botão "Carregar mais" puxa mais blocos sob demanda.
+  const MESSAGES_PER_PAGE = 30;
   
   // Estados para atribuição de operador
   const [atendenteAtual, setAtendenteAtual] = useState<{ id: string; nome: string } | null>(null);
