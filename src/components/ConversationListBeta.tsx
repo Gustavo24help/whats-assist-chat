@@ -133,7 +133,7 @@ function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
   if (!cliente) return null;
 
   return (
-    <div style={style} className="relative">
+    <div style={style} className="relative my-0 py-0">
       {selectionMode && (
         <div
           className="absolute left-2 top-1/2 -translate-y-1/2 z-10"
