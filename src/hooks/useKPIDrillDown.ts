@@ -215,6 +215,7 @@ async function fetchFichaIdsComEvento(
     const f = row.fichas_de_servico;
     if (!f) continue;
     if (excludeCurrentStatuses.includes(f.status)) continue;
+    if (includeOnlyCurrentStatuses && !includeOnlyCurrentStatuses.includes(f.status)) continue;
     if (!out.has(f.id)) out.set(f.id, row.created_at);
   }
 
