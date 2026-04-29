@@ -1645,9 +1645,21 @@ export const ConversationList = ({
         </div>
       )}
 
-      {/* Botão flutuante: Arquivadas */}
+      {/* Botões flutuantes: Marcadas + Arquivadas */}
       {!isCollapsed && (
         <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2 items-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-10 w-10 rounded-full shadow-md hover:shadow-lg transition-all",
+              showBookmarked ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted hover:bg-muted/80"
+            )}
+            onClick={() => { setShowBookmarked(!showBookmarked); if (!showBookmarked) setShowArchived(false); }}
+            title={showBookmarked ? "Ver todas as conversas" : "Ver conversas marcadas"}
+          >
+            <Bookmark className={cn("h-4 w-4", showBookmarked && "fill-current")} />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
