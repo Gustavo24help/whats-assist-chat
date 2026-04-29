@@ -194,6 +194,7 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
           contentSid: selectedTemplate.content_sid,
           contentVariables,
           templateBody,
+          userId: user?.id,
         },
       });
 
