@@ -200,11 +200,14 @@ export const ConversationCard = memo(({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 shrink-0"
+                className={cn(
+                  "h-7 w-7 shrink-0 rounded-full border",
+                  bookmarked ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40" : "border-border bg-background hover:bg-muted"
+                )}
                 title={bookmarked ? "Remover da página marcada" : "Marcar página"}
                 onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
               >
-                <Bookmark className={cn("h-3.5 w-3.5", bookmarked ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
+                <Bookmark className={cn("h-4 w-4", bookmarked ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
               </Button>
             )}
             <DropdownMenu>
