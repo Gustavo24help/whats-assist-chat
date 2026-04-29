@@ -1867,6 +1867,7 @@ export const ConversationListBeta = ({
                       hasSuggestion={conversasComSugestao.has(cliente.telefone)}
                       bookmarked={bookmarks.has(cliente.telefone)}
                       onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
+                      ultimaMsgPor={cliente.ultima_msg_por}
                     />
                   </div>
                 </div>
