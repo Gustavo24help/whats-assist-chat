@@ -163,6 +163,9 @@ export const ConversationListBeta = ({
   const [clientesComServicoParaFinalizar, setClientesComServicoParaFinalizar] = useState<Set<string>>(new Set());
   const [clientesSemOrcamento, setClientesSemOrcamento] = useState<Set<string>>(new Set());
   const [showAguardandoRespostaOnly, setShowAguardandoRespostaOnly] = useState(false);
+  // Refs para restaurar filtros que o banner "precisando de resposta" sobrescreve ao ativar
+  const prevStatusFilterRef = useRef<string | null>(null);
+  const prevConversaStatusFilterRef = useRef<"ativas" | "inativas" | "todas" | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusAlertRules, setStatusAlertRules] = useState<StatusAlertRule[]>([]);
   const statusAlertRulesRef = useRef<StatusAlertRule[]>([]);
