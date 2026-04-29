@@ -158,12 +158,11 @@ export const ConversationCard = memo(({
     <>
     <div
       className={cn(
-        "p-2.5 md:p-3 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
-        isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "",
-        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && !hasNewOrcamento && "bg-blue-100 dark:bg-blue-950/40 border-l-4 border-l-blue-600 dark:border-l-blue-400",
-        statusAlertColor && !isSelected && !hasNewOrcamento && "border-l-4",
-        hasNewOrcamento && !isSelected && "border-l-4",
-        hasSuggestion && !isSelected && !hasNewOrcamento && !statusAlertColor && "animate-pulse ring-1 ring-primary/40 bg-primary/5"
+        "p-2 md:p-2.5 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden border-[3px]",
+        getCardBorderClass(fichaId, fichaStatus),
+        isSelected && "bg-primary/10 ring-2 ring-primary",
+        (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && !hasNewOrcamento && "bg-blue-100 dark:bg-blue-950/40",
+        hasSuggestion && !isSelected && !hasNewOrcamento && !statusAlertColor && "animate-pulse bg-primary/5"
       )}
       style={alertBackgroundStyle}
       onClick={onClick}
@@ -172,166 +171,137 @@ export const ConversationCard = memo(({
       {hasNewOrcamento && (
         <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
           <span className="text-lg font-bold text-red-600 dark:text-red-400 animate-pulse drop-shadow-sm">
-            💰 Chegou novo orçamento!
+            🆕 Chegou novo orçamento!
           </span>
         </div>
       )}
-      {/* Linha 1: Tag e Menu */}
-      <div className="flex items-start justify-between mb-1.5 gap-2 overflow-hidden">
-        <div className="flex gap-1 flex-wrap flex-1 min-h-[18px] min-w-0 overflow-hidden">
-          {tags.map((tag, idx) => {
-            const tagColor = tagsColors?.get(tag) || '#6B7280';
-            return (
-              <Badge 
-                key={idx} 
-                variant="secondary" 
-                className="text-xs px-1.5 py-0 h-4 border"
-                style={{
-                  backgroundColor: tagColor,
-                  borderColor: tagColor,
-                  color: '#FFFFFF'
-                }}
-              >
-                {tag}
-              </Badge>
-            );
-          })}
-        </div>
-        
-        <div className="flex items-center gap-1">
-          {onToggleBookmark && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 shrink-0 -mt-1"
-              title={bookmarked ? "Remover da página marcada" : "Marcar página"}
-              onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
-            >
-              <Bookmark
-                className={cn(
-                  "h-3.5 w-3.5",
-                  bookmarked ? "fill-amber-500 text-amber-500" : "text-muted-foreground"
-                )}
-              />
-            </Button>
-          )}
-          <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 -mt-1">
-              <MoreVertical className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {!isArchived && (
-              <>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleUnread(); }}>
-                  {marcadoNaoLido ? (
-                    <>
-                      <Circle className="mr-2 h-4 w-4" />
-                      Marcar como Lida
-                    </>
-                  ) : (
-                    <>
-                      <CircleDot className="mr-2 h-4 w-4" />
-                      Marcar como Não Lida
-                    </>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenTagManager(); }}>
-                  <Tag className="mr-2 h-4 w-4" />
-                  Gerenciar Tags
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
-                  <Archive className="mr-2 h-4 w-4" />
-                  Arquivar Contato
-                </DropdownMenuItem>
-              </>
-            )}
-            {isArchived && (
-              <>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUnarchive(); }}>
-                  <ArchiveRestore className="mr-2 h-4 w-4" />
-                  Restaurar Contato
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={(e) => { e.stopPropagation(); setDeleteDialogOpen(true); }}
-                  className="text-destructive focus:text-destructive"
+
+      {/* Tags + Menu (linha 0 — só renderiza se houver tags) */}
+      {(tags.length > 0 || onToggleBookmark) && (
+        <div className="flex items-start justify-between mb-1 gap-2 overflow-hidden">
+          <div className="flex gap-1 flex-wrap flex-1 min-w-0 overflow-hidden">
+            {tags.map((tag, idx) => {
+              const tagColor = tagsColors?.get(tag) || '#6B7280';
+              return (
+                <Badge
+                  key={idx}
+                  variant="secondary"
+                  className="text-xs px-1.5 py-0 h-4 border"
+                  style={{ backgroundColor: tagColor, borderColor: tagColor, color: '#FFFFFF' }}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Deletar Permanentemente
-                </DropdownMenuItem>
-              </>
+                  {tag}
+                </Badge>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-1">
+            {onToggleBookmark && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 shrink-0 -mt-1"
+                title={bookmarked ? "Remover da página marcada" : "Marcar página"}
+                onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
+              >
+                <Bookmark className={cn("h-3.5 w-3.5", bookmarked ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
+              </Button>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Operador (acima do nome do cliente) */}
-      {atendenteNome && (
-        <p className="text-[10px] italic text-muted-foreground truncate mb-0.5">
-          Operador: {atendenteNome}
-        </p>
-      )}
-
-      {/* Nome e Telefone */}
-      <div className="flex items-center justify-between mb-1 gap-2 w-full overflow-hidden">
-        <h3 className="font-semibold text-sm truncate w-0 flex-1">{nome}</h3>
-        <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">{telefone}</span>
-      </div>
-
-      {/* Ficha Ativa e Status */}
-      {fichaId && (
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className="text-xs font-medium text-primary">📋 {fichaId}</span>
-          {fichaStatus && (
-            <div className="flex items-center gap-1">
-              <div className={cn("w-2 h-2 rounded-full shrink-0", getStatusColor(fichaStatus))} />
-              <span className="text-xs text-muted-foreground truncate">{fichaStatus}</span>
-            </div>
-          )}
-          {pagamentoLink && fichaStatus === "Finalizado" && (
-            pagamentoRealizado ? (
-              <Check className="h-4 w-4 text-green-600 shrink-0" />
-            ) : (
-              <XCircle className="h-4 w-4 text-red-500 shrink-0" />
-            )
-          )}
-          {orcamentosCount > 0 && (
-            <Badge variant="secondary" className="text-xs h-5 px-1.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700">
-              💰 {orcamentosCount}
-            </Badge>
-          )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 -mt-1">
+                  <MoreVertical className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {!isArchived && (
+                  <>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleUnread(); }}>
+                      {marcadoNaoLido ? (<><Circle className="mr-2 h-4 w-4" />Marcar como Lida</>) : (<><CircleDot className="mr-2 h-4 w-4" />Marcar como Não Lida</>)}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenTagManager(); }}>
+                      <Tag className="mr-2 h-4 w-4" />Gerenciar Tags
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
+                      <Archive className="mr-2 h-4 w-4" />Arquivar Contato
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {isArchived && (
+                  <>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUnarchive(); }}>
+                      <ArchiveRestore className="mr-2 h-4 w-4" />Restaurar Contato
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDeleteDialogOpen(true); }} className="text-destructive focus:text-destructive">
+                      <Trash2 className="mr-2 h-4 w-4" />Deletar Permanentemente
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       )}
 
-      {/* Horário e Badge de Não Lidas */}
-      <div className="flex items-center justify-between mt-1.5 gap-2 overflow-hidden">
-        <span className="text-xs text-muted-foreground truncate flex items-center gap-1 min-w-0">
-          <span className="truncate">
+      {/* LINHA 1: Nome · Telefone · FS */}
+      <div className="flex items-center gap-2 mb-0.5 w-full overflow-hidden whitespace-nowrap">
+        <h3 className="font-semibold text-sm truncate min-w-0">{nome}</h3>
+        <span className="text-xs text-muted-foreground shrink-0" title={telefone}>
+          {formatTelefoneDisplay(telefone)}
+        </span>
+        {fichaId && (
+          <span className="text-xs font-medium text-primary shrink-0">📋 {fichaId}</span>
+        )}
+        {pagamentoLink && fichaStatus === "Finalizado" && (
+          pagamentoRealizado
+            ? <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+            : <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+        )}
+        {orcamentosCount > 0 && (
+          <Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700">
+            🧾 {orcamentosCount}
+          </Badge>
+        )}
+      </div>
+
+      {/* LINHA 2: Status · Sem Orçamento */}
+      <div className="flex items-center gap-2 mb-0.5 flex-wrap text-xs">
+        {fichaStatus && (
+          <span className="text-muted-foreground truncate">{fichaStatus}</span>
+        )}
+        {semOrcamento && (
+          <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
+            🔥 Sem orçamento
+          </span>
+        )}
+        {statusAlertColor && (
+          <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-300 shrink-0">
+            ⏳ {typeof tempoNoStatusMinutos === "number" ? `${Math.floor(tempoNoStatusMinutos)}min no status` : "Status atrasado"}
+          </span>
+        )}
+      </div>
+
+      {/* LINHA 3: Operador · ⏰ tempo desde criação · UM · alertas */}
+      <div className="flex items-center justify-between gap-2 overflow-hidden">
+        <span className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5 min-w-0">
+          {atendenteNome && (
+            <span className="italic truncate">{atendenteNome}</span>
+          )}
+          {fichaCreatedAt && (
+            <span className="shrink-0" title="Tempo desde a criação da ficha">
+              ⏰ {formatTempoDesde(fichaCreatedAt)}
+            </span>
+          )}
+          <span className="shrink-0 truncate" title={`Última interação: ${formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}`}>
             {formatDistanceToNow(new Date(ultimaInteracao), { addSuffix: true, locale: ptBR })}
           </span>
           {ultimaMsgPor && (
-            <span
-              className="text-[10px] text-muted-foreground/70 italic shrink-0"
-              title={`Última mensagem por ${ultimaMsgPor}`}
-            >
+            <span className="text-[10px] text-muted-foreground/70 italic shrink-0" title={`Última mensagem por ${ultimaMsgPor}`}>
               · UM: {ultimaMsgPor === "Cliente" ? "C" : "24"}
             </span>
           )}
         </span>
-        
+
         <div className="flex items-center gap-1.5">
-          {semOrcamento && (
-            <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
-              💰 Sem orçamento
-            </span>
-          )}
-          {statusAlertColor && (
-            <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-300 shrink-0">
-              ⏰ Status atrasado{typeof tempoNoStatusMinutos === "number" ? ` (${Math.floor(tempoNoStatusMinutos)}min)` : ""}
-            </span>
-          )}
           {temServicoParaFinalizar && (
             <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 shrink-0">
               <span className="text-white text-xs font-bold">!</span>
