@@ -1692,14 +1692,20 @@ export const ConversationListBeta = ({
         )}
       </div>
 
-      {/* 🆕 Alerta de atendimentos aguardando resposta */}
-      {!isCollapsed && aguardandoRespostaCount > 0 && (
+      {/* 🆕 Alerta de atendimentos aguardando resposta.
+          Mantém-se visível enquanto o filtro estiver ativo, mesmo se a contagem cair a 0,
+          para o operador conseguir desligá-lo (e restaurar filtros prévios). */}
+      {!isCollapsed && (aguardandoRespostaCount > 0 || showAguardandoRespostaOnly) && (
         <button
           onClick={() => {
-            const next = !showAguardandoRespostaOnly;
-            setShowAguardandoRespostaOnly(next);
-            // Quando ativa o alerta, limpa filtros que poderiam esconder os elegíveis
-            if (next) {
+            if (showAguardandoRespostaOnly) {
+              // Desliga e restaura filtros prévios
+              desligarAguardandoResposta();
+            } else {
+              // Memoriza filtros atuais antes de sobrescrever
+              prevStatusFilterRef.current = effectiveStatusFilter;
+              prevConversaStatusFilterRef.current = effectiveConversaStatusFilter;
+              setShowAguardandoRespostaOnly(true);
               if (onExternalStatusFilterChange) onExternalStatusFilterChange("all");
               else setStatusFilter("all");
               if (onExternalConversaStatusFilterChange) onExternalConversaStatusFilterChange("todas");
@@ -1714,7 +1720,11 @@ export const ConversationListBeta = ({
           )}
         >
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>{aguardandoRespostaCount} atendimento{aguardandoRespostaCount !== 1 ? 's' : ''} precisando de resposta</span>
+          <span>
+            {aguardandoRespostaCount > 0
+              ? `${aguardandoRespostaCount} atendimento${aguardandoRespostaCount !== 1 ? 's' : ''} precisando de resposta`
+              : 'Nenhum atendimento pendente — clique para sair do filtro'}
+          </span>
           {showAguardandoRespostaOnly && (
             <X className="h-3.5 w-3.5 ml-auto shrink-0" />
           )}
