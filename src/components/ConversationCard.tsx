@@ -43,6 +43,7 @@ interface ConversationCardProps {
   hasSuggestion?: boolean;
   bookmarked?: boolean;
   onToggleBookmark?: () => void;
+  ultimaMsgPor?: string | null;
 }
 
 const getStatusColor = (status: string) => {
