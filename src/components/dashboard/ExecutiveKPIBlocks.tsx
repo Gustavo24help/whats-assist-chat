@@ -197,8 +197,8 @@ export const VolumeKPIsBlock = ({
                 "cursor-pointer hover:bg-muted/70 hover:border-border",
             )}
           >
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide truncate">
+            <div className="flex items-start justify-between gap-1">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide leading-tight line-clamp-2 min-h-[2em]">
                 {kpi.label}
               </span>
               <VariationPill variation={kpi.variation} />
