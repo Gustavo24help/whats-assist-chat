@@ -158,8 +158,7 @@ export const ConversationCard = memo(({
     <>
     <div
       className={cn(
-        "p-2 md:p-2.5 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden border-[3px]",
-        getCardBorderClass(fichaId, fichaStatus),
+        "p-2 md:p-2.5 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected && "bg-primary/10 ring-2 ring-primary",
         (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && !hasNewOrcamento && "bg-blue-100 dark:bg-blue-950/40",
         hasSuggestion && !isSelected && !hasNewOrcamento && !statusAlertColor && "animate-pulse bg-primary/5"
