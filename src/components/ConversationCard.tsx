@@ -67,6 +67,36 @@ const getStatusColor = (status: string) => {
   return statusMap[status] || "bg-gray-400";
 };
 
+// Formata telefone para exibição: remove "whatsapp:" e "+55"
+// Ex.: whatsapp:+5511987654321 -> (11) 98765-4321
+const formatTelefoneDisplay = (tel: string): string => {
+  if (!tel) return "";
+  let n = tel.replace(/^whatsapp:/i, "").replace(/\D/g, "");
+  if (n.startsWith("55") && n.length >= 12) n = n.slice(2);
+  if (n.length === 11) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+  if (n.length === 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+  return n || tel;
+};
+
+// Cor da borda do card baseada no status da ficha
+const getCardBorderClass = (fichaId?: string | null, fichaStatus?: string | null): string => {
+  if (!fichaId) return "border-yellow-500";
+  if (fichaStatus === "Ficha Criada") return "border-red-500";
+  if (fichaStatus === "Finalizado" || fichaStatus === "Perdido" || fichaStatus === "Garantia") return "border-green-500";
+  return "border-blue-500";
+};
+
+// Formata tempo desde criação: "MMmin" se <60, senão "Xh" ou "Xd"
+const formatTempoDesde = (iso: string): string => {
+  const mins = differenceInMinutes(new Date(), new Date(iso));
+  if (mins < 0) return "0min";
+  if (mins < 60) return `${mins}min`;
+  const horas = Math.floor(mins / 60);
+  if (horas < 24) return `${horas}h`;
+  const dias = Math.floor(horas / 24);
+  return `${dias}d`;
+};
+
 // ✅ Memoized para evitar re-renders desnecessários
 export const ConversationCard = memo(({
   telefone,
