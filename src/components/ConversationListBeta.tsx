@@ -218,6 +218,20 @@ export const ConversationListBeta = ({
     return () => debouncedSetSearch.cancel();
   }, [searchTerm, debouncedSetSearch]);
 
+  // Debounce de segurança para refetch da lista: agrupa rajadas de eventos
+  // (Realtime + atualizações de fichas/orcamentos) em uma única chamada após 1.5s ociosos.
+  // Evita disparar fetchClientes() dezenas de vezes por minuto.
+  const debouncedFetchClientesRef = useRef(
+    debounce(() => {
+      fetchClientes();
+    }, 1500, { leading: false, trailing: true, maxWait: 5000 })
+  );
+  const debouncedFetchServicosRef = useRef(
+    debounce(() => {
+      fetchServicosParaFinalizar();
+    }, 1500, { leading: false, trailing: true, maxWait: 5000 })
+  );
+
   useEffect(() => {
     // ✅ Carregar dados iniciais em paralelo
     const loadInitialData = async () => {
@@ -239,13 +253,16 @@ export const ConversationListBeta = ({
     };
     
     loadInitialData();
-    
+
+    const debouncedFetchClientes = debouncedFetchClientesRef.current;
+    const debouncedFetchServicos = debouncedFetchServicosRef.current;
+
     const channel = supabase
       .channel('clientes-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'clientes' },
-        () => fetchClientes()
+        () => debouncedFetchClientes()
       )
       .subscribe();
 
@@ -254,7 +271,7 @@ export const ConversationListBeta = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'mensagens' },
-        () => fetchClientes()
+        () => debouncedFetchClientes()
       )
       .subscribe();
 
@@ -272,7 +289,7 @@ export const ConversationListBeta = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'fichas_de_servico' },
-        () => fetchServicosParaFinalizar()
+        () => debouncedFetchServicos()
       )
       .subscribe();
 
@@ -297,16 +314,18 @@ export const ConversationListBeta = ({
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'mensagem_leitura_operador', filter: `user_id=eq.${user.id}` },
-            () => fetchClientes()
+            () => debouncedFetchClientes()
           )
           .subscribe()
       : null;
 
+    // Polling de rede de proteção: 5 minutos (Realtime já cobre o caso comum).
+    // Antes era 60s e disparava 3 fetchs pesados em sequência.
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
       fetchServicosParaFinalizar();
       fetchSemOrcamento();
-    }, 60000);
+    }, 5 * 60 * 1000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -316,6 +335,8 @@ export const ConversationListBeta = ({
       supabase.removeChannel(orcamentosChannel);
       if (leituraChannel) supabase.removeChannel(leituraChannel);
       window.clearInterval(pollingInterval);
+      debouncedFetchClientes.cancel();
+      debouncedFetchServicos.cancel();
     };
   }, [user?.id]);
 
