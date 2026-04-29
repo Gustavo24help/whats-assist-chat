@@ -189,6 +189,7 @@ async function fetchFichaIdsComEvento(
   toStr: string,
   filters: { categoriaId?: number; prestadorCpf?: string; clienteTelefone?: string },
   excludeCurrentStatuses: string[] = [],
+  includeOnlyCurrentStatuses?: string[],
 ): Promise<Map<string, string>> {
   // Map<ficha_id, data_evento>
   const out = new Map<string, string>();
