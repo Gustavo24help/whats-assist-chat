@@ -176,10 +176,11 @@ export const ConversationCard = memo(({
         </div>
       )}
 
-      {/* Tags + Menu (linha 0 — só renderiza se houver tags) */}
-      {(tags.length > 0 || onToggleBookmark) && (
-        <div className="flex items-start justify-between mb-1 gap-2 overflow-hidden">
-          <div className="flex gap-1 flex-wrap flex-1 min-w-0 overflow-hidden">
+      {/* Linha 0: Nome + Tags + Menu */}
+      <div className="flex items-center justify-between mb-1 gap-2 overflow-hidden">
+        <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+          <h3 className="font-semibold text-sm truncate min-w-0">{nome}</h3>
+          <div className="flex gap-1 flex-wrap min-w-0 overflow-hidden">
             {tags.map((tag, idx) => {
               const tagColor = tagsColors?.get(tag) || '#6B7280';
               return (
@@ -240,11 +241,10 @@ export const ConversationCard = memo(({
             </DropdownMenu>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* LINHA 1: Nome · Telefone · FS */}
+      {/* LINHA 1: Telefone · FS */}
       <div className="flex items-center gap-2 mb-0.5 w-full overflow-hidden whitespace-nowrap">
-        <h3 className="font-semibold text-sm truncate min-w-0">{nome}</h3>
         <span className="text-xs text-muted-foreground shrink-0" title={telefone}>
           {formatTelefoneDisplay(telefone)}
         </span>
@@ -263,19 +263,22 @@ export const ConversationCard = memo(({
         )}
       </div>
 
-      {/* LINHA 2: Status · Sem Orçamento */}
+      {/* LINHA 2: Status · ⏳ tempo no status · 🔥 Sem orçamento */}
       <div className="flex items-center gap-2 mb-0.5 flex-wrap text-xs">
         {fichaStatus && (
           <span className="text-muted-foreground truncate">{fichaStatus}</span>
         )}
+        {typeof tempoNoStatusMinutos === "number" && (
+          <span className={cn(
+            "text-[10px] font-semibold shrink-0",
+            statusAlertColor ? "text-orange-700 dark:text-orange-300" : "text-muted-foreground"
+          )} title="Tempo no status atual">
+            ⏳ {Math.floor(tempoNoStatusMinutos)}min
+          </span>
+        )}
         {semOrcamento && (
           <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
             🔥 Sem orçamento
-          </span>
-        )}
-        {statusAlertColor && (
-          <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-300 shrink-0">
-            ⏳ {typeof tempoNoStatusMinutos === "number" ? `${Math.floor(tempoNoStatusMinutos)}min no status` : "Status atrasado"}
           </span>
         )}
       </div>
