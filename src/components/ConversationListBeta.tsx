@@ -203,7 +203,7 @@ function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
           />
         </div>
       )}
-      <div className={cn(selectionMode && "pl-8")}>
+      <div className={cn("h-full", selectionMode && "pl-8")}>
         <ConversationCard
           telefone={cliente.telefone}
           nome={cliente.nome}
