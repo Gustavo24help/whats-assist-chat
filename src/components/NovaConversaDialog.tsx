@@ -37,6 +37,7 @@ interface NovaConversaDialogProps {
 }
 
 export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps) => {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"number" | "template">("number");
   const [phoneNumber, setPhoneNumber] = useState("");
