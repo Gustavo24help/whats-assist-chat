@@ -247,65 +247,6 @@ export const ChatBetaFilterSidebar = ({
           onPagamentoFilterChange={onPagamentoFilterChange}
         />
 
-        {/* Tags */}
-        {allTags.length > 0 && (
-          <Popover open={tagsExpanded} onOpenChange={setTagsExpanded}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full h-7 justify-start text-[11px] gap-1.5">
-                <span>🏷️</span>
-                Tags
-                {selectedTags.length > 0 ? (
-                  <Badge variant="default" className="ml-auto h-4 px-1 text-[9px]">
-                    {selectedTags.length}
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="ml-auto h-4 px-1 text-[9px]">
-                    {allTags.length}
-                  </Badge>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-3 bg-popover z-50" align="start">
-              <div className="space-y-3">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar tags..."
-                    value={tagSearchTerm}
-                    onChange={(e) => setTagSearchTerm(e.target.value)}
-                    className="pl-7 h-7 text-xs"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                  {filteredTags.map((tag) => {
-                    const tagColor = tagsWithColors.get(tag) || '#6B7280';
-                    return (
-                      <Badge
-                        key={tag}
-                        variant={selectedTags.includes(tag) ? "default" : "outline"}
-                        className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
-                        onClick={() => onToggleTag(tag)}
-                        style={{
-                          backgroundColor: selectedTags.includes(tag) ? tagColor : 'transparent',
-                          borderColor: tagColor,
-                          color: selectedTags.includes(tag) ? '#FFFFFF' : tagColor
-                        }}
-                      >
-                        {tag}
-                      </Badge>
-                    );
-                  })}
-                </div>
-                {selectedTags.length > 0 && (
-                  <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={onClearTags}>
-                    Limpar seleção
-                  </Button>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
-
         {/* Status counts */}
         <div>
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -355,6 +296,67 @@ export const ChatBetaFilterSidebar = ({
             ))}
           </div>
         </div>
+
+        {/* Tags — sempre por último, ocupando o espaço restante na base */}
+        {allTags.length > 0 && (
+          <div className="mt-auto pt-2">
+            <Popover open={tagsExpanded} onOpenChange={setTagsExpanded}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full h-7 justify-start text-[11px] gap-1.5">
+                  <span>🏷️</span>
+                  Tags
+                  {selectedTags.length > 0 ? (
+                    <Badge variant="default" className="ml-auto h-4 px-1 text-[9px]">
+                      {selectedTags.length}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="ml-auto h-4 px-1 text-[9px]">
+                      {allTags.length}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3 bg-popover z-50" align="start">
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar tags..."
+                      value={tagSearchTerm}
+                      onChange={(e) => setTagSearchTerm(e.target.value)}
+                      className="pl-7 h-7 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                    {filteredTags.map((tag) => {
+                      const tagColor = tagsWithColors.get(tag) || '#6B7280';
+                      return (
+                        <Badge
+                          key={tag}
+                          variant={selectedTags.includes(tag) ? "default" : "outline"}
+                          className="cursor-pointer text-xs h-6 transition-all hover:scale-105"
+                          onClick={() => onToggleTag(tag)}
+                          style={{
+                            backgroundColor: selectedTags.includes(tag) ? tagColor : 'transparent',
+                            borderColor: tagColor,
+                            color: selectedTags.includes(tag) ? '#FFFFFF' : tagColor
+                          }}
+                        >
+                          {tag}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                  {selectedTags.length > 0 && (
+                    <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={onClearTags}>
+                      Limpar seleção
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
       </div>
     </div>
   );
