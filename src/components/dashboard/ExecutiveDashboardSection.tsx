@@ -107,11 +107,11 @@ export const ExecutiveDashboardSection = ({
     {
       id: "agendados",
       label: "Agendados",
-      value: kpis.servicoAgendadoBruto,
-      variation: kpis.variations.servicoAgendadoBruto,
+      value: kpis.servicoAgendado,
+      variation: kpis.variations.servicoAgendado,
       onClick: openDrill("servicoAgendado", "Serviços Agendados"),
       tooltip:
-        "Mede o ATO de agendar (status virou 'Agendado'), não a data futura de execução.",
+        "Fichas cujo status virou 'Agendado' no período (exclui fichas que hoje estão como 'Perdido').",
     },
     {
       id: "finalizados",
@@ -196,7 +196,7 @@ export const ExecutiveDashboardSection = ({
       icon: <HandCoins className="h-3.5 w-3.5" />,
       onClick: openDrill("valorPagoPrestadores", "Pago a Prestadores"),
       tooltip:
-        "Soma do valor_a_pagar_prestador das transações vinculadas às fichas do período.",
+        "Soma de valor_a_pagar_prestador das transações marcadas como PAGO no Financeiro (data_pagamento_realizada no período). Mesma fonte da aba Financeiro > Pagamento Prestadores.",
     },
   ];
 
