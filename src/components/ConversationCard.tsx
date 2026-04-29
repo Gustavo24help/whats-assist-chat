@@ -242,7 +242,6 @@ export const ConversationCard = memo(({
             </DropdownMenu>
           </div>
         </div>
-      </div>
 
       {/* LINHA 1: Telefone · FS */}
       <div className="flex items-center gap-2 mb-0.5 w-full overflow-hidden whitespace-nowrap">
