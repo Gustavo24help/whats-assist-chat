@@ -1,12 +1,36 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useClienteSignalsBeta } from '@/hooks/useClienteSignalsBeta';
-import { SkillVendasCoach } from './SkillVendasCoach';
+import { useClienteSignalsBeta } from "@/hooks/useClienteSignalsBeta";
+import { SkillVendasCoach } from "./SkillVendasCoach";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Send, FileText, Paperclip, FileIcon, UserCheck, ArrowLeft, Check, Users, UserCheck as UserCheckIcon, ChevronDown, X, MessageSquare, Loader2, Search as SearchIcon, ChevronUp, Mic, History, Lock, UserPlus, ScrollText, ClipboardList, Sparkles, CornerDownLeft } from "lucide-react";
+import {
+  Send,
+  FileText,
+  Paperclip,
+  FileIcon,
+  UserCheck,
+  ArrowLeft,
+  Check,
+  Users,
+  UserCheck as UserCheckIcon,
+  ChevronDown,
+  X,
+  MessageSquare,
+  Loader2,
+  Search as SearchIcon,
+  ChevronUp,
+  Mic,
+  History,
+  Lock,
+  UserPlus,
+  ScrollText,
+  ClipboardList,
+  Sparkles,
+  CornerDownLeft,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
@@ -27,7 +51,14 @@ import { MessageContextMenu } from "./MessageContextMenu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
 import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
@@ -45,11 +76,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const NUMERO_24HELP = 'whatsapp:+554138911555';
-const NUMERO_SANDBOX = 'whatsapp:+14155238886';
+const NUMERO_24HELP = "whatsapp:+554138911555";
+const NUMERO_SANDBOX = "whatsapp:+14155238886";
 
 const isAtendente = (remetente: string): boolean =>
-  remetente === NUMERO_24HELP || remetente === NUMERO_SANDBOX || remetente === 'atendente' || remetente === 'bot';
+  remetente === NUMERO_24HELP || remetente === NUMERO_SANDBOX || remetente === "atendente" || remetente === "bot";
 
 interface Mensagem {
   id: string;
@@ -71,84 +102,80 @@ interface Mensagem {
   ficha_id?: string | null;
 }
 
-const QuotedMessage = React.memo(({ 
-  quotedMsg, 
-  onScrollToMessage 
-}: { 
-  quotedMsg: Mensagem | null;
-  onScrollToMessage?: (messageId: string) => void;
-}) => {
-  if (!quotedMsg) {
-    console.log('❌ QuotedMessage: quotedMsg é null/undefined');
-    return null;
-  }
-  
-  console.log('✅ Renderizando QuotedMessage:', {
-    id: quotedMsg.id,
-    texto: quotedMsg.texto?.substring(0, 30),
-    tipo: quotedMsg.tipo
-  });
-  
-  const getSenderName = (remetente: string) => {
-    if (isAtendente(remetente)) return "Você";
-    return "Cliente";
-  };
-
-  const getPreview = () => {
-    if (quotedMsg.tipo === "texto") {
-      if (!quotedMsg.texto) {
-        console.warn('⚠️ Mensagem citada sem texto:', quotedMsg.id);
-        return "(mensagem sem texto)";
-      }
-      
-      return quotedMsg.texto.length > 50 
-        ? quotedMsg.texto.substring(0, 50) + "..."
-        : quotedMsg.texto;
+const QuotedMessage = React.memo(
+  ({
+    quotedMsg,
+    onScrollToMessage,
+  }: {
+    quotedMsg: Mensagem | null;
+    onScrollToMessage?: (messageId: string) => void;
+  }) => {
+    if (!quotedMsg) {
+      console.log("❌ QuotedMessage: quotedMsg é null/undefined");
+      return null;
     }
-    
-    const mediaIcons: Record<string, string> = {
-      audio: "🎵 Áudio",
-      imagem: "🖼️ Imagem",
-      video: "🎥 Vídeo",
-      arquivo: "📄 Arquivo"
+
+    console.log("✅ Renderizando QuotedMessage:", {
+      id: quotedMsg.id,
+      texto: quotedMsg.texto?.substring(0, 30),
+      tipo: quotedMsg.tipo,
+    });
+
+    const getSenderName = (remetente: string) => {
+      if (isAtendente(remetente)) return "Você";
+      return "Cliente";
     };
-    
-    return mediaIcons[quotedMsg.tipo] || "Mensagem";
-  };
 
-  return (
-    <div 
-      className="bg-black/10 dark:bg-white/10 border-l-4 border-l-current pl-2 py-1.5 mb-2 rounded-r cursor-pointer hover:bg-black/15 dark:hover:bg-white/15 transition-all active:scale-[0.98]"
-      onClick={(e) => {
-        e.stopPropagation();
-        onScrollToMessage?.(quotedMsg.id);
-      }}
-    >
-      <div className="text-xs font-semibold opacity-90 mb-0.5">
-        {getSenderName(quotedMsg.remetente)}
-      </div>
-      <div className="text-xs opacity-75 truncate leading-tight">
-        {getPreview()}
-      </div>
-    </div>
-  );
-});
+    const getPreview = () => {
+      if (quotedMsg.tipo === "texto") {
+        if (!quotedMsg.texto) {
+          console.warn("⚠️ Mensagem citada sem texto:", quotedMsg.id);
+          return "(mensagem sem texto)";
+        }
 
-const MessageStatusIndicator = React.memo(({ status, remetente }: { status: string | null, remetente: string }) => {
+        return quotedMsg.texto.length > 50 ? quotedMsg.texto.substring(0, 50) + "..." : quotedMsg.texto;
+      }
+
+      const mediaIcons: Record<string, string> = {
+        audio: "🎵 Áudio",
+        imagem: "🖼️ Imagem",
+        video: "🎥 Vídeo",
+        arquivo: "📄 Arquivo",
+      };
+
+      return mediaIcons[quotedMsg.tipo] || "Mensagem";
+    };
+
+    return (
+      <div
+        className="bg-black/10 dark:bg-white/10 border-l-4 border-l-current pl-2 py-1.5 mb-2 rounded-r cursor-pointer hover:bg-black/15 dark:hover:bg-white/15 transition-all active:scale-[0.98]"
+        onClick={(e) => {
+          e.stopPropagation();
+          onScrollToMessage?.(quotedMsg.id);
+        }}
+      >
+        <div className="text-xs font-semibold opacity-90 mb-0.5">{getSenderName(quotedMsg.remetente)}</div>
+        <div className="text-xs opacity-75 truncate leading-tight">{getPreview()}</div>
+      </div>
+    );
+  },
+);
+
+const MessageStatusIndicator = React.memo(({ status, remetente }: { status: string | null; remetente: string }) => {
   // Só mostrar para mensagens do atendente
   if (!isAtendente(remetente)) return null;
-  
+
   switch (status) {
-    case 'enviado':
+    case "enviado":
       return <Check className="h-3 w-3 opacity-60" />;
-    case 'recebido':
+    case "recebido":
       return (
         <div className="flex -space-x-1">
           <Check className="h-3 w-3 opacity-60" />
           <Check className="h-3 w-3 opacity-60" />
         </div>
       );
-    case 'lido':
+    case "lido":
       return (
         <div className="flex -space-x-1">
           <Check className="h-3 w-3 text-blue-400" />
@@ -171,7 +198,16 @@ interface ChatWindowProps {
   onSuggestionReady?: (telefone: string) => void;
 }
 
-export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, onOpenFicha, onBack, fichaOpen, onToggleFicha, onSuggestionReady }: ChatWindowProps) => {
+export const ChatWindowBeta = ({
+  clienteTelefone,
+  clienteNome,
+  statusConversa,
+  onOpenFicha,
+  onBack,
+  fichaOpen,
+  onToggleFicha,
+  onSuggestionReady,
+}: ChatWindowProps) => {
   const { user, userProfile, isSupervisor } = useAuth();
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
   const [coachingVisible, setCoachingVisible] = useState(true);
@@ -194,45 +230,43 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const [confirmacaoTexto, setConfirmacaoTexto] = useState("");
   // 🔒 Estado isolado do dialog para prevenir race condition com realtime
   const [botStatusNoDialog, setBotStatusNoDialog] = useState<boolean | null>(null);
-  
+
   // ✅ Estados para loading e paginação de mensagens
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [oldestMessageDate, setOldestMessageDate] = useState<string | null>(null);
-  // 30 mensagens no carregamento inicial para abrir conversa rápido;
-  // o botão "Carregar mais" puxa mais blocos sob demanda.
-  const MESSAGES_PER_PAGE = 30;
-  
+  const MESSAGES_PER_PAGE = 100;
+
   // Estados para atribuição de operador
   const [atendenteAtual, setAtendenteAtual] = useState<{ id: string; nome: string } | null>(null);
   const [todosAtendentes, setTodosAtendentes] = useState<Array<{ id: string; nome: string }>>([]);
   const [atribuicaoDialogOpen, setAtribuicaoDialogOpen] = useState(false);
   const [pendingAtribuicao, setPendingAtribuicao] = useState<{ id: string; nome: string } | null>(null);
-  
+
   // Estados para notas internas
   const [notasDialogOpen, setNotasDialogOpen] = useState(false);
   const [notasInternas, setNotasInternas] = useState("");
   const [hasNotas, setHasNotas] = useState(false);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
-  
+
   // Estado para histórico do bot
   const [botHistoricoOpen, setBotHistoricoOpen] = useState(false);
-  
+
   // Estados para busca no chat
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const [chatSearchTerm, setChatSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
-  
+
   // Estados para arquivo pendente (drag & drop / preview antes de enviar)
   const [pendingFile, setPendingFile] = useState<{
     file: File;
     previewUrl: string;
-    type: 'imagem' | 'video' | 'audio' | 'arquivo';
+    type: "imagem" | "video" | "audio" | "arquivo";
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  
+
   // Estados para takeover
   const [takeoverWaitingOpen, setTakeoverWaitingOpen] = useState(false);
   const [takeoverWaitingOperadorNome, setTakeoverWaitingOperadorNome] = useState("");
@@ -242,15 +276,15 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   const takeoverChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const takeoverRequestIdRef = useRef<string | null>(null);
   const takeoverWaitingOperadorNomeRef = useRef("");
-  
+
   // Estados para edição de mensagem
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  
+
   // Estado para filtro de mensagens por ficha
   const [showAllMessages, setShowAllMessages] = useState(false);
-  
-   // IA Suggestion states
+
+  // IA Suggestion states
   const [suggestion, setSuggestion] = useState("");
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   const [suggestionEnabled, setSuggestionEnabled] = useState(true);
@@ -266,29 +300,32 @@ export const ChatWindowBeta = ({ clienteTelefone, clienteNome, statusConversa, o
   // Calculate minutes since last client message
   const minutosDesdeUltimaMsg = useMemo(() => {
     if (!mensagens?.length) return 0;
-    const lastClientMsg = [...mensagens].reverse().find(m => m.remetente === 'cliente' || m.tipo_remetente === 'cliente');
+    const lastClientMsg = [...mensagens]
+      .reverse()
+      .find((m) => m.remetente === "cliente" || m.tipo_remetente === "cliente");
     if (!lastClientMsg?.data_hora) return 0;
     return (Date.now() - new Date(lastClientMsg.data_hora).getTime()) / 60000;
   }, [mensagens]);
 
-  const generateSuggestion = useCallback(async (msgs: Mensagem[], trigger: "cliente_respondeu" | "operador_aguardando") => {
-    if (!suggestionEnabled || !isVendaAtiva) return;
-    if (trigger === "operador_aguardando" && minutosDesdeUltimaMsg < 3) return;
+  const generateSuggestion = useCallback(
+    async (msgs: Mensagem[], trigger: "cliente_respondeu" | "operador_aguardando") => {
+      if (!suggestionEnabled || !isVendaAtiva) return;
+      if (trigger === "operador_aguardando" && minutosDesdeUltimaMsg < 3) return;
 
-    // Deduplication: avoid generating the same suggestion twice
-    const lastMsg = msgs[msgs.length - 1];
-    const signature = `${clienteTelefone}:${lastMsg?.id || ""}:${trigger}`;
-    if (suggestionGeneratedRef.current === signature) return;
+      // Deduplication: avoid generating the same suggestion twice
+      const lastMsg = msgs[msgs.length - 1];
+      const signature = `${clienteTelefone}:${lastMsg?.id || ""}:${trigger}`;
+      if (suggestionGeneratedRef.current === signature) return;
 
-    setLoadingSuggestion(true);
-    setSuggestion("");
+      setLoadingSuggestion(true);
+      setSuggestion("");
 
-    const formatted = msgs.slice(-10).map(m => ({
-      role: (m.remetente === 'cliente' || m.tipo_remetente === 'cliente') ? "user" as const : "assistant" as const,
-      content: m.texto || ""
-    }));
+      const formatted = msgs.slice(-10).map((m) => ({
+        role: m.remetente === "cliente" || m.tipo_remetente === "cliente" ? ("user" as const) : ("assistant" as const),
+        content: m.texto || "",
+      }));
 
-    const contexto = `
+      const contexto = `
 ⚡ MODO TEMPO REAL
 
 Contexto atual da ficha:
@@ -297,39 +334,55 @@ Contexto atual da ficha:
 - Minutos desde última mensagem do cliente: ${Math.round(minutosDesdeUltimaMsg)}
 - Quem falou por último: ${trigger === "cliente_respondeu" ? "cliente" : "operador"}
 
-${totalOrcamentos === 0 && trigger === "operador_aguardando"
-  ? "O operador ainda não encontrou orçamento de prestador. Sugira uma mensagem acolhedora que mantenha o cliente esperando com conforto, sem revelar que é falta de prestador disponível."
-  : trigger === "operador_aguardando"
-  ? "O cliente está demorando para responder. Sugira uma mensagem que instigue o cliente a responder, com urgência leve ou elemento novo."
-  : "Com base no histórico e contexto, sugira a melhor próxima mensagem para avançar para o fechamento."
+${
+  totalOrcamentos === 0 && trigger === "operador_aguardando"
+    ? "O operador ainda não encontrou orçamento de prestador. Sugira uma mensagem acolhedora que mantenha o cliente esperando com conforto, sem revelar que é falta de prestador disponível."
+    : trigger === "operador_aguardando"
+      ? "O cliente está demorando para responder. Sugira uma mensagem que instigue o cliente a responder, com urgência leve ou elemento novo."
+      : "Com base no histórico e contexto, sugira a melhor próxima mensagem para avançar para o fechamento."
 }
 
 Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefixo.
     `.trim();
 
-    formatted.push({ role: "user", content: contexto });
+      formatted.push({ role: "user", content: contexto });
 
-    try {
-      const { data, error } = await supabase.functions.invoke("vendas-assistant", {
-        body: {
-          messages: formatted,
-          contexto: { fichaStatus, totalOrcamentos, minutosDesdeUltimaMsg: Math.round(minutosDesdeUltimaMsg), trigger }
+      try {
+        const { data, error } = await supabase.functions.invoke("vendas-assistant", {
+          body: {
+            messages: formatted,
+            contexto: {
+              fichaStatus,
+              totalOrcamentos,
+              minutosDesdeUltimaMsg: Math.round(minutosDesdeUltimaMsg),
+              trigger,
+            },
+          },
+        });
+        if (!error) {
+          const text = data?.content?.[0]?.text || data?.choices?.[0]?.message?.content;
+          if (text) {
+            setSuggestion(text.trim());
+            suggestionGeneratedRef.current = signature;
+            onSuggestionReady?.(clienteTelefone);
+          }
         }
-      });
-      if (!error) {
-        const text = data?.content?.[0]?.text || data?.choices?.[0]?.message?.content;
-        if (text) {
-          setSuggestion(text.trim());
-          suggestionGeneratedRef.current = signature;
-          onSuggestionReady?.(clienteTelefone);
-        }
+      } catch {
+        // silent - suggestion is optional
+      } finally {
+        setLoadingSuggestion(false);
       }
-    } catch {
-      // silent - suggestion is optional
-    } finally {
-      setLoadingSuggestion(false);
-    }
-  }, [suggestionEnabled, isVendaAtiva, fichaStatus, totalOrcamentos, minutosDesdeUltimaMsg, clienteTelefone, onSuggestionReady]);
+    },
+    [
+      suggestionEnabled,
+      isVendaAtiva,
+      fichaStatus,
+      totalOrcamentos,
+      minutosDesdeUltimaMsg,
+      clienteTelefone,
+      onSuggestionReady,
+    ],
+  );
 
   // Mark context as ready once we have messages + bot status + ficha status loaded
   useEffect(() => {
@@ -343,7 +396,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     if (!contextReady || !isVendaAtiva || !suggestionEnabled) return;
     if (!mensagens?.length) return;
     const lastMsg = mensagens[mensagens.length - 1];
-    const isClienteLast = lastMsg?.remetente === 'cliente' || lastMsg?.tipo_remetente === 'cliente';
+    const isClienteLast = lastMsg?.remetente === "cliente" || lastMsg?.tipo_remetente === "cliente";
     if (isClienteLast) {
       generateSuggestion(mensagens, "cliente_respondeu");
     } else if (minutosDesdeUltimaMsg >= 3) {
@@ -355,7 +408,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   useEffect(() => {
     if (!contextReady || !mensagens?.length) return;
     const lastMsg = mensagens[mensagens.length - 1];
-    if (lastMsg?.remetente === 'cliente' || lastMsg?.tipo_remetente === 'cliente') {
+    if (lastMsg?.remetente === "cliente" || lastMsg?.tipo_remetente === "cliente") {
       generateSuggestion(mensagens, "cliente_respondeu");
     }
   }, [mensagens.length]);
@@ -366,7 +419,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     const interval = setInterval(() => {
       if (!mensagens?.length) return;
       const lastMsg = mensagens[mensagens.length - 1];
-      if (lastMsg?.remetente !== 'cliente' && lastMsg?.tipo_remetente !== 'cliente') {
+      if (lastMsg?.remetente !== "cliente" && lastMsg?.tipo_remetente !== "cliente") {
         // Reset dedup signature so interval can re-evaluate with updated minutosDesdeUltimaMsg
         suggestionGeneratedRef.current = "";
         generateSuggestion(mensagens, "operador_aguardando");
@@ -377,12 +430,15 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
   // Fetch totalOrcamentos from orcamentos table when fichaId changes
   useEffect(() => {
-    if (!fichaId) { setTotalOrcamentos(0); return; }
+    if (!fichaId) {
+      setTotalOrcamentos(0);
+      return;
+    }
     const fetchOrcamentos = async () => {
       const { count } = await supabase
-        .from('orcamentos')
-        .select('id', { count: 'exact', head: true })
-        .eq('ficha_nome', fichaId);
+        .from("orcamentos")
+        .select("id", { count: "exact", head: true })
+        .eq("ficha_nome", fichaId);
       setTotalOrcamentos(count || 0);
     };
     fetchOrcamentos();
@@ -420,38 +476,32 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   // Handlers para editar/apagar mensagens
   const handleEditMessage = async (messageId: string, newText: string) => {
     try {
-      const { error } = await supabase
-        .from('mensagens')
-        .update({ texto: newText })
-        .eq('id', messageId);
+      const { error } = await supabase.from("mensagens").update({ texto: newText }).eq("id", messageId);
       if (error) throw error;
-      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: newText } : m));
+      setMensagens((prev) => prev.map((m) => (m.id === messageId ? { ...m, texto: newText } : m)));
       toast.success("Mensagem editada!");
       setEditingMessageId(null);
       setEditingText("");
     } catch (error) {
-      console.error('Erro ao editar mensagem:', error);
+      console.error("Erro ao editar mensagem:", error);
       toast.error("Erro ao editar mensagem");
     }
   };
 
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      const { error } = await supabase
-        .from('mensagens')
-        .update({ texto: "[Mensagem apagada]" })
-        .eq('id', messageId);
+      const { error } = await supabase.from("mensagens").update({ texto: "[Mensagem apagada]" }).eq("id", messageId);
       if (error) throw error;
-      setMensagens(prev => prev.map(m => m.id === messageId ? { ...m, texto: "[Mensagem apagada]" } : m));
+      setMensagens((prev) => prev.map((m) => (m.id === messageId ? { ...m, texto: "[Mensagem apagada]" } : m)));
       toast.success("Mensagem apagada!");
     } catch (error) {
-      console.error('Erro ao apagar mensagem:', error);
+      console.error("Erro ao apagar mensagem:", error);
       toast.error("Erro ao apagar mensagem");
     }
   };
 
   const handleStartEdit = (messageId: string) => {
-    const msg = mensagens.find(m => m.id === messageId);
+    const msg = mensagens.find((m) => m.id === messageId);
     if (msg) {
       setEditingMessageId(messageId);
       setEditingText(msg.texto || "");
@@ -462,7 +512,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     if (!isAtendente(msg.remetente)) return false;
     if (msg.texto === "[Mensagem apagada]") return false;
     // Próprio operador ou admin/supervisor
-    return (msg.enviado_por_id === user?.id) || isSupervisor;
+    return msg.enviado_por_id === user?.id || isSupervisor;
   };
 
   // Copiar informações do serviço para enviar ao prestador
@@ -470,9 +520,9 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     if (!fichaId) return;
     try {
       const { data: ficha, error } = await supabase
-        .from('fichas_de_servico')
-        .select('*, categorias(nome)')
-        .eq('id', fichaId)
+        .from("fichas_de_servico")
+        .select("*, categorias(nome)")
+        .eq("id", fichaId)
         .maybeSingle();
 
       if (error || !ficha) {
@@ -496,34 +546,33 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         const d = new Date(ficha.horario_agendamento);
         lines.push(`📅 Agendamento: ${format(d, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
       }
-      if (ficha.valor_total) lines.push(`💰 Valor total: R$ ${Number(ficha.valor_total).toFixed(2).replace('.', ',')}`);
+      if (ficha.valor_total) lines.push(`💰 Valor total: R$ ${Number(ficha.valor_total).toFixed(2).replace(".", ",")}`);
       if (ficha.notas) lines.push(`📝 Obs: ${ficha.notas}`);
 
-      const text = lines.join('\n');
+      const text = lines.join("\n");
       await navigator.clipboard.writeText(text);
       toast.success("Informações do serviço copiadas!");
     } catch (error) {
-      console.error('Erro ao copiar info do serviço:', error);
+      console.error("Erro ao copiar info do serviço:", error);
       toast.error("Erro ao copiar informações");
     }
   };
-
 
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       // Reset height para calcular corretamente
-      textarea.style.height = 'auto';
+      textarea.style.height = "auto";
       // Setar altura baseado no scrollHeight com max de 80px (2x o tamanho padrão)
       const maxHeight = 80;
       const newHeight = Math.min(textarea.scrollHeight, maxHeight);
       textarea.style.height = `${newHeight}px`;
-      
+
       // Adicionar scroll quando atingir o máximo
       if (textarea.scrollHeight > maxHeight) {
-        textarea.style.overflowY = 'auto';
+        textarea.style.overflowY = "auto";
       } else {
-        textarea.style.overflowY = 'hidden';
+        textarea.style.overflowY = "hidden";
       }
     }
   }, [novaMsg]);
@@ -533,7 +582,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   }, [mensagens]);
 
   useEffect(() => {
-    console.log('[ChatWindow] Limpando estados para:', clienteTelefone);
+    console.log("[ChatWindow] Limpando estados para:", clienteTelefone);
     setMensagens([]);
     setNovaMsg("");
     setHighlightedMessageId(null);
@@ -550,43 +599,43 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       setPendingFile(null);
     }
     setIsDragging(false);
-    
-    console.log('[ChatWindow] Inicializando canais Realtime para:', clienteTelefone);
-    
+
+    console.log("[ChatWindow] Inicializando canais Realtime para:", clienteTelefone);
+
     // ✅ Carregar dados iniciais em paralelo
     const loadInitialData = async () => {
       setIsLoadingMessages(true);
       await Promise.all([
         fetchMensagens(),
         fetchClienteData(), // Nova função consolidada
-        fetchAtendentes()
+        fetchAtendentes(),
       ]);
       setIsLoadingMessages(false);
     };
-    
+
     loadInitialData();
     clearUnreadMark();
 
     const channel = supabase
       .channel(`mensagens-${clienteTelefone}`)
       .on(
-        'postgres_changes',
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'mensagens',
-          filter: `cliente_id=eq.${clienteTelefone}`
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "mensagens",
+          filter: `cliente_id=eq.${clienteTelefone}`,
         },
         async (payload) => {
-          console.log('[ChatWindow] Nova mensagem detectada, adicionando em tempo real');
+          console.log("[ChatWindow] Nova mensagem detectada, adicionando em tempo real");
           const novaMensagem = payload.new as Mensagem;
 
           let replyTo: Mensagem | null = null;
           if (novaMensagem.reply_to_message_id) {
             const { data: replyMessage } = await supabase
-              .from('mensagens')
-              .select('id, texto, tipo, remetente, data_hora, arquivo_url, status')
-              .eq('id', novaMensagem.reply_to_message_id)
+              .from("mensagens")
+              .select("id, texto, tipo, remetente, data_hora, arquivo_url, status")
+              .eq("id", novaMensagem.reply_to_message_id)
               .maybeSingle();
 
             replyTo = (replyMessage as Mensagem | null) ?? null;
@@ -595,32 +644,38 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           setMensagens((prev) => {
             // Dedup: skip if real ID already exists
             if (prev.some((msg) => msg.id === novaMensagem.id)) {
-              console.warn('[ChatWindowBeta] Dedup descartou mensagem duplicada por ID:', novaMensagem.id);
+              console.warn("[ChatWindowBeta] Dedup descartou mensagem duplicada por ID:", novaMensagem.id);
               return prev;
             }
 
             // Dedup by message_sid (sync-twilio-messages can re-insert same Twilio msg with different DB id)
             if (novaMensagem.message_sid && prev.some((msg) => (msg as any).message_sid === novaMensagem.message_sid)) {
-              console.warn('[ChatWindowBeta] Dedup descartou mensagem duplicada por message_sid:', novaMensagem.message_sid);
+              console.warn(
+                "[ChatWindowBeta] Dedup descartou mensagem duplicada por message_sid:",
+                novaMensagem.message_sid,
+              );
               return prev;
             }
 
             // Dedup: same text + same sender within 60s window = duplicate
             // Skip content-based dedup for media messages (images, videos, audio, files)
             // because multiple media items often have the same generic text like "Arquivo 1"
-            const isMediaMessage = novaMensagem.tipo && novaMensagem.tipo !== 'texto';
+            const isMediaMessage = novaMensagem.tipo && novaMensagem.tipo !== "texto";
             if (!isMediaMessage) {
               const msgTime = novaMensagem.data_hora ? new Date(novaMensagem.data_hora).getTime() : Date.now();
               const isDuplicateByContent = prev.some(
                 (msg) =>
-                  !msg.id.startsWith('temp-') &&
+                  !msg.id.startsWith("temp-") &&
                   msg.texto === novaMensagem.texto &&
                   msg.remetente === novaMensagem.remetente &&
                   msg.data_hora &&
-                  Math.abs(new Date(msg.data_hora).getTime() - msgTime) < 60000
+                  Math.abs(new Date(msg.data_hora).getTime() - msgTime) < 60000,
               );
               if (isDuplicateByContent) {
-                console.warn('[ChatWindowBeta] Dedup descartou mensagem duplicada por conteúdo+tempo (60s):', { texto: novaMensagem.texto?.slice(0, 50), remetente: novaMensagem.remetente });
+                console.warn("[ChatWindowBeta] Dedup descartou mensagem duplicada por conteúdo+tempo (60s):", {
+                  texto: novaMensagem.texto?.slice(0, 50),
+                  remetente: novaMensagem.remetente,
+                });
                 return prev;
               }
             }
@@ -628,12 +683,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
             // Check if this is a duplicate of an optimistic (temp) message
             const tempIndex = prev.findIndex(
               (msg) =>
-                typeof msg.id === 'string' &&
-                msg.id.startsWith('temp-') &&
+                typeof msg.id === "string" &&
+                msg.id.startsWith("temp-") &&
                 msg.texto === novaMensagem.texto &&
                 (msg.remetente === novaMensagem.remetente ||
-                  msg.remetente === 'operador' ||
-                  novaMensagem.remetente === 'whatsapp:+554138911555')
+                  msg.remetente === "operador" ||
+                  novaMensagem.remetente === "whatsapp:+554138911555"),
             );
 
             if (tempIndex !== -1) {
@@ -655,69 +710,61 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
               return a.id.localeCompare(b.id);
             });
           });
-        }
+        },
       )
       .on(
-        'postgres_changes',
-        { 
-          event: 'UPDATE', 
-          schema: 'public', 
-          table: 'mensagens',
-          filter: `cliente_id=eq.${clienteTelefone}`
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "mensagens",
+          filter: `cliente_id=eq.${clienteTelefone}`,
         },
         (payload) => {
-          console.log('[ChatWindow] Mensagem atualizada:', payload);
-          setMensagens(prev =>
+          console.log("[ChatWindow] Mensagem atualizada:", payload);
+          setMensagens((prev) =>
             prev
-              .map(msg =>
-                msg.id === payload.new.id
-                  ? { ...msg, ...(payload.new as Partial<Mensagem>) }
-                  : msg
-              )
+              .map((msg) => (msg.id === payload.new.id ? { ...msg, ...(payload.new as Partial<Mensagem>) } : msg))
               .sort((a, b) => {
                 const timeA = new Date(a.data_hora).getTime();
                 const timeB = new Date(b.data_hora).getTime();
                 if (timeA !== timeB) return timeA - timeB;
                 return a.id.localeCompare(b.id);
-              })
+              }),
           );
-        }
+        },
       )
       .subscribe((status) => {
-        console.log('[ChatWindow] Status do canal mensagens:', status);
+        console.log("[ChatWindow] Status do canal mensagens:", status);
       });
 
     // Canal adicional para receber broadcasts de mensagens do bot
     const broadcastChannel = supabase
       .channel(`bot-messages-${clienteTelefone}`)
-      .on(
-        'broadcast',
-        { event: 'new-bot-message' },
-        (payload: any) => {
-          console.log('[ChatWindow] ✅ Broadcast recebido do bot:', payload);
-          if (payload.payload) {
-            setMensagens(prev => {
-              // Evitar duplicatas
-              const exists = prev.some(m => m.id === payload.payload.id);
-              if (exists) {
-                console.log('[ChatWindow] Mensagem já existe, ignorando duplicata');
-                return prev;
-              }
-              console.log('[ChatWindow] Adicionando nova mensagem do bot ao estado');
-              return [...prev, payload.payload].sort((a, b) => {
-                const timeA = new Date(a.data_hora).getTime();
-                const timeB = new Date(b.data_hora).getTime();
-                if (timeA !== timeB) return timeA - timeB;
-                return a.id.localeCompare(b.id);
-              });
+      .on("broadcast", { event: "new-bot-message" }, (payload: any) => {
+        console.log("[ChatWindow] ✅ Broadcast recebido do bot:", payload);
+        if (payload.payload) {
+          setMensagens((prev) => {
+            // Evitar duplicatas
+            const exists = prev.some((m) => m.id === payload.payload.id);
+            if (exists) {
+              console.log("[ChatWindow] Mensagem já existe, ignorando duplicata");
+              return prev;
+            }
+            console.log("[ChatWindow] Adicionando nova mensagem do bot ao estado");
+            return [...prev, payload.payload].sort((a, b) => {
+              const timeA = new Date(a.data_hora).getTime();
+              const timeB = new Date(b.data_hora).getTime();
+              if (timeA !== timeB) return timeA - timeB;
+              return a.id.localeCompare(b.id);
             });
-          }
+          });
         }
-      )
+      })
       .subscribe((status) => {
-        console.log('[ChatWindow] Status do canal broadcast:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('[ChatWindow] ✅ Canal de broadcast subscrito e pronto para receber mensagens do bot');
+        console.log("[ChatWindow] Status do canal broadcast:", status);
+        if (status === "SUBSCRIBED") {
+          console.log("[ChatWindow] ✅ Canal de broadcast subscrito e pronto para receber mensagens do bot");
         }
       });
 
@@ -725,47 +772,44 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     const botStatusChannel = supabase
       .channel(`bot-status-${clienteTelefone}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'clientes',
-          filter: `telefone=eq.${clienteTelefone}`
+          event: "UPDATE",
+          schema: "public",
+          table: "clientes",
+          filter: `telefone=eq.${clienteTelefone}`,
         },
         (payload) => {
-          console.log('[ChatWindow] Status do bot atualizado:', payload);
-          if (payload.new && 'bot_habilitado' in payload.new) {
+          console.log("[ChatWindow] Status do bot atualizado:", payload);
+          if (payload.new && "bot_habilitado" in payload.new) {
             setBotDesabilitado(payload.new.bot_habilitado === false);
           }
-        }
+        },
       )
       .subscribe((status) => {
-        console.log('[ChatWindow] Status do canal bot-status:', status);
+        console.log("[ChatWindow] Status do canal bot-status:", status);
       });
 
-    // Catch-up sob demanda: quando a aba volta ao foco, busca a janela recente
-    // (substitui o polling de 30s — o Realtime cobre o caso comum, e este handler
-    // só corre quando o operador volta à aba). Mantém comportamento idempotente
-    // via dedup por id, sem alterar nenhum dado armazenado.
-    const runCatchUp = async () => {
-      if (document.visibilityState !== 'visible') return;
+    // Fallback para redes com bloqueio de websocket/realtime (firewall/proxy):
+    // consulta uma janela recente para também recuperar mensagens sincronizadas com timestamp antigo.
+    const pollingInterval = window.setInterval(async () => {
       const latestDate = latestMessageDateRef.current;
-      const pollFromDate = latestDate
-        ? new Date(new Date(latestDate).getTime() - 10 * 60 * 1000).toISOString()
-        : null;
+      const pollFromDate = latestDate ? new Date(new Date(latestDate).getTime() - 10 * 60 * 1000).toISOString() : null;
 
       let pollingQuery = supabase
-        .from('mensagens')
-        .select(`
+        .from("mensagens")
+        .select(
+          `
           *,
           enviado_por:profiles!enviado_por_id(full_name)
-        `)
-        .eq('cliente_id', clienteTelefone)
-        .order('data_hora', { ascending: true })
+        `,
+        )
+        .eq("cliente_id", clienteTelefone)
+        .order("data_hora", { ascending: true })
         .limit(200);
 
       if (pollFromDate) {
-        pollingQuery = pollingQuery.gte('data_hora', pollFromDate);
+        pollingQuery = pollingQuery.gte("data_hora", pollFromDate);
       }
 
       const { data: mensagensRecentes, error } = await pollingQuery;
@@ -787,15 +831,15 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           });
         });
       }
-    };
 
-    document.addEventListener('visibilitychange', runCatchUp);
+      fetchClienteData();
+    }, 30000);
 
     // Canal de broadcast para takeover requests
     const takeoverChannel = supabase
       .channel(`takeover-${clienteTelefone}`)
-      .on('broadcast', { event: 'takeover_request' }, (payload: any) => {
-        console.log('[ChatWindow] Takeover request recebido:', payload);
+      .on("broadcast", { event: "takeover_request" }, (payload: any) => {
+        console.log("[ChatWindow] Takeover request recebido:", payload);
         const data = payload.payload;
         // Só mostrar se EU sou o operador atual
         if (data?.operador_atual_id === user?.id) {
@@ -805,31 +849,31 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           setTakeoverRequestOpen(true);
         }
       })
-      .on('broadcast', { event: 'takeover_response' }, (payload: any) => {
-        console.log('[ChatWindow] Takeover response recebido:', payload);
+      .on("broadcast", { event: "takeover_response" }, (payload: any) => {
+        console.log("[ChatWindow] Takeover response recebido:", payload);
         const data = payload.payload;
         if (data?.request_id && data.request_id === takeoverRequestIdRef.current) {
           setTakeoverWaitingOpen(false);
-          if (data.response === 'approved') {
-            toast.success('Solicitação aprovada! Assumindo conversa...');
+          if (data.response === "approved") {
+            toast.success("Solicitação aprovada! Assumindo conversa...");
             assumirParaMim();
-          } else if (data.response === 'denied') {
+          } else if (data.response === "denied") {
             toast.error(`${takeoverWaitingOperadorNomeRef.current} negou a solicitação.`);
           }
         }
       })
       .subscribe();
-    
+
     takeoverChannelRef.current = takeoverChannel;
 
     return () => {
-      console.log('[ChatWindow] Limpando canais Realtime');
+      console.log("[ChatWindow] Limpando canais Realtime");
       supabase.removeChannel(channel);
       supabase.removeChannel(broadcastChannel);
       supabase.removeChannel(botStatusChannel);
       supabase.removeChannel(takeoverChannel);
       takeoverChannelRef.current = null;
-      document.removeEventListener('visibilitychange', runCatchUp);
+      window.clearInterval(pollingInterval);
     };
   }, [clienteTelefone]);
 
@@ -852,7 +896,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     if (!container) return;
 
     container.scrollTop = container.scrollHeight;
-    messagesEndRef.current?.scrollIntoView({ block: 'end' });
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, []);
 
   const finalizeInitialScroll = useCallback(() => {
@@ -880,20 +924,23 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   }, [finalizeInitialScroll, forceScrollToBottom]);
 
   // Callback ref para combinar dropZoneRef e messagesContainerRef + listener de scroll
-  const setMessagesContainerRef = useCallback((el: HTMLDivElement | null) => {
-    // Limpar listener anterior
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.removeEventListener('scroll', handleContainerScroll);
-    }
+  const setMessagesContainerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      // Limpar listener anterior
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.removeEventListener("scroll", handleContainerScroll);
+      }
 
-    (dropZoneRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-    messagesContainerRef.current = el;
+      (dropZoneRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+      messagesContainerRef.current = el;
 
-    // Adicionar listener no novo elemento
-    if (el) {
-      el.addEventListener('scroll', handleContainerScroll);
-    }
-  }, [handleContainerScroll]);
+      // Adicionar listener no novo elemento
+      if (el) {
+        el.addEventListener("scroll", handleContainerScroll);
+      }
+    },
+    [handleContainerScroll],
+  );
 
   // Scroll para baixo só no carregamento inicial da conversa
   useEffect(() => {
@@ -910,91 +957,88 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         if (chatSearchOpen) {
           // Se busca estiver aberta, fechar ela primeiro
           setChatSearchOpen(false);
           setChatSearchTerm("");
           setSearchResults([]);
         } else {
-          console.log('⌨️ ESC pressionado');
-          console.log('🚪 Saindo da conversa');
+          console.log("⌨️ ESC pressionado");
+          console.log("🚪 Saindo da conversa");
           onBack?.();
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "f") {
         e.preventDefault();
         setChatSearchOpen(true);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onBack, chatSearchOpen]);
 
   // ✅ Função otimizada para buscar mensagens com paginação
-  // Carga inicial leve (MESSAGES_PER_PAGE = 30) e carga incremental maior (50) ao clicar "Carregar mais".
-  const LOAD_MORE_PAGE_SIZE = 50;
   const fetchMensagens = async (loadMore = false) => {
-    const pageSize = loadMore ? LOAD_MORE_PAGE_SIZE : MESSAGES_PER_PAGE;
-    console.log('🔍 Buscando mensagens para:', clienteTelefone, loadMore ? '(carregando mais)' : '');
+    console.log("🔍 Buscando mensagens para:", clienteTelefone, loadMore ? "(carregando mais)" : "");
 
     let query = supabase
-      .from('mensagens')
-      .select(`
+      .from("mensagens")
+      .select(
+        `
         *,
         enviado_por:profiles!enviado_por_id(full_name)
-      `)
-      .eq('cliente_id', clienteTelefone)
-      .order('data_hora', { ascending: false })
-      .limit(pageSize + 1); // +1 para verificar se há mais
+      `,
+      )
+      .eq("cliente_id", clienteTelefone)
+      .order("data_hora", { ascending: false })
+      .limit(MESSAGES_PER_PAGE + 1); // +1 para verificar se há mais
 
     // Se carregando mais, buscar mensagens anteriores à mais antiga
     if (loadMore && oldestMessageDate) {
-      query = query.lt('data_hora', oldestMessageDate);
+      query = query.lt("data_hora", oldestMessageDate);
     }
 
     const { data, error } = await query;
 
     if (error) {
-      console.error('❌ Erro ao buscar mensagens:', error);
-      toast.error('Erro ao carregar mensagens');
+      console.error("❌ Erro ao buscar mensagens:", error);
+      toast.error("Erro ao carregar mensagens");
       return;
     }
-    
+
     if (data) {
       // Verificar se há mais mensagens
-      const hasMore = data.length > pageSize;
-      const messagesToProcess = hasMore ? data.slice(0, pageSize) : data;
-      
-      console.log('✅ Mensagens carregadas:', messagesToProcess.length, hasMore ? '(há mais)' : '(fim)');
-      
+      const hasMore = data.length > MESSAGES_PER_PAGE;
+      const messagesToProcess = hasMore ? data.slice(0, MESSAGES_PER_PAGE) : data;
+
+      console.log("✅ Mensagens carregadas:", messagesToProcess.length, hasMore ? "(há mais)" : "(fim)");
+
       // ✅ Buscar TODAS as mensagens de reply de uma vez (batch query)
-      const replyIds = messagesToProcess
-        .filter(m => m.reply_to_message_id)
-        .map(m => m.reply_to_message_id);
+      const replyIds = messagesToProcess.filter((m) => m.reply_to_message_id).map((m) => m.reply_to_message_id);
 
       const repliesMap = new Map();
       if (replyIds.length > 0) {
         const { data: replyMessages } = await supabase
-          .from('mensagens')
-          .select('id, texto, tipo, remetente, data_hora, arquivo_url, status')
-          .in('id', replyIds);
+          .from("mensagens")
+          .select("id, texto, tipo, remetente, data_hora, arquivo_url, status")
+          .in("id", replyIds);
 
-        replyMessages?.forEach(r => repliesMap.set(r.id, r));
+        replyMessages?.forEach((r) => repliesMap.set(r.id, r));
       }
 
       // ✅ Combinar SEM QUERIES EXTRAS
-      const mensagensComReply = messagesToProcess.map(msg => ({
+      const mensagensComReply = messagesToProcess.map((msg) => ({
         ...msg,
-        reply_to: msg.reply_to_message_id ? repliesMap.get(msg.reply_to_message_id) : null
+        reply_to: msg.reply_to_message_id ? repliesMap.get(msg.reply_to_message_id) : null,
       }));
-      
+
       // Inverter para ordem cronológica (mais antigas primeiro)
       const mensagensOrdenadas = mensagensComReply.reverse();
-      
+
       // Defensive dedup: remove duplicates by id and message_sid before merging
       // (protects against fetch + Realtime race conditions inserting the same message twice)
       const dedupMessages = (msgs: Mensagem[]): Mensagem[] => {
@@ -1014,11 +1058,11 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
       if (loadMore) {
         // Adicionar mensagens mais antigas no início
-        setMensagens(prev => dedupMessages([...(mensagensOrdenadas as Mensagem[]), ...prev]));
+        setMensagens((prev) => dedupMessages([...(mensagensOrdenadas as Mensagem[]), ...prev]));
       } else {
         setMensagens(dedupMessages(mensagensOrdenadas as Mensagem[]));
       }
-      
+
       // Atualizar estado de paginação
       setHasMoreMessages(hasMore);
       if (mensagensOrdenadas.length > 0) {
@@ -1033,33 +1077,33 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     await fetchMensagens(true);
     setIsLoadingMore(false);
     // Manter scroll na posição após carregar mais
-    messagesStartRef.current?.scrollIntoView({ block: 'start' });
+    messagesStartRef.current?.scrollIntoView({ block: "start" });
   };
 
   const getSenderForTranscript = (msg: Mensagem) => {
-    if (msg.remetente === 'bot') return 'Bot';
-    if (isAtendente(msg.remetente)) return 'Operador';
-    return 'Cliente';
+    if (msg.remetente === "bot") return "Bot";
+    if (isAtendente(msg.remetente)) return "Operador";
+    return "Cliente";
   };
 
   const getMediaLabel = (msg: Mensagem) => {
-    if (msg.tipo === 'imagem') {
-      const nomeArquivo = msg.texto?.trim() || msg.arquivo_url?.split('/').pop() || 'imagem';
+    if (msg.tipo === "imagem") {
+      const nomeArquivo = msg.texto?.trim() || msg.arquivo_url?.split("/").pop() || "imagem";
       return `[Imagem: ${nomeArquivo}]`;
     }
-    if (msg.tipo === 'audio') return '[Áudio]';
-    if (msg.tipo === 'video') return '[Vídeo]';
-    if (msg.tipo === 'arquivo') return `[Arquivo: ${msg.texto || msg.arquivo_url?.split('/').pop() || 'arquivo'}]`;
-    return '[Mensagem]';
+    if (msg.tipo === "audio") return "[Áudio]";
+    if (msg.tipo === "video") return "[Vídeo]";
+    if (msg.tipo === "arquivo") return `[Arquivo: ${msg.texto || msg.arquivo_url?.split("/").pop() || "arquivo"}]`;
+    return "[Mensagem]";
   };
 
   const exportarTranscricaoPDF = () => {
     if (mensagens.length === 0) {
-      toast.error('Não há mensagens para transcrever.');
+      toast.error("Não há mensagens para transcrever.");
       return;
     }
 
-    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pdf = new jsPDF({ unit: "pt", format: "a4" });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 40;
@@ -1070,12 +1114,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     const subtitulo = `Cliente: ${clienteNome} (${clienteTelefone})`;
     const geradoEm = `Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`;
 
-    pdf.setFont('helvetica', 'bold');
+    pdf.setFont("helvetica", "bold");
     pdf.setFontSize(14);
     pdf.text(titulo, margin, currentY);
     currentY += 20;
 
-    pdf.setFont('helvetica', 'normal');
+    pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
     pdf.text(subtitulo, margin, currentY);
     currentY += 14;
@@ -1083,11 +1127,9 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     currentY += 24;
 
     mensagens.forEach((msg) => {
-      const horario = format(new Date(msg.data_hora), 'dd/MM/yyyy HH:mm', { locale: ptBR });
+      const horario = format(new Date(msg.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR });
       const remetente = getSenderForTranscript(msg);
-      const conteudo = msg.tipo === 'texto'
-        ? (msg.texto?.trim() || '[Mensagem sem texto]')
-        : getMediaLabel(msg);
+      const conteudo = msg.tipo === "texto" ? msg.texto?.trim() || "[Mensagem sem texto]" : getMediaLabel(msg);
 
       const linha = `[${horario}] ${remetente}: ${conteudo}`;
       const linhasQuebradas = pdf.splitTextToSize(linha, maxTextWidth);
@@ -1102,125 +1144,124 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       currentY += alturaBloco;
     });
 
-    const nomeArquivo = `transcricao-${clienteNome.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`;
-    const blobUrl = pdf.output('bloburl');
-    window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    const nomeArquivo = `transcricao-${clienteNome.replace(/\s+/g, "-").toLowerCase()}-${format(new Date(), "yyyyMMdd-HHmm")}.pdf`;
+    const blobUrl = pdf.output("bloburl");
+    window.open(blobUrl, "_blank", "noopener,noreferrer");
     pdf.save(nomeArquivo);
-    toast.success('Transcrição em PDF gerada com sucesso.');
+    toast.success("Transcrição em PDF gerada com sucesso.");
   };
 
   // ✅ Função consolidada para buscar dados do cliente (ficha, bot, atendente, notas)
   const fetchClienteData = async () => {
     try {
-    const { data: clienteData } = await supabase
-      .from('clientes')
-      .select(`
+      const { data: clienteData } = await supabase
+        .from("clientes")
+        .select(
+          `
         ficha_ativa_id,
         bot_habilitado,
         notas_internas,
         atendente_id,
         atendente:profiles!atendente_id(full_name)
-      `)
-      .eq('telefone', clienteTelefone)
-      .maybeSingle();
+      `,
+        )
+        .eq("telefone", clienteTelefone)
+        .maybeSingle();
 
-    if (clienteData) {
-      // Bot status
-      setBotDesabilitado(clienteData.bot_habilitado === false);
-      
-      // Notas
-      setNotasInternas(clienteData.notas_internas || "");
-      setHasNotas(!!clienteData.notas_internas && clienteData.notas_internas.trim().length > 0);
-      
-      // Atendente
-      if (clienteData.atendente_id && (clienteData as any).atendente) {
-        setAtendenteAtual({
-          id: clienteData.atendente_id,
-          nome: (clienteData as any).atendente.full_name
-        });
-      }
-      
-      // Ficha - respeitar ficha_ativa_id, validando que existe
-      if (clienteData.ficha_ativa_id) {
-        // Validar que a ficha ativa realmente existe
-        const { data: fichaAtivaData } = await supabase
-          .from('fichas_de_servico')
-          .select('id, status')
-          .eq('id', clienteData.ficha_ativa_id)
-          .eq('telefone_cliente', clienteTelefone)
-          .maybeSingle();
+      if (clienteData) {
+        // Bot status
+        setBotDesabilitado(clienteData.bot_habilitado === false);
 
-        if (fichaAtivaData) {
-          setFichaId(fichaAtivaData.id);
-          setFichaStatus(fichaAtivaData.status);
+        // Notas
+        setNotasInternas(clienteData.notas_internas || "");
+        setHasNotas(!!clienteData.notas_internas && clienteData.notas_internas.trim().length > 0);
+
+        // Atendente
+        if (clienteData.atendente_id && (clienteData as any).atendente) {
+          setAtendenteAtual({
+            id: clienteData.atendente_id,
+            nome: (clienteData as any).atendente.full_name,
+          });
+        }
+
+        // Ficha - respeitar ficha_ativa_id, validando que existe
+        if (clienteData.ficha_ativa_id) {
+          // Validar que a ficha ativa realmente existe
+          const { data: fichaAtivaData } = await supabase
+            .from("fichas_de_servico")
+            .select("id, status")
+            .eq("id", clienteData.ficha_ativa_id)
+            .eq("telefone_cliente", clienteTelefone)
+            .maybeSingle();
+
+          if (fichaAtivaData) {
+            setFichaId(fichaAtivaData.id);
+            setFichaStatus(fichaAtivaData.status);
+          } else {
+            // ficha_ativa_id inválida, buscar última e corrigir
+            const { data: ultimaFicha } = await supabase
+              .from("fichas_de_servico")
+              .select("id")
+              .eq("telefone_cliente", clienteTelefone)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (ultimaFicha) {
+              setFichaId(ultimaFicha.id);
+              // Persistir correção
+              await supabase
+                .from("clientes")
+                .update({ ficha_ativa_id: ultimaFicha.id })
+                .eq("telefone", clienteTelefone);
+            }
+          }
         } else {
-          // ficha_ativa_id inválida, buscar última e corrigir
+          // Sem ficha_ativa_id: pegar última ficha criada e persistir
           const { data: ultimaFicha } = await supabase
-            .from('fichas_de_servico')
-            .select('id')
-            .eq('telefone_cliente', clienteTelefone)
-            .order('created_at', { ascending: false })
+            .from("fichas_de_servico")
+            .select("id")
+            .eq("telefone_cliente", clienteTelefone)
+            .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle();
 
           if (ultimaFicha) {
             setFichaId(ultimaFicha.id);
-            // Persistir correção
-            await supabase
-              .from('clientes')
-              .update({ ficha_ativa_id: ultimaFicha.id })
-              .eq('telefone', clienteTelefone);
+            // Persistir para evitar fallback repetido
+            await supabase.from("clientes").update({ ficha_ativa_id: ultimaFicha.id }).eq("telefone", clienteTelefone);
           }
         }
-      } else {
-        // Sem ficha_ativa_id: pegar última ficha criada e persistir
-        const { data: ultimaFicha } = await supabase
-          .from('fichas_de_servico')
-          .select('id')
-          .eq('telefone_cliente', clienteTelefone)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      }
 
-        if (ultimaFicha) {
-          setFichaId(ultimaFicha.id);
-          // Persistir para evitar fallback repetido
-          await supabase
-            .from('clientes')
-            .update({ ficha_ativa_id: ultimaFicha.id })
-            .eq('telefone', clienteTelefone);
+      // Buscar última ação do bot
+      const { data: ultimaAcao } = await supabase
+        .from("bot_historico")
+        .select("acao, created_at, executado_por_id")
+        .eq("telefone_cliente", clienteTelefone)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (ultimaAcao) {
+        let nomeExecutor = null;
+        if (ultimaAcao.executado_por_id) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", ultimaAcao.executado_por_id)
+            .single();
+          nomeExecutor = profile?.full_name || null;
         }
+
+        setUltimaAcaoBot({
+          acao: ultimaAcao.acao,
+          por: nomeExecutor,
+          quando: ultimaAcao.created_at,
+        });
       }
-    }
-    
-    // Buscar última ação do bot
-    const { data: ultimaAcao } = await supabase
-      .from('bot_historico')
-      .select('acao, created_at, executado_por_id')
-      .eq('telefone_cliente', clienteTelefone)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    
-    if (ultimaAcao) {
-      let nomeExecutor = null;
-      if (ultimaAcao.executado_por_id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', ultimaAcao.executado_por_id)
-          .single();
-        nomeExecutor = profile?.full_name || null;
-      }
-      
-      setUltimaAcaoBot({
-        acao: ultimaAcao.acao,
-        por: nomeExecutor,
-        quando: ultimaAcao.created_at
-      });
-    }
     } catch (err) {
-      console.error('Erro ao buscar dados do cliente:', err);
+      console.error("Erro ao buscar dados do cliente:", err);
     }
   };
 
@@ -1229,10 +1270,10 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   useEffect(() => {
     if (!user || !clienteTelefone || mensagens.length === 0) return;
     const lastMsg = mensagens[mensagens.length - 1];
-    const isClienteMsg = lastMsg?.remetente === 'cliente' || lastMsg?.tipo_remetente === 'cliente';
+    const isClienteMsg = lastMsg?.remetente === "cliente" || lastMsg?.tipo_remetente === "cliente";
     if (!isClienteMsg) return;
 
-    import('@/lib/chatBetaUnread').then(({ markConversationAutoRead }) => {
+    import("@/lib/chatBetaUnread").then(({ markConversationAutoRead }) => {
       markConversationAutoRead(clienteTelefone, user.id).catch(() => {});
     });
   }, [mensagens.length, clienteTelefone, user?.id]);
@@ -1241,7 +1282,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     if (!user) return;
     // Abrir a conversa conta como leitura EXPLÍCITA: apaga manual_unread também.
     // (Auto-read na chegada de mensagem em conversa aberta continua preservando manual_unread.)
-    const { markConversationRead } = await import('@/lib/chatBetaUnread');
+    const { markConversationRead } = await import("@/lib/chatBetaUnread");
     await markConversationRead(clienteTelefone, user.id);
   };
 
@@ -1249,28 +1290,27 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   // fetchFichaId, fetchBotStatus, fetchAtendente, fetchNotas foram mescladas
 
   const fetchAtendentes = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .order('full_name');
-    
+    const { data } = await supabase.from("profiles").select("id, full_name").order("full_name");
+
     if (data) {
-      setTodosAtendentes(data.map(p => ({
-        id: p.id,
-        nome: p.full_name || 'Sem nome'
-      })));
+      setTodosAtendentes(
+        data.map((p) => ({
+          id: p.id,
+          nome: p.full_name || "Sem nome",
+        })),
+      );
     }
   };
 
   const atribuirOperador = async (operadorId: string, operadorNome: string, descricao?: string, isSelf = false) => {
     if (isSelf) (window as any).__selfAssignmentInProgress = true;
     const { error } = await supabase
-      .from('clientes')
+      .from("clientes")
       .update({ atendente_id: operadorId })
-      .eq('telefone', clienteTelefone);
+      .eq("telefone", clienteTelefone);
 
     if (error) {
-      toast.error('Erro ao atribuir operador');
+      toast.error("Erro ao atribuir operador");
     } else {
       setAtendenteAtual({ id: operadorId, nome: operadorNome });
       toast.success(`Atribuído para ${operadorNome}`);
@@ -1278,24 +1318,25 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       // Register as atribuicao_chat task in tarefas_operacionais
       try {
         const tarefaId = crypto.randomUUID();
-        await (supabase as any)
-          .from("tarefas_operacionais")
-          .insert({
-            id: tarefaId,
-            titulo: `Chat atribuído: ${clienteNome || clienteTelefone}`,
-            descricao: descricao || null,
-            urgencia: "media",
-            tipo: "atribuicao_chat",
-            criado_por: user?.id,
-            cliente_telefone: clienteTelefone,
-          });
+        await (supabase as any).from("tarefas_operacionais").insert({
+          id: tarefaId,
+          titulo: `Chat atribuído: ${clienteNome || clienteTelefone}`,
+          descricao: descricao || null,
+          urgencia: "media",
+          tipo: "atribuicao_chat",
+          criado_por: user?.id,
+          cliente_telefone: clienteTelefone,
+        });
 
         await (supabase as any)
           .from("tarefas_operacionais_atribuidos")
           .insert({ tarefa_id: tarefaId, user_id: operadorId });
       } catch {}
     }
-    if (isSelf) setTimeout(() => { (window as any).__selfAssignmentInProgress = false; }, 2000);
+    if (isSelf)
+      setTimeout(() => {
+        (window as any).__selfAssignmentInProgress = false;
+      }, 2000);
   };
 
   // Handler for opening description dialog before assigning
@@ -1305,59 +1346,51 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   };
   const assumirParaMim = async () => {
     if (!user) return;
-    
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single();
-    
-    const nome = profile?.full_name || 'Você';
+
+    const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+
+    const nome = profile?.full_name || "Você";
     await atribuirOperador(user.id, nome, undefined, true);
   };
 
   // Função para iniciar solicitação de takeover
   const iniciarTakeover = async () => {
     if (!user || !atendenteAtual) return;
-    
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single();
-    
-    const meuNome = profile?.full_name || 'Operador';
-    
+
+    const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+
+    const meuNome = profile?.full_name || "Operador";
+
     // Criar registro na tabela
     const { data: request, error } = await supabase
-      .from('takeover_requests')
+      .from("takeover_requests")
       .insert({
         telefone_cliente: clienteTelefone,
         solicitante_id: user.id,
         solicitante_nome: meuNome,
         operador_atual_id: atendenteAtual.id,
-        status: 'pending'
+        status: "pending",
       })
-      .select('id')
+      .select("id")
       .single();
-    
+
     if (error) {
-      toast.error('Erro ao solicitar takeover');
+      toast.error("Erro ao solicitar takeover");
       return;
     }
-    
+
     // Enviar broadcast
     takeoverChannelRef.current?.send({
-      type: 'broadcast',
-      event: 'takeover_request',
+      type: "broadcast",
+      event: "takeover_request",
       payload: {
         request_id: request.id,
         solicitante_id: user.id,
         solicitante_nome: meuNome,
         operador_atual_id: atendenteAtual.id,
-      }
+      },
     });
-    
+
     setTakeoverWaitingOperadorNome(atendenteAtual.nome);
     takeoverWaitingOperadorNomeRef.current = atendenteAtual.nome;
     setTakeoverRequestId(request.id);
@@ -1368,93 +1401,90 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   // Handlers de resposta do takeover (operador atual)
   const handleTakeoverApprove = async () => {
     setTakeoverRequestOpen(false);
-    
+
     // Atualizar registro
     if (takeoverRequestId) {
       await supabase
-        .from('takeover_requests')
-        .update({ status: 'approved', responded_at: new Date().toISOString() })
-        .eq('id', takeoverRequestId);
+        .from("takeover_requests")
+        .update({ status: "approved", responded_at: new Date().toISOString() })
+        .eq("id", takeoverRequestId);
     }
-    
+
     // Enviar broadcast de aprovação
     takeoverChannelRef.current?.send({
-      type: 'broadcast',
-      event: 'takeover_response',
+      type: "broadcast",
+      event: "takeover_response",
       payload: {
-        response: 'approved',
+        response: "approved",
         solicitante_id: null, // será preenchido pelo listener
         request_id: takeoverRequestId,
-      }
+      },
     });
-    
-    toast.info('Conversa transferida.');
+
+    toast.info("Conversa transferida.");
   };
 
   const handleTakeoverDeny = async () => {
     setTakeoverRequestOpen(false);
-    
+
     if (takeoverRequestId) {
       await supabase
-        .from('takeover_requests')
-        .update({ status: 'denied', responded_at: new Date().toISOString() })
-        .eq('id', takeoverRequestId);
+        .from("takeover_requests")
+        .update({ status: "denied", responded_at: new Date().toISOString() })
+        .eq("id", takeoverRequestId);
     }
-    
+
     takeoverChannelRef.current?.send({
-      type: 'broadcast',
-      event: 'takeover_response',
+      type: "broadcast",
+      event: "takeover_response",
       payload: {
-        response: 'denied',
+        response: "denied",
         solicitante_id: null,
         request_id: takeoverRequestId,
-      }
+      },
     });
-    
-    toast.info('Solicitação de takeover negada.');
+
+    toast.info("Solicitação de takeover negada.");
   };
 
   const handleTakeoverTimeout = async () => {
     setTakeoverWaitingOpen(false);
-    
+
     // Marcar como expired
     if (takeoverRequestId) {
       await supabase
-        .from('takeover_requests')
-        .update({ status: 'expired', responded_at: new Date().toISOString() })
-        .eq('id', takeoverRequestId);
+        .from("takeover_requests")
+        .update({ status: "expired", responded_at: new Date().toISOString() })
+        .eq("id", takeoverRequestId);
     }
-    
-    toast.success('Tempo esgotado. Assumindo conversa automaticamente...');
+
+    toast.success("Tempo esgotado. Assumindo conversa automaticamente...");
     await assumirParaMim();
   };
 
   const removerAtribuicao = async () => {
-    const { error } = await supabase
-      .from('clientes')
-      .update({ atendente_id: null })
-      .eq('telefone', clienteTelefone);
+    const { error } = await supabase.from("clientes").update({ atendente_id: null }).eq("telefone", clienteTelefone);
 
     if (error) {
-      toast.error('Erro ao remover atribuição');
+      toast.error("Erro ao remover atribuição");
     } else {
       setAtendenteAtual(null);
-      toast.success('Atribuição removida');
+      toast.success("Atribuição removida");
     }
   };
 
   const salvarNotas = async () => {
     const { error } = await supabase
-      .from('clientes')
+      .from("clientes")
       .update({ notas_internas: notasInternas })
-      .eq('telefone', clienteTelefone);
+      .eq("telefone", clienteTelefone);
 
     if (error) {
-      toast.error('Erro ao salvar notas');
+      toast.error("Erro ao salvar notas");
     } else {
       setHasNotas(!!notasInternas && notasInternas.trim().length > 0);
       setNotasDialogOpen(false);
-      toast.success('Notas salvas com sucesso');
+      toast.success("Notas salvas com sucesso");
     }
   };
 
@@ -1467,11 +1497,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
 
     const results = mensagens
-      .filter(msg => 
-        msg.texto && 
-        msg.texto.toLowerCase().includes(chatSearchTerm.toLowerCase())
-      )
-      .map(msg => msg.id);
+      .filter((msg) => msg.texto && msg.texto.toLowerCase().includes(chatSearchTerm.toLowerCase()))
+      .map((msg) => msg.id);
 
     setSearchResults(results);
     setCurrentResultIndex(results.length > 0 ? 0 : -1);
@@ -1482,11 +1509,11 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
   }, [chatSearchTerm, mensagens]);
 
-  const navigateSearch = (direction: 'prev' | 'next') => {
+  const navigateSearch = (direction: "prev" | "next") => {
     if (searchResults.length === 0) return;
 
     let newIndex;
-    if (direction === 'next') {
+    if (direction === "next") {
       newIndex = (currentResultIndex + 1) % searchResults.length;
     } else {
       newIndex = currentResultIndex - 1 < 0 ? searchResults.length - 1 : currentResultIndex - 1;
@@ -1498,13 +1525,15 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
   const highlightText = (text: string, searchTerm: string) => {
     if (!searchTerm.trim()) return text;
-    
-    const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
-    return parts.map((part, i) => 
-      part.toLowerCase() === searchTerm.toLowerCase() 
-        ? `<mark class="bg-yellow-300 dark:bg-yellow-600">${part}</mark>`
-        : part
-    ).join('');
+
+    const parts = text.split(new RegExp(`(${searchTerm})`, "gi"));
+    return parts
+      .map((part, i) =>
+        part.toLowerCase() === searchTerm.toLowerCase()
+          ? `<mark class="bg-yellow-300 dark:bg-yellow-600">${part}</mark>`
+          : part,
+      )
+      .join("");
   };
 
   // Função para processar arquivo selecionado (cria preview sem enviar)
@@ -1515,10 +1544,10 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
 
     // Verificar tipo de arquivo
-    const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
-    const isAudio = file.type.startsWith('audio/');
-    const isPDF = file.type === 'application/pdf';
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    const isAudio = file.type.startsWith("audio/");
+    const isPDF = file.type === "application/pdf";
 
     if (!isImage && !isVideo && !isAudio && !isPDF) {
       toast.error("Apenas imagens, vídeos, áudios e PDFs são suportados");
@@ -1526,14 +1555,14 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
 
     // Determinar tipo
-    let tipo: 'imagem' | 'video' | 'audio' | 'arquivo' = 'imagem';
-    if (isVideo) tipo = 'video';
-    if (isAudio) tipo = 'audio';
-    if (isPDF) tipo = 'arquivo';
+    let tipo: "imagem" | "video" | "audio" | "arquivo" = "imagem";
+    if (isVideo) tipo = "video";
+    if (isAudio) tipo = "audio";
+    if (isPDF) tipo = "arquivo";
 
     // Criar URL de preview
     const previewUrl = URL.createObjectURL(file);
-    
+
     setPendingFile({ file, previewUrl, type: tipo });
   };
 
@@ -1545,7 +1574,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
     // Reset input para permitir selecionar mesmo arquivo novamente
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -1598,13 +1627,13 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   // Handler para colar imagem da área de transferência (Ctrl+V / Cmd+V)
   const handlePaste = (e: React.ClipboardEvent) => {
     if (statusConversa === "fechada") return;
-    
+
     const items = e.clipboardData?.items;
     if (!items) return;
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      if (item.type.startsWith('image/')) {
+      if (item.type.startsWith("image/")) {
         e.preventDefault();
         const file = item.getAsFile();
         if (file) {
@@ -1619,38 +1648,35 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   const uploadAndSendFile = async () => {
     if (!pendingFile) return;
 
-
     setUploading(true);
     try {
       // Upload para Supabase Storage
-      const fileExt = pendingFile.file.name.split('.').pop();
+      const fileExt = pendingFile.file.name.split(".").pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `chat-media/${clienteTelefone}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('chat-files')
-        .upload(filePath, pendingFile.file);
+      const { error: uploadError } = await supabase.storage.from("chat-files").upload(filePath, pendingFile.file);
 
       if (uploadError) {
         console.error("Erro ao fazer upload:", uploadError);
-        throw new Error(`Erro ao fazer upload: ${uploadError.message || 'erro desconhecido'}`);
+        throw new Error(`Erro ao fazer upload: ${uploadError.message || "erro desconhecido"}`);
       }
 
       // Obter URL pública
-      const { data: urlData } = supabase.storage
-        .from('chat-files')
-        .getPublicUrl(filePath);
+      const { data: urlData } = supabase.storage.from("chat-files").getPublicUrl(filePath);
 
       const mediaUrl = urlData.publicUrl;
 
       // Obter usuário atual para registrar quem enviou
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       // Gerar ou reusar conversation_id
       const convId = conversationId || crypto.randomUUID();
       if (!conversationId) setConversationId(convId);
 
-      const operadorNome = userProfile?.fullName || user?.email?.split('@')[0] || 'Operador';
+      const operadorNome = userProfile?.fullName || user?.email?.split("@")[0] || "Operador";
 
       // Enviar via Twilio apenas com o arquivo
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
@@ -1662,7 +1688,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           ficha_id: fichaId || null,
           conversation_id: convId,
           operador_nome: operadorNome,
-          tipo_remetente: 'atendente'
+          tipo_remetente: "atendente",
         },
       });
 
@@ -1672,15 +1698,17 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       }
 
       if (!data.success) {
-        if (data.error === 'FORA_JANELA_24H') {
+        if (data.error === "FORA_JANELA_24H") {
           toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
           return;
         }
         throw new Error(data.error || "Erro ao enviar mídia");
       }
 
-      toast.success(`${pendingFile.type === 'imagem' ? 'Imagem' : pendingFile.type === 'video' ? 'Vídeo' : pendingFile.type === 'audio' ? 'Áudio' : 'Arquivo'} enviado via WhatsApp`);
-      
+      toast.success(
+        `${pendingFile.type === "imagem" ? "Imagem" : pendingFile.type === "video" ? "Vídeo" : pendingFile.type === "audio" ? "Áudio" : "Arquivo"} enviado via WhatsApp`,
+      );
+
       // Limpar arquivo pendente
       removePendingFile();
     } catch (error) {
@@ -1698,38 +1726,37 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       return;
     }
 
-
     setUploading(true);
     try {
       const mimeType = audioBlob.type;
       let finalBlob = audioBlob;
-      let ext = 'mp3';
-      let contentType = 'audio/mpeg';
+      let ext = "mp3";
+      let contentType = "audio/mpeg";
 
       // Se for WebM (Chrome) ou formato não compatível, converter para MP3
-      if (mimeType.includes('webm') || (!mimeType.includes('ogg') && !mimeType.includes('mp'))) {
+      if (mimeType.includes("webm") || (!mimeType.includes("ogg") && !mimeType.includes("mp"))) {
         toast.info("Convertendo áudio...");
-        const { convertToMp3 } = await import('@/lib/audioConverter');
+        const { convertToMp3 } = await import("@/lib/audioConverter");
         finalBlob = await convertToMp3(audioBlob);
-        ext = 'mp3';
-        contentType = 'audio/mpeg';
-      } 
+        ext = "mp3";
+        contentType = "audio/mpeg";
+      }
       // Se for OGG/Opus (Firefox), usar diretamente
-      else if (mimeType.includes('ogg')) {
-        ext = 'ogg';
-        contentType = 'audio/ogg';
+      else if (mimeType.includes("ogg")) {
+        ext = "ogg";
+        contentType = "audio/ogg";
       }
       // Se já for MP3/MPEG, usar diretamente
-      else if (mimeType.includes('mpeg') || mimeType.includes('mp3')) {
-        ext = 'mp3';
-        contentType = 'audio/mpeg';
+      else if (mimeType.includes("mpeg") || mimeType.includes("mp3")) {
+        ext = "mp3";
+        contentType = "audio/mpeg";
       }
 
       const fileName = `audio_${Date.now()}.${ext}`;
       const filePath = `chat-media/${clienteTelefone}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('chat-files')
+        .from("chat-files")
         .upload(filePath, finalBlob, { contentType });
 
       if (uploadError) {
@@ -1737,19 +1764,19 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         throw new Error("Erro ao fazer upload do áudio");
       }
 
-      const { data: urlData } = supabase.storage
-        .from('chat-files')
-        .getPublicUrl(filePath);
+      const { data: urlData } = supabase.storage.from("chat-files").getPublicUrl(filePath);
 
       const mediaUrl = urlData.publicUrl;
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       // Gerar ou reusar conversation_id para áudio
       const convId = conversationId || crypto.randomUUID();
       if (!conversationId) setConversationId(convId);
 
-      const operadorNome = userProfile?.fullName || user?.email?.split('@')[0] || 'Operador';
+      const operadorNome = userProfile?.fullName || user?.email?.split("@")[0] || "Operador";
 
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
         body: {
@@ -1760,7 +1787,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           ficha_id: fichaId || null,
           conversation_id: convId,
           operador_nome: operadorNome,
-          tipo_remetente: 'atendente'
+          tipo_remetente: "atendente",
         },
       });
 
@@ -1770,7 +1797,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       }
 
       if (!data.success) {
-        if (data.error === 'FORA_JANELA_24H') {
+        if (data.error === "FORA_JANELA_24H") {
           toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
           return;
         }
@@ -1805,11 +1832,11 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
     try {
       // Atribuição agora é feita server-side na edge function send-whatsapp
-      
-      console.log('📤 [enviarMensagem] Preparando envio:', {
-        texto: mensagemTexto.substring(0, 50)
+
+      console.log("📤 [enviarMensagem] Preparando envio:", {
+        texto: mensagemTexto.substring(0, 50),
       });
-      
+
       setNovaMsg(""); // Limpar imediatamente para UX
 
       // Optimistic update - adicionar mensagem localmente
@@ -1823,28 +1850,30 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         remetente: NUMERO_24HELP,
         status: "enviado",
         reply_to_message_id: replyingTo?.id || null,
-        reply_to: replyingTo || null
+        reply_to: replyingTo || null,
       };
-      
+
       const replyId = replyingTo?.id || null;
       setReplyingTo(null); // Clear reply immediately
-      
-      setMensagens(prev => [...prev, novaMensagemTemp]);
+
+      setMensagens((prev) => [...prev, novaMensagemTemp]);
 
       // Obter usuário atual para registrar quem enviou
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      console.log('🚀 Invocando send-whatsapp com:', {
+      console.log("🚀 Invocando send-whatsapp com:", {
         to: clienteTelefone,
         message: mensagemTexto.substring(0, 50),
-        userId: user?.id
+        userId: user?.id,
       });
-      
+
       // Gerar ou reusar conversation_id
       const convId = conversationId || crypto.randomUUID();
       if (!conversationId) setConversationId(convId);
 
-      const operadorNome = userProfile?.fullName || user?.email?.split('@')[0] || 'Operador';
+      const operadorNome = userProfile?.fullName || user?.email?.split("@")[0] || "Operador";
 
       // Enviar via Twilio
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
@@ -1856,19 +1885,19 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           ficha_id: fichaId || null,
           conversation_id: convId,
           operador_nome: operadorNome,
-          tipo_remetente: 'atendente'
+          tipo_remetente: "atendente",
         },
       });
-      
-      console.log('📬 Resposta do send-whatsapp:', { data, error });
+
+      console.log("📬 Resposta do send-whatsapp:", { data, error });
 
       if (error) throw error;
 
       if (!data.success) {
         // Remover mensagem temporária em caso de erro
-        setMensagens(prev => prev.filter(m => m.id !== tempId));
-        
-        if (data.error === 'FORA_JANELA_24H') {
+        setMensagens((prev) => prev.filter((m) => m.id !== tempId));
+
+        if (data.error === "FORA_JANELA_24H") {
           toast.error("Conversa fora da janela de 24h. Use um template aprovado.");
           return;
         }
@@ -1879,7 +1908,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       // Remover mensagem temporária em caso de erro
-      setMensagens(prev => prev.filter(m => !m.id.startsWith('temp-')));
+      setMensagens((prev) => prev.filter((m) => !m.id.startsWith("temp-")));
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mensagem");
       setNovaMsg(mensagemTexto); // Restaurar texto original (capturado na linha 1412)
     } finally {
@@ -1900,14 +1929,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   const handleConfirmTakeoverAndSend = async () => {
     setTakeoverConfirmOpen(false);
     // Assumir conversa para o operador atual
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
     if (currentUser) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', currentUser.id)
-        .single();
-      await atribuirOperador(currentUser.id, profile?.full_name || 'Você', undefined, true);
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", currentUser.id).single();
+      await atribuirOperador(currentUser.id, profile?.full_name || "Você", undefined, true);
     }
     // Enviar a mensagem
     await enviarMensagemReal();
@@ -1918,18 +1945,14 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       handleAssumirClick();
     };
 
-    window.addEventListener('chat-beta-open-assumir', openAssumir);
-    return () => window.removeEventListener('chat-beta-open-assumir', openAssumir);
+    window.addEventListener("chat-beta-open-assumir", openAssumir);
+    return () => window.removeEventListener("chat-beta-open-assumir", openAssumir);
   }, [clienteTelefone]);
 
   // Função para verificar estado atual e abrir dialog
   const handleAssumirClick = async () => {
-    const { data } = await supabase
-      .from('clientes')
-      .select('bot_habilitado')
-      .eq('telefone', clienteTelefone)
-      .single();
-    
+    const { data } = await supabase.from("clientes").select("bot_habilitado").eq("telefone", clienteTelefone).single();
+
     if (data) {
       const botDesativado = data.bot_habilitado === false;
       setBotDesabilitado(botDesativado);
@@ -1941,64 +1964,61 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   const toggleBot = async () => {
     // Prevenir clique duplo
     if (isTogglingBot) return;
-    
+
     // 🔒 Verificar se estado foi capturado corretamente ao abrir o dialog
     if (botStatusNoDialog === null) {
       toast.error("Estado do bot não foi capturado corretamente. Tente novamente.");
       setAssumirDialogOpen(false);
       return;
     }
-    
+
     setIsTogglingBot(true);
 
     try {
       // 🔒 VERIFICAÇÃO DE SEGURANÇA: buscar estado ATUAL do banco antes de executar
       const { data: clienteAtual, error: fetchError } = await supabase
-        .from('clientes')
-        .select('bot_habilitado')
-        .eq('telefone', clienteTelefone)
+        .from("clientes")
+        .select("bot_habilitado")
+        .eq("telefone", clienteTelefone)
         .single();
-      
+
       if (fetchError) {
         throw new Error("Erro ao verificar estado atual do bot");
       }
-      
+
       const botRealmenteDesabilitado = clienteAtual?.bot_habilitado === false;
-      
+
       // 🔒 Se o estado mudou desde a abertura do dialog, abortar e notificar
       if (botRealmenteDesabilitado !== botStatusNoDialog) {
-        toast.warning(
-          "O estado do bot mudou! Por favor, tente novamente.",
-          { description: "Outra pessoa ou o sistema alterou o status enquanto o dialog estava aberto." }
-        );
+        toast.warning("O estado do bot mudou! Por favor, tente novamente.", {
+          description: "Outra pessoa ou o sistema alterou o status enquanto o dialog estava aberto.",
+        });
         setAssumirDialogOpen(false);
         setBotDesabilitado(botRealmenteDesabilitado);
         setBotStatusNoDialog(null);
         return;
       }
-      
+
       // Obter ID do usuário logado e nome
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const userId = session?.user?.id;
-      
+
       // Obter nome do usuário para feedback
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', userId)
-        .single();
-      const userName = profile?.full_name || 'Você';
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userId).single();
+      const userName = profile?.full_name || "Você";
 
       // 🔒 Usar botStatusNoDialog (estado capturado) ao invés de botDesabilitado (pode ter mudado via realtime)
       // Se o bot está habilitado (não desabilitado), precisamos encerrar o fluxo ativo
       if (!botStatusNoDialog) {
         console.log(`[ChatWindow] Encerrando fluxo ativo do bot para ${clienteTelefone}`);
-        
-        const { data, error } = await supabase.functions.invoke('stop-twilio-flow', {
+
+        const { data, error } = await supabase.functions.invoke("stop-twilio-flow", {
           body: {
             telefone: clienteTelefone,
-            executado_por_id: userId
-          }
+            executado_por_id: userId,
+          },
         });
 
         if (error) throw error;
@@ -2007,41 +2027,41 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           setBotDesabilitado(true);
           toast.success(`Bot desabilitado por ${userName}`);
           setUltimaAcaoBot({
-            acao: 'desabilitado',
+            acao: "desabilitado",
             por: userName,
-            quando: new Date().toISOString()
+            quando: new Date().toISOString(),
           });
           console.log(`[ChatWindow] ✅ Fluxo encerrado: ${data.executionSid}`);
         } else {
           // Não havia execução ativa, mas ainda desabilita o bot
-          const { error: toggleError } = await supabase.functions.invoke('toggle-bot-status', {
+          const { error: toggleError } = await supabase.functions.invoke("toggle-bot-status", {
             body: {
               telefone: clienteTelefone,
-              bot_status: 'disabled',
-              origem: 'manual',
-              executado_por_id: userId
-            }
+              bot_status: "disabled",
+              origem: "manual",
+              executado_por_id: userId,
+            },
           });
 
           if (toggleError) throw toggleError;
-          
+
           setBotDesabilitado(true);
           toast.success(`Bot desabilitado por ${userName}`);
           setUltimaAcaoBot({
-            acao: 'desabilitado',
+            acao: "desabilitado",
             por: userName,
-            quando: new Date().toISOString()
+            quando: new Date().toISOString(),
           });
         }
       } else {
         // Reativar bot
-        const { error } = await supabase.functions.invoke('toggle-bot-status', {
+        const { error } = await supabase.functions.invoke("toggle-bot-status", {
           body: {
             telefone: clienteTelefone,
-            bot_status: 'enabled',
-            origem: 'manual',
-            executado_por_id: userId
-          }
+            bot_status: "enabled",
+            origem: "manual",
+            executado_por_id: userId,
+          },
         });
 
         if (error) throw error;
@@ -2049,12 +2069,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         setBotDesabilitado(false);
         toast.success(`Bot reativado por ${userName}`);
         setUltimaAcaoBot({
-          acao: 'habilitado',
+          acao: "habilitado",
           por: userName,
-          quando: new Date().toISOString()
+          quando: new Date().toISOString(),
         });
       }
-      
+
       setAssumirDialogOpen(false);
       setBotStatusNoDialog(null); // Limpar estado capturado após uso
     } catch (error) {
@@ -2065,27 +2085,26 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
   };
 
-
   const scrollToMessage = useCallback((messageId: string) => {
     const messageElement = messageRefs.current[messageId];
     if (!messageElement) {
-      console.warn('⚠️ Elemento da mensagem não encontrado:', messageId);
+      console.warn("⚠️ Elemento da mensagem não encontrado:", messageId);
       return;
     }
-    
-    messageElement.scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'center' 
+
+    messageElement.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
     });
-    
+
     // Adicionar highlight
     setHighlightedMessageId(messageId);
-    console.log('✨ Highlight aplicado em:', messageId);
-    
+    console.log("✨ Highlight aplicado em:", messageId);
+
     // Remover após 5 segundos
     setTimeout(() => {
       setHighlightedMessageId(null);
-      console.log('🔄 Highlight removido');
+      console.log("🔄 Highlight removido");
     }, 5000);
   }, []);
 
@@ -2111,22 +2130,22 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   const renderMedia = (msg: Mensagem) => {
     if (!msg.arquivo_url) return null;
 
-    if (msg.tipo === 'imagem') {
+    if (msg.tipo === "imagem") {
       return (
-        <img 
-          src={msg.arquivo_url} 
-          alt="Imagem" 
-          className="max-w-[280px] max-h-[280px] rounded-xl mt-2 cursor-pointer hover:opacity-95 transition-all shadow-sm hover:shadow-md object-cover" 
+        <img
+          src={msg.arquivo_url}
+          alt="Imagem"
+          className="max-w-[280px] max-h-[280px] rounded-xl mt-2 cursor-pointer hover:opacity-95 transition-all shadow-sm hover:shadow-md object-cover"
           onLoad={keepBottomOnInitialMediaLoad}
-          onClick={() => window.open(msg.arquivo_url || '', '_blank')}
+          onClick={() => window.open(msg.arquivo_url || "", "_blank")}
         />
       );
     }
-    
-    if (msg.tipo === 'video') {
+
+    if (msg.tipo === "video") {
       return (
-        <video 
-          controls 
+        <video
+          controls
           className="max-w-[280px] max-h-[280px] rounded-xl mt-2 shadow-sm"
           onLoadedMetadata={keepBottomOnInitialMediaLoad}
         >
@@ -2134,8 +2153,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         </video>
       );
     }
-    
-    if (msg.tipo === 'audio') {
+
+    if (msg.tipo === "audio") {
       return (
         <div className="mt-2">
           <AudioPlayer src={msg.arquivo_url} />
@@ -2148,16 +2167,16 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       );
     }
 
-    if (msg.tipo === 'arquivo') {
+    if (msg.tipo === "arquivo") {
       return (
-        <a 
-          href={msg.arquivo_url} 
-          target="_blank" 
+        <a
+          href={msg.arquivo_url}
+          target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-3 mt-2 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all shadow-sm hover:shadow-md max-w-[280px]"
         >
           <FileIcon className="h-5 w-5 shrink-0" />
-          <span className="text-sm truncate flex-1">{msg.texto || 'Arquivo'}</span>
+          <span className="text-sm truncate flex-1">{msg.texto || "Arquivo"}</span>
         </a>
       );
     }
@@ -2170,12 +2189,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       <header className="bg-card border-b flex flex-col gap-2 px-3 py-2 shrink-0">
         {/* ─── Linha 1: Info do cliente ─── */}
         <div className="flex items-center gap-2 md:gap-3 min-w-0 w-full">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBack}
-            className="lg:hidden shrink-0 h-8 w-8 p-0"
-          >
+          <Button variant="ghost" size="sm" onClick={onBack} className="lg:hidden shrink-0 h-8 w-8 p-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
 
@@ -2196,20 +2210,21 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="text-xs font-medium cursor-help">
-                      Bot: <span className={botDesabilitado ? "text-destructive" : "text-green-600"}>
+                      Bot:{" "}
+                      <span className={botDesabilitado ? "text-destructive" : "text-green-600"}>
                         {botDesabilitado ? "Desativado" : "Ativado"}
                       </span>
                       {ultimaAcaoBot && ultimaAcaoBot.por && (
-                        <span className="text-muted-foreground ml-1">
-                          por {ultimaAcaoBot.por.split(' ')[0]}
-                        </span>
+                        <span className="text-muted-foreground ml-1">por {ultimaAcaoBot.por.split(" ")[0]}</span>
                       )}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     {ultimaAcaoBot ? (
                       <div className="text-xs">
-                        <p><strong>{ultimaAcaoBot.acao === 'habilitado' ? 'Ativado' : 'Desativado'}</strong></p>
+                        <p>
+                          <strong>{ultimaAcaoBot.acao === "habilitado" ? "Ativado" : "Desativado"}</strong>
+                        </p>
                         {ultimaAcaoBot.por && <p>Por: {ultimaAcaoBot.por}</p>}
                         <p>Em: {format(new Date(ultimaAcaoBot.quando), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
                       </div>
@@ -2227,116 +2242,110 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         <div className="flex flex-wrap items-center gap-1.5 w-full">
           {/* Header actions — sempre visíveis (Assumir + delegação não dependem da ficha) */}
           <>
-              {/* Botão copiar info do serviço para prestador */}
-              {fichaId && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopyServiceInfo}
-                  className="h-9 px-2 hover:bg-accent"
-                  title="Copiar informações do serviço para enviar ao prestador"
-                >
-                  <ClipboardList className="h-4 w-4" />
-                </Button>
-              )}
-              {/* Botão de busca no chat */}
+            {/* Botão copiar info do serviço para prestador */}
+            {fichaId && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={exportarTranscricaoPDF}
+                onClick={handleCopyServiceInfo}
                 className="h-9 px-2 hover:bg-accent"
-                title="Exportar transcrição da conversa (PDF)"
+                title="Copiar informações do serviço para enviar ao prestador"
               >
-                <ScrollText className="h-4 w-4" />
+                <ClipboardList className="h-4 w-4" />
               </Button>
+            )}
+            {/* Botão de busca no chat */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={exportarTranscricaoPDF}
+              className="h-9 px-2 hover:bg-accent"
+              title="Exportar transcrição da conversa (PDF)"
+            >
+              <ScrollText className="h-4 w-4" />
+            </Button>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setChatSearchOpen(!chatSearchOpen)}
-                className={cn(
-                  "h-9 px-2 hover:bg-accent",
-                  chatSearchOpen && "bg-accent"
-                )}
-                title="Buscar mensagens (Ctrl+F)"
-              >
-                <SearchIcon className="h-4 w-4" />
-              </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setChatSearchOpen(!chatSearchOpen)}
+              className={cn("h-9 px-2 hover:bg-accent", chatSearchOpen && "bg-accent")}
+              title="Buscar mensagens (Ctrl+F)"
+            >
+              <SearchIcon className="h-4 w-4" />
+            </Button>
 
-              <AbrirConversaDialog
-                clienteTelefone={clienteTelefone}
-                clienteNome={clienteNome}
-              />
-              
-              {/* Botão de atribuição de operador - com controle de permissão */}
-              {canReassign ? (
-                <Popover>
-                  <PopoverTrigger asChild>
+            <AbrirConversaDialog clienteTelefone={clienteTelefone} clienteNome={clienteNome} />
+
+            {/* Botão de atribuição de operador - com controle de permissão */}
+            {canReassign ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 px-2 hover:bg-accent"
+                    title={atendenteAtual ? `Atribuído: ${atendenteAtual.nome}` : "Atribuir operador"}
+                  >
+                    {atendenteAtual ? (
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className={cn(
+                            "flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-semibold",
+                            isMyTicket ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                          )}
+                        >
+                          {atendenteAtual.nome.charAt(0).toUpperCase()}
+                        </div>
+                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="end">
+                  <div className="space-y-1">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Atribuir Operador</div>
+                    <Separator />
+
+                    {/* Opção para assumir automaticamente */}
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-9 px-2 hover:bg-accent"
-                      title={atendenteAtual ? `Atribuído: ${atendenteAtual.nome}` : "Atribuir operador"}
-                    >
-                      {atendenteAtual ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className={cn(
-                            "flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-semibold",
-                            isMyTicket ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                          )}>
-                            {atendenteAtual.nome.charAt(0).toUpperCase()}
-                          </div>
-                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                        </div>
-                      ) : (
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-2" align="end">
-                    <div className="space-y-1">
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                        Atribuir Operador
-                      </div>
-                      <Separator />
-                      
-                      {/* Opção para assumir automaticamente */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start text-xs h-8"
-                        onClick={async () => {
-                          if (user) {
-                            const { data: profile } = await supabase
-                              .from('profiles')
-                              .select('full_name')
-                              .eq('id', user.id)
-                              .single();
-                            
-                            await atribuirOperador(user.id, profile?.full_name || 'Você', undefined, true);
-                          }
-                        }}
-                      >
-                        <UserCheckIcon className="h-3.5 w-3.5 mr-2" />
-                        Assumir para mim
-                      </Button>
+                      className="w-full justify-start text-xs h-8"
+                      onClick={async () => {
+                        if (user) {
+                          const { data: profile } = await supabase
+                            .from("profiles")
+                            .select("full_name")
+                            .eq("id", user.id)
+                            .single();
 
-                      {/* Lista de outros operadores - para supervisores/admins e dono do ticket */}
-                      {(isSupervisor || isMyTicket) && (
-                        <>
-                          <Separator />
-                          <div className="max-h-48 overflow-y-auto">
-                            <div className="px-2 py-1 text-[11px] text-muted-foreground">
-                              Atribuir para outro:
-                            </div>
-                            {todosAtendentes.filter(a => a.id !== user?.id).map(a => (
+                          await atribuirOperador(user.id, profile?.full_name || "Você", undefined, true);
+                        }
+                      }}
+                    >
+                      <UserCheckIcon className="h-3.5 w-3.5 mr-2" />
+                      Assumir para mim
+                    </Button>
+
+                    {/* Lista de outros operadores - para supervisores/admins e dono do ticket */}
+                    {(isSupervisor || isMyTicket) && (
+                      <>
+                        <Separator />
+                        <div className="max-h-48 overflow-y-auto">
+                          <div className="px-2 py-1 text-[11px] text-muted-foreground">Atribuir para outro:</div>
+                          {todosAtendentes
+                            .filter((a) => a.id !== user?.id)
+                            .map((a) => (
                               <Button
                                 key={a.id}
                                 variant="ghost"
                                 size="sm"
                                 className={cn(
                                   "w-full justify-start text-xs h-8",
-                                  atendenteAtual?.id === a.id && "bg-accent"
+                                  atendenteAtual?.id === a.id && "bg-accent",
                                 )}
                                 onClick={() => iniciarAtribuicao(a.id, a.nome)}
                               >
@@ -2344,120 +2353,107 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                                   {a.nome.charAt(0).toUpperCase()}
                                 </div>
                                 {a.nome}
-                                {atendenteAtual?.id === a.id && (
-                                  <Check className="h-3 w-3 ml-auto text-primary" />
-                                )}
+                                {atendenteAtual?.id === a.id && <Check className="h-3 w-3 ml-auto text-primary" />}
                               </Button>
                             ))}
-                          </div>
-
-                          <Separator />
-
-                          {/* Opção para remover atribuição - supervisores ou dono do ticket */}
-                          {atendenteAtual && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={removerAtribuicao}
-                            >
-                              <X className="h-3.5 w-3.5 mr-2" />
-                              Remover atribuição
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              ) : (
-                /* Ticket de outro atendente - usuário comum pode solicitar takeover */
-                <div className="flex items-center gap-1.5">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50">
-                          <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold">
-                            {atendenteAtual?.nome.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="text-xs text-muted-foreground">{atendenteAtual?.nome}</span>
                         </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">Atribuído a {atendenteAtual?.nome}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1"
-                    onClick={iniciarTakeover}
-                  >
-                    <UserCheckIcon className="h-3 w-3" />
-                    Assumir
-                  </Button>
-                </div>
+
+                        <Separator />
+
+                        {/* Opção para remover atribuição - supervisores ou dono do ticket */}
+                        {atendenteAtual && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={removerAtribuicao}
+                          >
+                            <X className="h-3.5 w-3.5 mr-2" />
+                            Remover atribuição
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              /* Ticket de outro atendente - usuário comum pode solicitar takeover */
+              <div className="flex items-center gap-1.5">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50">
+                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-foreground text-[10px] font-semibold">
+                          {atendenteAtual?.nome.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-xs text-muted-foreground">{atendenteAtual?.nome}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Atribuído a {atendenteAtual?.nome}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={iniciarTakeover}>
+                  <UserCheckIcon className="h-3 w-3" />
+                  Assumir
+                </Button>
+              </div>
+            )}
+
+            {/* Botão de notas internas */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setNotasDialogOpen(true)}
+              className="h-9 px-2 hover:bg-accent relative"
+              title="Notas Internas"
+            >
+              <MessageSquare className="h-4 w-4" />
+              {hasNotas && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full" />}
+            </Button>
+
+            {/* Botão de histórico do bot */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setBotHistoricoOpen(true)}
+              className="h-9 px-2 hover:bg-accent"
+              title="Histórico do Bot"
+            >
+              <History className="h-4 w-4" />
+            </Button>
+
+            {/* Botão Avaliação do Prestador */}
+            <AvaliacaoPrestadorFlowPanel
+              clienteTelefone={clienteTelefone}
+              clienteNome={clienteNome}
+              fichaId={fichaId}
+              onCopyMessage={(msg) => setNovaMsg(msg)}
+            />
+
+            {/* Botão NPS */}
+            <NPSFlowPanel
+              clienteTelefone={clienteTelefone}
+              clienteNome={clienteNome}
+              fichaId={fichaId}
+              onCopyMessage={(msg) => setNovaMsg(msg)}
+            />
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAssumirClick}
+              className={cn(
+                "h-9 hover:scale-[0.98] active:scale-95 transition-transform",
+                botDesabilitado && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800",
               )}
-
-              {/* Botão de notas internas */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setNotasDialogOpen(true)}
-                className="h-9 px-2 hover:bg-accent relative"
-                title="Notas Internas"
-              >
-                <MessageSquare className="h-4 w-4" />
-                {hasNotas && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full" />
-                )}
-              </Button>
-
-              {/* Botão de histórico do bot */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setBotHistoricoOpen(true)}
-                className="h-9 px-2 hover:bg-accent"
-                title="Histórico do Bot"
-              >
-                <History className="h-4 w-4" />
-              </Button>
-
-              {/* Botão Avaliação do Prestador */}
-              <AvaliacaoPrestadorFlowPanel
-                clienteTelefone={clienteTelefone}
-                clienteNome={clienteNome}
-                fichaId={fichaId}
-                onCopyMessage={(msg) => setNovaMsg(msg)}
-              />
-
-              {/* Botão NPS */}
-              <NPSFlowPanel
-                clienteTelefone={clienteTelefone}
-                clienteNome={clienteNome}
-                fichaId={fichaId}
-                onCopyMessage={(msg) => setNovaMsg(msg)}
-              />
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAssumirClick}
-                className={cn(
-                  "h-9 hover:scale-[0.98] active:scale-95 transition-transform",
-                  botDesabilitado && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                )}
-              >
-                <UserCheck className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">
-                  {botDesabilitado ? "Assumido" : "Assumir"}
-                </span>
-                {botDesabilitado && (
-                  <Check className="h-4 w-4 ml-1 text-green-600 dark:text-green-400" />
-                )}
-              </Button>
+            >
+              <UserCheck className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">{botDesabilitado ? "Assumido" : "Assumir"}</span>
+              {botDesabilitado && <Check className="h-4 w-4 ml-1 text-green-600 dark:text-green-400" />}
+            </Button>
           </>
 
           {onToggleFicha && (
@@ -2466,9 +2462,9 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
               size="sm"
               className={cn(
                 "h-9 transition-all duration-200 hover:scale-[0.98] active:scale-95",
-                fichaOpen 
-                  ? "bg-green-700 hover:bg-green-800 text-white shadow-md" 
-                  : "bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                fichaOpen
+                  ? "bg-green-700 hover:bg-green-800 text-white shadow-md"
+                  : "bg-green-600 hover:bg-green-700 text-white shadow-sm",
               )}
             >
               <FileText className="h-4 w-4" />
@@ -2491,7 +2487,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
               autoFocus
             />
           </div>
-          
+
           {searchResults.length > 0 && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
               <span className="font-medium">
@@ -2499,12 +2495,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
               </span>
             </div>
           )}
-          
+
           <div className="flex items-center gap-1 shrink-0">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigateSearch('prev')}
+              onClick={() => navigateSearch("prev")}
               disabled={searchResults.length === 0}
               className="h-7 w-7"
               title="Anterior"
@@ -2514,7 +2510,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigateSearch('next')}
+              onClick={() => navigateSearch("next")}
               disabled={searchResults.length === 0}
               className="h-7 w-7"
               title="Próximo"
@@ -2538,8 +2534,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         </div>
       )}
 
-      <AlertDialog 
-        open={assumirDialogOpen} 
+      <AlertDialog
+        open={assumirDialogOpen}
         onOpenChange={(open) => {
           setAssumirDialogOpen(open);
           if (!open) {
@@ -2559,13 +2555,13 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
               {botStatusNoDialog ? (
                 <div className="space-y-4">
                   <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                    <strong>Atenção:</strong> ao reativar o bot, o atendimento humano será interrompido e o cliente voltará a receber respostas automáticas. Confirme apenas se quiser realmente devolver a conversa para o bot.
+                    <strong>Atenção:</strong> ao reativar o bot, o atendimento humano será interrompido e o cliente
+                    voltará a receber respostas automáticas. Confirme apenas se quiser realmente devolver a conversa
+                    para o bot.
                   </div>
                   <p>Deseja reativar o bot automático para este cliente?</p>
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-destructive">
-                      ⚠️ Para confirmar, digite "LIGAR" abaixo:
-                    </p>
+                    <p className="text-sm font-medium text-destructive">⚠️ Para confirmar, digite "LIGAR" abaixo:</p>
                     <Input
                       value={confirmacaoTexto}
                       onChange={(e) => setConfirmacaoTexto(e.target.value.toUpperCase())}
@@ -2580,9 +2576,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                   <p>
                     O bot está atualmente <strong>ativo</strong> para este cliente.
                   </p>
-                  <p className="text-destructive font-medium">
-                    Ao assumir, esta ação irá:
-                  </p>
+                  <p className="text-destructive font-medium">Ao assumir, esta ação irá:</p>
                   <ul className="list-disc list-inside space-y-1 text-sm">
                     <li>Encerrar imediatamente qualquer fluxo ativo no Twilio Studio</li>
                     <li>Desabilitar o bot para este cliente</li>
@@ -2594,9 +2588,9 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isTogglingBot}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={toggleBot}
-              disabled={isTogglingBot || (botStatusNoDialog && confirmacaoTexto !== 'LIGAR')}
+              disabled={isTogglingBot || (botStatusNoDialog && confirmacaoTexto !== "LIGAR")}
               className={botStatusNoDialog ? "" : "bg-destructive hover:bg-destructive/90"}
             >
               {isTogglingBot ? (
@@ -2604,8 +2598,10 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Processando...
                 </>
+              ) : botStatusNoDialog ? (
+                "Reativar Bot"
               ) : (
-                botStatusNoDialog ? "Reativar Bot" : "Assumir Agora"
+                "Assumir Agora"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -2620,34 +2616,27 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
               <MessageSquare className="h-5 w-5" />
               Notas Internas
             </DialogTitle>
-            <DialogDescription>
-              Informações visíveis apenas para os operadores sobre este cliente.
-            </DialogDescription>
+            <DialogDescription>Informações visíveis apenas para os operadores sobre este cliente.</DialogDescription>
           </DialogHeader>
-          
+
           <Textarea
             value={notasInternas}
             onChange={(e) => setNotasInternas(e.target.value)}
             placeholder="Ex: Cliente preferencial, solicitar desconto, histórico de problemas, contexto importante..."
             className="min-h-[150px]"
           />
-          
+
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setNotasDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setNotasDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={salvarNotas}>
-              Salvar Notas
-            </Button>
+            <Button onClick={salvarNotas}>Salvar Notas</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Messages area - Scrollable with Drag & Drop */}
-      <div 
+      <div
         ref={setMessagesContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10 relative"
         onDragEnter={handleDragEnter}
@@ -2660,11 +2649,11 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
             e.preventDefault();
             // Clean timestamps and normalize spaces
             const cleanedText = selection
-              .replace(/\b\d{1,2}:\d{2}\b/g, '')
-              .replace(/[\r\n]+/g, ' ')
-              .replace(/\s+/g, ' ')
+              .replace(/\b\d{1,2}:\d{2}\b/g, "")
+              .replace(/[\r\n]+/g, " ")
+              .replace(/\s+/g, " ")
               .trim();
-            e.clipboardData?.setData('text/plain', cleanedText);
+            e.clipboardData?.setData("text/plain", cleanedText);
           }
         }}
       >
@@ -2718,173 +2707,183 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                 </Button>
               </div>
             )}
-            
+
             {(() => {
               return mensagens.map((msg, index) => {
-              const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
-              const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
-          
-          return (
-            <div 
-              key={msg.id}
-              ref={(el) => { messageRefs.current[msg.id] = el; }}
-            >
-                {showDateSeparator && (
-                  <div className="flex justify-center my-3">
-                    <div className="bg-muted/60 backdrop-blur-sm text-muted-foreground text-xs px-3 py-1 rounded-full shadow-sm">
-                      {getDateLabel(new Date(msg.data_hora))}
-                    </div>
-                  </div>
-                )}
-                
-                <MessageContextMenu 
-                  messageText={msg.texto || ""} 
-                  fichaId={fichaId || null}
-                  messageData={msg}
-                  onReply={() => setReplyingTo(msg)}
-                  onEdit={handleStartEdit}
-                  onDelete={handleDeleteMessage}
-                  canEditDelete={canEditDeleteMessage(msg)}
-                >
+                const previousMsg = index > 0 ? mensagens[index - 1] : undefined;
+                const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
+
+                return (
                   <div
-                    className={cn(
-                      "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-200",
-                      isAtendente(msg.remetente) ? "justify-end" : "justify-start"
-                    )}
+                    key={msg.id}
+                    ref={(el) => {
+                      messageRefs.current[msg.id] = el;
+                    }}
                   >
-                    <div
-                      className={cn(
-                        "max-w-[85%] sm:max-w-[75%] md:max-w-[65%] rounded-2xl px-3 py-2 md:px-3.5 md:py-2.5 shadow-sm transition-all hover:shadow-md cursor-context-menu",
-                        isAtendente(msg.remetente)
-                          ? "bg-primary text-primary-foreground rounded-br-sm"
-                          : "bg-card border rounded-bl-sm",
-                        highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]",
-                        searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30",
-                        msg.texto === "[Mensagem apagada]" && "opacity-60 italic"
-                      )}
+                    {showDateSeparator && (
+                      <div className="flex justify-center my-3">
+                        <div className="bg-muted/60 backdrop-blur-sm text-muted-foreground text-xs px-3 py-1 rounded-full shadow-sm">
+                          {getDateLabel(new Date(msg.data_hora))}
+                        </div>
+                      </div>
+                    )}
+
+                    <MessageContextMenu
+                      messageText={msg.texto || ""}
+                      fichaId={fichaId || null}
+                      messageData={msg}
+                      onReply={() => setReplyingTo(msg)}
+                      onEdit={handleStartEdit}
+                      onDelete={handleDeleteMessage}
+                      canEditDelete={canEditDeleteMessage(msg)}
                     >
-                      {msg.reply_to_message_id && msg.reply_to && (
-                        <QuotedMessage 
-                          quotedMsg={msg.reply_to} 
-                          onScrollToMessage={scrollToMessage}
-                        />
-                      )}
-                      {editingMessageId === msg.id ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            className="min-h-[60px] text-sm bg-background text-foreground rounded-lg"
-                            autoFocus
-                          />
-                          <div className="flex gap-1 justify-end">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs"
-                              onClick={() => { setEditingMessageId(null); setEditingText(""); }}
+                      <div
+                        className={cn(
+                          "flex animate-in fade-in-0 slide-in-from-bottom-2 duration-200",
+                          isAtendente(msg.remetente) ? "justify-end" : "justify-start",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "max-w-[85%] sm:max-w-[75%] md:max-w-[65%] rounded-2xl px-3 py-2 md:px-3.5 md:py-2.5 shadow-sm transition-all hover:shadow-md cursor-context-menu",
+                            isAtendente(msg.remetente)
+                              ? "bg-primary text-primary-foreground rounded-br-sm"
+                              : "bg-card border rounded-bl-sm",
+                            highlightedMessageId === msg.id && "ring-4 ring-yellow-400 ring-opacity-60 scale-[1.02]",
+                            searchResults.includes(msg.id) && chatSearchTerm && "bg-yellow-100 dark:bg-yellow-900/30",
+                            msg.texto === "[Mensagem apagada]" && "opacity-60 italic",
+                          )}
+                        >
+                          {msg.reply_to_message_id && msg.reply_to && (
+                            <QuotedMessage quotedMsg={msg.reply_to} onScrollToMessage={scrollToMessage} />
+                          )}
+                          {editingMessageId === msg.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editingText}
+                                onChange={(e) => setEditingText(e.target.value)}
+                                className="min-h-[60px] text-sm bg-background text-foreground rounded-lg"
+                                autoFocus
+                              />
+                              <div className="flex gap-1 justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs"
+                                  onClick={() => {
+                                    setEditingMessageId(null);
+                                    setEditingText("");
+                                  }}
+                                >
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => handleEditMessage(msg.id, editingText)}
+                                  disabled={!editingText.trim() || editingText === msg.texto}
+                                >
+                                  Salvar
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            msg.texto && (
+                              <p
+                                className="text-sm break-words leading-relaxed whitespace-pre-wrap select-text"
+                                dangerouslySetInnerHTML={
+                                  chatSearchTerm && searchResults.includes(msg.id)
+                                    ? { __html: highlightText(msg.texto, chatSearchTerm) }
+                                    : undefined
+                                }
+                              >
+                                {!chatSearchTerm || !searchResults.includes(msg.id) ? msg.texto : undefined}
+                              </p>
+                            )
+                          )}
+                          {renderMedia(msg)}
+                          <div className="flex items-center gap-1 mt-1 select-none">
+                            <MessageStatusIndicator status={msg.status} remetente={msg.remetente} />
+                            <p
+                              className={cn(
+                                "text-xs opacity-70",
+                                isAtendente(msg.remetente) ? "text-primary-foreground" : "text-muted-foreground",
+                              )}
                             >
-                              Cancelar
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() => handleEditMessage(msg.id, editingText)}
-                              disabled={!editingText.trim() || editingText === msg.texto}
-                            >
-                              Salvar
-                            </Button>
+                              {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
+                            </p>
+                            {(() => {
+                              // Determine sender label
+                              if (isAtendente(msg.remetente)) {
+                                // Operator messages (with profile name)
+                                if (msg.enviado_por?.full_name) {
+                                  return (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-semibold ml-0.5 cursor-default">
+                                            {msg.enviado_por.full_name.charAt(0).toUpperCase()}
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="text-xs">
+                                          {msg.enviado_por.full_name}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  );
+                                }
+                                // Operator without profile but has operador_nome
+                                if (msg.operador_nome) {
+                                  return (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-semibold ml-0.5 cursor-default">
+                                            {msg.operador_nome.charAt(0).toUpperCase()}
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="text-xs">
+                                          {msg.operador_nome}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  );
+                                }
+                                // Bot explicit OR fallback: atendente without any human attribution = bot
+                                if (
+                                  msg.tipo_remetente === "bot" ||
+                                  msg.remetente === "bot" ||
+                                  (!msg.enviado_por_id && !msg.operador_nome)
+                                ) {
+                                  return (
+                                    <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full ml-0.5 font-medium">
+                                      🤖 Bot
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              } else {
+                                // Client messages
+                                return (
+                                  <span
+                                    className={cn(
+                                      "text-[9px] px-1.5 py-0.5 rounded-full ml-0.5 font-medium",
+                                      "bg-muted text-muted-foreground",
+                                    )}
+                                  >
+                                    Cliente
+                                  </span>
+                                );
+                              }
+                            })()}
                           </div>
                         </div>
-                      ) : msg.texto && (
-                        <p 
-                          className="text-sm break-words leading-relaxed whitespace-pre-wrap select-text"
-                          dangerouslySetInnerHTML={
-                            chatSearchTerm && searchResults.includes(msg.id)
-                              ? { __html: highlightText(msg.texto, chatSearchTerm) }
-                              : undefined
-                          }
-                        >
-                          {!chatSearchTerm || !searchResults.includes(msg.id) ? msg.texto : undefined}
-                        </p>
-                      )}
-                      {renderMedia(msg)}
-                  <div className="flex items-center gap-1 mt-1 select-none">
-                    <MessageStatusIndicator status={msg.status} remetente={msg.remetente} />
-                    <p className={cn(
-                      "text-xs opacity-70",
-                      isAtendente(msg.remetente) 
-                        ? "text-primary-foreground" 
-                        : "text-muted-foreground"
-                    )}>
-                      {format(new Date(msg.data_hora), "HH:mm", { locale: ptBR })}
-                    </p>
-                    {(() => {
-                      // Determine sender label
-                      if (isAtendente(msg.remetente)) {
-                        // Operator messages (with profile name)
-                        if (msg.enviado_por?.full_name) {
-                          return (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-semibold ml-0.5 cursor-default">
-                                    {msg.enviado_por.full_name.charAt(0).toUpperCase()}
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs">
-                                  {msg.enviado_por.full_name}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          );
-                        }
-                        // Operator without profile but has operador_nome
-                        if (msg.operador_nome) {
-                          return (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-semibold ml-0.5 cursor-default">
-                                    {msg.operador_nome.charAt(0).toUpperCase()}
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs">
-                                  {msg.operador_nome}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          );
-                        }
-                        // Bot explicit OR fallback: atendente without any human attribution = bot
-                        if (msg.tipo_remetente === 'bot' || msg.remetente === 'bot' || (!msg.enviado_por_id && !msg.operador_nome)) {
-                          return (
-                            <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full ml-0.5 font-medium">
-                              🤖 Bot
-                            </span>
-                          );
-                        }
-                        return null;
-                      } else {
-                        // Client messages
-                        return (
-                          <span className={cn(
-                            "text-[9px] px-1.5 py-0.5 rounded-full ml-0.5 font-medium",
-                            "bg-muted text-muted-foreground"
-                          )}>
-                            Cliente
-                          </span>
-                        );
-                      }
-                    })()}
+                      </div>
+                    </MessageContextMenu>
                   </div>
-                    </div>
-                  </div>
-                </MessageContextMenu>
-              </div>
-            );
-            });
-             })()}
+                );
+              });
+            })()}
 
             {coachingVisible && coaching && (
               <SkillVendasCoach
@@ -2901,12 +2900,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       </div>
 
       {/* Reply indicator */}
-      {replyingTo && (
-        <ReplyIndicator
-          message={replyingTo}
-          onCancel={() => setReplyingTo(null)}
-        />
-      )}
+      {replyingTo && <ReplyIndicator message={replyingTo} onCancel={() => setReplyingTo(null)} />}
 
       {/* Input area - Fixed at bottom */}
       <div className="px-3 py-2.5 md:px-4 md:py-3 border-t bg-background shadow-sm shrink-0 flex-none">
@@ -2915,9 +2909,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           {!canWrite ? (
             <div className="p-4 bg-muted/50 rounded-lg text-center">
               <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground mb-3">
-                Esta conversa não está atribuída a você
-              </p>
+              <p className="text-sm text-muted-foreground mb-3">Esta conversa não está atribuída a você</p>
               <Button onClick={assumirParaMim} size="sm">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Assumir para mim
@@ -2928,17 +2920,13 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
               {/* Preview de arquivo pendente */}
               {pendingFile && (
                 <div className="flex items-center gap-3 bg-muted/50 p-2 rounded-lg mb-2 border">
-                  {pendingFile.type === 'imagem' ? (
-                    <img 
-                      src={pendingFile.previewUrl} 
-                      alt="Preview" 
-                      className="h-16 w-16 object-cover rounded-md"
-                    />
-                  ) : pendingFile.type === 'video' ? (
+                  {pendingFile.type === "imagem" ? (
+                    <img src={pendingFile.previewUrl} alt="Preview" className="h-16 w-16 object-cover rounded-md" />
+                  ) : pendingFile.type === "video" ? (
                     <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
                       <FileText className="h-8 w-8 text-muted-foreground" />
                     </div>
-                  ) : pendingFile.type === 'audio' ? (
+                  ) : pendingFile.type === "audio" ? (
                     <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
                       <FileText className="h-8 w-8 text-muted-foreground" />
                     </div>
@@ -2974,12 +2962,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                       <span className="text-[11px] font-semibold text-primary">Sugestão IA</span>
                     </div>
                     <button
-                      onClick={() => setSuggestionEnabled(prev => !prev)}
+                      onClick={() => setSuggestionEnabled((prev) => !prev)}
                       className={cn(
                         "text-[11px] font-medium transition-colors",
                         suggestionEnabled
                           ? "text-primary hover:text-primary/70"
-                          : "text-muted-foreground hover:text-foreground"
+                          : "text-muted-foreground hover:text-foreground",
                       )}
                     >
                       {suggestionEnabled ? "Desligar" : "Desligado"}
@@ -3017,16 +3005,16 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                   onChange={handleFileUpload}
                   className="hidden"
                 />
-                
+
                 <MensagensPadronizadasDropdown
                   onSelectMensagem={(msg) => setNovaMsg(msg)}
                   clienteNome={clienteNome}
                   clienteTelefone={clienteTelefone}
                   fichaId={fichaId}
                 />
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   size="icon"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={statusConversa === "fechada" || uploading || !!pendingFile}
@@ -3040,10 +3028,16 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                   onRecordingComplete={handleAudioRecording}
                   disabled={statusConversa === "fechada" || uploading || !!pendingFile}
                 />
-                
+
                 <Textarea
                   ref={textareaRef}
-                  placeholder={pendingFile ? "Pressione enviar para enviar o arquivo" : (statusConversa === "aberta" ? "Digite sua mensagem..." : "Conversa fechada")}
+                  placeholder={
+                    pendingFile
+                      ? "Pressione enviar para enviar o arquivo"
+                      : statusConversa === "aberta"
+                        ? "Digite sua mensagem..."
+                        : "Conversa fechada"
+                  }
                   value={novaMsg}
                   onChange={(e) => setNovaMsg(e.target.value)}
                   onKeyDown={(e) => {
@@ -3056,21 +3050,17 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                   disabled={statusConversa === "fechada" || !!pendingFile}
                   className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
                   rows={1}
-                  style={{ height: 'auto', overflowY: 'hidden' }}
+                  style={{ height: "auto", overflowY: "hidden" }}
                 />
-                
-                <Button 
-                  onClick={enviarMensagem} 
+
+                <Button
+                  onClick={enviarMensagem}
                   disabled={statusConversa === "fechada" || (!novaMsg.trim() && !pendingFile) || isSending || uploading}
                   className="shrink-0 shadow-md h-9 w-9 md:h-10 md:w-10"
                   size="icon"
                   title={pendingFile ? "Enviar arquivo" : "Enviar mensagem"}
                 >
-                  {isSending || uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
+                  {isSending || uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
             </>
@@ -3119,7 +3109,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           <AlertDialogHeader>
             <AlertDialogTitle>Conversa delegada</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa conversa está delegada para <strong>{atendenteAtual?.nome}</strong>. Você deseja assumir essa conversa? A mensagem só será enviada se você optar por assumir a conversa.
+              Essa conversa está delegada para <strong>{atendenteAtual?.nome}</strong>. Você deseja assumir essa
+              conversa? A mensagem só será enviada se você optar por assumir a conversa.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
