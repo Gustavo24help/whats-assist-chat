@@ -1,127 +1,54 @@
 ## Problema
 
-Para alguns operadores, conversas com mensagem nova **não exibem a bolinha de não lido**, mas a notificação (toast + som) aparece normalmente. Isso só acontece com quem tem histórico antigo de leitura registrado em `mensagem_leitura_operador`.
+No `/chat-beta`, ao clicar no banner âmbar **"X atendimentos precisando de resposta"**:
 
-## Causa raiz
+1. O sistema ativa `showAguardandoRespostaOnly = true` e força `statusFilter="all"` + `conversaStatusFilter="todas"`.
+2. Conforme o operador trata as fichas (status sai de `Ficha Criada` / `Orçamento Enviado` / `Visita Técnica` vencida), elas deixam de ser elegíveis e a contagem cai.
+3. Quando `aguardandoRespostaCount` chega a **0**, o banner é desmontado (`{aguardandoRespostaCount > 0 && ...}`).
+4. Mas o estado `showAguardandoRespostaOnly` continua **true** — o filtro segue ativo e a lista mostra "Nenhuma conversa encontrada", mesmo havendo 1522 conversas.
 
-Em `src/components/ConversationListBeta.tsx`, o cálculo de "não lido" (linhas 1011–1126) depende de duas queries que buscam **todas** as mensagens dos clientes (`tipo_remetente='cliente'` e `remetente='cliente'`):
+Resultado: o operador "perde" a lista inteira e não tem como destravar (o botão sumiu junto com o banner).
 
+Há ainda um efeito colateral: ao ativar o alerta, ele zera `statusFilter` e `conversaStatusFilter`, mas **não restaura** os valores anteriores quando o operador desativa manualmente — eles ficam `"all"` / `"todas"` permanentemente.
+
+## Solução
+
+Arquivo: `src/components/ConversationListBeta.tsx`
+
+### 1. Auto-desligar o filtro quando a contagem zera
+
+Adicionar um `useEffect` que, quando `aguardandoRespostaCount === 0` e `showAguardandoRespostaOnly === true`, desliga o filtro automaticamente e restaura filtros prévios.
+
+### 2. Memorizar os filtros anteriores ao ativar
+
+Antes de forçar `statusFilter="all"` / `conversaStatusFilter="todas"`, salvar os valores correntes em refs (`prevStatusFilterRef`, `prevConversaStatusFilterRef`). Ao desativar o filtro (manual ou automático), restaurar esses valores.
+
+### 3. Salvaguarda visual: manter o botão visível enquanto ativo
+
+Mudar a condição do banner para:
 ```
-mensagensClienteLegado = chunkedIn('mensagens', ..., telefones, q => q.eq('remetente','cliente'))
-mensagensClienteTipo   = chunkedIn('mensagens', ..., telefones, q => q.eq('tipo_remetente','cliente'))
+aguardandoRespostaCount > 0 || showAguardandoRespostaOnly
 ```
+Quando ativo mas contagem = 0, mostrar texto **"Nenhum atendimento pendente"** com o `X` ainda clicável para sair do modo. Isso cobre o caso em que o `useEffect` ainda não rodou (corrida de renders).
 
-O helper `chunkedIn` faz blocos de 500 telefones, mas **não usa paginação por range** — então cada chunk respeita o limite padrão de **1000 linhas do Supabase**. Hoje a base tem ~25.000 mensagens de cliente, então a maioria das mensagens recentes simplesmente não volta no resultado.
+### 4. Revisão das outras regras de filtro
 
-Consequência:
-- `ultimaMsgClienteMap` fica desatualizado (pega mensagem antiga, não a nova).
-- Para operadores **sem** registro em `mensagem_leitura_operador`, ainda aparece como não lido (cai no ramo `if (lastClientMsg)` com `lastReadAt = null`).
-- Para operadores **com** `last_read_at` antigo (qualquer um que já abriu a conversa uma vez no passado), a "última mensagem do cliente" retornada pela query truncada é **mais antiga** que o `last_read_at` → `perOperatorUnread = false` → bolinha some.
-- A notificação funciona porque o `NotificationSystem` reage ao evento `INSERT` em tempo real, sem depender dessa query.
+Auditar o mesmo padrão para evitar bugs análogos:
 
-Por isso o sintoma é "um operador não vê", e não um bug global.
+- **`showServicosParaFinalizarOnly`** — mesma classe de bug. Aplicar o mesmo tratamento (auto-desligar + manter botão enquanto ativo).
+- **`showBotDisabledOnly`** — controlado externamente; verificar se some quando contagem zera.
+- **`showBookmarked`** — só some se o operador remove todos os marcadores; mesmo padrão recomendado.
+- **`unreadFilter === "nao_lidas"`** — não deve auto-desligar (operador escolhe explicitamente).
 
-## Correção
+Para `showServicosParaFinalizarOnly` e `showBookmarked`, aplicar a mesma lógica defensiva: o toggle continua visível enquanto o filtro estiver ativo, com o ícone `X` para sair, mesmo que a contagem caia para 0.
 
-Substituir as duas queries truncadas por uma busca **por telefone** que retorne só o que importa para o cálculo: a **última mensagem de cliente posterior ao `last_read_at`** de cada conversa. Não precisamos trazer 25k linhas para o frontend.
+## Garantias de não-regressão
 
-### Estratégia
+- Nenhum dado é alterado: somente estado de UI local.
+- O comportamento de **ativar** o banner permanece idêntico.
+- Operador que **manualmente** clicou para desligar continua tendo o mesmo efeito.
+- A restauração dos filtros prévios só acontece para valores que o próprio botão sobrescreveu — outros filtros (tags, bot, pagamento) ficam intactos.
 
-1. **Preservar o comportamento atual** quando há poucos clientes/mensagens (sem regressão de UX nem de dados).
-2. Em vez de buscar todas as mensagens dos clientes em massa, fazer **uma única query agregada por última data**:
+## Arquivos modificados
 
-   - Buscar para os telefones da lista o `MAX(data_hora)` das mensagens com `tipo_remetente='cliente' OR remetente='cliente'`. Isso pode ser feito via:
-     - opção A (preferida): RPC SQL nova `get_ultima_msg_cliente_por_telefone(telefones text[])` retornando `(cliente_id, ultima_data, total_apos timestamp)` — uma chamada, sem limite de 1000.
-     - opção B (fallback sem migration): fazer chunk de 500 telefones, mas com `order('data_hora', { ascending: false })` + `range(0, 999)` repetido por telefone agrupado — inviável em escala.
-
-   Vamos com a **opção A** (criar RPC SQL).
-
-3. A RPC só **lê** dados que o frontend já consome hoje, sem alterar nenhuma linha de mensagem. Não há risco de mexer em horários ou em status.
-
-4. Manter `unread_count_real` (contagem para o badge numérico) usando o mesmo retorno da RPC: `count(*) FILTER (WHERE data_hora > last_read_at)` por telefone.
-
-### Mudanças concretas
-
-**A. Migration (nova função SQL — somente leitura)**
-
-```sql
-create or replace function public.get_unread_cliente_msgs(
-  _telefones text[],
-  _read_map jsonb  -- { "telefone": "iso-timestamp-or-null", ... }
-)
-returns table (
-  cliente_id text,
-  ultima_data timestamptz,
-  total_nao_lidas int
-)
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select
-    m.cliente_id,
-    max(m.data_hora) as ultima_data,
-    count(*) filter (
-      where (_read_map ->> m.cliente_id) is null
-         or m.data_hora > (_read_map ->> m.cliente_id)::timestamptz
-    )::int as total_nao_lidas
-  from public.mensagens m
-  where m.cliente_id = any(_telefones)
-    and (m.tipo_remetente = 'cliente' or m.remetente = 'cliente')
-  group by m.cliente_id;
-$$;
-
-grant execute on function public.get_unread_cliente_msgs(text[], jsonb) to anon, authenticated;
-```
-
-Sem alteração em tabelas, sem trigger, sem mudança de tipos. Função é `stable` e `security definer` (só `select`).
-
-**B. Frontend — `src/components/ConversationListBeta.tsx`**
-
-- Remover as duas queries `mensagensClienteLegado` / `mensagensClienteTipo` (linhas ~1028–1055).
-- Antes da iteração `clientesData.map(...)`, montar `readMap` a partir do `operatorReadMap` já existente (`{ telefone: last_read_at | null }`).
-- Chamar `supabase.rpc('get_unread_cliente_msgs', { _telefones: telefones, _read_map: readMap })`.
-- Construir `ultimaMsgClienteMap` (telefone → ultima_data) e `unreadCountByTelefone` (telefone → total_nao_lidas) a partir do retorno.
-- Reescrever o bloco de cálculo (linhas 1102–1126) usando esses dois mapas:
-
-```ts
-const readRecord = operatorReadMap.get(cliente.telefone);
-const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
-const unreadFromMsgs = unreadCountByTelefone.get(cliente.telefone) ?? 0;
-
-let perOperatorUnread = false;
-let unreadCountReal = 0;
-
-if (readRecord?.manual_unread === true) {
-  perOperatorUnread = true;
-  unreadCountReal = unreadFromMsgs; // pode ser 0 → ConversationCard mostra "•"
-} else if (lastClientMsg) {
-  const lastReadAt = readRecord?.last_read_at ?? null;
-  if (!lastReadAt || new Date(lastClientMsg) > new Date(lastReadAt)) {
-    perOperatorUnread = true;
-    unreadCountReal = unreadFromMsgs;
-  }
-}
-```
-
-Comportamento exibido permanece exatamente o mesmo das regras descritas em `documentação/chat-beta-leitura.md` — só a fonte deixa de ser truncada.
-
-**C. Sem mudanças** em:
-- `src/lib/chatBetaUnread.ts` (escrita continua igual).
-- `ChatWindowBeta.tsx`, `NotificationSystem.tsx` (notificação já funciona).
-- RLS / dados existentes.
-
-## Salvaguardas (project-knowledge)
-
-- Função SQL é `stable` e só faz `select` — **não altera nenhuma linha** de `mensagens`, `clientes`, `mensagem_leitura_operador`, nem qualquer outra tabela.
-- Nenhuma mudança em fuso horário, formatação de data ou em colunas de horário.
-- Resultado da nova RPC reproduz **a mesma lógica** que já está em `documentação/chat-beta-leitura.md`; o teste de regressão é: para conversas que **hoje** mostram bolinha, devem continuar mostrando; para as que escondem indevidamente, a bolinha volta.
-- Em caso de falha da RPC, cai num fallback que mantém o comportamento atual (sem bolinha) — nunca cria estado pior do que o presente.
-
-## Validação após implementar
-
-1. Logar como o operador afetado, abrir o Chat BETA, confirmar que conversas com mensagens novas (após o último `last_read_at`) voltam a exibir a bolinha.
-2. Marcar como lida → bolinha some.
-3. Marcar como não lida → bolinha aparece e persiste após reload.
-4. Verificar com um operador "novo" (sem registros em `mensagem_leitura_operador`) que tudo segue não lido por padrão.
+- `src/components/ConversationListBeta.tsx` — adicionar refs, useEffect de auto-desligamento, ajustar condição de render do banner e replicar para os outros filtros "modo único".
