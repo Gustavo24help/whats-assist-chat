@@ -74,7 +74,142 @@ const isAguardandoRespostaEligivel = (c: {
   return false;
 };
 
-interface ConversationListProps {
+// ⚡ Linha virtualizada da lista de conversas. Recebe as props via `rowProps`
+// do react-window. Mantém comportamento idêntico ao antigo .map() — apenas
+// renderiza dentro do estilo posicional fornecido pelo react-window.
+type ConversationRowProps = {
+  filteredClientes: Cliente[];
+  selectionMode: boolean;
+  selectedClientes: Set<string>;
+  toggleClienteSelection: (telefone: string) => void;
+  tagsWithColors: Array<{ nome: string; cor: string }>;
+  selectedClienteTelefone: string | null;
+  recentOrcamentoFichas: Set<string>;
+  setRecentOrcamentoFichas: React.Dispatch<React.SetStateAction<Set<string>>>;
+  setClientes: React.Dispatch<React.SetStateAction<Cliente[]>>;
+  onSelectCliente: (cliente: Cliente) => void;
+  openTagManager: (telefone: string) => void;
+  archiveContact: (telefone: string) => void;
+  unarchiveContact: (telefone: string) => void;
+  deleteContact: (telefone: string) => void;
+  showArchived: boolean;
+  toggleUnreadMark: (telefone: string, atual: boolean) => void;
+  clientesComServicoParaFinalizar: Set<string>;
+  clientesSemOrcamento: Set<string>;
+  conversasComSugestao: Set<string>;
+  bookmarks: Set<string>;
+  handleToggleBookmark: (telefone: string) => void;
+};
+
+function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
+  const {
+    index,
+    style,
+    filteredClientes,
+    selectionMode,
+    selectedClientes,
+    toggleClienteSelection,
+    tagsWithColors,
+    selectedClienteTelefone,
+    recentOrcamentoFichas,
+    setRecentOrcamentoFichas,
+    setClientes,
+    onSelectCliente,
+    openTagManager,
+    archiveContact,
+    unarchiveContact,
+    deleteContact,
+    showArchived,
+    toggleUnreadMark,
+    clientesComServicoParaFinalizar,
+    clientesSemOrcamento,
+    conversasComSugestao,
+    bookmarks,
+    handleToggleBookmark,
+  } = props;
+
+  const cliente = filteredClientes[index];
+  if (!cliente) return null;
+
+  return (
+    <div style={style} className="relative">
+      {selectionMode && (
+        <div
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleClienteSelection(cliente.telefone);
+          }}
+        >
+          <Checkbox
+            checked={selectedClientes.has(cliente.telefone)}
+            onCheckedChange={() => toggleClienteSelection(cliente.telefone)}
+            className="h-5 w-5"
+          />
+        </div>
+      )}
+      <div className={cn(selectionMode && "pl-8")}>
+        <ConversationCard
+          telefone={cliente.telefone}
+          nome={cliente.nome}
+          tags={cliente.tags || []}
+          tagsColors={tagsWithColors}
+          fichaId={cliente.nome_ficha}
+          fichaStatus={cliente.status_ficha}
+          statusConversa={cliente.status_conversa}
+          ultimaInteracao={cliente.ultima_interacao}
+          isSelected={selectedClienteTelefone === cliente.telefone}
+          unreadCount={cliente.unread_count_real || 0}
+          onClick={() => {
+            if (selectionMode) {
+              toggleClienteSelection(cliente.telefone);
+            } else {
+              if (cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)) {
+                setRecentOrcamentoFichas((prev) => {
+                  const next = new Set(prev);
+                  next.delete(cliente.ficha_id_real!);
+                  return next;
+                });
+              }
+              setClientes((prev) =>
+                prev.map((c) =>
+                  c.telefone === cliente.telefone
+                    ? { ...c, marcado_nao_lido: false, unread_count_real: 0 }
+                    : c
+                )
+              );
+              onSelectCliente(cliente);
+            }
+          }}
+          onOpenTagManager={() => openTagManager(cliente.telefone)}
+          onArchive={() => archiveContact(cliente.telefone)}
+          onUnarchive={() => unarchiveContact(cliente.telefone)}
+          onDelete={() => deleteContact(cliente.telefone)}
+          isArchived={showArchived}
+          marcadoNaoLido={cliente.marcado_nao_lido}
+          onToggleUnread={() => toggleUnreadMark(cliente.telefone, cliente.marcado_nao_lido || false)}
+          botHabilitado={cliente.bot_habilitado}
+          botDesativadoNotificacaoVista={cliente.bot_desativado_notificacao_vista}
+          botDesligadoManualmente={cliente.bot_desligado_manualmente}
+          orcamentosCount={cliente.orcamentos_count}
+          atendenteNome={(cliente as any).atendente?.full_name}
+          temServicoParaFinalizar={clientesComServicoParaFinalizar.has(cliente.telefone)}
+          semOrcamento={clientesSemOrcamento.has(cliente.telefone)}
+          pagamentoLink={cliente.pagamento_link}
+          pagamentoRealizado={cliente.pagamento_realizado}
+          statusAlertColor={cliente.statusAlertColor}
+          tempoNoStatusMinutos={cliente.tempoNoStatusMinutos}
+          hasNewOrcamento={!!cliente.ficha_id_real && recentOrcamentoFichas.has(cliente.ficha_id_real)}
+          hasSuggestion={conversasComSugestao.has(cliente.telefone)}
+          bookmarked={bookmarks.has(cliente.telefone)}
+          onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
+          ultimaMsgPor={cliente.ultima_msg_por}
+        />
+      </div>
+    </div>
+  );
+}
+
   selectedClienteTelefone: string | null;
   onSelectCliente: (cliente: Cliente) => void;
   unreadMessages?: Record<string, number>;
