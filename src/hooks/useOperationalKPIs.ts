@@ -540,9 +540,8 @@ async function fetchMetricsForWindow(
     STATUS_FINANCEIROS.has(f.status || ''),
   );
 
-  let valorPagoPrestadores = 0;
+  let valorPagoPrestadoresFichas = 0; // soma p/ cálculo do líquido (todas as txs da FS)
   let somaValorMaterial24help = 0;
-  let pagoAoPrestador = 0; // count de transações encontradas
   let somaValorTotalFichasFinanceiras = 0;
 
   if (fichasFinanceiras.length > 0) {
@@ -566,24 +565,53 @@ async function fetchMetricsForWindow(
         material_pago_24help: boolean | null;
       }>) || [];
       for (const t of txs) {
-        valorPagoPrestadores += Number(t.valor_a_pagar_prestador ?? 0);
+        valorPagoPrestadoresFichas += Number(t.valor_a_pagar_prestador ?? 0);
         if (t.material_pago_24help) {
           somaValorMaterial24help += Number(t.valor_material ?? 0);
         }
-        pagoAoPrestador += 1;
       }
     }
   }
 
   const valorLiquido24help =
-    somaValorTotalFichasFinanceiras - valorPagoPrestadores - somaValorMaterial24help;
-  // % Take Rate 24help = Líquido / Valor total das FS × 100
-  // (mantemos o campo `margemBruta24help` no payload para compatibilidade
-  // com consumidores existentes — o card foi renomeado na UI.)
+    somaValorTotalFichasFinanceiras - valorPagoPrestadoresFichas - somaValorMaterial24help;
   const margemBruta24help =
     somaValorTotalFichasFinanceiras > 0
       ? Number(((valorLiquido24help / somaValorTotalFichasFinanceiras) * 100).toFixed(1))
       : 0;
+
+  // ===== Pago a Prestadores (alinhado ao Financeiro / Contas a Pagar) =====
+  // Conta e soma transacoes_financeiras com status_pagamento_prestador = 'pago'
+  // cuja data_pagamento_realizada caiu dentro do período.
+  // Esta é a MESMA regra usada na aba Financeiro > Pagamento Prestadores
+  // (itens marcados como "pago").
+  let pagoAoPrestador = 0;       // count (KPI volume)
+  let valorPagoPrestadores = 0;  // soma R$ (KPI financeiro)
+  {
+    const hasFichaFilters = !!(
+      filters.categoriaId || filters.prestadorCpf || filters.clienteTelefone
+    );
+    let q: any = supabase
+      .from('transacoes_financeiras')
+      .select(
+        hasFichaFilters
+          ? 'valor_a_pagar_prestador, fichas_de_servico!inner(categoria_id, prestador_id, telefone_cliente)'
+          : 'valor_a_pagar_prestador',
+      )
+      .eq('status_pagamento_prestador', 'pago')
+      .gte('data_pagamento_realizada', fromStr)
+      .lte('data_pagamento_realizada', toStr);
+    if (hasFichaFilters) {
+      q = applyEmbeddedFichaFilters(q, filters);
+    }
+    const r = await q;
+    const rows = (r.data as Array<{ valor_a_pagar_prestador: number | null }>) || [];
+    pagoAoPrestador = rows.length;
+    valorPagoPrestadores = rows.reduce(
+      (s, t) => s + Number(t.valor_a_pagar_prestador ?? 0),
+      0,
+    );
+  }
 
   // Total de orçamentos enviados no período (linhas em `orcamentos`)
   const totalOrcamentos = totalOrcamentosRes.count || 0;
