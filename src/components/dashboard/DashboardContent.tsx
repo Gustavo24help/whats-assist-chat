@@ -1,13 +1,9 @@
 import { useDashboardLayout } from '@/contexts/DashboardLayoutContext';
-import { OperationalKPIsSection } from './OperationalKPIsSection';
-import { ConversionRatesSection } from './ConversionRatesSection';
-import { ConversionFunnel, ServicesLineChart, TicketMedioChart } from './index';
-import type { FunnelStepData } from './ConversionFunnel';
+import { ExecutiveDashboardSection } from './ExecutiveDashboardSection';
+import { ServicesLineChart, TicketMedioChart } from './index';
 import { ExportReportSection } from './ExportReportSection';
 import { SectionHeader } from './SectionHeader';
 import {
-  useOperationalKPIs,
-  FALLBACK_OPERATIONAL_KPIS,
   type PeriodOption,
   type ComparisonMode,
 } from '@/hooks/useOperationalKPIs';
@@ -27,76 +23,31 @@ export const DashboardContent = ({
 }: DashboardContentProps) => {
   const { blocks } = useDashboardLayout();
 
-  // Buscar KPIs operacionais para usar nas taxas de conversão e no funil
-  const { data: kpis, isLoading: isLoadingKpis } = useOperationalKPIs({
-    period,
-    customRange: customDateRange,
-    comparisonMode,
-    comparisonRange,
-  });
-
-  const kpiData = kpis || FALLBACK_OPERATIONAL_KPIS;
-
-  const funnelData: FunnelStepData[] = [
-    {
-      id: 'fs-criadas',
-      label: 'Conversas Iniciadas / FS Criadas',
-      value: kpiData.fsCriadas,
-      variation: kpiData.variations.fsCriadas,
-      bgColor: 'bg-brand-green',
-    },
-    {
-      id: 'fs-orcamento',
-      label: 'FS com Orçamento',
-      value: kpiData.fsComOrcamento,
-      variation: kpiData.variations.fsComOrcamento,
-      bgColor: 'bg-brand-yellow',
-    },
-    {
-      id: 'agendados',
-      label: 'Serviços Agendados',
-      value: kpiData.servicoAgendadoBruto,
-      variation: kpiData.variations.servicoAgendadoBruto,
-      bgColor: 'bg-brand-coral',
-    },
-    {
-      id: 'finalized',
-      label: 'Serviços Finalizados',
-      value: kpiData.servicoFinalizado,
-      variation: kpiData.variations.servicoFinalizado,
-      bgColor: 'bg-brand-coral/80',
-    },
-  ];
-
   const sortedBlocks = [...blocks]
     .filter(block => block.enabled)
     .sort((a, b) => a.order - b.order);
 
+  // O bloco executivo (funil + financeiro + volume) substitui visualmente
+  // os antigos 'operational-kpis' e 'conversion-funnel'. Para evitar
+  // duplicação, renderizamos uma única vez no primeiro dos dois que aparecer.
+  let executiveRendered = false;
+
   const renderBlock = (blockId: string) => {
     switch (blockId) {
       case 'operational-kpis':
+      case 'conversion-funnel': {
+        if (executiveRendered) return null;
+        executiveRendered = true;
         return (
-          <OperationalKPIsSection 
-            key={blockId}
-            period={period} 
+          <ExecutiveDashboardSection
+            key="executive-dashboard"
+            period={period}
             customDateRange={customDateRange}
             comparisonMode={comparisonMode}
             comparisonRange={comparisonRange}
           />
         );
-
-      case 'conversion-funnel':
-        return (
-          <div key={blockId} className="space-y-6">
-            <ConversionRatesSection
-              fsCriadas={kpiData.fsCriadas}
-              servicosAgendados={kpiData.servicoAgendado}
-              servicosFinalizados={kpiData.servicoFinalizado}
-              finalizadosPagos={kpiData.finalizadoPago}
-            />
-            <ConversionFunnel data={funnelData} isLoading={isLoadingKpis} />
-          </div>
-        );
+      }
 
       case 'google-ads':
         // Google Ads removido temporariamente do dashboard.
@@ -105,8 +56,8 @@ export const DashboardContent = ({
       case 'charts':
         return (
           <section key={blockId}>
-            <SectionHeader 
-              title="Evolução Mensal" 
+            <SectionHeader
+              title="Evolução Mensal"
               subtitle="Análises e tendências"
             />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
@@ -119,8 +70,8 @@ export const DashboardContent = ({
       case 'export':
         return (
           <section key={blockId}>
-            <SectionHeader 
-              title="Relatórios" 
+            <SectionHeader
+              title="Relatórios"
               subtitle="Exporte dados personalizados para análise"
             />
             <div className="mt-4">
