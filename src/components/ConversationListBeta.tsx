@@ -49,6 +49,7 @@ interface Cliente {
   horario_visita_tecnica?: string | null;
   data_visita_tecnica?: string | null;
   ultima_msg_por?: string | null; // label discreto: "Cliente", "🤖 Bot" ou primeiro nome do operador
+  ficha_created_at?: string | null;
 }
 
 // Helper: conversa elegível para o alerta "precisando de resposta"
