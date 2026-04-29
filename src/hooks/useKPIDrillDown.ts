@@ -245,6 +245,7 @@ async function fetchFichaIdsComEvento(
     for (const f of fbRows) {
       if (!semHistorico.has(f.id)) continue;
       if (excludeCurrentStatuses.includes(f.status)) continue;
+      if (includeOnlyCurrentStatuses && !includeOnlyCurrentStatuses.includes(f.status)) continue;
       if (!out.has(f.id)) out.set(f.id, f.created_at);
     }
   }
