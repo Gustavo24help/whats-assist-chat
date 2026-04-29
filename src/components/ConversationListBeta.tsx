@@ -548,6 +548,24 @@ export const ConversationListBeta = ({
     }
   }, [showServicosParaFinalizarOnly, clientesComServicoParaFinalizar]);
 
+  // Helper para desligar o filtro "aguardando resposta" e restaurar filtros prévios
+  const desligarAguardandoResposta = useCallback(() => {
+    setShowAguardandoRespostaOnly(false);
+    // Restaura filtros que foram sobrescritos ao ativar
+    if (prevStatusFilterRef.current !== null) {
+      const prev = prevStatusFilterRef.current;
+      if (onExternalStatusFilterChange) onExternalStatusFilterChange(prev);
+      else setStatusFilter(prev);
+      prevStatusFilterRef.current = null;
+    }
+    if (prevConversaStatusFilterRef.current !== null) {
+      const prev = prevConversaStatusFilterRef.current;
+      if (onExternalConversaStatusFilterChange) onExternalConversaStatusFilterChange(prev);
+      else setConversaStatusFilter(prev);
+      prevConversaStatusFilterRef.current = null;
+    }
+  }, [onExternalStatusFilterChange, onExternalConversaStatusFilterChange]);
+
   // Buscar clientes por nome da ficha (TODAS as fichas, não só a ativa) - usando debounced term
   useEffect(() => {
     const buscarClientesPorNomeFicha = async () => {
