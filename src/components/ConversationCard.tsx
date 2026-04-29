@@ -67,6 +67,28 @@ const getStatusColor = (status: string) => {
   return statusMap[status] || "bg-gray-400";
 };
 
+// Cor (HEX) usada para sublinhar o nome do status no card.
+// Mantida como estilo inline para garantir que o Tailwind JIT não remova classes dinâmicas.
+const getStatusUnderlineHex = (status: string): string => {
+  const map: Record<string, string> = {
+    "Não foi adiante": "#6b7280",
+    "Ficha Criada": "#3b82f6",
+    "Contato Inicial": "#06b6d4",
+    "Dúvida Prestador": "#eab308",
+    "Orçamento Enviado": "#f59e0b",
+    "Negociação": "#f97316",
+    "Visita Técnica": "#a855f7",
+    "Orçamento Aprovado / Agendamento": "#14b8a6",
+    "Orçamento Não Aprovado": "#ef4444",
+    "Agendado": "#6366f1",
+    "Em andamento": "#22c55e",
+    "Finalizado": "#059669",
+    "Garantia": "#84cc16",
+    "Perdido": "#f43f5e",
+  };
+  return map[status] || "#9ca3af";
+};
+
 // Formata telefone para exibição: remove "whatsapp:" e "+55"
 // Ex.: whatsapp:+5511987654321 -> (11) 98765-4321
 const formatTelefoneDisplay = (tel: string): string => {
@@ -200,11 +222,14 @@ export const ConversationCard = memo(({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 shrink-0"
+                className={cn(
+                  "h-7 w-7 shrink-0 rounded-full border",
+                  bookmarked ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40" : "border-border bg-background hover:bg-muted"
+                )}
                 title={bookmarked ? "Remover da página marcada" : "Marcar página"}
                 onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
               >
-                <Bookmark className={cn("h-3.5 w-3.5", bookmarked ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
+                <Bookmark className={cn("h-4 w-4", bookmarked ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
               </Button>
             )}
             <DropdownMenu>
@@ -265,7 +290,17 @@ export const ConversationCard = memo(({
       {/* LINHA 2: Status · ⏳ tempo no status · 🔥 Sem orçamento */}
       <div className="flex items-center gap-2 text-xs overflow-hidden whitespace-nowrap leading-tight">
         {fichaStatus && (
-          <span className="text-muted-foreground truncate min-w-0">{fichaStatus}</span>
+          <span
+            className="truncate min-w-0 font-medium text-foreground/80"
+            style={{
+              textDecorationLine: "underline",
+              textDecorationColor: getStatusUnderlineHex(fichaStatus),
+              textDecorationThickness: "2px",
+              textUnderlineOffset: "3px",
+            }}
+          >
+            {fichaStatus}
+          </span>
         )}
         {typeof tempoNoStatusMinutos === "number" && (
           <span className={cn(
