@@ -1647,7 +1647,7 @@ export const ConversationList = ({
       )}
 
       {/* Botões flutuantes: Marcadas + Arquivadas */}
-      {!isCollapsed && !selectionMode && (
+      {!isCollapsed && (
         <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2 items-end">
           <Button
             variant="ghost"
