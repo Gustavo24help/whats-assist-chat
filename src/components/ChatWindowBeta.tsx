@@ -966,8 +966,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     
     if (data) {
       // Verificar se há mais mensagens
-      const hasMore = data.length > MESSAGES_PER_PAGE;
-      const messagesToProcess = hasMore ? data.slice(0, MESSAGES_PER_PAGE) : data;
+      const hasMore = data.length > pageSize;
+      const messagesToProcess = hasMore ? data.slice(0, pageSize) : data;
       
       console.log('✅ Mensagens carregadas:', messagesToProcess.length, hasMore ? '(há mais)' : '(fim)');
       
