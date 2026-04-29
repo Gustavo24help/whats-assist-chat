@@ -1212,7 +1212,8 @@ export const ConversationListBeta = ({
           statusAlertColor: escalatedAlertColor,
           ficha_id_real: fichaIdParaOrcamentos || null,
           horario_visita_tecnica: (fichaData as any)?.horario_visita_tecnica || null,
-          data_visita_tecnica: (fichaData as any)?.data_visita_tecnica || null
+          data_visita_tecnica: (fichaData as any)?.data_visita_tecnica || null,
+          ultima_msg_por: ultimaMsgPorMap.get(cliente.telefone) || null,
         };
       });
 
