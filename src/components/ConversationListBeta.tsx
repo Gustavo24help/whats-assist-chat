@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X, Hash, MessageSquareText } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X, Hash, MessageSquareText, HelpCircle, Check, XCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ interface Cliente {
   horario_visita_tecnica?: string | null;
   data_visita_tecnica?: string | null;
   ultima_msg_por?: string | null; // label discreto: "Cliente", "🤖 Bot" ou primeiro nome do operador
+  ficha_created_at?: string | null;
 }
 
 // Helper: conversa elegível para o alerta "precisando de resposta"
@@ -204,6 +205,7 @@ function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
           bookmarked={bookmarks.has(cliente.telefone)}
           onToggleBookmark={() => handleToggleBookmark(cliente.telefone)}
           ultimaMsgPor={cliente.ultima_msg_por}
+          fichaCreatedAt={cliente.ficha_created_at}
         />
       </div>
     </div>
@@ -1372,6 +1374,7 @@ export const ConversationListBeta = ({
           horario_visita_tecnica: (fichaData as any)?.horario_visita_tecnica || null,
           data_visita_tecnica: (fichaData as any)?.data_visita_tecnica || null,
           ultima_msg_por: ultimaMsgPorMap.get(cliente.telefone) || null,
+          ficha_created_at: (fichaData as any)?.created_at || null,
         };
       });
 
@@ -1743,8 +1746,60 @@ export const ConversationListBeta = ({
                             >
                               Limpar seleção
                             </Button>
-                          )}
+                  )}
+
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2 text-xs gap-1"
+                        title="Legenda de ícones e cores"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Legenda</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-3 bg-popover z-50 text-xs" align="end">
+                      <div className="space-y-2">
+                        <p className="font-semibold text-sm mb-1">Legenda do ChatBeta</p>
+
+                        <div>
+                          <p className="font-semibold text-[11px] text-muted-foreground mb-1">Cor da borda do card (status da ficha)</p>
+                          <ul className="space-y-0.5 pl-1">
+                            <li><span className="inline-block w-3 h-3 align-middle border-[3px] border-red-500 mr-1.5" /> Vermelho — Ficha Criada</li>
+                            <li><span className="inline-block w-3 h-3 align-middle border-[3px] border-yellow-500 mr-1.5" /> Amarelo — Sem ficha criada</li>
+                            <li><span className="inline-block w-3 h-3 align-middle border-[3px] border-green-500 mr-1.5" /> Verde — Finalizado / Perdido / Garantia</li>
+                            <li><span className="inline-block w-3 h-3 align-middle border-[3px] border-blue-500 mr-1.5" /> Azul — Demais status</li>
+                          </ul>
                         </div>
+
+                        <div>
+                          <p className="font-semibold text-[11px] text-muted-foreground mb-1">Ícones</p>
+                          <ul className="space-y-0.5 pl-1">
+                            <li>📋 OS-XXXX — Ficha de serviço ativa</li>
+                            <li>🧾 N — Quantidade de orçamentos recebidos</li>
+                            <li>🆕 — Chegou novo orçamento</li>
+                            <li>🔥 Sem orçamento — Cliente sem orçamento</li>
+                            <li>⏰ MMmin — Tempo desde a criação da ficha</li>
+                            <li>⏳ MMmin no status — Tempo parado no status atual</li>
+                            <li><Check className="inline h-3 w-3 text-green-600" /> / <XCircle className="inline h-3 w-3 text-red-500" /> — Pagamento realizado / link não pago</li>
+                            <li><Sparkles className="inline h-3 w-3 text-primary" /> — Sugestão de IA disponível</li>
+                            <li>🔴 ! — Aguardando ação / 🟡 ! — Bot desativado</li>
+                          </ul>
+                        </div>
+
+                        <div>
+                          <p className="font-semibold text-[11px] text-muted-foreground mb-1">UM (última mensagem)</p>
+                          <ul className="space-y-0.5 pl-1">
+                            <li><b>UM: C</b> — última mensagem foi do Cliente</li>
+                            <li><b>UM: 24</b> — última mensagem foi do bot ou operador (24help)</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
                       </PopoverContent>
                     </Popover>
                   )}
