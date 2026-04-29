@@ -225,6 +225,7 @@ export const NovaConversaDialog = ({ onContactCreated }: NovaConversaDialogProps
           contentSid: selectedTemplate.content_sid,
           contentVariables,
           templateBody,
+          userId: user?.id,
         },
       });
 
