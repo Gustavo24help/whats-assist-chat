@@ -16,6 +16,10 @@ export interface ExecutiveFunnelStep {
   variation: number | null;
   onClick?: () => void;
   tooltip?: string;
+  secondaryAction?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 interface ExecutiveFunnelProps {
