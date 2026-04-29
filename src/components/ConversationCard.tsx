@@ -197,25 +197,26 @@ export const ConversationCard = memo(({
         </div>
       )}
 
-      <div className="absolute right-2 top-2 z-20 flex h-6 w-14 items-center justify-end gap-1">
+      <div className="absolute right-2 top-2 z-30 flex h-7 w-16 items-center justify-end gap-1">
         {onToggleBookmark && (
           <Button
             variant="ghost"
             size="icon"
             className={cn(
-              "h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-foreground",
+              "h-7 w-7 shrink-0 bg-transparent p-0 text-foreground opacity-100 hover:bg-accent hover:text-accent-foreground",
               bookmarked && "text-primary"
             )}
+            aria-label={bookmarked ? "Remover marca página" : "Marcar página"}
             title={bookmarked ? "Remover marca página" : "Marcar página"}
             onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
           >
-            <Bookmark className={cn("h-4 w-4", bookmarked && "fill-current")} />
+            <Bookmark className={cn("h-5 w-5 stroke-[2.5]", bookmarked && "fill-current")} />
           </Button>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-foreground">
-              <MoreVertical className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 bg-transparent p-0 text-foreground opacity-100 hover:bg-accent hover:text-accent-foreground" aria-label="Mais opções">
+              <MoreVertical className="h-5 w-5 stroke-[2.5]" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
