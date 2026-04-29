@@ -180,7 +180,7 @@ export const ConversationCard = memo(({
     <>
     <div
       className={cn(
-        "h-full p-2 pr-12 md:p-2.5 md:pr-12 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
+        "h-full p-2 md:p-2.5 border-b cursor-pointer transition-colors relative hover:bg-muted/40 overflow-hidden",
         isSelected && "bg-primary/10 ring-2 ring-primary",
         (unreadCount > 0 || marcadoNaoLido) && !isSelected && !statusAlertColor && !hasNewOrcamento && "bg-blue-100 dark:bg-blue-950/40",
         hasSuggestion && !isSelected && !hasNewOrcamento && !statusAlertColor && "animate-pulse bg-primary/5"
@@ -195,21 +195,6 @@ export const ConversationCard = memo(({
             🆕 Chegou novo orçamento!
           </span>
         </div>
-      )}
-
-      {onToggleBookmark && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "absolute right-2 top-1/2 z-20 h-8 w-8 -translate-y-1/2 rounded-full border bg-background shadow-md hover:bg-muted",
-            bookmarked ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground"
-          )}
-          title={bookmarked ? "Remover da página marcada" : "Marcar página"}
-          onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
-        >
-          <Bookmark className={cn("h-4.5 w-4.5", bookmarked && "fill-current")} />
-        </Button>
       )}
 
       {/* Linha 0: Nome + Tags + Menu */}
@@ -233,6 +218,20 @@ export const ConversationCard = memo(({
           </div>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
+            {onToggleBookmark && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground",
+                  bookmarked && "text-primary"
+                )}
+                title={bookmarked ? "Remover marca página" : "Marcar página"}
+                onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
+              >
+                <Bookmark className={cn("h-4 w-4", bookmarked && "fill-current")} />
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0">
@@ -248,6 +247,12 @@ export const ConversationCard = memo(({
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenTagManager(); }}>
                       <Tag className="mr-2 h-4 w-4" />Gerenciar Tags
                     </DropdownMenuItem>
+                    {onToggleBookmark && (
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}>
+                        <Bookmark className={cn("mr-2 h-4 w-4", bookmarked && "fill-current")} />
+                        {bookmarked ? "Remover marca página" : "Marcar página"}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
                       <Archive className="mr-2 h-4 w-4" />Arquivar Contato
                     </DropdownMenuItem>
