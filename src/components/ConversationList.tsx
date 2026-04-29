@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X, Hash, MessageSquareText, HelpCircle, Sparkles, Check, XCircle } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X, Hash, MessageSquareText, HelpCircle, Sparkles, Check, XCircle, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
