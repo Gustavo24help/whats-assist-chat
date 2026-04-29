@@ -47,6 +47,7 @@ interface Cliente {
   ficha_id_real?: string | null;
   horario_visita_tecnica?: string | null;
   data_visita_tecnica?: string | null;
+  ultima_msg_por?: string | null; // label discreto: "Cliente", "🤖 Bot" ou primeiro nome do operador
 }
 
 // Helper: conversa elegível para o alerta "precisando de resposta"
