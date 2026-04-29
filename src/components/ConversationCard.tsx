@@ -44,6 +44,7 @@ interface ConversationCardProps {
   bookmarked?: boolean;
   onToggleBookmark?: () => void;
   ultimaMsgPor?: string | null;
+  fichaCreatedAt?: string | null;
 }
 
 const getStatusColor = (status: string) => {
