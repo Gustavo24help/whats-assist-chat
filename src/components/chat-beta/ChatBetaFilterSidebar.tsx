@@ -72,22 +72,26 @@ const STATUS_ORDER = [
   "Cancelado",
 ];
 
-const getStatusDotColor = (status: string) => {
-  const s = status.toLowerCase();
-  if (s.includes("criada")) return "bg-blue-400";
-  if (s.includes("enviado")) return "bg-cyan-400";
-  if (s.includes("negociação") || s.includes("negociaç")) return "bg-amber-400";
-  if (s.includes("aprovado")) return "bg-emerald-400";
-  if (s.includes("agendado")) return "bg-indigo-400";
-  if (s.includes("andamento")) return "bg-orange-400";
-  if (s.includes("finalizado")) return "bg-green-600";
-  if (s.includes("garantia")) return "bg-purple-400";
-  if (s.includes("retorno")) return "bg-teal-400";
-  if (s.includes("dúvida") || s.includes("duvida")) return "bg-yellow-500";
-  if (s.includes("perdido")) return "bg-red-400";
-  if (s.includes("não foi") || s.includes("nao foi")) return "bg-gray-400";
-  if (s.includes("cancelado")) return "bg-red-600";
-  return "bg-muted-foreground";
+// Mapa idêntico ao usado no ConversationCard (chat de atendimento) para
+// garantir consistência visual de cores por status entre os dois chats.
+const getStatusDotColor = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    "Não foi adiante": "bg-gray-500",
+    "Ficha Criada": "bg-blue-500",
+    "Contato Inicial": "bg-cyan-500",
+    "Dúvida Prestador": "bg-yellow-500",
+    "Orçamento Enviado": "bg-amber-500",
+    "Negociação": "bg-orange-500",
+    "Visita Técnica": "bg-purple-500",
+    "Orçamento Aprovado / Agendamento": "bg-teal-500",
+    "Orçamento Não Aprovado": "bg-red-500",
+    "Agendado": "bg-indigo-500",
+    "Em andamento": "bg-green-500",
+    "Finalizado": "bg-emerald-600",
+    "Garantia": "bg-lime-500",
+    "Perdido": "bg-rose-500",
+  };
+  return statusMap[status] || "bg-gray-400";
 };
 
 export const ChatBetaFilterSidebar = ({
