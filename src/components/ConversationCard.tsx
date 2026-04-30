@@ -68,26 +68,9 @@ const getStatusColor = (status: string) => {
 };
 
 // Cor (HEX) usada para sublinhar o nome do status no card.
-// Mantida como estilo inline para garantir que o Tailwind JIT não remova classes dinâmicas.
-const getStatusUnderlineHex = (status: string): string => {
-  const map: Record<string, string> = {
-    "Não foi adiante": "#6b7280",
-    "Ficha Criada": "#3b82f6",
-    "Contato Inicial": "#06b6d4",
-    "Dúvida Prestador": "#eab308",
-    "Orçamento Enviado": "#f59e0b",
-    "Negociação": "#f97316",
-    "Visita Técnica": "#a855f7",
-    "Orçamento Aprovado / Agendamento": "#14b8a6",
-    "Orçamento Não Aprovado": "#ef4444",
-    "Agendado": "#6366f1",
-    "Em andamento": "#22c55e",
-    "Finalizado": "#059669",
-    "Garantia": "#84cc16",
-    "Perdido": "#f43f5e",
-  };
-  return map[status] || "#9ca3af";
-};
+// Importa da paleta única para manter consistência entre chats.
+import { getStatusFichaHex } from "@/lib/statusFichaCores";
+const getStatusUnderlineHex = (status: string): string => getStatusFichaHex(status);
 
 // Formata telefone para exibição: remove "whatsapp:" e "+55"
 // Ex.: whatsapp:+5511987654321 -> (11) 98765-4321
