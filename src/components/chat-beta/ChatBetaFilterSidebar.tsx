@@ -364,6 +364,12 @@ export const ChatBetaFilterSidebar = ({
           </div>
         )}
       </div>
+
+      <EditarCoresStatusFichaModal
+        open={editorCoresOpen}
+        onOpenChange={setEditorCoresOpen}
+        extraStatuses={Object.keys(counts.byStatus)}
+      />
     </div>
   );
 };
