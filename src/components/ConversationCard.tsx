@@ -271,6 +271,10 @@ export const ConversationCard = memo(({
                       {bookmarked ? "Remover marca página" : "Marcar página"}
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toggleHiddenOperator(telefone); }}>
+                    {operadorOculto ? (<><Eye className="mr-2 h-4 w-4" />Mostrar Operador Responsável</>) : (<><EyeOff className="mr-2 h-4 w-4" />Ocultar Operador Responsável</>)}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
                     <Archive className="mr-2 h-4 w-4" />Arquivar Contato
                   </DropdownMenuItem>
