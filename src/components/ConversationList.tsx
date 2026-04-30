@@ -1718,6 +1718,12 @@ export const ConversationList = ({
           onOpenChange={setTagManagerOpen}
         />
       )}
+
+      <EditarCoresStatusFichaModal
+        open={coresStatusOpen}
+        onOpenChange={setCoresStatusOpen}
+        extraStatuses={Array.from(new Set(clientes.map(c => c.status_ficha).filter(Boolean) as string[]))}
+      />
     </div>
   );
 };
