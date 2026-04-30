@@ -9,6 +9,7 @@ import { PanelLeftClose, PanelLeftOpen, Search, AlertTriangle, MessageCircle, Us
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
+import { getStatusFichaHex } from "@/lib/statusFichaCores";
 
 export interface StatusCounts {
   byStatus: Record<string, number>;
