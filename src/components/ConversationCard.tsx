@@ -257,11 +257,8 @@ export const ConversationCard = memo(({
         </div>
         </div>
 
-      {/* LINHA 1: Telefone · FS */}
+      {/* LINHA 1: FS (telefone removido a pedido dos operadores) */}
       <div className="flex items-center gap-2 w-full overflow-hidden whitespace-nowrap leading-tight">
-        <span className="text-xs text-muted-foreground shrink-0" title={telefone}>
-          {formatTelefoneDisplay(telefone)}
-        </span>
         {fichaId && (
           <span className="text-xs font-medium text-primary shrink-0 truncate">📋 {fichaId}</span>
         )}
@@ -299,14 +296,7 @@ export const ConversationCard = memo(({
             </span>
           </span>
         )}
-        {typeof tempoNoStatusMinutos === "number" && (
-          <span className={cn(
-            "text-[10px] font-semibold shrink-0",
-            statusAlertColor ? "text-orange-700 dark:text-orange-300" : "text-muted-foreground"
-          )} title="Tempo no status atual">
-            ⏳ {Math.floor(tempoNoStatusMinutos)}min
-          </span>
-        )}
+        {/* Tempo no status atual removido a pedido dos operadores */}
         {semOrcamento && (
           <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
             🔥 Sem orçamento
@@ -317,9 +307,7 @@ export const ConversationCard = memo(({
       {/* LINHA 3: Operador · ⏰ tempo desde criação · UM · alertas */}
       <div className="flex items-center justify-between gap-2 overflow-hidden leading-tight">
         <span className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5 min-w-0">
-          {atendenteNome && (
-            <span className="italic truncate">{atendenteNome}</span>
-          )}
+          {/* Operador responsável removido a pedido dos operadores */}
           {fichaCreatedAt && (
             <span className="shrink-0" title="Tempo desde a criação da ficha">
               ⏰ {formatTempoDesde(fichaCreatedAt)}
