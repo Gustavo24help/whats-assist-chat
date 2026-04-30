@@ -1801,7 +1801,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       // 🔒 VERIFICAÇÃO DE SEGURANÇA: buscar estado ATUAL do banco antes de executar
       const { data: clienteAtual, error: fetchError } = await supabase
         .from('clientes')
-        .select('bot_habilitado')
+        .select('bot_habilitado, atendente_id, status_conversa')
         .eq('telefone', clienteTelefone)
         .single();
       
@@ -1810,6 +1810,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       }
       
       const botRealmenteDesabilitado = clienteAtual?.bot_habilitado === false;
+      const temOperadorAtivo = Boolean(clienteAtual?.atendente_id) && clienteAtual?.status_conversa !== 'fechada';
       
       // 🔒 Se o estado mudou desde a abertura do dialog, abortar e notificar
       if (botRealmenteDesabilitado !== botStatusNoDialog) {
@@ -1882,8 +1883,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           });
         }
       } else {
+        if (temOperadorAtivo) {
+          toast.error("Bot não reativado", {
+            description: "Há um operador ativo nessa conversa. Feche ou transfira o atendimento antes de devolver para o bot.",
+          });
+          setAssumirDialogOpen(false);
+          setBotDesabilitado(true);
+          setBotStatusNoDialog(null);
+          return;
+        }
+
         // Reativar bot
-        const { error } = await supabase.functions.invoke('toggle-bot-status', {
+        const { data, error } = await supabase.functions.invoke('toggle-bot-status', {
           body: {
             telefone: clienteTelefone,
             bot_status: 'enabled',
@@ -1893,6 +1904,15 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         });
 
         if (error) throw error;
+
+        if (data?.blocked) {
+          toast.error("Bot não reativado", {
+            description: "O backend bloqueou a ativação porque ainda existe atendimento humano ativo.",
+          });
+          setBotDesabilitado(true);
+          setBotStatusNoDialog(null);
+          return;
+        }
 
         setBotDesabilitado(false);
         logChatEvent("bot_reativado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "toggle-bot-status" });
