@@ -32,6 +32,13 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
   const [vincularOpen, setVincularOpen] = useState(false);
   const grupo = useFichaGrupo(fichaAtual);
 
+  // Correlação de logs: enquanto este painel está montado com cliente/ficha ativos,
+  // qualquer logSystemEvent do frontend recebe ficha_id + cliente_telefone automaticamente.
+  useEffect(() => {
+    setChatContext({ ficha_id: fichaAtual, cliente_telefone: clienteTelefone });
+    return () => clearChatContext();
+  }, [fichaAtual, clienteTelefone]);
+
   useEffect(() => {
     console.log('[FichaPanel] Limpando fichas para:', clienteTelefone);
     setFichas([]);
