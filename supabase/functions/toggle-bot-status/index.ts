@@ -100,16 +100,20 @@ Deno.serve(async (req) => {
     const desligadoManualmenteAntes = clienteAntes?.bot_desligado_manualmente === true;
 
     const temAtendimentoHumanoAtivo = Boolean(clienteAntes?.atendente_id) && clienteAntes?.status_conversa !== "fechada";
-    if (bot_status === "enabled" && origem !== "manual" && (desligadoManualmenteAntes || temAtendimentoHumanoAtivo)) {
+    const deveBloquearAtivacao = bot_status === "enabled" && (
+      temAtendimentoHumanoAtivo || (origem !== "manual" && desligadoManualmenteAntes)
+    );
+
+    if (deveBloquearAtivacao) {
       console.log(
-        `[toggle-bot-status] 🛡️ Ativação automática bloqueada para ${telefone}: ` +
-        `manual=${desligadoManualmenteAntes}, atendimento_humano=${temAtendimentoHumanoAtivo}`,
+        `[toggle-bot-status] 🛡️ Ativação do bot bloqueada para ${telefone}: ` +
+        `origem=${origem}, manual=${desligadoManualmenteAntes}, atendimento_humano=${temAtendimentoHumanoAtivo}`,
       );
 
       await supabase.from("system_logs").insert({
         nivel: "warn",
         categoria: "bot",
-        mensagem: `Ativação automática do bot bloqueada durante atendimento humano: ${telefone}`,
+        mensagem: `Ativação do bot bloqueada durante atendimento humano: ${telefone}`,
         detalhes: {
           telefone_cliente: telefone,
           origem,
@@ -117,8 +121,17 @@ Deno.serve(async (req) => {
           bot_desligado_manualmente: desligadoManualmenteAntes,
           atendente_id: clienteAntes?.atendente_id ?? null,
           status_conversa: clienteAntes?.status_conversa ?? null,
+          bloqueado_por: temAtendimentoHumanoAtivo ? "atendimento_humano_ativo" : "desligamento_manual",
         },
         url: "edge://toggle-bot-status",
+      });
+
+      await supabase.from("bot_historico").insert({
+        telefone_cliente: telefone,
+        acao: "bloqueado",
+        origem,
+        executado_por_id,
+        observacao: `Ativação do bot bloqueada: ${temAtendimentoHumanoAtivo ? "há operador ativo na conversa" : "bot desligado manualmente"}`,
       });
 
       return new Response(
@@ -128,6 +141,8 @@ Deno.serve(async (req) => {
           telefone,
           bot_status: "disabled",
           reason: "human_attendance_active",
+          atendente_id: clienteAntes?.atendente_id ?? null,
+          status_conversa: clienteAntes?.status_conversa ?? null,
           timestamp: new Date().toISOString(),
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
