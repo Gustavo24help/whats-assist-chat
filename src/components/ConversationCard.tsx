@@ -8,6 +8,7 @@ import { formatDistanceToNow, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DeleteContactDialog } from "./DeleteContactDialog";
+import { getStatusFichaHex } from "@/lib/statusFichaCores";
 
 interface ConversationCardProps {
   telefone: string;
