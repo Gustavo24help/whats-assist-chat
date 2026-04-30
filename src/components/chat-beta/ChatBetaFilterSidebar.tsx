@@ -5,11 +5,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { FilterDropdown } from "@/components/FilterDropdown";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PanelLeftClose, PanelLeftOpen, Search, AlertTriangle, MessageCircle, Users } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Search, AlertTriangle, MessageCircle, Users, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
 import { getStatusFichaHex } from "@/lib/statusFichaCores";
+import { EditarCoresStatusFichaModal } from "@/components/EditarCoresStatusFichaModal";
 
 export interface StatusCounts {
   byStatus: Record<string, number>;
@@ -109,7 +110,19 @@ export const ChatBetaFilterSidebar = ({
 }: ChatBetaFilterSidebarProps) => {
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState("");
+  const [editorCoresOpen, setEditorCoresOpen] = useState(false);
+  const [, setColorVersion] = useState(0);
 
+  // Re-renderiza quando o usuário altera as cores (mesma aba ou outra)
+  useEffect(() => {
+    const handler = () => setColorVersion((v) => v + 1);
+    window.addEventListener("chat:status-ficha-cores:changed", handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("chat:status-ficha-cores:changed", handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
   const filteredTags = useMemo(() => {
     if (!tagSearchTerm) return allTags;
     return allTags.filter(tag => tag.toLowerCase().includes(tagSearchTerm.toLowerCase()));
@@ -231,9 +244,20 @@ export const ChatBetaFilterSidebar = ({
 
         {/* Status counts */}
         <div>
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Por Status ({counts.totalCount})
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Por Status ({counts.totalCount})
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onClick={() => setEditorCoresOpen(true)}
+              title="Editar cores dos status"
+            >
+              <Palette className="h-3 w-3" />
+            </Button>
+          </div>
           <div className="mt-1.5 space-y-0.5">
             <button
               onClick={() => onStatusFilterChange("all")}
@@ -340,6 +364,12 @@ export const ChatBetaFilterSidebar = ({
           </div>
         )}
       </div>
+
+      <EditarCoresStatusFichaModal
+        open={editorCoresOpen}
+        onOpenChange={setEditorCoresOpen}
+        extraStatuses={Object.keys(counts.byStatus)}
+      />
     </div>
   );
 };
