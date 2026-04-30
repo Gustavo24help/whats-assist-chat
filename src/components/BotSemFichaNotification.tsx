@@ -181,7 +181,7 @@ export function BotSemFichaNotification({ onSelectCliente }: BotSemFichaNotifica
                 variant="ghost"
                 size="sm"
                 className="text-xs text-muted-foreground shrink-0"
-                onClick={(e) => handleDismiss(alert.telefone, e)}
+                onClick={(e) => handleDismiss(alert, e)}
               >
                 Dispensar
               </Button>
