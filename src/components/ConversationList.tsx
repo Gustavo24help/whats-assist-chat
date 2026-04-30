@@ -74,6 +74,7 @@ const ChatLegendPopover = () => (
             <li>🧾 N — Quantidade de orçamentos recebidos</li>
             <li>🆕 — Chegou novo orçamento</li>
             <li>🔥 Sem orçamento — Cliente sem orçamento</li>
+            <li>👤 Nome — Operador responsável pelo atendimento</li>
             <li>⏰ MMmin / Xh / Xd — Tempo desde a criação da ficha</li>
             <li><Check className="inline h-3 w-3 text-green-600" /> / <XCircle className="inline h-3 w-3 text-red-500" /> — Pagamento realizado / link não pago</li>
             <li><Sparkles className="inline h-3 w-3 text-primary" /> — Sugestão de IA disponível</li>
