@@ -260,7 +260,7 @@ export const ConversationCard = memo(({
       {/* LINHA 1: FS (telefone removido a pedido dos operadores) */}
       <div className="flex items-center gap-2 w-full overflow-hidden whitespace-nowrap leading-tight">
         {fichaId && (
-          <span className="text-xs font-medium text-primary shrink-0 truncate">📋 {fichaId}</span>
+          <span className="text-xs font-medium text-primary shrink-0 truncate">{fichaId}</span>
         )}
         {pagamentoLink && fichaStatus === "Finalizado" && (
           pagamentoRealizado
