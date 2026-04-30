@@ -94,24 +94,6 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        if (clienteAtual?.bot_desligado_manualmente && clienteAtual?.data_bot_desabilitado) {
-          const desligadoEm = new Date(clienteAtual.data_bot_desabilitado).getTime();
-          const agora = Date.now();
-          const segundosDesdeDesligamento = (agora - desligadoEm) / 1000;
-          if (segundosDesdeDesligamento < 60) {
-            console.log(
-              `[reactivate-bots-24h] ⏸️  Cooldown ativo para ${schedule.telefone_cliente} ` +
-              `(desligado manualmente há ${segundosDesdeDesligamento.toFixed(0)}s). Adiando 5min.`
-            );
-            // Adiar 5 minutos para tentar de novo no próximo ciclo do cron
-            await supabase
-              .from('bot_reactivation_schedule')
-              .update({ scheduled_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() })
-              .eq('id', schedule.id);
-            continue;
-          }
-        }
-
         const { error: updateError } = await supabase
           .from('clientes')
           .update({
