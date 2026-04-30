@@ -9,6 +9,11 @@ import {
   subMonths,
   getDaysInMonth,
 } from 'date-fns';
+import {
+  EXCLUDED_FICHAS_PAGAMENTO,
+  STATUS_ELEGIVEIS_PAGAMENTO_PRESTADOR,
+  calcFinanceiroPrestador,
+} from '@/lib/financeiroPrestador';
 
 export type PeriodOption = 'today' | '7days' | '30days' | 'month' | 'custom';
 export type ComparisonMode = 'previous-month' | 'avg-3-months' | 'custom';
