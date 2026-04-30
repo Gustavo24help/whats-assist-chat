@@ -12,6 +12,13 @@ interface ReactivationSchedule {
   scheduled_at: string;
 }
 
+const postponeSchedule = async (supabase: any, scheduleId: string, minutes = 30) => {
+  await supabase
+    .from('bot_reactivation_schedule')
+    .update({ scheduled_at: new Date(Date.now() + minutes * 60 * 1000).toISOString() })
+    .eq('id', scheduleId);
+};
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -62,24 +69,34 @@ Deno.serve(async (req) => {
         // 🛡️ COOLDOWN: respeitar desligamento manual recente (< 60s)
         const { data: clienteAtual } = await supabase
           .from('clientes')
-          .select('bot_habilitado, data_bot_desabilitado, bot_desligado_manualmente')
+          .select('bot_habilitado, data_bot_desabilitado, bot_desligado_manualmente, atendente_id, status_conversa')
           .eq('telefone', schedule.telefone_cliente)
           .maybeSingle();
 
-        if (clienteAtual?.bot_desligado_manualmente && clienteAtual?.data_bot_desabilitado) {
-          const segundosDesdeDesligamento =
-            (Date.now() - new Date(clienteAtual.data_bot_desabilitado).getTime()) / 1000;
-          if (segundosDesdeDesligamento < 60) {
-            console.log(
-              `[process-bot-reactivation] ⏸️  Cooldown ativo para ${schedule.telefone_cliente} ` +
-              `(desligado manualmente há ${segundosDesdeDesligamento.toFixed(0)}s). Adiando 5min.`
-            );
-            await supabase
-              .from('bot_reactivation_schedule')
-              .update({ scheduled_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() })
-              .eq('id', schedule.id);
-            continue;
-          }
+        const temAtendimentoHumanoAtivo = Boolean(clienteAtual?.atendente_id) && clienteAtual?.status_conversa !== 'fechada';
+        if (clienteAtual?.bot_desligado_manualmente || temAtendimentoHumanoAtivo) {
+          console.log(
+            `[process-bot-reactivation] 🛡️ Reativação bloqueada para ${schedule.telefone_cliente}: ` +
+            `manual=${clienteAtual?.bot_desligado_manualmente === true}, atendimento_humano=${temAtendimentoHumanoAtivo}. Adiando 30min.`
+          );
+          await postponeSchedule(supabase, schedule.id, 30);
+
+          await supabase.from('system_logs').insert({
+            nivel: 'warn',
+            categoria: 'bot',
+            mensagem: `Reativação automática do bot bloqueada durante atendimento humano: ${schedule.telefone_cliente}`,
+            detalhes: {
+              telefone_cliente: schedule.telefone_cliente,
+              ficha_id: schedule.ficha_id,
+              schedule_id: schedule.id,
+              bot_desligado_manualmente: clienteAtual?.bot_desligado_manualmente === true,
+              atendente_id: clienteAtual?.atendente_id ?? null,
+              status_conversa: clienteAtual?.status_conversa ?? null,
+              acao: 'adiado_30_minutos'
+            },
+            url: 'edge://process-bot-reactivation'
+          });
+          continue;
         }
 
         // Reativar bot

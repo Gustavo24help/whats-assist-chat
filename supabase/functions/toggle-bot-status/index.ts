@@ -92,12 +92,47 @@ Deno.serve(async (req) => {
     // 📋 Capturar estado ANTERIOR para auditoria
     const { data: clienteAntes } = await supabase
       .from("clientes")
-      .select("bot_habilitado, data_bot_desabilitado, bot_desligado_manualmente")
+      .select("bot_habilitado, data_bot_desabilitado, bot_desligado_manualmente, atendente_id, status_conversa")
       .eq("telefone", telefone)
       .maybeSingle();
 
     const estadoAnterior = clienteAntes?.bot_habilitado === false ? "desabilitado" : "habilitado";
     const desligadoManualmenteAntes = clienteAntes?.bot_desligado_manualmente === true;
+
+    const temAtendimentoHumanoAtivo = Boolean(clienteAntes?.atendente_id) && clienteAntes?.status_conversa !== "fechada";
+    if (bot_status === "enabled" && origem !== "manual" && (desligadoManualmenteAntes || temAtendimentoHumanoAtivo)) {
+      console.log(
+        `[toggle-bot-status] 🛡️ Ativação automática bloqueada para ${telefone}: ` +
+        `manual=${desligadoManualmenteAntes}, atendimento_humano=${temAtendimentoHumanoAtivo}`,
+      );
+
+      await supabase.from("system_logs").insert({
+        nivel: "warn",
+        categoria: "bot",
+        mensagem: `Ativação automática do bot bloqueada durante atendimento humano: ${telefone}`,
+        detalhes: {
+          telefone_cliente: telefone,
+          origem,
+          estado_anterior: estadoAnterior,
+          bot_desligado_manualmente: desligadoManualmenteAntes,
+          atendente_id: clienteAntes?.atendente_id ?? null,
+          status_conversa: clienteAntes?.status_conversa ?? null,
+        },
+        url: "edge://toggle-bot-status",
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          blocked: true,
+          telefone,
+          bot_status: "disabled",
+          reason: "human_attendance_active",
+          timestamp: new Date().toISOString(),
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Atualizar status do bot no cliente
     const { error: updateError } = await supabase
