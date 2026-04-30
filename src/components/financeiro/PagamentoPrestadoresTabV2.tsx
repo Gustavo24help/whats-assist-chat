@@ -23,9 +23,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  EXCLUDED_FICHAS_PAGAMENTO,
+  calcFinanceiroPrestador,
+} from "@/lib/financeiroPrestador";
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-const EXCLUDED_FICHAS = ["FS4-260127"];
+const EXCLUDED_FICHAS = EXCLUDED_FICHAS_PAGAMENTO;
 const PAGE_SIZE = 20;
 
 function addBusinessDays(date: Date | string, n: number): Date {
@@ -38,28 +42,16 @@ function addBusinessDays(date: Date | string, n: number): Date {
   return d;
 }
 
+// Mantém a assinatura antiga usada pelos componentes desta tela.
+// Reexporta os campos legados (adiantCliente, adiantPrestador, desconto)
+// que o restante do arquivo ainda referencia, sobre o resultado compartilhado.
 function calcFinanceiro(ficha: any) {
-  const maoObra = ficha.valor_mao_obra || 0;
-  const pecas = ficha.valor_pecas || 0;
-  const taxaVisita = ficha.taxa_visita_padrao || 0;
-  const adiantCliente = 0;
-  const adiantPrestador = 0;
-  const subtotal = maoObra + pecas + taxaVisita;
-  const margemPct = 23;
-  const totalOS = ficha.valor_total || 0;
-  const taxa24help = totalOS > 0 ? totalOS - subtotal : subtotal * (margemPct / 100);
-  const materialPago24help = ficha.material_pago_24help === true;
-  // Se material pago pela empresa, prestador recebe só MO; senão MO + peças
-  const liquidoPrestador = materialPago24help ? maoObra + taxaVisita : maoObra + pecas + taxaVisita;
-  const desconto = 0;
-  const lucroBruto = totalOS - liquidoPrestador - (materialPago24help ? pecas : 0);
-  const rentab = totalOS > 0 ? (lucroBruto / totalOS) * 100 : 0;
-
+  const base = calcFinanceiroPrestador(ficha);
   return {
-    maoObra, pecas, taxaVisita, adiantCliente, adiantPrestador,
-    taxa24help: Math.max(taxa24help, 0), totalOS, liquidoPrestador,
-    desconto, lucroBruto: Math.max(lucroBruto, 0), rentab: Math.max(rentab, 0),
-    materialPago24help,
+    ...base,
+    adiantCliente: 0,
+    adiantPrestador: 0,
+    desconto: 0,
   };
 }
 
