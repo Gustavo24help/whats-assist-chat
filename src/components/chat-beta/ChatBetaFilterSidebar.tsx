@@ -5,11 +5,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { FilterDropdown } from "@/components/FilterDropdown";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PanelLeftClose, PanelLeftOpen, Search, AlertTriangle, MessageCircle, Users } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Search, AlertTriangle, MessageCircle, Users, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
 import { getStatusFichaHex } from "@/lib/statusFichaCores";
+import { EditarCoresStatusFichaModal } from "@/components/EditarCoresStatusFichaModal";
 
 export interface StatusCounts {
   byStatus: Record<string, number>;
