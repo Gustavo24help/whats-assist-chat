@@ -280,16 +280,23 @@ export const ConversationCard = memo(({
       {/* LINHA 2: Status · ⏳ tempo no status · 🔥 Sem orçamento */}
       <div className="flex items-center gap-2 text-xs overflow-hidden whitespace-nowrap leading-tight">
         {fichaStatus && (
-          <span
-            className="truncate min-w-0 font-medium text-foreground/80"
-            style={{
-              textDecorationLine: "underline",
-              textDecorationColor: getStatusUnderlineHex(fichaStatus),
-              textDecorationThickness: "2px",
-              textUnderlineOffset: "3px",
-            }}
-          >
-            {fichaStatus}
+          <span className="flex items-center gap-1.5 min-w-0 truncate">
+            <span
+              className="inline-block w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: getStatusUnderlineHex(fichaStatus) }}
+              aria-hidden
+            />
+            <span
+              className="truncate min-w-0 font-medium text-foreground/80"
+              style={{
+                textDecorationLine: "underline",
+                textDecorationColor: getStatusUnderlineHex(fichaStatus),
+                textDecorationThickness: "2px",
+                textUnderlineOffset: "3px",
+              }}
+            >
+              {fichaStatus}
+            </span>
           </span>
         )}
         {typeof tempoNoStatusMinutos === "number" && (
