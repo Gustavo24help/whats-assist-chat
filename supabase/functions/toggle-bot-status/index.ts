@@ -99,7 +99,8 @@ Deno.serve(async (req) => {
     const estadoAnterior = clienteAntes?.bot_habilitado === false ? "desabilitado" : "habilitado";
     const desligadoManualmenteAntes = clienteAntes?.bot_desligado_manualmente === true;
 
-    const temAtendimentoHumanoAtivo = Boolean(clienteAntes?.atendente_id) && clienteAntes?.status_conversa !== "fechada";
+    const temOperadorAtribuido = Boolean(clienteAntes?.atendente_id);
+    const temAtendimentoHumanoAtivo = temOperadorAtribuido;
     const deveBloquearAtivacao = bot_status === "enabled" && (
       temAtendimentoHumanoAtivo || (origem !== "manual" && desligadoManualmenteAntes)
     );
@@ -107,7 +108,7 @@ Deno.serve(async (req) => {
     if (deveBloquearAtivacao) {
       console.log(
         `[toggle-bot-status] 🛡️ Ativação do bot bloqueada para ${telefone}: ` +
-        `origem=${origem}, manual=${desligadoManualmenteAntes}, atendimento_humano=${temAtendimentoHumanoAtivo}`,
+        `origem=${origem}, manual=${desligadoManualmenteAntes}, operador_atribuido=${temOperadorAtribuido}, status_conversa=${clienteAntes?.status_conversa ?? "null"}`,
       );
 
       await supabase.from("system_logs").insert({
@@ -121,7 +122,7 @@ Deno.serve(async (req) => {
           bot_desligado_manualmente: desligadoManualmenteAntes,
           atendente_id: clienteAntes?.atendente_id ?? null,
           status_conversa: clienteAntes?.status_conversa ?? null,
-          bloqueado_por: temAtendimentoHumanoAtivo ? "atendimento_humano_ativo" : "desligamento_manual",
+          bloqueado_por: temAtendimentoHumanoAtivo ? "operador_atribuido" : "desligamento_manual",
         },
         url: "edge://toggle-bot-status",
       });
