@@ -118,6 +118,8 @@ export function logSystemEvent(payload: LogPayload) {
       user_id: userCtx.user_id ?? null,
       user_email: userCtx.user_email ?? null,
       user_name: userCtx.user_name ?? null,
+      ficha_id: payload.ficha_id ?? chatCtx.ficha_id ?? null,
+      cliente_telefone: payload.cliente_telefone ?? chatCtx.cliente_telefone ?? null,
     });
 
     if (buffer.length >= MAX_BUFFER) {
@@ -152,6 +154,8 @@ export function logChatEvent(
     nivel: options.nivel || "info",
     categoria: "chat",
     mensagem,
+    ficha_id: ficha ?? null,
+    cliente_telefone: telefone ?? null,
     // Eventos do chat NÃO devem ser deduplicados — operadores diferentes podem
     // executar a mesma ação em conversas diferentes na mesma janela de tempo.
     skipDedup: true,
