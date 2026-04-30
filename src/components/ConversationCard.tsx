@@ -70,7 +70,6 @@ const getStatusColor = (status: string) => {
 
 // Cor (HEX) usada para sublinhar o nome do status no card.
 // Importa da paleta única para manter consistência entre chats.
-import { getStatusFichaHex } from "@/lib/statusFichaCores";
 const getStatusUnderlineHex = (status: string): string => getStatusFichaHex(status);
 
 // Formata telefone para exibição: remove "whatsapp:" e "+55"
