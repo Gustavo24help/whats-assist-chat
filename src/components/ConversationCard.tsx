@@ -307,9 +307,7 @@ export const ConversationCard = memo(({
       {/* LINHA 3: Operador · ⏰ tempo desde criação · UM · alertas */}
       <div className="flex items-center justify-between gap-2 overflow-hidden leading-tight">
         <span className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5 min-w-0">
-          {atendenteNome && (
-            <span className="italic truncate">{atendenteNome}</span>
-          )}
+          {/* Operador responsável removido a pedido dos operadores */}
           {fichaCreatedAt && (
             <span className="shrink-0" title="Tempo desde a criação da ficha">
               ⏰ {formatTempoDesde(fichaCreatedAt)}
