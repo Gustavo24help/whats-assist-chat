@@ -379,6 +379,7 @@ Deno.serve(async (req) => {
       .eq("id", ficha_id);
 
     const duration = Date.now() - startTime;
+    await fichaLog.info(`✅ Auto-finalização concluída em ${duration}ms`, { detalhes: { payment_url: paymentUrl, message_sid: messageSid, dentro_janela: dentroJanela, duration_ms: duration } });
     await logAudit(supabase, ficha_id, "auto_finalizacao", "success", `Link: ${paymentUrl}, SID: ${messageSid}, Janela: ${dentroJanela}`);
     console.log(`[auto-finalizacao] ✅ Concluído em ${duration}ms — Ficha: ${ficha_id}`);
 
