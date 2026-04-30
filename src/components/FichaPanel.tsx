@@ -12,6 +12,7 @@ import { CriarFichaDialog } from "./CriarFichaDialog";
 import { VincularFichaDialog } from "./VincularFichaDialog";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
+import { setChatContext, clearChatContext } from "@/lib/systemLogger";
 
 interface Ficha {
   id: string;
