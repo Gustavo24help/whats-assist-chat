@@ -1,63 +1,78 @@
-## Problema
+## Como a exposição acontece (demonstração real)
 
-No Dashboard, o KPI **Pago ao Prestador** mostra **52 pagamentos / R$ 25.659,55** para abr/2026, enquanto a aba **Financeiro → Pagamento Prestadores → Pagos** mostra **48 pagos / R$ 12.372,50** no mesmo período.
+A tabela `clientes` tem políticas RLS para o papel `anon` com `USING (true)`. Isso significa que **qualquer pessoa na internet, sem login**, usando apenas a chave pública (`anon key`) que está no JS do site, consegue ler/inserir/atualizar todos os 1.337 clientes.
 
-## Causa raiz (confirmada via consulta no banco)
+Acabei de testar agora, em modo leitura, batendo direto no endpoint público do Supabase (sem nenhum login):
 
-O hook `useOperationalKPIs` calcula o KPI assim (linhas 588‑614 de `src/hooks/useOperationalKPIs.ts`):
+```
+GET https://halqtsowfqkczvlvwmdd.supabase.co/rest/v1/clientes
+?select=nome,telefone,cpf,endereco,bairro,notas_internas
+Header: apikey: <anon key — visível no bundle do site>
+```
 
-- Lê `transacoes_financeiras` onde `status_pagamento_prestador = 'pago'` e `data_pagamento_realizada` cai no período.
-- Conta linhas e soma `valor_a_pagar_prestador` cru.
+Resposta recebida:
+```json
+[
+  {"nome":"Franco","telefone":"whatsapp:+554388010804",
+   "cpf":"01019177918","endereco":"Av Visconde de Guarapuava, 2305 AP 507", ...},
+  {"nome":"Byanca✨","telefone":"whatsapp:+554199308441", ...}
+]
+```
 
-Já a aba Financeiro (`PagamentoPrestadoresTabV2`) aplica regras adicionais que o Dashboard ignora:
+Ou seja: **CPF, telefone, endereço, nome, notas internas e tags de todos os clientes** estão disponíveis publicamente. Um concorrente, ex-funcionário ou bot de scraping pode baixar o banco inteiro paginando 1000 em 1000. Pior: as políticas `anon` também permitem `INSERT` e `UPDATE`, então é possível **alterar dados** (mudar telefone, sobrescrever notas, criar clientes falsos) sem autenticação.
 
-1. **Filtra por status da ficha** `IN ('Finalizado', 'Garantia', 'Retorno')` e exige `valor_total > 0` e `prestador_id` preenchido.
-2. **Exclui a ficha** `FS4-260127` (lista `EXCLUDED_FICHAS`).
-3. **Recalcula o líquido** via `calcFinanceiro` em vez de confiar em `valor_a_pagar_prestador`:
-   - `liquidoPrestador = mao_obra + taxa_visita_padrao` (+ `pecas` apenas se NÃO `material_pago_24help`).
-4. Considera **uma transação por ficha** (mapa `transMap` faz upsert por `ficha_id`).
+### Por que está assim hoje
+A memória do projeto registra: `RLS OPEN para 'anon' em tabelas operacionais para Make.com / webhooks`. Tentativas anteriores de fechar quebraram integrações. Então qualquer correção precisa preservar:
+- Webhooks externos (Twilio, Make, Asaas) que escrevem em `clientes`.
+- Edge functions internas (`twilio-webhook`, `submit-orcamento`, `public-orcamento-data`, etc.).
+- Formulário público de orçamento (rota `/orcamento/:fichaId`).
 
-Conferência no banco para abr/2026:
-- 52 transações pagas, soma `valor_a_pagar_prestador` cru = R$ 25.659,55.
-- 4 dessas têm a ficha em status `Perdido` (legado), somando ~R$ 13.287,05 — exatamente o delta para chegar em R$ 12.372,50 / 48.
+---
 
-## O que vou alterar
+## Plano de correção (seguro, sem quebrar integrações)
 
-Apenas o KPI no Dashboard. **Não toco no Financeiro** (que já é a fonte de verdade). **Não altero dados existentes** — só lógica de leitura.
+### Passo 1 — Auditar quem realmente usa `anon` na tabela `clientes`
+Antes de remover qualquer policy, listar:
+- Quais Edge Functions hoje fazem query em `clientes` usando a anon key vs. service role key.
+- Se o formulário público (`OrcamentoPublico.tsx` / `public-orcamento-data`) lê de `clientes` direto ou via edge function.
+- Confirmar se Make.com / Twilio batem direto no PostgREST com anon key ou se passam por uma edge function nossa.
 
-### Arquivo: `src/hooks/useOperationalKPIs.ts` (bloco "Pago a Prestadores")
+Resultado esperado: lista pequena de pontos legítimos que precisam de write/read anônimo.
 
-Substituir o cálculo atual por uma rotina que reproduz a regra do Financeiro:
+### Passo 2 — Mover qualquer integração externa para `service_role` em Edge Functions
+Para cada ponto legítimo encontrado no passo 1:
+- Se for um webhook externo (Make, Twilio, Asaas): garantir que ele chama nossa Edge Function (não o PostgREST direto). A Edge Function usa `SUPABASE_SERVICE_ROLE_KEY` internamente, que ignora RLS.
+- Se hoje algum webhook bate direto no `rest/v1/clientes` com a anon key, criar uma edge function intermediária (padrão já usado em `public-orcamento-data` e `submit-orcamento`).
 
-1. Buscar `transacoes_financeiras` pagas com `data_pagamento_realizada` no período (igual hoje), trazendo `ficha_id` e `valor_a_pagar_prestador`.
-2. Buscar as `fichas_de_servico` correspondentes (`in('id', fichaIds)`) com os campos: `status, valor_total, valor_mao_obra, valor_pecas, prestador_id, material_pago_24help`.
-3. Buscar `prestadores` para pegar `taxa_visita_padrao` por CPF.
-4. Manter apenas as fichas que satisfazem a mesma regra do Financeiro:
-   - `status IN ('Finalizado', 'Garantia', 'Retorno')`
-   - `valor_total > 0`
-   - `prestador_id` não nulo
-   - não estar em `EXCLUDED_FICHAS`
-   - obedecer aos filtros de Dashboard (categoria, prestador, cliente) já existentes
-5. Para cada ficha válida, recalcular `liquidoPrestador` da mesma forma que `calcFinanceiro`:
-   - `mao_obra + taxa_visita_padrao` (+ `pecas` se `material_pago_24help` for false).
-6. `pagoAoPrestador` = nº de fichas válidas; `valorPagoPrestadores` = soma desses líquidos.
-7. **Fallback de segurança**: se `taxa_visita_padrao` não estiver cadastrada para o prestador, usar `0` (mesmo comportamento atual do Financeiro), garantindo que nenhum cálculo histórico vire `NaN`.
+### Passo 3 — Remover as policies `anon` da tabela `clientes`
+Migration removendo apenas as 3 policies do papel `anon`:
+- `Anon pode ver clientes` (SELECT)
+- `Anon pode inserir clientes` (INSERT)
+- `Anon pode atualizar clientes` (UPDATE)
 
-### Constantes e helpers compartilhados
+Mantém intactas:
+- As policies `authenticated` (atendentes continuam funcionando normal pelo app).
+- A policy `service_role` (edge functions e webhooks via edge continuam funcionando).
 
-Para evitar divergência futura entre Dashboard e Financeiro, vou:
+### Passo 4 — Validação imediata pós-deploy
+- Refazer o mesmo `curl` anônimo do teste acima → deve retornar `[]` ou erro de permissão.
+- Logar no app como atendente → conversas, fichas e contatos devem carregar normal.
+- Testar fluxos críticos: receber mensagem nova via Twilio (webhook), enviar formulário público de orçamento, receber webhook do Asaas.
+- Monitorar logs das Edge Functions por 24h para pegar qualquer integração esquecida.
 
-- Extrair `EXCLUDED_FICHAS` e a função `calcFinanceiro` para um módulo único `src/lib/financeiroPrestador.ts` (re‑exporta o que já existe em `PagamentoPrestadoresTabV2.tsx`).
-- O Financeiro passa a importar daí (sem mudar comportamento) e o Dashboard usa o mesmo helper.
+### Passo 5 — Plano de rollback
+Manter pronta uma migration reversa que recria as 3 policies `anon`, caso alguma integração crítica que não mapeamos quebre. Aplicar em < 5 min se algo quebrar em produção.
 
-## Impacto / Salvaguardas
+### Passo 6 (opcional, recomendado) — Aplicar o mesmo padrão para outras tabelas críticas
+O scanner também aponta exposição igual em `prestadores` (CPF, PIX, conta bancária), `fichas_de_servico`, `mensagens`, `transacoes_financeiras`, `nps_respostas`. O mesmo plano vale para elas, mas podemos fazer **uma tabela por vez** começando pela `clientes` para reduzir risco.
 
-- **Nada é gravado**: só mudanças na leitura.
-- **Dados existentes intactos**: `transacoes_financeiras` e fichas não são alteradas.
-- **Comparação histórica**: a função do KPI também é usada para o período anterior (`avg('pagoAoPrestador')`, `avg('valorPagoPrestadores')`); a nova regra é aplicada igualmente aos dois lados, mantendo coerência da variação %.
-- **Outros KPIs**: blocos como `valorLiquido24help` e `margemBruta24help` continuam usando suas próprias somas (linhas 543‑581) — não são afetados.
-- **Drill‑down** (`useKPIDrillDown.ts`): vou conferir se ele usa a mesma regra; se não, ajusto também para listar as mesmas fichas que entram no KPI.
+---
 
-## Resultado esperado
+## Resumo executivo (para você decidir)
 
-Para abr/2026 o KPI passa a exibir **48 pagamentos / R$ 12.372,50**, batendo exatamente com a aba Financeiro. Lançamentos legados em fichas `Perdido` deixam de inflar o número.
+- **Risco hoje:** vazamento total de PII de 1.337 clientes (CPF, endereço, telefone) + possibilidade de adulteração. Qualquer pessoa com a URL do app consegue.
+- **Causa:** policies RLS deixadas com `anon = true` em 2025 para destravar Make/Twilio.
+- **Correção:** mover integrações externas para edge functions (que usam service role) e remover acesso anônimo. Sem mudança na UI, sem mudança no fluxo do atendente.
+- **Tempo estimado:** Passos 1–5 só para `clientes` ≈ 1 ciclo de implementação + validação. Passo 6 (outras tabelas) pode ser feito depois, em ondas.
+
+Posso começar pelo Passo 1 (auditoria) assim que você aprovar — ainda em modo plano, só leitura, sem mexer em nada.
