@@ -166,6 +166,18 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
+    if (origem === 'manual') {
+      const { error: cancelScheduleError } = await supabase
+        .from('bot_reactivation_schedule')
+        .update({ executed: true })
+        .eq('telefone_cliente', telefone)
+        .eq('executed', false);
+
+      if (cancelScheduleError) {
+        console.error('[stop-twilio-flow] Erro ao cancelar reativações pendentes:', cancelScheduleError);
+      }
+    }
+
     // Capturar dados de auditoria
     const userAgent = req.headers.get('user-agent') || 'desconhecido';
     const ipAddress = req.headers.get('x-forwarded-for') 
