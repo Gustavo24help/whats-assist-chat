@@ -35,8 +35,8 @@ const ChatLegendPopover = () => (
         <span className="hidden sm:inline">Legenda</span>
       </Button>
     </PopoverTrigger>
-    <PopoverContent className="w-80 p-3 bg-popover z-50 text-xs" align="end">
-      <div className="space-y-2">
+    <PopoverContent className="w-96 p-3 bg-popover z-50 text-xs max-h-[80vh] overflow-y-auto" align="end">
+      <div className="space-y-3">
         <p className="font-semibold text-sm mb-1">Legenda do Chat</p>
 
         <div>
@@ -50,14 +50,31 @@ const ChatLegendPopover = () => (
         </div>
 
         <div>
+          <p className="font-semibold text-[11px] text-muted-foreground mb-1">Bolinha colorida ao lado do status</p>
+          <p className="text-[11px] text-muted-foreground mb-1">Indica o status atual da ficha (mesma cor sublinha o nome do status):</p>
+          <ul className="grid grid-cols-2 gap-x-2 gap-y-0.5 pl-1">
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#60a5fa" }} /> Ficha Criada</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#475569" }} /> Contato Inicial</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#22d3ee" }} /> Orçamento Enviado</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#475569" }} /> Visita Técnica</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#818cf8" }} /> Agendado</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#f97316" }} /> Em andamento</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#15803d" }} /> Finalizado</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#e879f9" }} /> Garantia</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#5eead4" }} /> Retorno</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#f87171" }} /> Perdido</li>
+            <li><span className="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style={{ backgroundColor: "#9ca3af" }} /> Não foi adiante</li>
+          </ul>
+        </div>
+
+        <div>
           <p className="font-semibold text-[11px] text-muted-foreground mb-1">Ícones</p>
           <ul className="space-y-0.5 pl-1">
             <li>📋 OS-XXXX — Ficha de serviço ativa</li>
             <li>🧾 N — Quantidade de orçamentos recebidos</li>
             <li>🆕 — Chegou novo orçamento</li>
             <li>🔥 Sem orçamento — Cliente sem orçamento</li>
-            <li>⏰ MMmin — Tempo desde a criação da ficha</li>
-            <li>⏳ MMmin no status — Tempo parado no status atual</li>
+            <li>⏰ MMmin / Xh / Xd — Tempo desde a criação da ficha</li>
             <li><Check className="inline h-3 w-3 text-green-600" /> / <XCircle className="inline h-3 w-3 text-red-500" /> — Pagamento realizado / link não pago</li>
             <li><Sparkles className="inline h-3 w-3 text-primary" /> — Sugestão de IA disponível</li>
             <li>🔴 ! — Aguardando ação / 🟡 ! — Bot desativado</li>
