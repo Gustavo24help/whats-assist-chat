@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { sanitizeAsaasName, sanitizeAsaasDescription } from '../_shared/sanitizeAsaas.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -83,9 +84,12 @@ Deno.serve(async (req) => {
     }
 
     // Criar link de pagamento no Asaas
+    // Sanitiza nome/descrição: Asaas rejeita Unicode estilizado e caracteres especiais.
+    const nomeClienteSanitizado = sanitizeAsaasName(nome_cliente, 'Cliente');
+    const descricaoSanitizada = sanitizeAsaasDescription(descricao, `Servico ${ficha_id}`);
     const asaasPayload: Record<string, unknown> = {
-      name: `${ficha_id} - ${nome_cliente || 'Cliente'}`,
-      description: descricao || `Serviço ${ficha_id}`,
+      name: `${ficha_id} - ${nomeClienteSanitizado}`,
+      description: descricaoSanitizada || `Servico ${ficha_id}`,
       value: valor,
       billingType,
       chargeType: 'DETACHED', // link avulso

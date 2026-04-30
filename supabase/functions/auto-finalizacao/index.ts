@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sanitizeAsaasName, sanitizeAsaasDescription } from "../_shared/sanitizeAsaas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -119,9 +120,12 @@ Deno.serve(async (req) => {
       else if (ficha.pagamento_tipo === "boleto") billingType = "BOLETO";
       if (parcelas > 1 && billingType !== "CREDIT_CARD") billingType = "UNDEFINED";
 
+      // Sanitiza nome/descrição: Asaas rejeita Unicode estilizado (𝓟, etc.)
+      const nomeClienteSanitizado = sanitizeAsaasName(ficha.nome_cliente, "Cliente");
+      const descricaoSanitizada = sanitizeAsaasDescription(ficha.descricao, `Servico ${ficha_id}`);
       const asaasPayload = {
-        name: `${ficha_id} - ${ficha.nome_cliente || "Cliente"}`,
-        description: ficha.descricao || `Serviço ${ficha_id}`,
+        name: `${ficha_id} - ${nomeClienteSanitizado}`,
+        description: descricaoSanitizada || `Servico ${ficha_id}`,
         value: valorTotal,
         billingType,
         chargeType: "DETACHED",
