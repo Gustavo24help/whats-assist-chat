@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[auto-finalizacao] 📋 Processando ficha: ${ficha_id}`);
+    const fichaLog = createFichaLogger(supabase, { ficha_id, source: "auto-finalizacao" });
+    await fichaLog.info("🚀 Auto-finalização iniciada");
     await logAudit(supabase, ficha_id, "auto_finalizacao", "started");
 
     // Buscar dados da ficha
@@ -70,12 +72,14 @@ Deno.serve(async (req) => {
 
     if (fichaError || !ficha) {
       console.error(`[auto-finalizacao] ❌ Ficha ${ficha_id} não encontrada:`, fichaError?.message);
+      await fichaLog.error("Ficha não encontrada", { detalhes: { error: fichaError?.message } });
       await logAudit(supabase, ficha_id, "auto_finalizacao", "error", "Ficha não encontrada");
       return new Response(
         JSON.stringify({ error: "Ficha não encontrada" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    fichaLog.setContext({ cliente_telefone: ficha.telefone_cliente });
 
     // Verificar se status é Finalizado
     if (ficha.status !== "Finalizado") {
