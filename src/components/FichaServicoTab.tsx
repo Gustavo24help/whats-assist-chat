@@ -676,8 +676,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         }
       }
 
+      // Refletir auto-promoção localmente para o usuário ver imediatamente
+      if (statusFinal !== fichaData.status) {
+        setFicha(prev => prev ? { ...prev, status: statusFinal } : prev);
+      }
+
       console.log('✅ Ficha salva, enviando webhook...');
-      await enviarWebhook(fichaData, agendamentoISO, visitaTecnicaISO);
+      await enviarWebhook({ ...fichaData, status: statusFinal }, agendamentoISO, visitaTecnicaISO);
     } catch (error) {
       console.error('❌ Erro no salvamento:', error);
     }
