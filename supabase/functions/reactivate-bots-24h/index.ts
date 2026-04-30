@@ -68,11 +68,12 @@ Deno.serve(async (req) => {
           .eq('telefone', schedule.telefone_cliente)
           .maybeSingle();
 
-        const temAtendimentoHumanoAtivo = Boolean(clienteAtual?.atendente_id) && clienteAtual?.status_conversa !== 'fechada';
+        const temOperadorAtribuido = Boolean(clienteAtual?.atendente_id);
+        const temAtendimentoHumanoAtivo = temOperadorAtribuido;
         if (clienteAtual?.bot_desligado_manualmente || temAtendimentoHumanoAtivo) {
           console.log(
             `[reactivate-bots-24h] 🛡️ Reativação bloqueada para ${schedule.telefone_cliente}: ` +
-            `manual=${clienteAtual?.bot_desligado_manualmente === true}, atendimento_humano=${temAtendimentoHumanoAtivo}. Adiando 30min.`
+            `manual=${clienteAtual?.bot_desligado_manualmente === true}, operador_atribuido=${temOperadorAtribuido}, status_conversa=${clienteAtual?.status_conversa ?? 'null'}. Adiando 30min.`
           );
           await postponeSchedule(supabase, schedule.id, 30);
 
@@ -87,6 +88,7 @@ Deno.serve(async (req) => {
               bot_desligado_manualmente: clienteAtual?.bot_desligado_manualmente === true,
               atendente_id: clienteAtual?.atendente_id ?? null,
               status_conversa: clienteAtual?.status_conversa ?? null,
+              bloqueado_por: clienteAtual?.bot_desligado_manualmente === true ? 'desligamento_manual' : 'operador_atribuido',
               acao: 'adiado_30_minutos'
             },
             url: 'edge://reactivate-bots-24h'
