@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
           paymentUrl = asaasData.url;
           asaasLinkCreated = true;
           console.log(`[auto-finalizacao] ✅ Link Asaas criado: ${paymentUrl}`);
+          await fichaLog.info(`💳 Link Asaas criado: ${paymentUrl}`, { detalhes: { payment_url: paymentUrl, valor: valorTotal } });
 
           await supabase
             .from("fichas_de_servico")
@@ -162,16 +163,19 @@ Deno.serve(async (req) => {
             .eq("id", ficha_id);
         } else {
           console.error(`[auto-finalizacao] ⚠️ Erro Asaas:`, JSON.stringify(asaasData));
+          await fichaLog.error("❌ Asaas rejeitou criação do link", { detalhes: { asaas_response: asaasData, payload: asaasPayload } });
           await logAudit(supabase, ficha_id, "auto_finalizacao", "error", `Erro Asaas: ${JSON.stringify(asaasData).substring(0, 500)}`);
         }
       } catch (asaasErr) {
         console.error(`[auto-finalizacao] ⚠️ Exceção Asaas:`, asaasErr);
+        await fichaLog.error("Exceção ao chamar Asaas", { detalhes: { error: String(asaasErr) } });
         await logAudit(supabase, ficha_id, "auto_finalizacao", "error", `Exceção Asaas: ${asaasErr}`);
       }
     }
 
     if (!paymentUrl) {
       console.log(`[auto-finalizacao] ⏭️ Sem link de pagamento para enviar`);
+      await fichaLog.warn("⏭️ Sem link de pagamento — abortando envio");
       await logAudit(supabase, ficha_id, "auto_finalizacao", "skipped", "Sem link de pagamento");
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "sem_link_pagamento" }),
