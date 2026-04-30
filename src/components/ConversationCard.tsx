@@ -1,9 +1,32 @@
-import React, { useState, memo } from "react";
+import React, { useState, memo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
-import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot, Check, XCircle, Sparkles, Bookmark } from "lucide-react";
+import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot, Check, XCircle, Sparkles, Bookmark, EyeOff, Eye } from "lucide-react";
+
+// ====== Ocultar Operador Responsável (preferência local por telefone) ======
+const HIDDEN_OPERATOR_KEY = "chat:hiddenOperatorTelefones:v1";
+const HIDDEN_OPERATOR_EVENT = "chat:hiddenOperator:changed";
+
+const getHiddenOperatorSet = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(HIDDEN_OPERATOR_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+};
+
+const toggleHiddenOperator = (telefone: string) => {
+  const set = getHiddenOperatorSet();
+  if (set.has(telefone)) set.delete(telefone);
+  else set.add(telefone);
+  localStorage.setItem(HIDDEN_OPERATOR_KEY, JSON.stringify(Array.from(set)));
+  window.dispatchEvent(new CustomEvent(HIDDEN_OPERATOR_EVENT));
+};
 import { formatDistanceToNow, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -141,6 +164,17 @@ export const ConversationCard = memo(({
   fichaCreatedAt,
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [operadorOculto, setOperadorOculto] = useState<boolean>(() => getHiddenOperatorSet().has(telefone));
+
+  useEffect(() => {
+    const refresh = () => setOperadorOculto(getHiddenOperatorSet().has(telefone));
+    window.addEventListener(HIDDEN_OPERATOR_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(HIDDEN_OPERATOR_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [telefone]);
 
   const handleDelete = () => {
     setDeleteDialogOpen(false);
@@ -237,6 +271,10 @@ export const ConversationCard = memo(({
                       {bookmarked ? "Remover marca página" : "Marcar página"}
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toggleHiddenOperator(telefone); }}>
+                    {operadorOculto ? (<><Eye className="mr-2 h-4 w-4" />Mostrar Operador Responsável</>) : (<><EyeOff className="mr-2 h-4 w-4" />Ocultar Operador Responsável</>)}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
                     <Archive className="mr-2 h-4 w-4" />Arquivar Contato
                   </DropdownMenuItem>
@@ -301,7 +339,7 @@ export const ConversationCard = memo(({
       {/* LINHA 3: Operador · ⏰ tempo desde criação · UM · alertas */}
       <div className="flex items-center justify-between gap-2 overflow-hidden leading-tight">
         <span className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5 min-w-0">
-          {atendenteNome && (
+          {atendenteNome && !operadorOculto && (
             <span className="shrink-0 truncate max-w-[100px]" title={`Operador responsável: ${atendenteNome}`}>
               👤 {atendenteNome}
             </span>
