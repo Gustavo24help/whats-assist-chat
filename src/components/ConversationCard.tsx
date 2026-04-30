@@ -159,17 +159,17 @@ export const ConversationCard = memo(({
   fichaCreatedAt,
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [operadorOculto, setOperadorOculto] = useState<boolean>(() => getHiddenOperatorSet().has(telefone));
+  const [operadorOculto, setOperadorOculto] = useState<boolean>(() => getHiddenOperatorGlobal());
 
   useEffect(() => {
-    const refresh = () => setOperadorOculto(getHiddenOperatorSet().has(telefone));
+    const refresh = () => setOperadorOculto(getHiddenOperatorGlobal());
     window.addEventListener(HIDDEN_OPERATOR_EVENT, refresh);
     window.addEventListener("storage", refresh);
     return () => {
       window.removeEventListener(HIDDEN_OPERATOR_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };
-  }, [telefone]);
+  }, []);
 
   const handleDelete = () => {
     setDeleteDialogOpen(false);
