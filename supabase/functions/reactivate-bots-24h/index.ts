@@ -70,6 +70,35 @@ Deno.serve(async (req) => {
 
         const temOperadorAtribuido = Boolean(clienteAtual?.atendente_id);
         const temAtendimentoHumanoAtivo = temOperadorAtribuido;
+        if (clienteAtual?.bot_desligado_manualmente === true) {
+          console.log(
+            `[reactivate-bots-24h] 🔒 Reativação cancelada para ${schedule.telefone_cliente}: bot desligado manualmente. Mantendo desligado.`
+          );
+
+          await supabase
+            .from('bot_reactivation_schedule')
+            .update({ executed: true })
+            .eq('id', schedule.id);
+
+          await supabase.from('system_logs').insert({
+            nivel: 'warn',
+            categoria: 'bot',
+            mensagem: `Reativação automática cancelada: bot desligado manualmente para ${schedule.telefone_cliente}`,
+            detalhes: {
+              telefone_cliente: schedule.telefone_cliente,
+              ficha_id: schedule.ficha_id,
+              schedule_id: schedule.id,
+              bot_desligado_manualmente: true,
+              atendente_id: clienteAtual?.atendente_id ?? null,
+              status_conversa: clienteAtual?.status_conversa ?? null,
+              bloqueado_por: 'desligamento_manual',
+              acao: 'cancelado_mantido_desligado'
+            },
+            url: 'edge://reactivate-bots-24h'
+          });
+          continue;
+        }
+
         if (clienteAtual?.bot_desligado_manualmente || temAtendimentoHumanoAtivo) {
           console.log(
             `[reactivate-bots-24h] 🛡️ Reativação bloqueada para ${schedule.telefone_cliente}: ` +
