@@ -266,8 +266,8 @@ export const ConversationCard = memo(({
                       {bookmarked ? "Remover marca página" : "Marcar página"}
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toggleHiddenOperator(telefone); }}>
-                    {operadorOculto ? (<><Eye className="mr-2 h-4 w-4" />Mostrar Operador Responsável</>) : (<><EyeOff className="mr-2 h-4 w-4" />Ocultar Operador Responsável</>)}
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toggleHiddenOperatorGlobal(); }}>
+                    {operadorOculto ? (<><Eye className="mr-2 h-4 w-4" />Mostrar Operador Responsável (todas)</>) : (<><EyeOff className="mr-2 h-4 w-4" />Ocultar Operador Responsável (todas)</>)}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
