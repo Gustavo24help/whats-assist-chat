@@ -561,10 +561,22 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
       console.log(`💾 Salvando ficha ${targetFichaId} - agendamento: ${agendamentoISO}, visita: ${visitaTecnicaISO}, retorno: ${retornoISO}`);
 
+      // 🎯 Auto-promoção: se há valor_total > 0 manual e status ainda é "Ficha Criada",
+      // considerar como orçamento e mover para "Orçamento Enviado".
+      let statusFinal = fichaData.status;
+      if (
+        fichaData.status === 'Ficha Criada' &&
+        typeof fichaData.valor_total === 'number' &&
+        fichaData.valor_total > 0
+      ) {
+        statusFinal = 'Orçamento Enviado' as typeof fichaData.status;
+        console.log(`🎯 Auto-promovendo status: Ficha Criada → Orçamento Enviado (valor manual: ${fichaData.valor_total})`);
+      }
+
       const updateData = {
         nome_ficha: fichaData.nome_ficha?.trim() || null,
         descricao: fichaData.descricao?.trim() || null,
-        status: fichaData.status as any,
+        status: statusFinal as any,
         prestador_id: fichaData.prestador_id,
         valor_total: fichaData.valor_total,
         valor_mao_obra: fichaData.valor_mao_obra,
@@ -664,8 +676,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         }
       }
 
+      // Refletir auto-promoção localmente para o usuário ver imediatamente
+      if (statusFinal !== fichaData.status) {
+        setFicha(prev => prev ? { ...prev, status: statusFinal } : prev);
+      }
+
       console.log('✅ Ficha salva, enviando webhook...');
-      await enviarWebhook(fichaData, agendamentoISO, visitaTecnicaISO);
+      await enviarWebhook({ ...fichaData, status: statusFinal }, agendamentoISO, visitaTecnicaISO);
     } catch (error) {
       console.error('❌ Erro no salvamento:', error);
     }

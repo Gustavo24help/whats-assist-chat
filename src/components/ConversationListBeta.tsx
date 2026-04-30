@@ -1078,7 +1078,7 @@ export const ConversationListBeta = ({
     // Buscar fichas nesses status atualizadas há mais de 15 min
     const { data: fichas, error: fichasError } = await supabase
       .from('fichas_de_servico')
-      .select('id, telefone_cliente')
+      .select('id, telefone_cliente, valor_total')
       .in('status', statusOrcamento as any)
       .lt('updated_at', quinzeMinAtras);
 
@@ -1087,18 +1087,24 @@ export const ConversationListBeta = ({
       return;
     }
 
-    const fichaIds = fichas.map(f => f.id);
+    // Considerar valor_total > 0 (preenchido manualmente) como já tendo orçamento
+    const fichasSemValorManual = fichas.filter(
+      (f: any) => !(typeof f.valor_total === 'number' && f.valor_total > 0)
+    );
+    const fichaIds = fichasSemValorManual.map(f => f.id);
 
-    // Buscar quais dessas fichas já têm orçamento
-    const { data: orcamentos } = await supabase
-      .from('orcamentos')
-      .select('ficha_nome')
-      .in('ficha_nome', fichaIds);
+    // Buscar quais dessas fichas já têm orçamento registrado
+    const { data: orcamentos } = fichaIds.length > 0
+      ? await supabase
+          .from('orcamentos')
+          .select('ficha_nome')
+          .in('ficha_nome', fichaIds)
+      : { data: [] as { ficha_nome: string }[] };
 
     const fichasComOrcamento = new Set(orcamentos?.map(o => o.ficha_nome) || []);
 
-    // Filtrar fichas sem orçamento
-    const telefonesSemOrcamento = fichas
+    // Filtrar fichas sem orçamento (sem registro e sem valor manual)
+    const telefonesSemOrcamento = fichasSemValorManual
       .filter(f => !fichasComOrcamento.has(f.id))
       .map(f => f.telefone_cliente);
 
