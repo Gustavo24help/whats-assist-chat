@@ -188,6 +188,7 @@ export const ConversationList = ({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedClientes, setSelectedClientes] = useState<Set<string>>(new Set());
   const [todosAtendentes, setTodosAtendentes] = useState<Array<{ id: string; nome: string }>>([]);
+  const [coresStatusOpen, setCoresStatusOpen] = useState(false);
   
   // Status que indicam conversa inativa
   const STATUS_INATIVOS = ["Finalizado", "Perdido", "Não foi adiante"];
