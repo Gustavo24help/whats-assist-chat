@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sanitizeAsaasName, sanitizeAsaasDescription } from "../_shared/sanitizeAsaas.ts";
+import { createFichaLogger } from "../_shared/fichaLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +59,8 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[auto-finalizacao] 📋 Processando ficha: ${ficha_id}`);
+    const fichaLog = createFichaLogger(supabase, { ficha_id, source: "auto-finalizacao" });
+    await fichaLog.info("🚀 Auto-finalização iniciada");
     await logAudit(supabase, ficha_id, "auto_finalizacao", "started");
 
     // Buscar dados da ficha
@@ -69,12 +72,14 @@ Deno.serve(async (req) => {
 
     if (fichaError || !ficha) {
       console.error(`[auto-finalizacao] ❌ Ficha ${ficha_id} não encontrada:`, fichaError?.message);
+      await fichaLog.error("Ficha não encontrada", { detalhes: { error: fichaError?.message } });
       await logAudit(supabase, ficha_id, "auto_finalizacao", "error", "Ficha não encontrada");
       return new Response(
         JSON.stringify({ error: "Ficha não encontrada" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    fichaLog.setContext({ cliente_telefone: ficha.telefone_cliente });
 
     // Verificar se status é Finalizado
     if (ficha.status !== "Finalizado") {
@@ -150,6 +155,7 @@ Deno.serve(async (req) => {
           paymentUrl = asaasData.url;
           asaasLinkCreated = true;
           console.log(`[auto-finalizacao] ✅ Link Asaas criado: ${paymentUrl}`);
+          await fichaLog.info(`💳 Link Asaas criado: ${paymentUrl}`, { detalhes: { payment_url: paymentUrl, valor: valorTotal } });
 
           await supabase
             .from("fichas_de_servico")
@@ -157,16 +163,19 @@ Deno.serve(async (req) => {
             .eq("id", ficha_id);
         } else {
           console.error(`[auto-finalizacao] ⚠️ Erro Asaas:`, JSON.stringify(asaasData));
+          await fichaLog.error("❌ Asaas rejeitou criação do link", { detalhes: { asaas_response: asaasData, payload: asaasPayload } });
           await logAudit(supabase, ficha_id, "auto_finalizacao", "error", `Erro Asaas: ${JSON.stringify(asaasData).substring(0, 500)}`);
         }
       } catch (asaasErr) {
         console.error(`[auto-finalizacao] ⚠️ Exceção Asaas:`, asaasErr);
+        await fichaLog.error("Exceção ao chamar Asaas", { detalhes: { error: String(asaasErr) } });
         await logAudit(supabase, ficha_id, "auto_finalizacao", "error", `Exceção Asaas: ${asaasErr}`);
       }
     }
 
     if (!paymentUrl) {
       console.log(`[auto-finalizacao] ⏭️ Sem link de pagamento para enviar`);
+      await fichaLog.warn("⏭️ Sem link de pagamento — abortando envio");
       await logAudit(supabase, ficha_id, "auto_finalizacao", "skipped", "Sem link de pagamento");
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "sem_link_pagamento" }),
@@ -370,6 +379,7 @@ Deno.serve(async (req) => {
       .eq("id", ficha_id);
 
     const duration = Date.now() - startTime;
+    await fichaLog.info(`✅ Auto-finalização concluída em ${duration}ms`, { detalhes: { payment_url: paymentUrl, message_sid: messageSid, dentro_janela: dentroJanela, duration_ms: duration } });
     await logAudit(supabase, ficha_id, "auto_finalizacao", "success", `Link: ${paymentUrl}, SID: ${messageSid}, Janela: ${dentroJanela}`);
     console.log(`[auto-finalizacao] ✅ Concluído em ${duration}ms — Ficha: ${ficha_id}`);
 

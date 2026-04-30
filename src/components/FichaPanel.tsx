@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus, ClipboardCheck, Link2, History } from "lucide-react";
+import { X, FileText, DollarSign, Plus, ClipboardCheck, Link2, History, ScrollText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
@@ -12,6 +12,7 @@ import { CriarFichaDialog } from "./CriarFichaDialog";
 import { VincularFichaDialog } from "./VincularFichaDialog";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
+import { setChatContext, clearChatContext } from "@/lib/systemLogger";
 
 interface Ficha {
   id: string;
@@ -30,6 +31,13 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
   const [dialogOpen, setDialogOpen] = useState(false);
   const [vincularOpen, setVincularOpen] = useState(false);
   const grupo = useFichaGrupo(fichaAtual);
+
+  // Correlação de logs: enquanto este painel está montado com cliente/ficha ativos,
+  // qualquer logSystemEvent do frontend recebe ficha_id + cliente_telefone automaticamente.
+  useEffect(() => {
+    setChatContext({ ficha_id: fichaAtual, cliente_telefone: clienteTelefone });
+    return () => clearChatContext();
+  }, [fichaAtual, clienteTelefone]);
 
   useEffect(() => {
     console.log('[FichaPanel] Limpando fichas para:', clienteTelefone);
@@ -167,14 +175,26 @@ export const FichaPanel = ({ clienteTelefone, clienteNome, onClose }: FichaPanel
               >
                 <Link2 className="h-3.5 w-3.5" />
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="icon"
                 onClick={() => setDialogOpen(true)}
                 className="shrink-0 h-8 w-8 hover:scale-[0.98] active:scale-95 transition-transform"
+                title="Criar nova ficha"
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
+              {fichaAtual && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => window.open(`/system-logs/${encodeURIComponent(fichaAtual)}`, "_blank")}
+                  className="shrink-0 h-8 w-8 hover:scale-[0.98] active:scale-95 transition-transform"
+                  title="Ver logs do sistema desta ficha"
+                >
+                  <ScrollText className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
             {(grupo.isPrincipal || grupo.isVinculada) && (
               <FichaVinculoBadge

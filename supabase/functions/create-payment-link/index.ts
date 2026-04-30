@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { sanitizeAsaasName, sanitizeAsaasDescription } from '../_shared/sanitizeAsaas.ts'
+import { createFichaLogger } from '../_shared/fichaLogger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -111,10 +112,17 @@ Deno.serve(async (req) => {
 
     const asaasData = await asaasResponse.json();
 
+    // Logger por ficha (system_logs)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const fichaLog = createFichaLogger(supabase, { ficha_id, source: 'create-payment-link' });
+
     if (!asaasResponse.ok) {
       console.error(`[create-payment-link] ❌ Asaas erro (${asaasResponse.status}):`, JSON.stringify(asaasData));
+      await fichaLog.error(`❌ Asaas rejeitou link manual (${asaasResponse.status})`, {
+        detalhes: { asaas_response: asaasData, payload: asaasPayload, user: userData.user.email },
+      });
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'Erro ao criar link no Asaas',
           details: asaasData,
         }),
@@ -124,9 +132,11 @@ Deno.serve(async (req) => {
 
     const paymentUrl = asaasData.url;
     console.log(`[create-payment-link] ✅ Link criado: ${paymentUrl}`);
+    await fichaLog.info(`💳 Link de pagamento gerado manualmente: ${paymentUrl}`, {
+      detalhes: { payment_url: paymentUrl, valor, parcelas: parcelas || 1, user: userData.user.email },
+    });
 
     // Atualizar a ficha com o link
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { error: updateError } = await supabase
       .from('fichas_de_servico')
       .update({ pagamento_link: paymentUrl })
@@ -134,6 +144,7 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error(`[create-payment-link] ⚠️ Link criado mas erro ao salvar na ficha:`, updateError.message);
+      await fichaLog.warn('Link criado no Asaas mas falhou ao salvar na ficha', { detalhes: { error: updateError.message } });
     } else {
       console.log(`[create-payment-link] ✅ Link salvo na ficha ${ficha_id}`);
     }

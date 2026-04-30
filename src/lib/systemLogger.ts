@@ -26,6 +26,10 @@ interface LogPayload {
   categoria: LogCategoria;
   mensagem: string;
   detalhes?: Record<string, any> | null;
+  /** Associa este log a uma ficha de serviço (busca por /system-logs/:fichaId). */
+  ficha_id?: string | null;
+  /** Associa este log a uma conversa (telefone do cliente). */
+  cliente_telefone?: string | null;
   /** Se true, ignora deduplicação (eventos por telefone/operador). */
   skipDedup?: boolean;
 }
@@ -34,6 +38,18 @@ interface UserContext {
   user_id?: string | null;
   user_email?: string | null;
   user_name?: string | null;
+}
+
+// Contexto ativo da conversa/ficha aberta — usado para correlacionar logs
+// de console/erros automaticamente sem precisar passar parâmetro a cada call.
+let chatCtx: { ficha_id?: string | null; cliente_telefone?: string | null } = {};
+
+export function setChatContext(ctx: { ficha_id?: string | null; cliente_telefone?: string | null }) {
+  chatCtx = { ...ctx };
+}
+
+export function clearChatContext() {
+  chatCtx = {};
 }
 
 let userCtx: UserContext = {};
@@ -102,6 +118,8 @@ export function logSystemEvent(payload: LogPayload) {
       user_id: userCtx.user_id ?? null,
       user_email: userCtx.user_email ?? null,
       user_name: userCtx.user_name ?? null,
+      ficha_id: payload.ficha_id ?? chatCtx.ficha_id ?? null,
+      cliente_telefone: payload.cliente_telefone ?? chatCtx.cliente_telefone ?? null,
     });
 
     if (buffer.length >= MAX_BUFFER) {
@@ -136,6 +154,8 @@ export function logChatEvent(
     nivel: options.nivel || "info",
     categoria: "chat",
     mensagem,
+    ficha_id: ficha ?? null,
+    cliente_telefone: telefone ?? null,
     // Eventos do chat NÃO devem ser deduplicados — operadores diferentes podem
     // executar a mesma ação em conversas diferentes na mesma janela de tempo.
     skipDedup: true,
