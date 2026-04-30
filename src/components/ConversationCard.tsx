@@ -296,14 +296,7 @@ export const ConversationCard = memo(({
             </span>
           </span>
         )}
-        {typeof tempoNoStatusMinutos === "number" && (
-          <span className={cn(
-            "text-[10px] font-semibold shrink-0",
-            statusAlertColor ? "text-orange-700 dark:text-orange-300" : "text-muted-foreground"
-          )} title="Tempo no status atual">
-            ⏳ {Math.floor(tempoNoStatusMinutos)}min
-          </span>
-        )}
+        {/* Tempo no status atual removido a pedido dos operadores */}
         {semOrcamento && (
           <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
             🔥 Sem orçamento
