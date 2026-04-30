@@ -5,26 +5,21 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 import { MoreVertical, Tag, Archive, ArchiveRestore, Trash2, Circle, CircleDot, Check, XCircle, Sparkles, Bookmark, EyeOff, Eye } from "lucide-react";
 
-// ====== Ocultar Operador Responsável (preferência local por telefone) ======
-const HIDDEN_OPERATOR_KEY = "chat:hiddenOperatorTelefones:v1";
+// ====== Ocultar Operador Responsável (preferência GLOBAL para todas as conversas) ======
+const HIDDEN_OPERATOR_GLOBAL_KEY = "chat:hiddenOperatorGlobal:v1";
 const HIDDEN_OPERATOR_EVENT = "chat:hiddenOperator:changed";
 
-const getHiddenOperatorSet = (): Set<string> => {
+const getHiddenOperatorGlobal = (): boolean => {
   try {
-    const raw = localStorage.getItem(HIDDEN_OPERATOR_KEY);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return new Set(Array.isArray(arr) ? arr : []);
+    return localStorage.getItem(HIDDEN_OPERATOR_GLOBAL_KEY) === "1";
   } catch {
-    return new Set();
+    return false;
   }
 };
 
-const toggleHiddenOperator = (telefone: string) => {
-  const set = getHiddenOperatorSet();
-  if (set.has(telefone)) set.delete(telefone);
-  else set.add(telefone);
-  localStorage.setItem(HIDDEN_OPERATOR_KEY, JSON.stringify(Array.from(set)));
+const toggleHiddenOperatorGlobal = () => {
+  const next = !getHiddenOperatorGlobal();
+  localStorage.setItem(HIDDEN_OPERATOR_GLOBAL_KEY, next ? "1" : "0");
   window.dispatchEvent(new CustomEvent(HIDDEN_OPERATOR_EVENT));
 };
 import { formatDistanceToNow, differenceInMinutes } from "date-fns";
