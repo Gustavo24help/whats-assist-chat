@@ -18,10 +18,36 @@ interface BotSemFichaNotificationProps {
   onSelectCliente: (cliente: any) => void;
 }
 
+const DISMISS_STORAGE_KEY = "bot_sem_ficha_dismissed_v1";
+
+// Carrega dispensados do localStorage, removendo os expirados (>24h)
+function loadDismissed(): Map<string, string> {
+  try {
+    const raw = localStorage.getItem(DISMISS_STORAGE_KEY);
+    if (!raw) return new Map();
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    const map = new Map<string, string>();
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    for (const [tel, iso] of Object.entries(parsed)) {
+      if (new Date(iso).getTime() >= cutoff) map.set(tel, iso);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+function saveDismissed(map: Map<string, string>) {
+  const obj: Record<string, string> = {};
+  map.forEach((v, k) => { obj[k] = v; });
+  try { localStorage.setItem(DISMISS_STORAGE_KEY, JSON.stringify(obj)); } catch {}
+}
+
 export function BotSemFichaNotification({ onSelectCliente }: BotSemFichaNotificationProps) {
   const [alerts, setAlerts] = useState<ClienteSemFicha[]>([]);
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  // Map<telefone, data_bot_desabilitado_iso> — persistente, TTL 24h
+  const dismissedRef = useRef<Map<string, string>>(loadDismissed());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const previousCountRef = useRef(0);
 
@@ -47,11 +73,6 @@ export function BotSemFichaNotification({ onSelectCliente }: BotSemFichaNotifica
   }, []);
 
   const fetchClientesSemFicha = async () => {
-    // Buscar clientes onde:
-    // - bot foi desabilitado (bot_habilitado = false)
-    // - bot já foi desligado alguma vez (bot_ja_desligado_alguma_vez = true)
-    // - não tem ficha ativa (ficha_ativa_id is null)
-    // - bot foi desabilitado nas últimas 24h
     const ontem = new Date();
     ontem.setHours(ontem.getHours() - 24);
 
@@ -70,8 +91,26 @@ export function BotSemFichaNotification({ onSelectCliente }: BotSemFichaNotifica
       return;
     }
 
-    const filtered = (data || []).filter(c => !dismissed.has(c.telefone));
-    
+    // Limpa entradas expiradas do dispensados antes de filtrar
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    let mutated = false;
+    dismissedRef.current.forEach((iso, tel) => {
+      if (new Date(iso).getTime() < cutoff) {
+        dismissedRef.current.delete(tel);
+        mutated = true;
+      }
+    });
+    if (mutated) saveDismissed(dismissedRef.current);
+
+    // Filtra: dispensa se já está em dismissedRef E o data_bot_desabilitado não mudou.
+    // Se o bot foi desligado de novo (timestamp mais novo), o alerta volta — comportamento esperado.
+    const filtered = (data || []).filter(c => {
+      const dismissedAt = dismissedRef.current.get(c.telefone);
+      if (!dismissedAt) return true;
+      // Se o evento atual é mais recente que o que foi dispensado → mostra de novo
+      return new Date(c.data_bot_desabilitado).getTime() > new Date(dismissedAt).getTime();
+    });
+
     if (filtered.length > previousCountRef.current && previousCountRef.current >= 0) {
       audioRef.current?.play().catch(() => {});
     }
@@ -92,10 +131,14 @@ export function BotSemFichaNotification({ onSelectCliente }: BotSemFichaNotifica
     }
   };
 
-  const handleDismiss = (telefone: string, e: React.MouseEvent) => {
+  const handleDismiss = (alert: ClienteSemFicha, e: React.MouseEvent) => {
     e.stopPropagation();
-    setDismissed(prev => new Set(prev).add(telefone));
-    setAlerts(prev => prev.filter(a => a.telefone !== telefone));
+    // Persiste o dispensar com o timestamp do evento de desligamento atual.
+    // Assim, novas execuções do fetch não trazem este registro de volta.
+    dismissedRef.current.set(alert.telefone, alert.data_bot_desabilitado);
+    saveDismissed(dismissedRef.current);
+    setAlerts(prev => prev.filter(a => a.telefone !== alert.telefone));
+    previousCountRef.current = Math.max(0, previousCountRef.current - 1);
   };
 
   const visibleCount = alerts.length;
