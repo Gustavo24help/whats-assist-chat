@@ -2210,8 +2210,10 @@ export type Database = {
       system_logs: {
         Row: {
           categoria: string
+          cliente_telefone: string | null
           created_at: string
           detalhes: Json | null
+          ficha_id: string | null
           id: string
           mensagem: string
           nivel: string
@@ -2223,8 +2225,10 @@ export type Database = {
         }
         Insert: {
           categoria?: string
+          cliente_telefone?: string | null
           created_at?: string
           detalhes?: Json | null
+          ficha_id?: string | null
           id?: string
           mensagem: string
           nivel?: string
@@ -2236,8 +2240,10 @@ export type Database = {
         }
         Update: {
           categoria?: string
+          cliente_telefone?: string | null
           created_at?: string
           detalhes?: Json | null
+          ficha_id?: string | null
           id?: string
           mensagem?: string
           nivel?: string
