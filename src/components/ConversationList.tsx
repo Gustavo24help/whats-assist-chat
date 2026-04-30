@@ -7,7 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationCard } from "./ConversationCard";
 import { TagManager } from "./TagManager";
 import { FilterDropdown } from "./FilterDropdown";
-import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X, Hash, MessageSquareText, HelpCircle, Sparkles, Check, XCircle, Bookmark } from "lucide-react";
+import { Search, Archive, PanelLeftClose, PanelLeftOpen, AlertTriangle, User, HardHat, BookOpen, UserPlus, Users, CheckSquare, X, Hash, MessageSquareText, HelpCircle, Sparkles, Check, XCircle, Bookmark, Palette } from "lucide-react";
+import { EditarCoresStatusFichaModal } from "./EditarCoresStatusFichaModal";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -187,6 +188,7 @@ export const ConversationList = ({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedClientes, setSelectedClientes] = useState<Set<string>>(new Set());
   const [todosAtendentes, setTodosAtendentes] = useState<Array<{ id: string; nome: string }>>([]);
+  const [coresStatusOpen, setCoresStatusOpen] = useState(false);
   
   // Status que indicam conversa inativa
   const STATUS_INATIVOS = ["Finalizado", "Perdido", "Não foi adiante"];
@@ -1380,6 +1382,17 @@ export const ConversationList = ({
                 onFichaFilterChange={setFichaFilter}
                 onPagamentoFilterChange={setPagamentoFilter}
               />
+
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => setCoresStatusOpen(true)}
+                title="Editar cores dos status"
+              >
+                <Palette className="h-3.5 w-3.5" />
+              </Button>
               
               {allTags.length > 0 && (
                 <Popover open={tagsExpanded} onOpenChange={setTagsExpanded}>
@@ -1705,6 +1718,12 @@ export const ConversationList = ({
           onOpenChange={setTagManagerOpen}
         />
       )}
+
+      <EditarCoresStatusFichaModal
+        open={coresStatusOpen}
+        onOpenChange={setCoresStatusOpen}
+        extraStatuses={Array.from(new Set(clientes.map(c => c.status_ficha).filter(Boolean) as string[]))}
+      />
     </div>
   );
 };
