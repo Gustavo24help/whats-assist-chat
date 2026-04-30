@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sanitizeAsaasName, sanitizeAsaasDescription } from "../_shared/sanitizeAsaas.ts";
+import { createFichaLogger } from "../_shared/fichaLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
