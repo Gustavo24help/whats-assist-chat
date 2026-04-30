@@ -645,7 +645,7 @@ async function fetchMetricsForWindow(
             'id, prestador_id, valor_total, valor_mao_obra, valor_pecas, material_pago_24help, status',
           )
           .in('id', batch)
-          .in('status', STATUS_ELEGIVEIS_PAGAMENTO_PRESTADOR as unknown as string[])
+          .in('status', STATUS_ELEGIVEIS_PAGAMENTO_PRESTADOR as unknown as any)
           .gt('valor_total', 0)
           .not('prestador_id', 'is', null);
         fq = applyFichaFilters(fq, filters);
