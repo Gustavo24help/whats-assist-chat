@@ -581,36 +581,103 @@ async function fetchMetricsForWindow(
       : 0;
 
   // ===== Pago a Prestadores (alinhado ao Financeiro / Contas a Pagar) =====
-  // Conta e soma transacoes_financeiras com status_pagamento_prestador = 'pago'
-  // cuja data_pagamento_realizada caiu dentro do período.
-  // Esta é a MESMA regra usada na aba Financeiro > Pagamento Prestadores
-  // (itens marcados como "pago").
+  // Espelha EXATAMENTE a regra usada na aba Financeiro > Pagamento Prestadores
+  // (PagamentoPrestadoresTabV2):
+  //   - transações com status_pagamento_prestador = 'pago' e
+  //     data_pagamento_realizada dentro do período;
+  //   - mantém apenas fichas em status Finalizado/Garantia/Retorno,
+  //     com valor_total > 0 e prestador_id preenchido;
+  //   - exclui fichas listadas em EXCLUDED_FICHAS_PAGAMENTO;
+  //   - 1 transação por ficha (a usada como referência) e o valor exibido é o
+  //     LÍQUIDO do prestador calculado via calcFinanceiroPrestador (mesmo
+  //     número que aparece em "Total Pago" da aba Financeiro).
   let pagoAoPrestador = 0;       // count (KPI volume)
   let valorPagoPrestadores = 0;  // soma R$ (KPI financeiro)
   {
-    const hasFichaFilters = !!(
-      filters.categoriaId || filters.prestadorCpf || filters.clienteTelefone
-    );
-    let q: any = supabase
+    const txRes = await supabase
       .from('transacoes_financeiras')
-      .select(
-        hasFichaFilters
-          ? 'valor_a_pagar_prestador, fichas_de_servico!inner(categoria_id, prestador_id, telefone_cliente)'
-          : 'valor_a_pagar_prestador',
-      )
+      .select('ficha_id, valor_a_pagar_prestador, data_pagamento_realizada')
       .eq('status_pagamento_prestador', 'pago')
       .gte('data_pagamento_realizada', fromStr)
       .lte('data_pagamento_realizada', toStr);
-    if (hasFichaFilters) {
-      q = applyEmbeddedFichaFilters(q, filters);
+
+    const txRows =
+      (txRes.data as Array<{
+        ficha_id: string | null;
+        valor_a_pagar_prestador: number | null;
+        data_pagamento_realizada: string | null;
+      }>) || [];
+
+    // 1 transação por ficha (mesma lógica do transMap em PagamentoPrestadoresTabV2)
+    const transMap = new Map<string, { valor_a_pagar_prestador: number | null }>();
+    for (const t of txRows) {
+      if (!t.ficha_id) continue;
+      transMap.set(t.ficha_id, { valor_a_pagar_prestador: t.valor_a_pagar_prestador });
     }
-    const r = await q;
-    const rows = (r.data as Array<{ valor_a_pagar_prestador: number | null }>) || [];
-    pagoAoPrestador = rows.length;
-    valorPagoPrestadores = rows.reduce(
-      (s, t) => s + Number(t.valor_a_pagar_prestador ?? 0),
-      0,
+
+    const fichaIds = [...transMap.keys()].filter(
+      (id) => !EXCLUDED_FICHAS_PAGAMENTO.includes(id),
     );
+
+    if (fichaIds.length > 0) {
+      // Busca em lotes para respeitar limites do Supabase em filtros .in()
+      const CHUNK = 500;
+      const fichasValidas: Array<{
+        id: string;
+        prestador_id: string | null;
+        valor_total: number | null;
+        valor_mao_obra: number | null;
+        valor_pecas: number | null;
+        material_pago_24help: boolean | null;
+        status: string | null;
+      }> = [];
+
+      for (let i = 0; i < fichaIds.length; i += CHUNK) {
+        const batch = fichaIds.slice(i, i + CHUNK);
+        let fq: any = supabase
+          .from('fichas_de_servico')
+          .select(
+            'id, prestador_id, valor_total, valor_mao_obra, valor_pecas, material_pago_24help, status',
+          )
+          .in('id', batch)
+          .in('status', STATUS_ELEGIVEIS_PAGAMENTO_PRESTADOR as unknown as string[])
+          .gt('valor_total', 0)
+          .not('prestador_id', 'is', null);
+        fq = applyFichaFilters(fq, filters);
+        const r = await fq;
+        if (r.data) fichasValidas.push(...(r.data as any[]));
+      }
+
+      // Busca taxa_visita_padrao dos prestadores envolvidos
+      const prestadorIds = [
+        ...new Set(fichasValidas.map((f) => f.prestador_id).filter(Boolean) as string[]),
+      ];
+      const taxaMap = new Map<string, number>();
+      if (prestadorIds.length > 0) {
+        for (let i = 0; i < prestadorIds.length; i += CHUNK) {
+          const batch = prestadorIds.slice(i, i + CHUNK);
+          const pr = await supabase
+            .from('prestadores')
+            .select('cpf, taxa_visita_padrao')
+            .in('cpf', batch);
+          for (const p of (pr.data as Array<{ cpf: string; taxa_visita_padrao: number | null }>) || []) {
+            taxaMap.set(p.cpf, Number(p.taxa_visita_padrao ?? 0));
+          }
+        }
+      }
+
+      pagoAoPrestador = fichasValidas.length;
+      valorPagoPrestadores = fichasValidas.reduce((s, f) => {
+        const fin = calcFinanceiroPrestador({
+          valor_total: f.valor_total,
+          valor_mao_obra: f.valor_mao_obra,
+          valor_pecas: f.valor_pecas,
+          material_pago_24help: f.material_pago_24help,
+          taxa_visita_padrao: f.prestador_id ? taxaMap.get(f.prestador_id) ?? 0 : 0,
+        });
+        return s + fin.liquidoPrestador;
+      }, 0);
+    }
   }
 
   // Total de orçamentos enviados no período (linhas em `orcamentos`)
