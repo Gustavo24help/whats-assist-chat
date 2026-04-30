@@ -2072,6 +2072,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
             bot_status: "enabled",
             origem: "manual",
             executado_por_id: userId,
+            confirmacao: confirmacaoTexto,
+            force_reactivate_manual: true,
           },
         });
 

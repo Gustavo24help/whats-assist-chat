@@ -1899,7 +1899,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             telefone: clienteTelefone,
             bot_status: 'enabled',
             origem: 'manual',
-            executado_por_id: userId
+            executado_por_id: userId,
+            confirmacao: confirmacaoTexto,
+            force_reactivate_manual: true
           }
         });
 

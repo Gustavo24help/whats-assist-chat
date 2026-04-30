@@ -10,6 +10,8 @@ interface RequestBody {
   bot_status: "enabled" | "disabled";
   origem?: "manual" | "automatico" | "sistema";
   executado_por_id?: string;
+  confirmacao?: string;
+  force_reactivate_manual?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -25,6 +27,8 @@ Deno.serve(async (req) => {
       bot_status,
       origem: origemBody,
       executado_por_id: executadoPorBody,
+      confirmacao,
+      force_reactivate_manual: forceReactivateManual,
     }: RequestBody = await req.json();
 
     // Validar inputs
@@ -101,8 +105,9 @@ Deno.serve(async (req) => {
 
     const temOperadorAtribuido = Boolean(clienteAntes?.atendente_id);
     const temAtendimentoHumanoAtivo = temOperadorAtribuido;
+    const reativacaoManualConfirmada = origem === "manual" && forceReactivateManual === true && confirmacao === "LIGAR";
     const deveBloquearAtivacao = bot_status === "enabled" && (
-      temAtendimentoHumanoAtivo || (origem !== "manual" && desligadoManualmenteAntes)
+      temAtendimentoHumanoAtivo || (desligadoManualmenteAntes && !reativacaoManualConfirmada)
     );
 
     if (deveBloquearAtivacao) {
@@ -122,7 +127,8 @@ Deno.serve(async (req) => {
           bot_desligado_manualmente: desligadoManualmenteAntes,
           atendente_id: clienteAntes?.atendente_id ?? null,
           status_conversa: clienteAntes?.status_conversa ?? null,
-          bloqueado_por: temAtendimentoHumanoAtivo ? "operador_atribuido" : "desligamento_manual",
+          reativacao_manual_confirmada: reativacaoManualConfirmada,
+          bloqueado_por: temAtendimentoHumanoAtivo ? "operador_atribuido" : "desligamento_manual_sem_confirmacao_explicita",
         },
         url: "edge://toggle-bot-status",
       });
@@ -132,7 +138,7 @@ Deno.serve(async (req) => {
         acao: "bloqueado",
         origem,
         executado_por_id,
-        observacao: `Ativação do bot bloqueada: ${temAtendimentoHumanoAtivo ? "há operador ativo na conversa" : "bot desligado manualmente"}`,
+        observacao: `Ativação do bot bloqueada: ${temAtendimentoHumanoAtivo ? "há operador ativo na conversa" : "bot desligado manualmente sem confirmação explícita"}`,
       });
 
       return new Response(
@@ -141,7 +147,7 @@ Deno.serve(async (req) => {
           blocked: true,
           telefone,
           bot_status: "disabled",
-          reason: "human_attendance_active",
+          reason: temAtendimentoHumanoAtivo ? "human_attendance_active" : "manual_disable_lock",
           atendente_id: clienteAntes?.atendente_id ?? null,
           status_conversa: clienteAntes?.status_conversa ?? null,
           timestamp: new Date().toISOString(),
@@ -165,6 +171,18 @@ Deno.serve(async (req) => {
     if (updateError) {
       console.error("[toggle-bot-status] Erro ao atualizar cliente:", updateError);
       throw updateError;
+    }
+
+    if (bot_status === "disabled" && origem === "manual") {
+      const { error: cancelScheduleError } = await supabase
+        .from("bot_reactivation_schedule")
+        .update({ executed: true })
+        .eq("telefone_cliente", telefone)
+        .eq("executed", false);
+
+      if (cancelScheduleError) {
+        console.error("[toggle-bot-status] Erro ao cancelar reativações pendentes:", cancelScheduleError);
+      }
     }
 
     // Capturar dados de auditoria
