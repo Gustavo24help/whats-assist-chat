@@ -9,6 +9,7 @@ import { PanelLeftClose, PanelLeftOpen, Search, AlertTriangle, MessageCircle, Us
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { NovaConversaDialog } from "@/components/NovaConversaDialog";
+import { getStatusFichaHex } from "@/lib/statusFichaCores";
 
 export interface StatusCounts {
   byStatus: Record<string, number>;
@@ -72,27 +73,8 @@ const STATUS_ORDER = [
   "Cancelado",
 ];
 
-// Mapa idêntico ao usado no ConversationCard (chat de atendimento) para
-// garantir consistência visual de cores por status entre os dois chats.
-const getStatusDotColor = (status: string): string => {
-  const statusMap: Record<string, string> = {
-    "Não foi adiante": "bg-gray-500",
-    "Ficha Criada": "bg-blue-500",
-    "Contato Inicial": "bg-cyan-500",
-    "Dúvida Prestador": "bg-yellow-500",
-    "Orçamento Enviado": "bg-amber-500",
-    "Negociação": "bg-orange-500",
-    "Visita Técnica": "bg-purple-500",
-    "Orçamento Aprovado / Agendamento": "bg-teal-500",
-    "Orçamento Não Aprovado": "bg-red-500",
-    "Agendado": "bg-indigo-500",
-    "Em andamento": "bg-green-500",
-    "Finalizado": "bg-emerald-600",
-    "Garantia": "bg-lime-500",
-    "Perdido": "bg-rose-500",
-  };
-  return statusMap[status] || "bg-gray-400";
-};
+// Mapa centralizado em src/lib/statusFichaCores.ts.
+
 
 export const ChatBetaFilterSidebar = ({
   isCollapsed,
@@ -288,7 +270,7 @@ export const ChatBetaFilterSidebar = ({
                 )}
               >
                 <div className="flex items-center gap-1.5">
-                  <div className={cn("w-2 h-2 rounded-full", getStatusDotColor(status))} />
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getStatusFichaHex(status) }} />
                   <span className="truncate">{status}</span>
                 </div>
                 <span className="text-[10px] text-muted-foreground ml-1">{count}</span>

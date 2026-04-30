@@ -8,6 +8,7 @@ import { formatDistanceToNow, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DeleteContactDialog } from "./DeleteContactDialog";
+import { getStatusFichaHex } from "@/lib/statusFichaCores";
 
 interface ConversationCardProps {
   telefone: string;
@@ -68,26 +69,8 @@ const getStatusColor = (status: string) => {
 };
 
 // Cor (HEX) usada para sublinhar o nome do status no card.
-// Mantida como estilo inline para garantir que o Tailwind JIT não remova classes dinâmicas.
-const getStatusUnderlineHex = (status: string): string => {
-  const map: Record<string, string> = {
-    "Não foi adiante": "#6b7280",
-    "Ficha Criada": "#3b82f6",
-    "Contato Inicial": "#06b6d4",
-    "Dúvida Prestador": "#eab308",
-    "Orçamento Enviado": "#f59e0b",
-    "Negociação": "#f97316",
-    "Visita Técnica": "#a855f7",
-    "Orçamento Aprovado / Agendamento": "#14b8a6",
-    "Orçamento Não Aprovado": "#ef4444",
-    "Agendado": "#6366f1",
-    "Em andamento": "#22c55e",
-    "Finalizado": "#059669",
-    "Garantia": "#84cc16",
-    "Perdido": "#f43f5e",
-  };
-  return map[status] || "#9ca3af";
-};
+// Importa da paleta única para manter consistência entre chats.
+const getStatusUnderlineHex = (status: string): string => getStatusFichaHex(status);
 
 // Formata telefone para exibição: remove "whatsapp:" e "+55"
 // Ex.: whatsapp:+5511987654321 -> (11) 98765-4321
@@ -297,16 +280,23 @@ export const ConversationCard = memo(({
       {/* LINHA 2: Status · ⏳ tempo no status · 🔥 Sem orçamento */}
       <div className="flex items-center gap-2 text-xs overflow-hidden whitespace-nowrap leading-tight">
         {fichaStatus && (
-          <span
-            className="truncate min-w-0 font-medium text-foreground/80"
-            style={{
-              textDecorationLine: "underline",
-              textDecorationColor: getStatusUnderlineHex(fichaStatus),
-              textDecorationThickness: "2px",
-              textUnderlineOffset: "3px",
-            }}
-          >
-            {fichaStatus}
+          <span className="flex items-center gap-1.5 min-w-0 truncate">
+            <span
+              className="inline-block w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: getStatusUnderlineHex(fichaStatus) }}
+              aria-hidden
+            />
+            <span
+              className="truncate min-w-0 font-medium text-foreground/80"
+              style={{
+                textDecorationLine: "underline",
+                textDecorationColor: getStatusUnderlineHex(fichaStatus),
+                textDecorationThickness: "2px",
+                textUnderlineOffset: "3px",
+              }}
+            >
+              {fichaStatus}
+            </span>
           </span>
         )}
         {typeof tempoNoStatusMinutos === "number" && (
