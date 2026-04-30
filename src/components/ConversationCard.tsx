@@ -175,6 +175,8 @@ export const ConversationCard = memo(({
       window.removeEventListener("storage", refresh);
     };
   }, [telefone]);
+
+  const handleDelete = () => {
     setDeleteDialogOpen(false);
     onDelete();
   };
