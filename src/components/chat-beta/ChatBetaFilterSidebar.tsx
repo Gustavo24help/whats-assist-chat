@@ -110,7 +110,19 @@ export const ChatBetaFilterSidebar = ({
 }: ChatBetaFilterSidebarProps) => {
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [tagSearchTerm, setTagSearchTerm] = useState("");
+  const [editorCoresOpen, setEditorCoresOpen] = useState(false);
+  const [, setColorVersion] = useState(0);
 
+  // Re-renderiza quando o usuário altera as cores (mesma aba ou outra)
+  useEffect(() => {
+    const handler = () => setColorVersion((v) => v + 1);
+    window.addEventListener("chat:status-ficha-cores:changed", handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("chat:status-ficha-cores:changed", handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
   const filteredTags = useMemo(() => {
     if (!tagSearchTerm) return allTags;
     return allTags.filter(tag => tag.toLowerCase().includes(tagSearchTerm.toLowerCase()));
