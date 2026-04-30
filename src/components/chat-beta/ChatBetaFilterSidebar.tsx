@@ -270,7 +270,7 @@ export const ChatBetaFilterSidebar = ({
                 )}
               >
                 <div className="flex items-center gap-1.5">
-                  <div className={cn("w-2 h-2 rounded-full", getStatusDotColor(status))} />
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getStatusFichaHex(status) }} />
                   <span className="truncate">{status}</span>
                 </div>
                 <span className="text-[10px] text-muted-foreground ml-1">{count}</span>
