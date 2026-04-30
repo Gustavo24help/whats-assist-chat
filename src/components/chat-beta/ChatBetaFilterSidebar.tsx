@@ -244,9 +244,20 @@ export const ChatBetaFilterSidebar = ({
 
         {/* Status counts */}
         <div>
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Por Status ({counts.totalCount})
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Por Status ({counts.totalCount})
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onClick={() => setEditorCoresOpen(true)}
+              title="Editar cores dos status"
+            >
+              <Palette className="h-3 w-3" />
+            </Button>
+          </div>
           <div className="mt-1.5 space-y-0.5">
             <button
               onClick={() => onStatusFilterChange("all")}
