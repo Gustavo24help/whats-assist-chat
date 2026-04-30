@@ -160,6 +160,7 @@ export const ConversationCard = memo(({
 }: ConversationCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [operadorOculto, setOperadorOculto] = useState<boolean>(() => getHiddenOperatorGlobal());
+  const [, setColorVersion] = useState(0);
 
   useEffect(() => {
     const refresh = () => setOperadorOculto(getHiddenOperatorGlobal());
@@ -168,6 +169,17 @@ export const ConversationCard = memo(({
     return () => {
       window.removeEventListener(HIDDEN_OPERATOR_EVENT, refresh);
       window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
+  // Re-render quando o usuário altera as cores dos status
+  useEffect(() => {
+    const bump = () => setColorVersion((v) => v + 1);
+    window.addEventListener("chat:status-ficha-cores:changed", bump);
+    window.addEventListener("storage", bump);
+    return () => {
+      window.removeEventListener("chat:status-ficha-cores:changed", bump);
+      window.removeEventListener("storage", bump);
     };
   }, []);
 
