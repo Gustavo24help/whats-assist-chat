@@ -1382,6 +1382,17 @@ export const ConversationList = ({
                 onFichaFilterChange={setFichaFilter}
                 onPagamentoFilterChange={setPagamentoFilter}
               />
+
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => setCoresStatusOpen(true)}
+                title="Editar cores dos status"
+              >
+                <Palette className="h-3.5 w-3.5" />
+              </Button>
               
               {allTags.length > 0 && (
                 <Popover open={tagsExpanded} onOpenChange={setTagsExpanded}>
