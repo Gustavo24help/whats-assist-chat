@@ -260,7 +260,7 @@ export const ConversationCard = memo(({
       {/* LINHA 1: FS (telefone removido a pedido dos operadores) */}
       <div className="flex items-center gap-2 w-full overflow-hidden whitespace-nowrap leading-tight">
         {fichaId && (
-          <span className="text-xs font-medium text-primary shrink-0 truncate">📋 {fichaId}</span>
+          <span className="text-xs font-medium text-primary shrink-0 truncate">{fichaId}</span>
         )}
         {pagamentoLink && fichaStatus === "Finalizado" && (
           pagamentoRealizado
@@ -274,7 +274,7 @@ export const ConversationCard = memo(({
         )}
       </div>
 
-      {/* LINHA 2: Status · ⏳ tempo no status · 🔥 Sem orçamento */}
+      {/* LINHA 2: Status */}
       <div className="flex items-center gap-2 text-xs overflow-hidden whitespace-nowrap leading-tight">
         {fichaStatus && (
           <span className="flex items-center gap-1.5 min-w-0 truncate">
@@ -294,12 +294,6 @@ export const ConversationCard = memo(({
             >
               {fichaStatus}
             </span>
-          </span>
-        )}
-        {/* Tempo no status atual removido a pedido dos operadores */}
-        {semOrcamento && (
-          <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
-            🔥 Sem orçamento
           </span>
         )}
       </div>

@@ -123,10 +123,9 @@ const ChatBetaLegendPopover = () => (
         <div>
           <p className="font-semibold text-[11px] text-muted-foreground mb-1">Ícones</p>
           <ul className="space-y-0.5 pl-1">
-            <li>📋 OS-XXXX — Ficha de serviço ativa</li>
+            <li>OS-XXXX — Ficha de serviço ativa</li>
             <li>🧾 N — Quantidade de orçamentos recebidos</li>
             <li>🆕 — Chegou novo orçamento</li>
-            <li>🔥 Sem orçamento — Cliente sem orçamento</li>
             <li>👤 Nome — Operador responsável pelo atendimento</li>
             <li>⏰ MMmin / Xh / Xd — Tempo desde a criação da ficha</li>
             <li><Check className="inline h-3 w-3 text-green-600" /> / <XCircle className="inline h-3 w-3 text-red-500" /> — Pagamento realizado / link não pago</li>
