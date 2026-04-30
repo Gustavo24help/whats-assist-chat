@@ -20,10 +20,12 @@ createRoot(document.getElementById("root")!).render(
     <Toaster 
       position="top-right" 
       closeButton 
-      expand={false} 
+      expand={true}
+      visibleToasts={6}
       richColors 
+      style={{ zIndex: 999999 }}
       toastOptions={{
-        duration: 4000,
+        duration: 6000,
         className: 'shadow-lg rounded-xl'
       }}
     />

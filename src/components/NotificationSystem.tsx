@@ -33,12 +33,12 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
           if (remetente === NUMERO_24HELP || remetente === 'atendente' || remetente === 'bot') return;
           
           if (clienteId !== currentClienteId) {
-            // Verificar se o bot já foi desligado alguma vez para este cliente
+            // Verificar se o bot já foi desligado alguma vez para este cliente + buscar nome
             const { data: cliente } = await supabase
               .from('clientes')
-              .select('bot_ja_desligado_alguma_vez')
+              .select('nome, bot_ja_desligado_alguma_vez')
               .eq('telefone', clienteId)
-              .single();
+              .maybeSingle();
 
             // Só tocar som se o bot já foi desligado alguma vez
             const deveTocarSom = cliente?.bot_ja_desligado_alguma_vez === true;
@@ -48,9 +48,18 @@ export const NotificationSystem = ({ onNewMessage, currentClienteId }: Notificat
             }
 
             const mensagem = payload.new.texto || 'Nova mensagem';
-            toast.info(`Nova mensagem recebida`, {
-              description: `Cliente: ${clienteId}\n${mensagem.substring(0, 50)}${mensagem.length > 50 ? '...' : ''}`,
-              duration: 5000,
+            const nomeCliente = cliente?.nome || clienteId.replace('whatsapp:', '');
+            const preview = mensagem.length > 60 ? mensagem.substring(0, 60) + '...' : mensagem;
+
+            console.log('[NotificationSystem] 🔔 Disparando toast para:', nomeCliente);
+
+            toast.info(`💬 ${nomeCliente}`, {
+              description: preview,
+              duration: 6000,
+              action: {
+                label: 'Abrir',
+                onClick: () => onNewMessage(clienteId),
+              },
             });
 
             onNewMessage(clienteId);
