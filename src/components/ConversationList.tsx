@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY, type StatusAlertRule } from "@/lib/statusAlertConfig";
 import { getBookmarks, toggleBookmark, subscribeBookmarks } from "@/lib/conversationBookmarks";
 import { logChatEvent } from "@/lib/systemLogger";
+import { markConversationRead, markConversationUnread } from "@/lib/chatBetaUnread";
 
 const ChatLegendPopover = () => (
   <Popover>
@@ -299,6 +300,20 @@ export const ConversationList = ({
       )
       .subscribe();
 
+    // ✅ Realtime de leitura POR OPERADOR — só meu próprio user_id, nunca dos outros.
+    // Garante que toggle/auto-read em outras abas do mesmo usuário reflitam aqui,
+    // sem que ações de outros operadores sobrescrevam meu estado.
+    const leituraChannel = user?.id
+      ? supabase
+          .channel(`mensagem-leitura-classic-${user.id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'mensagem_leitura_operador', filter: `user_id=eq.${user.id}` },
+            () => scheduleClientesRefresh()
+          )
+          .subscribe()
+      : null;
+
     // Fallback para ambientes onde websocket/realtime é bloqueado (ex.: firewall/rede corporativa)
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
@@ -312,6 +327,7 @@ export const ConversationList = ({
       supabase.removeChannel(fichasChannel);
       supabase.removeChannel(mensagensChannel);
       supabase.removeChannel(orcamentosChannel);
+      if (leituraChannel) supabase.removeChannel(leituraChannel);
       window.clearInterval(pollingInterval);
     };
   }, [user?.id]);
@@ -905,10 +921,44 @@ export const ConversationList = ({
         }
       });
 
-      // (estado de leitura "marcado_nao_lido" vem direto da tabela clientes — global)
+      // ✅ Fonte de verdade ÚNICA por operador: mensagem_leitura_operador
+      // (last_read_at + manual_unread). Não usa mais clientes.marcado_nao_lido.
+      let operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread: boolean }>();
+      if (user?.id) {
+        const { data: readData } = await (supabase as any)
+          .from('mensagem_leitura_operador')
+          .select('cliente_telefone, last_read_at, manual_unread')
+          .eq('user_id', user.id);
+        readData?.forEach((r: any) => {
+          operatorReadMap.set(r.cliente_telefone, {
+            last_read_at: r.last_read_at,
+            manual_unread: r.manual_unread === true,
+          });
+        });
+      }
 
+      // Agregação server-side via RPC (igual ChatWindowBeta) — devolve por telefone
+      // a última msg do cliente + total de não-lidas após last_read_at do operador.
+      const ultimaMsgClienteMap = new Map<string, string>();
+      const unreadCountByTelefone = new Map<string, number>();
+      const readMapPayload: Record<string, string | null> = {};
+      operatorReadMap.forEach((v, telefone) => {
+        readMapPayload[telefone] = v.last_read_at;
+      });
+      try {
+        const { data: aggData, error: aggError } = await (supabase as any).rpc(
+          'get_unread_cliente_msgs',
+          { _telefones: telefones, _read_map: readMapPayload }
+        );
+        if (aggError) throw aggError;
+        (aggData || []).forEach((row: any) => {
+          if (row.ultima_data) ultimaMsgClienteMap.set(row.cliente_id, row.ultima_data);
+          unreadCountByTelefone.set(row.cliente_id, row.total_nao_lidas || 0);
+        });
+      } catch (rpcErr) {
+        console.error('[ConversationList] RPC get_unread_cliente_msgs falhou:', rpcErr);
+      }
 
-      // ✅ Query 3: Buscar TODAS as fichas ativas de uma vez
       const fichasAtivasIds = clientesData
         .filter(c => c.ficha_ativa_id)
         .map(c => c.ficha_ativa_id);
@@ -1036,18 +1086,36 @@ export const ConversationList = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
-        const naoLidoGlobal = (cliente as any).marcado_nao_lido === true;
+        // ✅ Per-operator unread (regra única — igual ChatBeta):
+        //   manual_unread === true              → não lido (até "marcar como lida" explícito)
+        //   senão, se houver msg após last_read → não lido
+        const readRecord = operatorReadMap.get(cliente.telefone);
+        const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
+        const unreadFromMsgs = unreadCountByTelefone.get(cliente.telefone) ?? 0;
+        let perOperatorUnread = false;
+        let unreadCountReal = 0;
+
+        if (readRecord?.manual_unread === true) {
+          perOperatorUnread = true;
+          unreadCountReal = unreadFromMsgs;
+        } else if (lastClientMsg) {
+          const lastReadAt = readRecord?.last_read_at ?? null;
+          if (!lastReadAt || new Date(lastClientMsg) > new Date(lastReadAt)) {
+            perOperatorUnread = true;
+            unreadCountReal = unreadFromMsgs;
+          }
+        }
 
         return {
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
           status_ficha: fichaData?.status || undefined,
-          unread_count_real: naoLidoGlobal ? 1 : 0,
+          unread_count_real: unreadCountReal,
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
           bot_desligado_manualmente: cliente.bot_desligado_manualmente,
-          marcado_nao_lido: naoLidoGlobal,
+          marcado_nao_lido: perOperatorUnread,
           orcamentos_count: orcamentosCount,
           pagamento_link: (fichaData as any)?.pagamento_link || null,
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
@@ -1171,18 +1239,22 @@ export const ConversationList = ({
   };
 
   const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
+    if (!user?.id) {
+      toast.error("Sessão inválida — faça login novamente.");
+      return;
+    }
     const novoEstado = !currentState;
-    const { error } = await supabase
-      .from('clientes')
-      .update({
-        marcado_nao_lido: novoEstado,
-        marcado_nao_lido_manual_em: novoEstado ? new Date().toISOString() : null,
-      })
-      .eq('telefone', telefone);
-
-    if (error) {
-      console.error('[ConversationList] toggleUnreadMark erro:', error);
-      logChatEvent("marcar_nao_lida_erro", { telefone, novo_estado: novoEstado, erro: error.message }, { nivel: "error" });
+    try {
+      // ✅ Marcação por OPERADOR (mensagem_leitura_operador) — não afeta outros usuários,
+      // não é sobrescrita por realtime de mensagens novas, e auto-read não a apaga.
+      if (novoEstado) {
+        await markConversationUnread(telefone, user.id);
+      } else {
+        await markConversationRead(telefone, user.id);
+      }
+    } catch (err: any) {
+      console.error('[ConversationList] toggleUnreadMark erro:', err);
+      logChatEvent("marcar_nao_lida_erro", { telefone, novo_estado: novoEstado, erro: err?.message }, { nivel: "error" });
       toast.error("Erro ao marcar conversa");
       return;
     }
@@ -1190,7 +1262,7 @@ export const ConversationList = ({
 
     setClientes(prev => prev.map(c =>
       c.telefone === telefone
-        ? { ...c, marcado_nao_lido: novoEstado, unread_count_real: novoEstado ? 1 : 0 }
+        ? { ...c, marcado_nao_lido: novoEstado, unread_count_real: novoEstado ? Math.max(c.unread_count_real || 0, 0) : 0 }
         : c
     ));
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
@@ -1613,6 +1685,14 @@ export const ConversationList = ({
                               return next;
                             });
                           }
+                          // ✅ Otimismo local: zera o badge desta conversa para este operador.
+                          // ChatWindow chama markConversationAutoRead após carregar mensagens.
+                          // (NÃO toca em manual_unread aqui — só auto-read no ChatWindow apaga.)
+                          setClientes(prev => prev.map(c =>
+                            c.telefone === cliente.telefone
+                              ? { ...c, marcado_nao_lido: false, unread_count_real: 0 }
+                              : c
+                          ));
                           onSelectCliente(cliente);
                         }
                       }}
