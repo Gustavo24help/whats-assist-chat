@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY, type StatusAlertRule } from "@/lib/statusAlertConfig";
 import { getBookmarks, toggleBookmark, subscribeBookmarks } from "@/lib/conversationBookmarks";
 import { logChatEvent } from "@/lib/systemLogger";
+import { markConversationRead, markConversationUnread } from "@/lib/chatBetaUnread";
 
 const ChatLegendPopover = () => (
   <Popover>
