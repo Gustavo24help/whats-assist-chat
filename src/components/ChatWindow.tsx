@@ -1865,9 +1865,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           const { error: toggleError } = await supabase.functions.invoke('toggle-bot-status', {
             body: {
               telefone: clienteTelefone,
-              bot_status: 'disabled',
-              origem: 'manual',
-              executado_por_id: userId
+              requested_action: 'disable_bot',
+              requested_origin: 'manual',
+              trigger_source: 'manual_button',
+              executed_by_user_id: userId,
             }
           });
 
