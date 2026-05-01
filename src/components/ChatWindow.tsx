@@ -1898,9 +1898,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         const { data, error } = await supabase.functions.invoke('toggle-bot-status', {
           body: {
             telefone: clienteTelefone,
-            bot_status: 'enabled',
-            origem: 'manual',
-            executado_por_id: userId,
+            requested_action: 'enable_bot',
+            requested_origin: 'manual',
+            trigger_source: 'manual_button',
+            executed_by_user_id: userId,
             confirmacao: confirmacaoTexto,
             force_reactivate_manual: true
           }
