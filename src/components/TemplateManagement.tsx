@@ -25,7 +25,8 @@ interface Template {
   body: string;
   variables: string[];
   variable_mapping: { index: number; field: string }[];
-  desliga_bot: boolean;
+  desliga_bot: boolean | null;
+  disable_bot_on_send: boolean;
   created_at: string;
 }
 
