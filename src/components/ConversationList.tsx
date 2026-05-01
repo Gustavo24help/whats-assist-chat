@@ -921,10 +921,44 @@ export const ConversationList = ({
         }
       });
 
-      // (estado de leitura "marcado_nao_lido" vem direto da tabela clientes — global)
+      // ✅ Fonte de verdade ÚNICA por operador: mensagem_leitura_operador
+      // (last_read_at + manual_unread). Não usa mais clientes.marcado_nao_lido.
+      let operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread: boolean }>();
+      if (user?.id) {
+        const { data: readData } = await (supabase as any)
+          .from('mensagem_leitura_operador')
+          .select('cliente_telefone, last_read_at, manual_unread')
+          .eq('user_id', user.id);
+        readData?.forEach((r: any) => {
+          operatorReadMap.set(r.cliente_telefone, {
+            last_read_at: r.last_read_at,
+            manual_unread: r.manual_unread === true,
+          });
+        });
+      }
 
+      // Agregação server-side via RPC (igual ChatWindowBeta) — devolve por telefone
+      // a última msg do cliente + total de não-lidas após last_read_at do operador.
+      const ultimaMsgClienteMap = new Map<string, string>();
+      const unreadCountByTelefone = new Map<string, number>();
+      const readMapPayload: Record<string, string | null> = {};
+      operatorReadMap.forEach((v, telefone) => {
+        readMapPayload[telefone] = v.last_read_at;
+      });
+      try {
+        const { data: aggData, error: aggError } = await (supabase as any).rpc(
+          'get_unread_cliente_msgs',
+          { _telefones: telefones, _read_map: readMapPayload }
+        );
+        if (aggError) throw aggError;
+        (aggData || []).forEach((row: any) => {
+          if (row.ultima_data) ultimaMsgClienteMap.set(row.cliente_id, row.ultima_data);
+          unreadCountByTelefone.set(row.cliente_id, row.total_nao_lidas || 0);
+        });
+      } catch (rpcErr) {
+        console.error('[ConversationList] RPC get_unread_cliente_msgs falhou:', rpcErr);
+      }
 
-      // ✅ Query 3: Buscar TODAS as fichas ativas de uma vez
       const fichasAtivasIds = clientesData
         .filter(c => c.ficha_ativa_id)
         .map(c => c.ficha_ativa_id);
