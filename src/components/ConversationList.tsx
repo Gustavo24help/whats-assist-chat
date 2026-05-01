@@ -1086,18 +1086,36 @@ export const ConversationList = ({
           ? getEscalatedAlertColor(minutosNoStatus, regraAlerta)
           : null;
 
-        const naoLidoGlobal = (cliente as any).marcado_nao_lido === true;
+        // ✅ Per-operator unread (regra única — igual ChatBeta):
+        //   manual_unread === true              → não lido (até "marcar como lida" explícito)
+        //   senão, se houver msg após last_read → não lido
+        const readRecord = operatorReadMap.get(cliente.telefone);
+        const lastClientMsg = ultimaMsgClienteMap.get(cliente.telefone);
+        const unreadFromMsgs = unreadCountByTelefone.get(cliente.telefone) ?? 0;
+        let perOperatorUnread = false;
+        let unreadCountReal = 0;
+
+        if (readRecord?.manual_unread === true) {
+          perOperatorUnread = true;
+          unreadCountReal = unreadFromMsgs;
+        } else if (lastClientMsg) {
+          const lastReadAt = readRecord?.last_read_at ?? null;
+          if (!lastReadAt || new Date(lastClientMsg) > new Date(lastReadAt)) {
+            perOperatorUnread = true;
+            unreadCountReal = unreadFromMsgs;
+          }
+        }
 
         return {
           ...cliente,
           nome_ficha: fichaData?.nome_ficha || undefined,
           status_ficha: fichaData?.status || undefined,
-          unread_count_real: naoLidoGlobal ? 1 : 0,
+          unread_count_real: unreadCountReal,
           dentroJanela,
           bot_habilitado: cliente.bot_habilitado,
           bot_desativado_notificacao_vista: cliente.bot_desativado_notificacao_vista,
           bot_desligado_manualmente: cliente.bot_desligado_manualmente,
-          marcado_nao_lido: naoLidoGlobal,
+          marcado_nao_lido: perOperatorUnread,
           orcamentos_count: orcamentosCount,
           pagamento_link: (fichaData as any)?.pagamento_link || null,
           pagamento_realizado: (fichaData as any)?.pagamento_realizado || false,
