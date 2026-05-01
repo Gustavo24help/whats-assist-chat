@@ -300,6 +300,20 @@ export const ConversationList = ({
       )
       .subscribe();
 
+    // ✅ Realtime de leitura POR OPERADOR — só meu próprio user_id, nunca dos outros.
+    // Garante que toggle/auto-read em outras abas do mesmo usuário reflitam aqui,
+    // sem que ações de outros operadores sobrescrevam meu estado.
+    const leituraChannel = user?.id
+      ? supabase
+          .channel(`mensagem-leitura-classic-${user.id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'mensagem_leitura_operador', filter: `user_id=eq.${user.id}` },
+            () => scheduleClientesRefresh()
+          )
+          .subscribe()
+      : null;
+
     // Fallback para ambientes onde websocket/realtime é bloqueado (ex.: firewall/rede corporativa)
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
@@ -313,6 +327,7 @@ export const ConversationList = ({
       supabase.removeChannel(fichasChannel);
       supabase.removeChannel(mensagensChannel);
       supabase.removeChannel(orcamentosChannel);
+      if (leituraChannel) supabase.removeChannel(leituraChannel);
       window.clearInterval(pollingInterval);
     };
   }, [user?.id]);
