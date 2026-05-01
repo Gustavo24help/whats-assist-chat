@@ -245,7 +245,7 @@ export const TemplateManagement = () => {
                 <TableHead>Content SID</TableHead>
                 <TableHead>Mensagem</TableHead>
                 <TableHead>Variáveis</TableHead>
-                <TableHead className="w-[140px]">Desliga bot</TableHead>
+                <TableHead className="w-[260px]">Desligar bot ao enviar este template</TableHead>
                 <TableHead className="w-[150px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -269,12 +269,15 @@ export const TemplateManagement = () => {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Switch
-                        checked={template.desliga_bot}
-                        onCheckedChange={(v) => handleToggleDesligaBot(template, v)}
-                        aria-label="Desliga bot ao enviar"
+                        checked={template.disable_bot_on_send}
+                        onCheckedChange={(v) => handleToggleDisableBotOnSend(template, v)}
+                        aria-label="Desligar bot ao enviar este template"
                       />
-                      <span className="text-xs text-muted-foreground">
-                        {template.desliga_bot ? "Sim" : "Não"}
+                      <span
+                        className="text-xs text-muted-foreground"
+                        title="Quando marcado, o bot será desligado automaticamente na conversa após o envio deste template."
+                      >
+                        {template.disable_bot_on_send ? "Sim" : "Não"}
                       </span>
                     </div>
                   </TableCell>
