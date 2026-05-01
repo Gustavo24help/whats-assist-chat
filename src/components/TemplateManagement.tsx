@@ -145,28 +145,28 @@ export const TemplateManagement = () => {
     setMappingDialogOpen(true);
   };
 
-  const handleToggleDesligaBot = async (template: Template, novoValor: boolean) => {
+  const handleToggleDisableBotOnSend = async (template: Template, novoValor: boolean) => {
     // Atualização otimista
     setTemplates((prev) =>
-      prev.map((t) => (t.id === template.id ? { ...t, desliga_bot: novoValor } : t)),
+      prev.map((t) => (t.id === template.id ? { ...t, disable_bot_on_send: novoValor } : t)),
     );
     try {
       const { error } = await supabase
         .from("whatsapp_templates")
-        .update({ desliga_bot: novoValor })
+        .update({ disable_bot_on_send: novoValor })
         .eq("id", template.id);
       if (error) throw error;
       toast.success(
         novoValor
-          ? "Template voltou a desligar o bot ao ser enviado"
+          ? "Template passará a desligar o bot ao ser enviado"
           : "Template não desligará mais o bot ao ser enviado",
       );
     } catch (error) {
-      console.error("Erro ao atualizar desliga_bot:", error);
+      console.error("Erro ao atualizar disable_bot_on_send:", error);
       toast.error("Erro ao atualizar configuração");
       // Reverte
       setTemplates((prev) =>
-        prev.map((t) => (t.id === template.id ? { ...t, desliga_bot: !novoValor } : t)),
+        prev.map((t) => (t.id === template.id ? { ...t, disable_bot_on_send: !novoValor } : t)),
       );
     }
   };
