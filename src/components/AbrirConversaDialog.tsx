@@ -206,25 +206,36 @@ export const AbrirConversaDialog = ({ clienteTelefone, clienteNome }: AbrirConve
         throw new Error(data?.error || "Erro ao enviar template");
       }
 
-      // Verifica se este template está configurado para desligar o bot
-      // (default true para manter o comportamento anterior)
-      const desligaBot = (selectedTemplate as { desliga_bot?: boolean }).desliga_bot ?? true;
+      // Verifica se este template está configurado para desligar o bot.
+      // Regra nova: usar disable_bot_on_send. Fallback para o legado desliga_bot
+      // (apenas como segurança; os templates já foram migrados explicitamente).
+      // Default seguro: false. Template nunca liga bot, nunca apaga histórico,
+      // nunca cria nova conversation_id.
+      const tpl = selectedTemplate as {
+        disable_bot_on_send?: boolean | null;
+        desliga_bot?: boolean | null;
+        friendly_name?: string;
+      };
+      const desligaBot: boolean = tpl.disable_bot_on_send ?? tpl.desliga_bot ?? false;
 
       if (desligaBot) {
         try {
           await supabase.functions.invoke("toggle-bot-status", {
             body: {
               telefone: clienteTelefone,
-              bot_status: "disabled",
-              origem: "manual",
+              requested_action: "disable_bot",
+              requested_origin: "manual",
+              trigger_source: "manual_template_button",
+              executed_by_user_id: user?.id,
+              template_name: tpl.friendly_name,
             },
           });
-          console.log("🤖 Bot desativado automaticamente após envio de template");
+          console.log("🤖 Bot desativado (template com checkbox marcado)");
         } catch (botError) {
           console.error("Erro ao desativar bot:", botError);
         }
       } else {
-        console.log("🤖 Template configurado para NÃO desligar o bot — mantendo estado atual");
+        console.log("🤖 Template sem 'desligar bot' marcado — estado do bot preservado");
       }
 
       toast.success("✅ Template enviado com sucesso!", {

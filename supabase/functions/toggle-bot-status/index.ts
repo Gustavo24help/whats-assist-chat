@@ -2,17 +2,76 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+/**
+ * Função central de controle do bot.
+ *
+ * REGRAS (fase simplificada):
+ *  1. A IA/bot só responde quando bot_habilitado=true. Esta checagem fica no send-whatsapp.
+ *  2. atendente_id NÃO é usado para bloquear ligar/desligar bot nesta fase.
+ *  3. A origem só é tratada como "manual" quando:
+ *       requested_origin === "manual"
+ *     E trigger_source ∈ { "manual_button", "manual_template_button" }.
+ *     Apenas presença de JWT NÃO transforma a ação em manual — o JWT só
+ *     identifica executed_by_user_id.
+ *  4. disable_bot manual:
+ *       bot_habilitado=false, bot_desligado_manualmente=true.
+ *  5. disable_bot automático/sistema/template/pre_qualificacao:
+ *       bot_habilitado=false. NÃO altera bot_desligado_manualmente.
+ *  6. enable_bot manual:
+ *       bot_habilitado=true, bot_desligado_manualmente=false.
+ *       Mantém a confirmação "LIGAR" já existente.
+ *  7. enable_bot automático/cron:
+ *       bot_habilitado=true. NÃO altera bot_desligado_manualmente.
+ *       Se isso resultar em estado incoerente
+ *       (bot_habilitado=true E bot_desligado_manualmente=true),
+ *       gera log de incoerência (warning), sem bloquear a operação.
+ */
+
+type RequestedAction = "enable_bot" | "disable_bot";
+type RequestedOrigin =
+  | "manual"
+  | "automatico"
+  | "sistema"
+  | "pre_qualificacao"
+  | "template"
+  | "cron";
+type TriggerSource =
+  | "manual_button"
+  | "manual_template_button"
+  | "system_template"
+  | "automatic_template"
+  | "pre_qualificacao_finalizada"
+  | "cron"
+  | "webhook"
+  | "unspecified";
 
 interface RequestBody {
   telefone: string;
-  bot_status: "enabled" | "disabled";
+  // Novos parâmetros
+  requested_action?: RequestedAction;
+  requested_origin?: RequestedOrigin;
+  trigger_source?: TriggerSource;
+  executed_by_user_id?: string;
+  request_id?: string;
+  template_name?: string;
+
+  // Compatibilidade com clientes antigos
+  bot_status?: "enabled" | "disabled";
   origem?: "manual" | "automatico" | "sistema";
   executado_por_id?: string;
+
   confirmacao?: string;
   force_reactivate_manual?: boolean;
 }
+
+const MANUAL_TRIGGER_SOURCES: TriggerSource[] = [
+  "manual_button",
+  "manual_template_button",
+];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,18 +79,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
 
-    const {
-      telefone,
-      bot_status,
-      origem: origemBody,
-      executado_por_id: executadoPorBody,
-      confirmacao,
-      force_reactivate_manual: forceReactivateManual,
-    }: RequestBody = await req.json();
+    const body: RequestBody = await req.json();
 
-    // Validar inputs
+    const telefone = body.telefone;
     if (!telefone) {
       return new Response(JSON.stringify({ error: "Telefone é obrigatório" }), {
         status: 400,
@@ -39,133 +94,143 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!bot_status || !["enabled", "disabled"].includes(bot_status)) {
-      return new Response(JSON.stringify({ error: 'bot_status deve ser "enabled" ou "disabled"' }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // ===== Normalizar requested_action (com retrocompatibilidade) =====
+    let requestedAction: RequestedAction | null = body.requested_action ?? null;
+    if (!requestedAction && body.bot_status) {
+      requestedAction = body.bot_status === "enabled" ? "enable_bot" : "disable_bot";
+    }
+    if (!requestedAction) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "requested_action é obrigatório (use 'enable_bot' ou 'disable_bot'). Compatível: bot_status='enabled'|'disabled'.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    // ===== AUTENTICAÇÃO CONDICIONAL =====
-    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-    let executado_por_id: string | null = null;
-    let origem: "manual" | "automatico" | "sistema" = "sistema";
+    // ===== Normalizar origem =====
+    // - Se cliente já mandou requested_origin novo → usar.
+    // - Senão, mapear do 'origem' antigo (manual/automatico/sistema), default 'sistema'.
+    let requestedOrigin: RequestedOrigin =
+      body.requested_origin ?? (body.origem as RequestedOrigin) ?? "sistema";
 
-    // Se veio origem=automatico no body (Twilio), permitir sem auth
-    if (origemBody === "automatico") {
-      origem = "automatico";
-      executado_por_id = null;
-      console.log(`[toggle-bot-status] Chamada AUTOMÁTICA do Twilio (sem auth necessária)`);
-    }
-    // Se tem header de auth, validar usuário
-    else if (authHeader?.startsWith("Bearer ")) {
+    // ===== Normalizar trigger_source =====
+    // Sem trigger_source explícito, NUNCA assume manual_button.
+    // Para preservar UX antiga onde origem='manual' vinha de botão real,
+    // mapeamos origem='manual' antiga para 'manual_button' SOMENTE quando
+    // o caller também enviar JWT válido (uso clássico do front).
+    let triggerSource: TriggerSource = body.trigger_source ?? "unspecified";
+
+    // ===== Identificar usuário (sem virar manual automaticamente) =====
+    const authHeader =
+      req.headers.get("authorization") || req.headers.get("Authorization");
+    let executedByUserId: string | null =
+      body.executed_by_user_id ?? body.executado_por_id ?? null;
+
+    if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.slice("Bearer ".length);
       const { data: authData, error: userError } = await supabase.auth.getUser(token);
-
-      if (userError || !authData?.user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (!userError && authData?.user) {
+        // JWT válido → preencher executed_by_user_id, mas NÃO virar manual sozinho.
+        executedByUserId = authData.user.id;
+      } else {
+        console.warn("[toggle-bot-status] JWT inválido recebido — ignorando.");
       }
-
-      origem = "manual";
-      executado_por_id = authData.user.id;
-      console.log(`[toggle-bot-status] Chamada MANUAL do usuário: ${executado_por_id}`);
-    }
-    // Se não tem auth e não é automatico, rejeitar
-    else {
-      return new Response(JSON.stringify({ error: "Unauthorized - token ou origem=automatico requerido" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
-    console.log(
-      `[toggle-bot-status] Alterando status do bot para ${telefone}: ${bot_status}, origem: ${origem}, executado_por: ${executado_por_id || "sistema"}`,
-    );
+    // ===== Compatibilidade: se chamada veio com 'origem=manual' E temos JWT,
+    //       e o trigger_source não foi informado, assumir manual_button.
+    //       Isso preserva o comportamento dos botões reais existentes (ChatWindow)
+    //       sem precisar atualizar o frontend de uma vez.
+    if (
+      triggerSource === "unspecified" &&
+      requestedOrigin === "manual" &&
+      executedByUserId
+    ) {
+      triggerSource = "manual_button";
+    }
 
-    const botHabilitado = bot_status === "enabled";
-    const dataDesabilitado = bot_status === "disabled" ? new Date().toISOString() : null;
+    // Resolução final de origem:
+    // só é "manual" se requested_origin=manual E trigger_source ∈ MANUAL_TRIGGER_SOURCES
+    const isManual =
+      requestedOrigin === "manual" &&
+      MANUAL_TRIGGER_SOURCES.includes(triggerSource);
 
-    // Lógica da exclamação amarela:
-    const isManual = origem === "manual";
-    const desligadoManualmente = bot_status === "disabled" ? isManual : false;
-    const notificacaoVista = bot_status === "disabled" ? isManual : null;
+    const resolvedOrigin: RequestedOrigin = isManual
+      ? "manual"
+      : requestedOrigin === "manual"
+        ? "automatico" // veio "manual" sem trigger válido → trata como automático
+        : requestedOrigin;
 
-    // 📋 Capturar estado ANTERIOR para auditoria
+    // ===== Estado anterior (auditoria) =====
     const { data: clienteAntes } = await supabase
       .from("clientes")
-      .select("bot_habilitado, data_bot_desabilitado, bot_desligado_manualmente, atendente_id, status_conversa")
+      .select(
+        "bot_habilitado, data_bot_desabilitado, bot_desligado_manualmente, atendente_id, status_conversa",
+      )
       .eq("telefone", telefone)
       .maybeSingle();
 
-    const estadoAnterior = clienteAntes?.bot_habilitado === false ? "desabilitado" : "habilitado";
-    const desligadoManualmenteAntes = clienteAntes?.bot_desligado_manualmente === true;
+    const previousBotEnabled = clienteAntes?.bot_habilitado !== false;
+    const previousManualLock = clienteAntes?.bot_desligado_manualmente === true;
 
-    const temOperadorAtribuido = Boolean(clienteAntes?.atendente_id);
-    const temAtendimentoHumanoAtivo = temOperadorAtribuido;
-    const reativacaoManualConfirmada = origem === "manual" && forceReactivateManual === true && confirmacao === "LIGAR";
-    const deveBloquearAtivacao = bot_status === "enabled" && (
-      temAtendimentoHumanoAtivo || (desligadoManualmenteAntes && !reativacaoManualConfirmada)
-    );
-
-    if (deveBloquearAtivacao) {
-      console.log(
-        `[toggle-bot-status] 🛡️ Ativação do bot bloqueada para ${telefone}: ` +
-        `origem=${origem}, manual=${desligadoManualmenteAntes}, operador_atribuido=${temOperadorAtribuido}, status_conversa=${clienteAntes?.status_conversa ?? "null"}`,
-      );
-
-      await supabase.from("system_logs").insert({
-        nivel: "warn",
-        categoria: "bot",
-        mensagem: `Ativação do bot bloqueada durante atendimento humano: ${telefone}`,
-        detalhes: {
-          telefone_cliente: telefone,
-          origem,
-          estado_anterior: estadoAnterior,
-          bot_desligado_manualmente: desligadoManualmenteAntes,
-          atendente_id: clienteAntes?.atendente_id ?? null,
-          status_conversa: clienteAntes?.status_conversa ?? null,
-          reativacao_manual_confirmada: reativacaoManualConfirmada,
-          bloqueado_por: temAtendimentoHumanoAtivo ? "operador_atribuido" : "desligamento_manual_sem_confirmacao_explicita",
-        },
-        url: "edge://toggle-bot-status",
-      });
-
-      await supabase.from("bot_historico").insert({
-        telefone_cliente: telefone,
-        acao: "bloqueado",
-        origem,
-        executado_por_id,
-        observacao: `Ativação do bot bloqueada: ${temAtendimentoHumanoAtivo ? "há operador ativo na conversa" : "bot desligado manualmente sem confirmação explícita"}`,
-      });
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          blocked: true,
-          telefone,
-          bot_status: "disabled",
-          reason: temAtendimentoHumanoAtivo ? "human_attendance_active" : "manual_disable_lock",
-          atendente_id: clienteAntes?.atendente_id ?? null,
-          status_conversa: clienteAntes?.status_conversa ?? null,
-          timestamp: new Date().toISOString(),
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    // ===== Confirmação manual para LIGAR =====
+    // Mantemos a confirmação "LIGAR" para ativações manuais via botão.
+    // Não checamos atendente_id como bloqueio.
+    if (requestedAction === "enable_bot" && isManual) {
+      const okConfirmacao =
+        body.confirmacao === "LIGAR" || body.force_reactivate_manual === true;
+      if (!okConfirmacao) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Reativação manual exige confirmação. Envie confirmacao='LIGAR' ou force_reactivate_manual=true.",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
-    // Atualizar status do bot no cliente
+    // ===== Decisão de estado =====
+    const newBotEnabled = requestedAction === "enable_bot";
+
+    // bot_desligado_manualmente:
+    // - disable manual → true
+    // - enable manual → false
+    // - qualquer outra origem → preserva valor anterior (não toca)
+    let newManualLock: boolean;
+    if (isManual && requestedAction === "disable_bot") {
+      newManualLock = true;
+    } else if (isManual && requestedAction === "enable_bot") {
+      newManualLock = false;
+    } else {
+      newManualLock = previousManualLock;
+    }
+
+    const newDataDesabilitado =
+      requestedAction === "disable_bot" ? new Date().toISOString() : null;
+
+    // ===== Aplicar update =====
+    const updatePayload: Record<string, unknown> = {
+      bot_habilitado: newBotEnabled,
+      data_bot_desabilitado: newDataDesabilitado,
+      bot_desligado_manualmente: newManualLock,
+    };
+
+    // bot_ja_desligado_alguma_vez fica como flag histórica
+    if (requestedAction === "disable_bot") {
+      updatePayload.bot_ja_desligado_alguma_vez = true;
+    }
+
+    // bot_desativado_notificacao_vista: só faz sentido em desligamento manual
+    if (requestedAction === "disable_bot") {
+      updatePayload.bot_desativado_notificacao_vista = isManual ? true : false;
+    }
+
     const { error: updateError } = await supabase
       .from("clientes")
-      .update({
-        bot_habilitado: botHabilitado,
-        data_bot_desabilitado: dataDesabilitado,
-        bot_desativado_notificacao_vista: notificacaoVista,
-        bot_desligado_manualmente: desligadoManualmente,
-        ...(bot_status === "disabled" && { bot_ja_desligado_alguma_vez: true }),
-      })
+      .update(updatePayload)
       .eq("telefone", telefone);
 
     if (updateError) {
@@ -173,58 +238,105 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
-    if (bot_status === "disabled" && origem === "manual") {
-      const { error: cancelScheduleError } = await supabase
+    // Cancelar reativações pendentes apenas em desligamento manual
+    if (requestedAction === "disable_bot" && isManual) {
+      await supabase
         .from("bot_reactivation_schedule")
         .update({ executed: true })
         .eq("telefone_cliente", telefone)
         .eq("executed", false);
-
-      if (cancelScheduleError) {
-        console.error("[toggle-bot-status] Erro ao cancelar reativações pendentes:", cancelScheduleError);
-      }
     }
 
-    // Capturar dados de auditoria
+    // ===== Detecção de incoerência =====
+    // Estado final incoerente: bot_habilitado=true E bot_desligado_manualmente=true
+    const incoherentState = newBotEnabled === true && newManualLock === true;
+
+    // ===== Auditoria =====
     const userAgent = req.headers.get("user-agent") || "desconhecido";
     const ipAddress =
       req.headers.get("x-forwarded-for") ||
       req.headers.get("cf-connecting-ip") ||
       req.headers.get("x-real-ip") ||
       "desconhecido";
-    const requestId = crypto.randomUUID();
+    const requestId = body.request_id || crypto.randomUUID();
 
-    console.log(
-      `[toggle-bot-status] Auditoria: UA=${userAgent.substring(0, 50)}..., IP=${ipAddress}, RequestID=${requestId}`,
-    );
+    const acaoLegacy = requestedAction === "enable_bot" ? "ligado" : "desligado";
 
-    // Registrar no histórico (com estado anterior para diagnóstico)
-    const observacaoDetalhada =
-      `Bot ${bot_status === "enabled" ? "ativado" : "desativado"} via toggle-bot-status ` +
-      `[anterior: ${estadoAnterior}${desligadoManualmenteAntes ? "/manual" : ""}]`;
+    const observacaoBase =
+      `Bot ${acaoLegacy} via toggle-bot-status ` +
+      `[origem_resolvida=${resolvedOrigin}, trigger=${triggerSource}, ` +
+      `prev_enabled=${previousBotEnabled}, prev_manual_lock=${previousManualLock}, ` +
+      `new_enabled=${newBotEnabled}, new_manual_lock=${newManualLock}` +
+      (body.template_name ? `, template=${body.template_name}` : "") +
+      `]`;
 
-    const { error: historicoError } = await supabase.from("bot_historico").insert({
+    const observacaoFinal = incoherentState
+      ? `${observacaoBase} | INCOERENCIA: bot religado por ${triggerSource} sem limpar trava manual antiga`
+      : observacaoBase;
+
+    await supabase.from("bot_historico").insert({
       telefone_cliente: telefone,
-      acao: bot_status === "enabled" ? "ligado" : "desligado",
-      origem: origem,
-      executado_por_id,
-      observacao: observacaoDetalhada,
+      acao: acaoLegacy,
+      origem: resolvedOrigin,
+      executado_por_id: executedByUserId,
+      observacao: observacaoFinal,
       user_agent: userAgent,
       ip_address: ipAddress,
       request_id: requestId,
     });
 
-    if (historicoError) {
-      console.error("[toggle-bot-status] Erro ao registrar histórico:", historicoError);
+    if (incoherentState) {
+      await supabase.from("system_logs").insert({
+        nivel: "warn",
+        categoria: "bot",
+        mensagem: `Estado incoerente após reativação automática: ${telefone} ficou bot_habilitado=true mas bot_desligado_manualmente=true`,
+        detalhes: {
+          event: "bot_state_incoherent",
+          telefone_cliente: telefone,
+          requested_action: requestedAction,
+          requested_origin: requestedOrigin,
+          resolved_origin: resolvedOrigin,
+          trigger_source: triggerSource,
+          executed_by_user_id: executedByUserId,
+          previous_state: {
+            bot_habilitado: previousBotEnabled,
+            bot_desligado_manualmente: previousManualLock,
+          },
+          new_state: {
+            bot_habilitado: newBotEnabled,
+            bot_desligado_manualmente: newManualLock,
+          },
+          template_name: body.template_name ?? null,
+          request_id: requestId,
+        },
+        url: "edge://toggle-bot-status",
+      });
+      console.warn(
+        `[toggle-bot-status] ⚠️ INCOERENCIA registrada para ${telefone}: enabled=true & manual_lock=true (trigger=${triggerSource})`,
+      );
     }
 
-    console.log(`[toggle-bot-status] ✅ Status do bot atualizado para ${telefone}: ${bot_status}`);
+    console.log(
+      `[toggle-bot-status] ✅ ${telefone} ${acaoLegacy} | origem=${resolvedOrigin} trigger=${triggerSource} prev=(${previousBotEnabled},${previousManualLock}) new=(${newBotEnabled},${newManualLock})${incoherentState ? " [INCOERENTE]" : ""}`,
+    );
 
     return new Response(
       JSON.stringify({
         success: true,
-        telefone: telefone,
-        bot_status: bot_status,
+        telefone,
+        bot_status: newBotEnabled ? "enabled" : "disabled",
+        resolved_origin: resolvedOrigin,
+        trigger_source: triggerSource,
+        previous_state: {
+          bot_habilitado: previousBotEnabled,
+          bot_desligado_manualmente: previousManualLock,
+        },
+        new_state: {
+          bot_habilitado: newBotEnabled,
+          bot_desligado_manualmente: newManualLock,
+        },
+        incoherent_state: incoherentState,
+        request_id: requestId,
         timestamp: new Date().toISOString(),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },

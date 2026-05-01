@@ -1,43 +1,62 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface RequestBody {
   telefone: string;
-  executado_por_id?: string; // ID do usuário que executou a ação
+  executado_por_id?: string; // legado
+  executed_by_user_id?: string;
+  // Novos campos opcionais. Sem eles, é tratado como automático.
+  requested_origin?:
+    | "manual"
+    | "automatico"
+    | "sistema"
+    | "pre_qualificacao"
+    | "template"
+    | "cron";
+  trigger_source?:
+    | "manual_button"
+    | "manual_template_button"
+    | "system_template"
+    | "automatic_template"
+    | "pre_qualificacao_finalizada"
+    | "cron"
+    | "webhook"
+    | "unspecified";
+  request_id?: string;
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // 1. Validar credenciais Twilio
-    const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-    const authToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-    const flowSid = Deno.env.get('TWILIO_FLOW_SID');
+    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const flowSid = Deno.env.get("TWILIO_FLOW_SID");
 
     if (!accountSid || !authToken || !flowSid) {
-      throw new Error('Credenciais Twilio não configuradas');
+      throw new Error("Credenciais Twilio não configuradas");
     }
 
-    // 2. Parsear body
-    const { telefone, executado_por_id }: RequestBody = await req.json();
+    const body: RequestBody = await req.json();
+    const telefone = body.telefone;
 
     if (!telefone) {
-      return new Response(
-        JSON.stringify({ error: 'Telefone é obrigatório' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: "Telefone é obrigatório" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log(`[stop-twilio-flow] Iniciando encerramento para: ${telefone}`);
 
-    // 3. Buscar TODAS execuções ativas no Twilio Studio (com paginação)
+    // 1) Encerrar TODAS execuções ativas no Twilio Studio (com paginação)
     const auth = btoa(`${accountSid}:${authToken}`);
     const baseUrl = `https://studio.twilio.com/v2/Flows/${flowSid}/Executions?PageSize=100`;
 
@@ -48,52 +67,42 @@ Deno.serve(async (req) => {
     while (nextUrl && pages < 10) {
       pages++;
       const executionsResponse: Response = await fetch(nextUrl, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/json',
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/json",
         },
       });
 
       if (!executionsResponse.ok) {
         const error = await executionsResponse.text();
-        console.error('[stop-twilio-flow] Erro ao buscar execuções:', error);
-        throw new Error('Erro ao consultar Twilio Studio');
+        console.error("[stop-twilio-flow] Erro ao buscar execuções:", error);
+        throw new Error("Erro ao consultar Twilio Studio");
       }
 
       const executionsData: any = await executionsResponse.json();
       const matched = (executionsData.executions || []).filter(
         (exec: any) =>
-          exec.contact_channel_address === telefone &&
-          exec.status === 'active'
+          exec.contact_channel_address === telefone && exec.status === "active",
       );
       activeExecutions.push(...matched);
-
-      // Paginação Twilio: meta.next_page_url é absoluto ou null
       nextUrl = executionsData?.meta?.next_page_url || null;
-
-      // Otimização: se já achamos algumas e a página atual veio sem matches recentes,
-      // ainda assim continuamos por segurança até o limite de páginas.
     }
 
-    console.log(`[stop-twilio-flow] Execuções ativas encontradas para ${telefone}: ${activeExecutions.length}`);
+    console.log(
+      `[stop-twilio-flow] Execuções ativas encontradas para ${telefone}: ${activeExecutions.length}`,
+    );
 
-    if (activeExecutions.length === 0) {
-      console.log(`[stop-twilio-flow] Nenhuma execução ativa para ${telefone}`);
-      // ainda assim seguimos para desabilitar bot no banco abaixo
-    }
-
-    // 5. Encerrar TODAS execuções ativas (em paralelo)
     const stopResults = await Promise.allSettled(
       activeExecutions.map(async (exec: any) => {
         const stopUrl = `https://studio.twilio.com/v2/Flows/${flowSid}/Executions/${exec.sid}`;
         const stopResponse = await fetch(stopUrl, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/x-www-form-urlencoded",
           },
-          body: new URLSearchParams({ 'Status': 'ended' }),
+          body: new URLSearchParams({ Status: "ended" }),
         });
 
         if (!stopResponse.ok) {
@@ -103,110 +112,85 @@ Deno.serve(async (req) => {
 
         console.log(`[stop-twilio-flow] ✅ Execução ${exec.sid} encerrada`);
         return exec.sid;
-      })
+      }),
     );
 
     const stoppedSids = stopResults
-      .filter((r) => r.status === 'fulfilled')
+      .filter((r) => r.status === "fulfilled")
       .map((r: any) => r.value);
     const failedStops = stopResults
-      .filter((r) => r.status === 'rejected')
-      .map((r: any) => r.reason?.message || 'erro desconhecido');
+      .filter((r) => r.status === "rejected")
+      .map((r: any) => r.reason?.message || "erro desconhecido");
 
     if (failedStops.length > 0) {
-      console.error('[stop-twilio-flow] Algumas execuções falharam:', failedStops);
+      console.error("[stop-twilio-flow] Algumas execuções falharam:", failedStops);
     }
 
-    // Compatibilidade com o caller antigo: usa primeira execução como "executionSid"
     const activeExecution = activeExecutions[0] || null;
 
-    // 6. Desabilitar bot no banco de dados
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // 2) Delegar a alteração de estado do bot à função central.
+    //    NÃO inferimos manual a partir de JWT. O caller decide a origem.
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ===== Autenticação / auditoria confiável =====
-    // Se não houver JWT válido, NÃO registrar como manual nem aceitar executado_por_id do body.
-    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+    // Default: automático/webhook (Twilio chamando após finalização do flow).
+    const requestedOrigin = body.requested_origin ?? "automatico";
+    const triggerSource = body.trigger_source ?? "webhook";
 
-    let origem: 'manual' | 'sistema' = 'sistema';
-    let executadoPorConfiavel: string | null = null;
-    if (token) {
-      const { data, error: userError } = await supabase.auth.getUser(token);
-      if (!userError && data?.user) {
-        origem = 'manual';
-        executadoPorConfiavel = data.user.id;
+    const executedByUserId =
+      body.executed_by_user_id ?? body.executado_por_id ?? null;
 
-        if (executado_por_id && executado_por_id !== data.user.id) {
-          console.warn(
-            `[stop-twilio-flow] executado_por_id divergente (body=${executado_por_id}, jwt=${data.user.id}) - usando JWT.`
-          );
-        }
-      } else {
-        console.warn('[stop-twilio-flow] JWT ausente/inválido - registrando como sistema');
-      }
+    const togglePayload: Record<string, unknown> = {
+      telefone,
+      requested_action: "disable_bot",
+      requested_origin: requestedOrigin,
+      trigger_source: triggerSource,
+      request_id: body.request_id ?? crypto.randomUUID(),
+    };
+
+    if (executedByUserId) {
+      togglePayload.executed_by_user_id = executedByUserId;
     }
 
-    const { error: updateError } = await supabase
-      .from('clientes')
-      .update({
-        bot_habilitado: false,
-        data_bot_desabilitado: new Date().toISOString(),
-        // Se não for manual (sem JWT válido), manter comportamento de notificação como "automático/sistema"
-        bot_desativado_notificacao_vista: origem === 'manual' ? true : false,
-        bot_desligado_manualmente: origem === 'manual',
-        bot_ja_desligado_alguma_vez: true // Marcar que já desligou (para ativar som de notificação)
-      })
-      .eq('telefone', telefone);
-
-    if (updateError) {
-      console.error('[stop-twilio-flow] Erro ao desabilitar bot:', updateError);
-      throw updateError;
+    // Encaminhar Authorization se vier — toggle-bot-status usa só para identificar o user.
+    const forwardHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const authHeader =
+      req.headers.get("authorization") || req.headers.get("Authorization");
+    if (authHeader) {
+      forwardHeaders["Authorization"] = authHeader;
     }
 
-    if (origem === 'manual') {
-      const { error: cancelScheduleError } = await supabase
-        .from('bot_reactivation_schedule')
-        .update({ executed: true })
-        .eq('telefone_cliente', telefone)
-        .eq('executed', false);
+    const toggleUrl = `${supabaseUrl}/functions/v1/toggle-bot-status`;
+    const toggleResp = await fetch(toggleUrl, {
+      method: "POST",
+      headers: {
+        ...forwardHeaders,
+        // Service role como apikey para garantir entrada no Edge function
+        apikey: supabaseKey,
+      },
+      body: JSON.stringify(togglePayload),
+    });
 
-      if (cancelScheduleError) {
-        console.error('[stop-twilio-flow] Erro ao cancelar reativações pendentes:', cancelScheduleError);
-      }
+    let toggleData: any = null;
+    try {
+      toggleData = await toggleResp.json();
+    } catch {
+      // ignore
     }
 
-    // Capturar dados de auditoria
-    const userAgent = req.headers.get('user-agent') || 'desconhecido';
-    const ipAddress = req.headers.get('x-forwarded-for') 
-      || req.headers.get('cf-connecting-ip') 
-      || req.headers.get('x-real-ip') 
-      || 'desconhecido';
-    const requestId = crypto.randomUUID();
-
-    console.log(`[stop-twilio-flow] Auditoria: UA=${userAgent.substring(0, 50)}..., IP=${ipAddress}, RequestID=${requestId}`);
-
-    // Registrar no histórico
-    const { error: historicoError } = await supabase
-      .from('bot_historico')
-      .insert({
-        telefone_cliente: telefone,
-        acao: 'desligado',
-        origem,
-        executado_por_id: executadoPorConfiavel,
-        observacao: 'Bot desligado via stop-twilio-flow (encerramento de fluxo Twilio)',
-        user_agent: userAgent,
-        ip_address: ipAddress,
-        request_id: requestId
-      });
-
-    if (historicoError) {
-      console.error('[stop-twilio-flow] Erro ao registrar histórico:', historicoError);
+    if (!toggleResp.ok) {
+      console.error(
+        `[stop-twilio-flow] toggle-bot-status falhou (${toggleResp.status}):`,
+        toggleData,
+      );
+    } else {
+      console.log(
+        `[stop-twilio-flow] toggle-bot-status OK: origem=${toggleData?.resolved_origin}, new=${JSON.stringify(toggleData?.new_state)}`,
+      );
     }
-
-    console.log(`[stop-twilio-flow] ✅ Bot desabilitado para ${telefone}`);
 
     return new Response(
       JSON.stringify({
@@ -215,22 +199,23 @@ Deno.serve(async (req) => {
         stoppedSids,
         stoppedCount: stoppedSids.length,
         failedCount: failedStops.length,
-        message: stoppedSids.length > 0
-          ? `Bot encerrado: ${stoppedSids.length} execução(ões) finalizada(s)`
-          : 'Bot desabilitado (nenhuma execução ativa encontrada)',
-        timestamp: new Date().toISOString()
+        bot_toggle: toggleData,
+        message:
+          stoppedSids.length > 0
+            ? `Bot encerrado: ${stoppedSids.length} execução(ões) finalizada(s)`
+            : "Bot desabilitado (nenhuma execução ativa encontrada)",
+        timestamp: new Date().toISOString(),
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-
   } catch (error) {
-    console.error('[stop-twilio-flow] Erro:', error);
+    console.error("[stop-twilio-flow] Erro:", error);
     return new Response(
-      JSON.stringify({ 
-        error: 'Erro interno do servidor',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      JSON.stringify({
+        error: "Erro interno do servidor",
+        details: error instanceof Error ? error.message : "Erro desconhecido",
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

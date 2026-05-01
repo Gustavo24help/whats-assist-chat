@@ -3010,6 +3010,7 @@ export type Database = {
           content_sid: string
           created_at: string
           desliga_bot: boolean
+          disable_bot_on_send: boolean
           friendly_name: string
           id: string
           updated_at: string
@@ -3021,6 +3022,7 @@ export type Database = {
           content_sid: string
           created_at?: string
           desliga_bot?: boolean
+          disable_bot_on_send?: boolean
           friendly_name: string
           id?: string
           updated_at?: string
@@ -3032,6 +3034,7 @@ export type Database = {
           content_sid?: string
           created_at?: string
           desliga_bot?: boolean
+          disable_bot_on_send?: boolean
           friendly_name?: string
           id?: string
           updated_at?: string

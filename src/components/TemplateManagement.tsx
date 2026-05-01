@@ -25,7 +25,8 @@ interface Template {
   body: string;
   variables: string[];
   variable_mapping: { index: number; field: string }[];
-  desliga_bot: boolean;
+  desliga_bot: boolean | null;
+  disable_bot_on_send: boolean;
   created_at: string;
 }
 
@@ -51,17 +52,25 @@ export const TemplateManagement = () => {
 
       if (error) throw error;
       setTemplates(
-        (data || []).map((template) => ({
-          ...template,
-          variables: normalizeTemplateVariables(
-            Array.isArray(template.variables) ? (template.variables as string[]) : [],
-            template.body,
-          ),
-          variable_mapping: Array.isArray(template.variable_mapping)
-            ? (template.variable_mapping as Array<{ index: number; field: string }>)
-            : [],
-          desliga_bot: template.desliga_bot ?? true,
-        })),
+        (data || []).map((template) => {
+          const raw = template as typeof template & {
+            disable_bot_on_send?: boolean | null;
+            desliga_bot?: boolean | null;
+          };
+          return {
+            ...template,
+            variables: normalizeTemplateVariables(
+              Array.isArray(template.variables) ? (template.variables as string[]) : [],
+              template.body,
+            ),
+            variable_mapping: Array.isArray(template.variable_mapping)
+              ? (template.variable_mapping as Array<{ index: number; field: string }>)
+              : [],
+            desliga_bot: raw.desliga_bot ?? null,
+            // Default seguro: false. Templates antigos foram migrados explicitamente.
+            disable_bot_on_send: raw.disable_bot_on_send ?? false,
+          };
+        }),
       );
     } catch (error) {
       console.error("Erro ao buscar templates:", error);
@@ -136,28 +145,28 @@ export const TemplateManagement = () => {
     setMappingDialogOpen(true);
   };
 
-  const handleToggleDesligaBot = async (template: Template, novoValor: boolean) => {
+  const handleToggleDisableBotOnSend = async (template: Template, novoValor: boolean) => {
     // Atualização otimista
     setTemplates((prev) =>
-      prev.map((t) => (t.id === template.id ? { ...t, desliga_bot: novoValor } : t)),
+      prev.map((t) => (t.id === template.id ? { ...t, disable_bot_on_send: novoValor } : t)),
     );
     try {
       const { error } = await supabase
         .from("whatsapp_templates")
-        .update({ desliga_bot: novoValor })
+        .update({ disable_bot_on_send: novoValor })
         .eq("id", template.id);
       if (error) throw error;
       toast.success(
         novoValor
-          ? "Template voltou a desligar o bot ao ser enviado"
+          ? "Template passará a desligar o bot ao ser enviado"
           : "Template não desligará mais o bot ao ser enviado",
       );
     } catch (error) {
-      console.error("Erro ao atualizar desliga_bot:", error);
+      console.error("Erro ao atualizar disable_bot_on_send:", error);
       toast.error("Erro ao atualizar configuração");
       // Reverte
       setTemplates((prev) =>
-        prev.map((t) => (t.id === template.id ? { ...t, desliga_bot: !novoValor } : t)),
+        prev.map((t) => (t.id === template.id ? { ...t, disable_bot_on_send: !novoValor } : t)),
       );
     }
   };
@@ -236,7 +245,7 @@ export const TemplateManagement = () => {
                 <TableHead>Content SID</TableHead>
                 <TableHead>Mensagem</TableHead>
                 <TableHead>Variáveis</TableHead>
-                <TableHead className="w-[140px]">Desliga bot</TableHead>
+                <TableHead className="w-[260px]">Desligar bot ao enviar este template</TableHead>
                 <TableHead className="w-[150px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -260,12 +269,15 @@ export const TemplateManagement = () => {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Switch
-                        checked={template.desliga_bot}
-                        onCheckedChange={(v) => handleToggleDesligaBot(template, v)}
-                        aria-label="Desliga bot ao enviar"
+                        checked={template.disable_bot_on_send}
+                        onCheckedChange={(v) => handleToggleDisableBotOnSend(template, v)}
+                        aria-label="Desligar bot ao enviar este template"
                       />
-                      <span className="text-xs text-muted-foreground">
-                        {template.desliga_bot ? "Sim" : "Não"}
+                      <span
+                        className="text-xs text-muted-foreground"
+                        title="Quando marcado, o bot será desligado automaticamente na conversa após o envio deste template."
+                      >
+                        {template.disable_bot_on_send ? "Sim" : "Não"}
                       </span>
                     </div>
                   </TableCell>
