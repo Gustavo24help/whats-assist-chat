@@ -1239,18 +1239,22 @@ export const ConversationList = ({
   };
 
   const toggleUnreadMark = async (telefone: string, currentState: boolean) => {
+    if (!user?.id) {
+      toast.error("Sessão inválida — faça login novamente.");
+      return;
+    }
     const novoEstado = !currentState;
-    const { error } = await supabase
-      .from('clientes')
-      .update({
-        marcado_nao_lido: novoEstado,
-        marcado_nao_lido_manual_em: novoEstado ? new Date().toISOString() : null,
-      })
-      .eq('telefone', telefone);
-
-    if (error) {
-      console.error('[ConversationList] toggleUnreadMark erro:', error);
-      logChatEvent("marcar_nao_lida_erro", { telefone, novo_estado: novoEstado, erro: error.message }, { nivel: "error" });
+    try {
+      // ✅ Marcação por OPERADOR (mensagem_leitura_operador) — não afeta outros usuários,
+      // não é sobrescrita por realtime de mensagens novas, e auto-read não a apaga.
+      if (novoEstado) {
+        await markConversationUnread(telefone, user.id);
+      } else {
+        await markConversationRead(telefone, user.id);
+      }
+    } catch (err: any) {
+      console.error('[ConversationList] toggleUnreadMark erro:', err);
+      logChatEvent("marcar_nao_lida_erro", { telefone, novo_estado: novoEstado, erro: err?.message }, { nivel: "error" });
       toast.error("Erro ao marcar conversa");
       return;
     }
@@ -1258,7 +1262,7 @@ export const ConversationList = ({
 
     setClientes(prev => prev.map(c =>
       c.telefone === telefone
-        ? { ...c, marcado_nao_lido: novoEstado, unread_count_real: novoEstado ? 1 : 0 }
+        ? { ...c, marcado_nao_lido: novoEstado, unread_count_real: novoEstado ? Math.max(c.unread_count_real || 0, 0) : 0 }
         : c
     ));
     toast.success(currentState ? "Conversa marcada como lida" : "Conversa marcada como não lida");
