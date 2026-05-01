@@ -31,6 +31,7 @@ import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
 import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 import { ReplyIndicator } from "./ReplyIndicator";
 import { AtribuicaoDescricaoDialog } from "./AtribuicaoDescricaoDialog";
+import { markConversationAutoRead } from "@/lib/chatBetaUnread";
 
 import {
   AlertDialog,
@@ -410,12 +411,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         fetchClienteData(), // Nova função consolidada
         fetchAtendentes()
       ]);
-      // Marcar como lido (global) ao ABRIR a conversa — limpa também o lock manual,
-      // pois o ato de abrir significa intenção explícita de ler.
-      await supabase
-        .from('clientes')
-        .update({ marcado_nao_lido: false, marcado_nao_lido_manual_em: null })
-        .eq('telefone', clienteTelefone);
+      // ✅ Marcar como lido APENAS para o operador atual (mensagem_leitura_operador).
+      // Auto-read NÃO apaga manual_unread — preserva intenção de "deixar pendente".
+      // Não escreve mais em clientes.marcado_nao_lido (campo global descontinuado).
+      if (user?.id) {
+        await markConversationAutoRead(clienteTelefone, user.id);
+      }
       setIsLoadingMessages(false);
     };
     
@@ -438,12 +439,12 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           const NUMERO_24HELP = 'whatsapp:+554138911555';
           const isMensagemCliente = novaMensagem.remetente !== NUMERO_24HELP && novaMensagem.remetente !== 'atendente' && novaMensagem.remetente !== 'bot';
           if (isMensagemCliente) {
-            // Conversa está aberta — marca como lida (global), mas respeita marcação manual
-            await supabase
-              .from('clientes')
-              .update({ marcado_nao_lido: false })
-              .eq('telefone', clienteTelefone)
-              .is('marcado_nao_lido_manual_em', null);
+            // ✅ Conversa aberta + nova msg do cliente: marca como lida APENAS
+            // para este operador. Auto-read NÃO toca em manual_unread.
+            // Não escreve mais em clientes.marcado_nao_lido (global).
+            if (user?.id) {
+              await markConversationAutoRead(clienteTelefone, user.id);
+            }
           }
 
           let replyTo: Mensagem | null = null;
