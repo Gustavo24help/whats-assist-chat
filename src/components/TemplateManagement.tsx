@@ -52,17 +52,25 @@ export const TemplateManagement = () => {
 
       if (error) throw error;
       setTemplates(
-        (data || []).map((template) => ({
-          ...template,
-          variables: normalizeTemplateVariables(
-            Array.isArray(template.variables) ? (template.variables as string[]) : [],
-            template.body,
-          ),
-          variable_mapping: Array.isArray(template.variable_mapping)
-            ? (template.variable_mapping as Array<{ index: number; field: string }>)
-            : [],
-          desliga_bot: template.desliga_bot ?? true,
-        })),
+        (data || []).map((template) => {
+          const raw = template as typeof template & {
+            disable_bot_on_send?: boolean | null;
+            desliga_bot?: boolean | null;
+          };
+          return {
+            ...template,
+            variables: normalizeTemplateVariables(
+              Array.isArray(template.variables) ? (template.variables as string[]) : [],
+              template.body,
+            ),
+            variable_mapping: Array.isArray(template.variable_mapping)
+              ? (template.variable_mapping as Array<{ index: number; field: string }>)
+              : [],
+            desliga_bot: raw.desliga_bot ?? null,
+            // Default seguro: false. Templates antigos foram migrados explicitamente.
+            disable_bot_on_send: raw.disable_bot_on_send ?? false,
+          };
+        }),
       );
     } catch (error) {
       console.error("Erro ao buscar templates:", error);
