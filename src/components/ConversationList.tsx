@@ -1685,6 +1685,14 @@ export const ConversationList = ({
                               return next;
                             });
                           }
+                          // ✅ Otimismo local: zera o badge desta conversa para este operador.
+                          // ChatWindow chama markConversationAutoRead após carregar mensagens.
+                          // (NÃO toca em manual_unread aqui — só auto-read no ChatWindow apaga.)
+                          setClientes(prev => prev.map(c =>
+                            c.telefone === cliente.telefone
+                              ? { ...c, marcado_nao_lido: false, unread_count_real: 0 }
+                              : c
+                          ));
                           onSelectCliente(cliente);
                         }
                       }}
