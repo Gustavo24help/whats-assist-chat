@@ -400,12 +400,14 @@ serve(async (req) => {
         console.log(`[${requestId}] ✅ Mensagem salva com sucesso! (${isBotMessage ? 'bot' : 'cliente'})`);
 
         if (isClientMessage) {
+          // ⚠️ Não escrever mais `marcado_nao_lido` global — leitura é por operador
+          // (mensagem_leitura_operador). O badge de não-lido é derivado de
+          // `mensagens.data_hora > last_read_at` por usuário.
           await supabase
             .from("clientes")
             .update({ 
               ultima_interacao: new Date().toISOString(),
               ultima_mensagem_recebida: new Date().toISOString(),
-              marcado_nao_lido: true
             })
             .eq("telefone", cliente.telefone);
         }
