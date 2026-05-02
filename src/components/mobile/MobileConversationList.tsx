@@ -60,12 +60,12 @@ export function MobileConversationList({ onSelectCliente, onLogout, onOpenSettin
     // Buscar últimas fichas ativas
     const { data: fichas } = await supabase
       .from("fichas_de_servico")
-      .select("id, telefone_cliente, status, atendente_id")
+      .select("id, telefone_cliente, status, operador_id")
       .in("telefone_cliente", telefones)
       .order("created_at", { ascending: false });
 
     const fichaPorTelefone = new Map<string, any>();
-    (fichas || []).forEach((f) => {
+    (fichas || []).forEach((f: any) => {
       if (!fichaPorTelefone.has(f.telefone_cliente)) {
         fichaPorTelefone.set(f.telefone_cliente, f);
       }
@@ -74,8 +74,8 @@ export function MobileConversationList({ onSelectCliente, onLogout, onOpenSettin
     // Identificar "meus tickets"
     const meus = new Set<string>();
     if (user?.id) {
-      (fichas || []).forEach((f) => {
-        if (f.atendente_id === user.id) meus.add(f.telefone_cliente);
+      (fichas || []).forEach((f: any) => {
+        if (f.operador_id === user.id) meus.add(f.telefone_cliente);
       });
     }
     setMeusTickets(meus);

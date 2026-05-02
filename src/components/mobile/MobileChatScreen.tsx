@@ -246,7 +246,7 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
                   )}
                   {m.tipo === "audio" && m.arquivo_url && (
                     <div className="mb-1">
-                      <AudioPlayer url={m.arquivo_url} />
+                      <AudioPlayer src={m.arquivo_url} />
                     </div>
                   )}
                   {m.tipo === "video" && m.arquivo_url && (
