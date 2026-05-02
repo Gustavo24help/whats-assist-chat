@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { markConversationAutoRead } from "@/lib/chatBetaUnread";
-import { MobileFichaSheet } from "./MobileFichaSheet";
+import { MobileActionsSheet } from "./MobileActionsSheet";
 import { MobileTemplatesSheet } from "./MobileTemplatesSheet";
 import { AudioPlayer } from "@/components/AudioPlayer";
 
