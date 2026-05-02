@@ -44,9 +44,13 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [fichaOpen, setFichaOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [actionsTab, setActionsTab] = useState<"ficha" | "historico" | "resumo" | "bot">("ficha");
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [manualUnread, setManualUnread] = useState(false);
+  const [botHabilitado, setBotHabilitado] = useState<boolean | null>(null);
+  const [outroOperadorNome, setOutroOperadorNome] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLDivElement | null>(null);
 
