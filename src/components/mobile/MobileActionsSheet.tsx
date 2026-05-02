@@ -492,7 +492,8 @@ export function MobileActionsSheet({
       <BotHistoricoDialog
         open={botHistoricoOpen}
         onOpenChange={setBotHistoricoOpen}
-        clienteTelefone={cliente.telefone}
+        telefoneCliente={cliente.telefone}
+        nomeCliente={cliente.nome || cliente.telefone}
       />
 
       <AlertDialog open={confirmLigarBotOpen} onOpenChange={setConfirmLigarBotOpen}>
