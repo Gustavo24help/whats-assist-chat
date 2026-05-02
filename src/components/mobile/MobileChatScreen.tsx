@@ -370,7 +370,19 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
         </div>
       </div>
 
-      <MobileFichaSheet open={fichaOpen} onOpenChange={setFichaOpen} cliente={cliente} />
+      <MobileActionsSheet
+        open={actionsOpen}
+        onOpenChange={(v) => {
+          setActionsOpen(v);
+          if (!v) refreshSidecar();
+        }}
+        cliente={cliente}
+        initialTab={actionsTab}
+        onMarkedUnread={() => {
+          setManualUnread(true);
+          onBack();
+        }}
+      />
       <MobileTemplatesSheet
         open={templatesOpen}
         onOpenChange={setTemplatesOpen}
