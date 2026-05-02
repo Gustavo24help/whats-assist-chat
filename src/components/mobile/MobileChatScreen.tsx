@@ -3,12 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Send, Info, FileText, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Send, Info, FileText, Loader2, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { markConversationAutoRead } from "@/lib/chatBetaUnread";
-import { MobileFichaSheet } from "./MobileFichaSheet";
+import { MobileActionsSheet } from "./MobileActionsSheet";
 import { MobileTemplatesSheet } from "./MobileTemplatesSheet";
 import { AudioPlayer } from "@/components/AudioPlayer";
 
@@ -44,9 +45,13 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMsg, setNovaMsg] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [fichaOpen, setFichaOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [actionsTab, setActionsTab] = useState<"ficha" | "historico" | "resumo" | "bot">("ficha");
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [manualUnread, setManualUnread] = useState(false);
+  const [botHabilitado, setBotHabilitado] = useState<boolean | null>(null);
+  const [outroOperadorNome, setOutroOperadorNome] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLDivElement | null>(null);
 
@@ -72,6 +77,35 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
       markConversationAutoRead(cliente.telefone, user.id).catch(() => {});
     }
   }, [cliente.telefone, user?.id]);
+
+  // Carregar flag manual_unread + status do cliente (bot, atendente)
+  const refreshSidecar = useCallback(async () => {
+    if (!user?.id) return;
+    const [{ data: read }, { data: cl }] = await Promise.all([
+      (supabase as any)
+        .from("mensagem_leitura_operador")
+        .select("manual_unread")
+        .eq("user_id", user.id)
+        .eq("cliente_telefone", cliente.telefone)
+        .maybeSingle(),
+      supabase
+        .from("clientes")
+        .select("bot_habilitado, atendente_id, atendente:profiles!atendente_id(full_name)")
+        .eq("telefone", cliente.telefone)
+        .maybeSingle(),
+    ]);
+    setManualUnread(!!read?.manual_unread);
+    setBotHabilitado((cl as any)?.bot_habilitado ?? null);
+    if ((cl as any)?.atendente_id && (cl as any)?.atendente_id !== user.id) {
+      setOutroOperadorNome((cl as any)?.atendente?.full_name || "Outro operador");
+    } else {
+      setOutroOperadorNome(null);
+    }
+  }, [cliente.telefone, user?.id]);
+
+  useEffect(() => {
+    refreshSidecar();
+  }, [refreshSidecar]);
 
   // Realtime
   useEffect(() => {
@@ -205,16 +239,46 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-base truncate leading-tight">{cliente.nome || cliente.telefone}</div>
-          <div className="text-xs opacity-90 truncate">{cliente.telefone}</div>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setActionsTab("ficha");
+            setActionsOpen(true);
+          }}
+          className="flex-1 min-w-0 text-left"
+        >
+          <div className="font-semibold text-base truncate leading-tight flex items-center gap-2">
+            <span className="truncate">{cliente.nome || cliente.telefone}</span>
+            {manualUnread && (
+              <span
+                className="w-2 h-2 rounded-full bg-white shrink-0"
+                aria-label="Marcada como não lida"
+              />
+            )}
+          </div>
+          <div className="text-xs opacity-90 truncate flex items-center gap-1.5">
+            <span>{cliente.telefone}</span>
+            {botHabilitado === false && (
+              <span className="inline-flex items-center gap-0.5 bg-white/20 rounded px-1 text-[10px]">
+                <Bot className="h-2.5 w-2.5" /> OFF
+              </span>
+            )}
+            {outroOperadorNome && (
+              <span className="bg-white/20 rounded px-1 text-[10px] truncate max-w-[120px]">
+                👤 {outroOperadorNome}
+              </span>
+            )}
+          </div>
+        </button>
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setFichaOpen(true)}
+          onClick={() => {
+            setActionsTab("ficha");
+            setActionsOpen(true);
+          }}
           className="h-10 w-10 text-white hover:bg-white/20 shrink-0"
-          aria-label="Detalhes"
+          aria-label="Detalhes e ações"
         >
           <Info className="h-5 w-5" />
         </Button>
@@ -306,7 +370,19 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
         </div>
       </div>
 
-      <MobileFichaSheet open={fichaOpen} onOpenChange={setFichaOpen} cliente={cliente} />
+      <MobileActionsSheet
+        open={actionsOpen}
+        onOpenChange={(v) => {
+          setActionsOpen(v);
+          if (!v) refreshSidecar();
+        }}
+        cliente={cliente}
+        initialTab={actionsTab}
+        onMarkedUnread={() => {
+          setManualUnread(true);
+          onBack();
+        }}
+      />
       <MobileTemplatesSheet
         open={templatesOpen}
         onOpenChange={setTemplatesOpen}

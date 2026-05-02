@@ -1,135 +1,112 @@
-Plano final, simplificado e com os ajustes que você pediu.
+## Contexto
 
-## 1. Função central — `toggle-bot-status`
+Hoje no mobile (`/chat` e `/chat-beta` em <768px):
+- A **lista de conversas** já tem bolinha de não lido (`MobileConversationList.tsx`).
+- A **tela do chat aberto** tem um botão `i` no header que abre `MobileFichaSheet` — mas o sheet só mostra dados estáticos da ficha. Não há ações nem outras visualizações.
+- O usuário quer:
+  1. Manter as regras de lido/não lido também no mobile (já estão — só vou reforçar e tornar acionável).
+  2. Expandir o botão `i` para virar um **painel de ações + visualizações**, equivalente reduzido ao painel lateral do desktop.
 
-Refatorar `supabase/functions/toggle-bot-status/index.ts`:
+A regra de leitura/não leitura continua usando exclusivamente `mensagem_leitura_operador` via `chatBetaUnread.ts` (fonte única, conforme `documentação/chat-beta-leitura.md`). **Nada da lógica de leitura muda** — apenas adiciono pontos de entrada visuais e a ação manual.
 
-- Aceita parâmetros novos (mantendo compatibilidade com os atuais):
-  - `requested_action`: `enable_bot` | `disable_bot`
-  - `requested_origin`: `manual` | `automatico` | `sistema` | `pre_qualificacao` | `template` | `cron`
-  - `trigger_source`: `manual_button` | `manual_template_button` | `system_template` | `automatic_template` | `pre_qualificacao_finalizada` | `cron` | `webhook`
-  - `executed_by_user_id` (opcional)
-  - `confirmation` (mantém o `LIGAR` atual, sem nova complexidade)
-  - `request_id`, `template_name`
-- Regra de origem rigorosa:
-  - Só vira `manual` quando `requested_origin = manual` E `trigger_source ∈ { manual_button, manual_template_button }`.
-  - JWT presente sozinho NÃO transforma em manual — serve apenas para preencher `executed_by_user_id`.
-- Decisões de estado:
-  - `disable_bot` manual: `bot_habilitado=false`, `bot_desligado_manualmente=true`, `data_bot_desabilitado=now()`.
-  - `disable_bot` automático/sistema/template/pre_qualificacao: `bot_habilitado=false`, NÃO toca em `bot_desligado_manualmente` (preserva), `data_bot_desabilitado=now()`.
-  - `enable_bot` manual: `bot_habilitado=true`, `bot_desligado_manualmente=false`. Mantém confirmação `LIGAR`.
-  - `enable_bot` automático/cron: `bot_habilitado=true`, NÃO altera `bot_desligado_manualmente`. Sem checagem de `atendente_id`.
-- **Detecção e log de incoerência (ajuste seu nº 1):** Após qualquer `enable_bot` automático/cron, se o estado final ficar `bot_habilitado=true` E `bot_desligado_manualmente=true`, registrar:
-  - `bot_historico.observacao`: `"INCOERENCIA: bot religado por cron sem limpar trava manual antiga"`
-  - `system_logs` com `severity=warning`, `event=bot_state_incoherent`, `phone`, `previous_state`, `new_state`, `trigger_source`.
-  - Isso não bloqueia a operação — só fica visível para revisarmos depois a utilidade do campo `bot_desligado_manualmente`.
-- Auditoria completa em `bot_historico` + `system_logs`: `requested_action`, `resolved_action`, `requested_origin`, `resolved_origin`, `trigger_source`, `executed_by_user_id`, `previous_bot_enabled`, `new_bot_enabled`, `previous_manual_lock`, `new_manual_lock`, `template_name`, `request_id`, `incoherent_state` (bool).
-- **Nada de checar `atendente_id` para liberar/bloquear ligar/desligar bot.**
+---
 
-## 2. `stop-twilio-flow` e fim da pré-qualificação
+## Mudanças
 
-Em `supabase/functions/stop-twilio-flow/index.ts`:
+### 1. Bolinha de não lido visível também dentro do chat aberto
 
-- Parar de inferir `manual` a partir de JWT.
-- Aceitar `requested_origin` e `trigger_source` no body.
-- Sem esses campos, tratar como automático.
-- Não atualizar `clientes.bot_*` direto — delegar tudo à função central.
-- Quando o webhook indicar fim da pré-qualificação, chamar central com:
-  - `requested_action=disable_bot`
-  - `requested_origin=pre_qualificacao`
-  - `trigger_source=pre_qualificacao_finalizada`
-- Resultado: bot desliga sem criar trava manual, sem depender de `atendente_id`, sem nova `conversation_id`.
+Hoje a bolinha aparece só na lista. Quando o operador entra no chat, ele perde a indicação visual e não consegue marcar como não lido sem voltar.
 
-## 3. Reativações automáticas
+- No header de `MobileChatScreen.tsx`, ao lado do nome do cliente, mostrar bolinha coral pequena se `manual_unread === true` (lido pela mesma `mensagem_leitura_operador`, filtrado pelo `user.id` atual).
+- Adicionar item "Marcar como não lida" / "Marcar como lida" dentro do novo painel de ações (item 2 abaixo) — usa `markConversationUnread` / `markConversationRead` já existentes.
+- Após "Marcar como não lida", **voltar automaticamente para a lista** (mesma UX do WhatsApp / Gmail mobile).
 
-`reactivate-bots-24h` e `process-bot-reactivation`:
+### 2. Substituir `MobileFichaSheet` por `MobileActionsSheet` (painel "i" expandido)
 
-- Remover update direto em `clientes.bot_habilitado`.
-- Chamar central com `requested_action=enable_bot`, `requested_origin=automatico`, `trigger_source=cron`.
-- Sem checagem de `atendente_id`.
-- Manter as janelas existentes (10 dias Agendado/Visita, 24h, etc.) iguais ao que está hoje.
-- Novas regras (Finalizado/Garantia 1 dia, Perdido) **NÃO** entram agora — ficam para plano dedicado, configurável e auditável, conforme você pediu.
+Renomear o sheet aberto pelo botão `i` para algo mais amplo. Continua sendo um `Drawer` bottom-sheet, mas agora com **abas no topo** + **lista de ações no rodapé**.
 
-## 4. Segunda checagem antes da IA responder
+**Estrutura do sheet:**
 
-Em `supabase/functions/send-whatsapp/index.ts`:
+```text
+[Drawer fullscreen 92dvh]
+  Header: nome do cliente + telefone + status_conversa (Ativa/Fechada)
+  Tabs (horizontal scroll):
+    - Ficha       (conteúdo atual do MobileFichaSheet)
+    - Histórico   (outras fichas do mesmo telefone)
+    - Resumo IA   (botão "Gerar resumo" → invoke summarize-conversation)
+    - Bot         (status atual + botão ligar/desligar)
+  Rodapé fixo: lista de ações (ícones + texto)
+    - Marcar como não lida / lida
+    - Ligar/Desligar bot
+    - Solicitar takeover (se ticket é de outro operador)
+    - Abrir ficha completa em nova aba
+    - Copiar telefone
+    - Ver histórico do bot
+```
 
-- Antes de qualquer envio com `remetente='bot'`, reconsultar `clientes.bot_habilitado` no banco.
-- Bloquear se `false`.
-- Logar `blocked_before_send=true`, `block_reason='bot_disabled'`, telefone, `request_id`.
-- **Sem** checar `atendente_id` ou atendimento humano agora.
+**Detalhamento das abas:**
 
-## 5. Checkbox por template (ajuste seu nº 2)
+- **Ficha**: igual ao atual (`Field` rows). Adicionar link "Abrir ficha completa" → `window.open(/fichas/:id)`.
+- **Histórico**: query `fichas_de_servico` por `telefone_cliente`, lista todas com status + data + valor. Tap → abre ficha.
+- **Resumo IA**: botão único que chama `summarize-conversation` edge function (já existe) e mostra resultado em texto. Cache no estado do sheet enquanto aberto.
+- **Bot**: mostra `bot_habilitado` atual; botão alterna via `toggle-bot-status` edge function. Se for ligar manualmente, exigir confirmação digitando `LIGAR` (regra do projeto — memória `bot-security-audit-history`).
 
-Schema:
+**Ações do rodapé:**
 
-- Migração de schema: `ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS disable_bot_on_send boolean NOT NULL DEFAULT false;`
-- Migração de dados (separada e explícita), conforme impacto já mostrado:
-  - `UPDATE whatsapp_templates SET disable_bot_on_send = true WHERE desliga_bot = true;`
-  - 6 templates afetados: `aviso_pagamento_3`, `cobranca_cliente_2`, `novas_informacoes_cliente`, `novo_orcamento_2`, `nps_avaliacao`, `recibo_confirmado`.
-  - 2 templates ficam `false`: `april_fishery_1`, `april_fishery_2`.
+| Ação | Implementação |
+|---|---|
+| Marcar como não lida/lida | `markConversationUnread` / `markConversationRead` + `setSelected(null)` para voltar à lista |
+| Ligar/Desligar bot | `supabase.functions.invoke("toggle-bot-status")` (mesma chamada usada no desktop) |
+| Solicitar takeover | só visível se `atendente_id` ≠ `user.id` e `status_conversa === "aberta"`; insere em `takeover_requests` + envia broadcast (lógica copiada de `ChatWindowBeta` → `iniciarTakeover`) |
+| Abrir ficha em nova aba | `window.open('/fichas/' + ficha.id, '_blank')` |
+| Copiar telefone | `navigator.clipboard.writeText` |
+| Ver histórico do bot | abre `BotHistoricoDialog` reutilizado (já existe) |
 
-UI (`src/components/TemplateManagement.tsx`):
+### 3. Indicador de status no header do chat
 
-- Substituir a coluna “Desliga bot” por um checkbox “Desligar bot ao enviar este template”, controlando `disable_bot_on_send`.
-- Tooltip: “Quando marcado, o bot será desligado automaticamente na conversa após o envio deste template.”
-- A UI escreve apenas `disable_bot_on_send`. `desliga_bot` fica como legado, sem ser editado na UI.
+Adicionar pequeno badge no header do chat (logo abaixo do telefone) mostrando:
+- Status da ficha (cor conforme `statusFichaCores`)
+- Indicador "Bot OFF" se `bot_habilitado === false`
+- Indicador "👤 Outro operador" se `atendente_id` ≠ user atual
 
-Envio (`AbrirConversaDialog.tsx`, `NovaConversaDialog.tsx`, `send-template`):
+Tap no badge abre o sheet direto na aba correspondente.
 
-- Carregar `disable_bot_on_send` do template.
-- Resolução: `disable_bot_on_send ?? desliga_bot ?? false` (após a migração explícita acima, o fallback praticamente nunca dispara; default seguro = `false`).
-- Se `true` E envio for de operador: chamar central com `requested_action=disable_bot`, `requested_origin=template`, `trigger_source=manual_template_button`.
-- Se `true` E envio for automatizado: `requested_origin=template`, `trigger_source=system_template` ou `automatic_template`.
-- Se `false`: **não** chamar central, **não** alterar bot.
-- Template **nunca** liga bot.
-- Template **nunca** apaga histórico.
-- Template **nunca** cria `conversation_id` nova — auditar `send-template` para confirmar que só insere mensagem na conversa existente (hoje já faz; vou apenas preservar).
-- **Sem regra extra de “trava manual por template”** — o estado resultante depende apenas da função central conforme item 1.
+---
 
-## 6. Botões da interface
+## Arquivos
 
-`src/components/ChatWindow.tsx` e `src/components/ChatWindowBeta.tsx`:
+**Novos:**
+- `src/components/mobile/MobileActionsSheet.tsx` — substitui o atual MobileFichaSheet
 
-- “Desligar bot”: `requested_action=disable_bot`, `requested_origin=manual`, `trigger_source=manual_button`.
-- “Ligar bot/Reativar bot”: `requested_action=enable_bot`, `requested_origin=manual`, `trigger_source=manual_button`. Mantém confirmação `LIGAR` que já existe.
-- Toasts só após confirmação do backend.
+**Editados:**
+- `src/components/mobile/MobileChatScreen.tsx`
+  - Substituir import de `MobileFichaSheet` por `MobileActionsSheet`
+  - Adicionar estado de `manual_unread` carregado de `mensagem_leitura_operador`
+  - Adicionar bolinha no header
+  - Receber prop `onBack` para voltar quando marcar como não lida
+  - Adicionar badges (status ficha / bot off / outro operador)
+- `src/components/mobile/MobileFichaSheet.tsx` — **manter o componente** mas usar internamente como aba "Ficha" do novo sheet (extrair só o conteúdo). Ou deletar e mover conteúdo para dentro de `MobileActionsSheet`. Vou manter o arquivo original intacto e o `MobileActionsSheet` consome `<FichaContent />` extraído.
 
-## 7. O que NÃO muda agora
+**Não alterado (reuso):**
+- `src/lib/chatBetaUnread.ts` (regras de leitura — intocadas)
+- `src/components/BotHistoricoDialog.tsx` (reuso)
+- Edge functions `toggle-bot-status`, `summarize-conversation`, `stop-twilio-flow`
 
-- `atendente_id`, `atribuicao_cadeia`, `useLogoutRedistribution`, `ConversationList(Beta)` — nenhuma mudança.
-- Nenhuma regra nova de reativação por status de ficha — fica para plano dedicado.
-- Nenhuma alteração em mensagens antigas, fichas, valores financeiros, horários, histórico.
-- Nenhum update em massa em `bot_historico`.
-- Campo `bot_desligado_manualmente` continua existindo. **Nesta fase ele NÃO bloqueia a IA** (a IA só olha `bot_habilitado`). Discutimos a utilidade dele depois, com base nos logs de incoerência do item 1.
+---
 
-## 8. Validação pós-deploy
+## Garantias / safeguards
 
-1. Operador clica “Desligar bot” → bot desliga, `bot_desligado_manualmente=true`.
-2. Operador clica “Ligar bot” + confirma `LIGAR` → bot liga, `bot_desligado_manualmente=false`.
-3. Pré-qualificação finaliza → bot desliga com origem `pre_qualificacao_finalizada`, sem nova trava manual.
-4. `stop-twilio-flow` chamado sem `manual_button` → registra automático, não vira manual.
-5. Cron reativa em conversa que estava com `bot_desligado_manualmente=true` → bot liga, trava antiga preservada, log de incoerência gerado.
-6. IA tenta responder com `bot_habilitado=false` → bloqueada e logada.
-7. Template com `disable_bot_on_send=false` → envio não toca no bot.
-8. Template com `disable_bot_on_send=true` → envio desliga bot, sem criar conversa nova, sem apagar histórico.
-9. Templates existentes migrados → comportamento idêntico ao atual (6 desligam, 2 não).
-10. Template novo criado → default `false`, não desliga bot até marcarem o checkbox.
+- **Não toco em `mensagem_leitura_operador`** fora dos handlers já validados (`markConversationAutoRead`, `markConversationRead`, `markConversationUnread`).
+- **Não altero a forma como `manual_unread` é calculado** — apenas leio e exponho na UI mobile.
+- **Não modifico tabelas, RLS, edge functions ou lógica de bot/takeover** — apenas chamo o que já existe.
+- Desktop (`ChatWindowBeta`) **continua exatamente igual**.
+- Roteamento mobile (`useIsMobile()`) já está em `App.tsx` — sem mudanças.
+- Sem mudança em fuso horário, datas ou valores armazenados.
 
-Pode implementar exatamente esse plano.
+---
 
-Apenas reforçando a regra principal:
+## Fora de escopo (pode entrar depois se quiser)
 
-Nesta fase, a IA/bot deve obedecer somente ao campo bot_habilitado.
-
-- bot_habilitado = true → bot pode responder.
-
-- bot_habilitado = false → bot não pode responder.
-
-Não usar atendente_id, atendimento humano ou bot_desligado_manualmente para bloquear a IA neste momento.
-
-O campo bot_desligado_manualmente continua existindo apenas como controle/auditoria legado nesta etapa. Se ficar bot_habilitado=true e bot_desligado_manualmente=true após cron, apenas registrar warning/incoerência, como você descreveu, sem bloquear o funcionamento.
-
-Pode seguir.
-
-&nbsp;
+- Editar campos da ficha pelo mobile (hoje só leitura).
+- Anexos / áudio gravado pelo mobile.
+- Templates aprovados (já existe via `MobileTemplatesSheet`, mantido).
