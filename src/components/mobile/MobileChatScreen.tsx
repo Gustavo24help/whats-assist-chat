@@ -77,6 +77,35 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
     }
   }, [cliente.telefone, user?.id]);
 
+  // Carregar flag manual_unread + status do cliente (bot, atendente)
+  const refreshSidecar = useCallback(async () => {
+    if (!user?.id) return;
+    const [{ data: read }, { data: cl }] = await Promise.all([
+      (supabase as any)
+        .from("mensagem_leitura_operador")
+        .select("manual_unread")
+        .eq("user_id", user.id)
+        .eq("cliente_telefone", cliente.telefone)
+        .maybeSingle(),
+      supabase
+        .from("clientes")
+        .select("bot_habilitado, atendente_id, atendente:profiles!atendente_id(full_name)")
+        .eq("telefone", cliente.telefone)
+        .maybeSingle(),
+    ]);
+    setManualUnread(!!read?.manual_unread);
+    setBotHabilitado((cl as any)?.bot_habilitado ?? null);
+    if ((cl as any)?.atendente_id && (cl as any)?.atendente_id !== user.id) {
+      setOutroOperadorNome((cl as any)?.atendente?.full_name || "Outro operador");
+    } else {
+      setOutroOperadorNome(null);
+    }
+  }, [cliente.telefone, user?.id]);
+
+  useEffect(() => {
+    refreshSidecar();
+  }, [refreshSidecar]);
+
   // Realtime
   useEffect(() => {
     const ch = supabase
