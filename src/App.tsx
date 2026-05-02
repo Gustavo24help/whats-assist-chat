@@ -117,6 +117,13 @@ const InactivityWrapper = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+// Roteador transparente: em <768px renderiza a versão mobile do chat,
+// em telas maiores renderiza a versão desktop original.
+const ChatRouter = ({ desktop }: { desktop: React.ReactElement }) => {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileChat /> : desktop;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -155,7 +162,7 @@ const App = () => (
                 path="/chat"
                 element={
                   <ProtectedRoute>
-                    <Chat />
+                    <ChatRouter desktop={<Chat />} />
                   </ProtectedRoute>
                 }
               />
@@ -163,7 +170,7 @@ const App = () => (
                 path="/chat-beta"
                 element={
                   <ProtectedRoute>
-                    <ChatBeta />
+                    <ChatRouter desktop={<ChatBeta />} />
                   </ProtectedRoute>
                 }
               />
