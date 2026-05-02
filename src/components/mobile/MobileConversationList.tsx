@@ -115,6 +115,16 @@ export function MobileConversationList({ onSelectCliente, onLogout, onOpenSettin
     for (let i = 0; i < telefones.length; i += 50) chunks.push(telefones.slice(i, i + 50));
     const map = new Map<string, string>();
     const snippets = new Map<string, { texto: string; from_cliente: boolean }>();
+    const NUMERO_24HELP = "whatsapp:+554138911555";
+    const NUMERO_SANDBOX = "whatsapp:+14155238886";
+    const isAtendenteRem = (rem?: string) =>
+      !!rem &&
+      (rem === NUMERO_24HELP ||
+        rem === NUMERO_SANDBOX ||
+        rem === "atendente" ||
+        rem === "bot" ||
+        rem === "operador" ||
+        rem === "system");
     for (const chunk of chunks) {
       const { data } = await supabase
         .from("mensagens")
@@ -123,7 +133,7 @@ export function MobileConversationList({ onSelectCliente, onLogout, onOpenSettin
         .order("data_hora", { ascending: false })
         .limit(chunk.length * 5);
       (data || []).forEach((m: any) => {
-        const isAtendente = m.remetente?.includes("whatsapp:+") || m.remetente === "atendente" || m.remetente === "bot";
+        const isAtendente = isAtendenteRem(m.remetente);
         if (!isAtendente && !map.has(m.cliente_id)) {
           map.set(m.cliente_id, m.data_hora);
         }
