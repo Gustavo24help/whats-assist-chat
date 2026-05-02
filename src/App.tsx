@@ -22,6 +22,8 @@ import Home from "./pages/Home";
 import { FichaWhatsAppDemo } from "./components/FichaWhatsApp";
 import Chat from "./pages/Chat";
 import ChatBeta from "./pages/ChatBeta";
+import MobileChat from "./pages/MobileChat";
+import { useIsMobile } from "@/hooks/use-mobile";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
@@ -115,6 +117,13 @@ const InactivityWrapper = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+// Roteador transparente: em <768px renderiza a versão mobile do chat,
+// em telas maiores renderiza a versão desktop original.
+const ChatRouter = ({ desktop }: { desktop: React.ReactElement }) => {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileChat /> : desktop;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -153,7 +162,7 @@ const App = () => (
                 path="/chat"
                 element={
                   <ProtectedRoute>
-                    <Chat />
+                    <ChatRouter desktop={<Chat />} />
                   </ProtectedRoute>
                 }
               />
@@ -161,7 +170,7 @@ const App = () => (
                 path="/chat-beta"
                 element={
                   <ProtectedRoute>
-                    <ChatBeta />
+                    <ChatRouter desktop={<ChatBeta />} />
                   </ProtectedRoute>
                 }
               />
