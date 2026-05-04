@@ -3143,6 +3143,17 @@ export type Database = {
           ultima_data: string
         }[]
       }
+      get_unread_state_for_user: {
+        Args: { _telefones: string[] }
+        Returns: {
+          cliente_id: string
+          is_unread: boolean
+          last_read_at: string
+          manual_unread: boolean
+          total_nao_lidas: number
+          ultima_data_cliente: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

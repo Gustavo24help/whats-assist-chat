@@ -1,51 +1,105 @@
-Diagnóstico confirmado:
+Você tem razão em reclamar. Eu não vou fingir que a correção anterior resolveu. Agora eu encontrei um motivo técnico concreto para o comportamento continuar igual.
 
-1. O problema não é só cache visual. Existem operadores sem nenhum registro em `mensagem_leitura_operador`.
-   - Leonardo Karam: 0 registros de leitura; por isso aparecem cerca de 1501 conversas não lidas.
-   - Melvin: 0 registros de leitura; mesmo efeito.
-   - Outros operadores têm quase todos os registros, mas ainda há 1 conversa sem registro e algumas mensagens novas.
+Diagnóstico objetivo
 
-2. A regra atual interpreta ausência de registro como “nunca leu”. Então, se um operador não tem linha em `mensagem_leitura_operador`, todas as mensagens históricas do cliente contam como não lidas.
+- O banco tem cerca de 1567 conversas ativas.
+- A tabela correta de leitura por operador, `mensagem_leitura_operador`, tem cerca de 1567 registros por operador.
+- Mas o frontend busca esses registros assim: `.from('mensagem_leitura_operador').select(...).eq('user_id', user.id)` sem paginação.
+- A API retorna por padrão no máximo 1000 linhas.
+- Resultado: para centenas de conversas, o navegador não recebe o `last_read_at`, então acha que não existe leitura e recalcula a bolinha como não lida logo depois do clique.
+- Isso explica exatamente o sintoma: você clica, a bolinha some por estado local, a lista recarrega, os dados vêm incompletos e a bolinha volta.
 
-3. Ao clicar numa conversa, o frontend zera a bolinha localmente, mas o chat principal (`/chat`) chama leitura automática que atualiza só `last_read_at` e não limpa `manual_unread`. Além disso, se a gravação falhar ou o operador estiver sem seed completo, o próximo refresh/realtime recalcula do banco e a bolinha volta.
+Também encontrei um resíduo antigo no banco:
 
-4. O reset anterior foi incompleto porque não criou/atualizou linhas para todos os operadores ativos em todas as conversas ativas. Ele deixou usuários inteiros sem histórico de leitura.
+- Ainda existe uma trigger antiga `mark_client_unread_on_new_message` que escreve em `clientes.marcado_nao_lido`, mesmo o sistema novo dizendo que a fonte correta é `mensagem_leitura_operador`.
+- Isso não deveria mais participar da regra atual e precisa ser removido para não haver duas fontes conflitantes.
 
-Plano definitivo, sem mudar regras de negócio:
+Plano de correção definitiva
 
-1. Fazer um reset transacional completo no banco
-   - Para cada operador existente em `profiles` e cada conversa ativa/não arquivada em `clientes`, criar ou atualizar uma linha em `mensagem_leitura_operador`.
-   - Definir:
-     - `last_read_at = now()`
-     - `manual_unread = false`
-     - `manual_unread_at = null`
-   - Limpar também o campo legado global em `clientes`:
-     - `marcado_nao_lido = false`
-     - `marcado_nao_lido_manual_em = null`
-   - Não alterar mensagens, clientes, fichas, status, operadores, regras de bot, tags, atendente, nem parâmetros de negócio.
+1. Parar de calcular não lido no frontend com um mapa incompleto
 
-2. Corrigir o comportamento de clique no chat principal e mobile para não voltar bolinha
-   - Em `/chat`, quando abrir uma conversa, usar leitura explícita (`markConversationRead`) em vez de leitura automática (`markConversationAutoRead`).
-   - Em mobile, aplicar o mesmo: abrir conversa = marcar como lida explicitamente.
-   - Isso mantém a regra atual de “marcar manualmente como não lida” quando usado pelo menu, mas garante que clicar/abrir realmente considera lido, que é o comportamento esperado pelo usuário.
+Criar uma função de banco nova, por operador autenticado, que retorna o estado de não lido de cada conversa diretamente no banco:
 
-3. Tornar o cálculo robusto quando faltar linha de leitura
-   - Ajustar a RPC `get_unread_cliente_msgs` para receber um `baseline` opcional ou usar uma função nova de reset/seed, evitando que usuários novos/sem seed vejam todo o histórico como não lido por acidente.
-   - A regra continua a mesma para novas mensagens: mensagens do cliente depois de `last_read_at` geram não lido.
-   - O objetivo é impedir que ausência histórica de registro seja confundida com milhares de não lidas depois de um reset.
+```text
+get_unread_cliente_state(_telefones text[])
+→ cliente_id
+→ ultima_data_cliente
+→ last_read_at
+→ manual_unread
+→ total_nao_lidas
+→ is_unread
+```
 
-4. Remover fontes legadas que ainda podem confundir visualmente
-   - Garantir que os cards e contadores usem somente `mensagem_leitura_operador` como fonte de verdade.
-   - Manter `clientes.marcado_nao_lido` apenas limpo/legado, sem usar para badge.
+Essa função vai fazer o join direto com `mensagem_leitura_operador` usando o usuário logado, sem depender de o frontend carregar 1000 ou 1567 linhas.
 
-5. Validação pós-correção
-   - Rodar consulta de conferência por operador:
-     - número de conversas não lidas deve ficar 0 logo após reset, salvo se entrar mensagem nova durante a execução.
-     - número de linhas ausentes em `mensagem_leitura_operador` deve ficar 0 para conversas ativas.
-   - Conferir exemplos da tela enviada: Andressa Melo Coimbra, Alessandra Serafini, Amanda Nicco e Kendra devem ficar sem bolinha se não houver mensagem nova após o reset.
+2. Atualizar as listas de conversa para usar essa função
 
-Impacto esperado:
-- Zera de verdade os não lidos atuais para todos os operadores.
-- A partir desse ponto, só novas mensagens do cliente voltam a gerar bolinha.
-- Clicar/abrir conversa passa a limpar definitivamente a bolinha para o operador atual.
-- Não muda parâmetros, regras de bot, status, mensagens, fichas, cálculos financeiros, Twilio ou automações.
+Alterar:
+
+- `src/components/ConversationList.tsx`
+- `src/components/ConversationListBeta.tsx`
+- `src/components/mobile/MobileConversationList.tsx`
+
+Para que a bolinha venha de uma única regra calculada no banco:
+
+```text
+não lida = manual_unread = true
+         OU existe mensagem do cliente após last_read_at
+```
+
+Assim, abrir a conversa e recarregar a lista não vai mais depender de uma busca truncada.
+
+3. Paginar a lista clássica de clientes
+
+A lista beta já pagina `clientes`, mas a lista clássica ainda não. Vou corrigir a lista clássica para buscar todos os clientes com `.range()` em páginas de 1000, igual já existe no beta.
+
+Isso evita outro problema parecido: qualquer lógica sobre conversas acima da linha 1000 ficar inconsistente.
+
+4. Remover a fonte antiga global de não lido
+
+Criar migration para:
+
+- Derrubar a trigger antiga `on_new_client_message_mark_unread`.
+- Transformar/remover a função antiga `mark_client_unread_on_new_message`, se não for mais usada.
+- Limpar `clientes.marcado_nao_lido = false` e `marcado_nao_lido_manual_em = null`.
+
+A partir daí, `clientes.marcado_nao_lido` deixa de interferir de vez.
+
+5. Reset real dos não lidos após corrigir a causa
+
+Depois que a regra estiver correta, fazer um reset controlado:
+
+- Para todo operador ativo × toda conversa ativa:
+  - `last_read_at = now()`
+  - `manual_unread = false`
+  - `manual_unread_at = null`
+- Não alterar mensagens.
+- Não alterar fichas.
+- Não alterar financeiro.
+- Não alterar horários de agendamento.
+- Não alterar status de atendimento.
+
+6. Verificação antes de entregar
+
+Rodar consultas de verificação para confirmar:
+
+- Quantidade de registros de leitura por operador = quantidade de conversas ativas.
+- `manual_unread = 0` após reset.
+- `is_unread = 0` para todos logo após reset.
+- Uma nova mensagem real do cliente volta a gerar bolinha normalmente.
+- Abrir a conversa remove a bolinha e ela não volta no refresh seguinte.
+
+Resultado esperado
+
+- As bolinhas antigas somem de verdade.
+- Ao clicar em uma conversa, a bolinha não volta sozinha.
+- Mensagens novas de clientes continuam criando não lido.
+- Marcar manualmente como não lida continua funcionando.
+- O sistema não depende mais de carregar milhares de linhas no navegador para decidir se está lido ou não.
+
+Se você aprovar, eu implemento exatamente isso. Esta correção mexe apenas no sistema de leitura/não leitura do chat e no reset desses indicadores.
+
+<lov-actions>
+<lov-open-history>View History</lov-open-history>
+<lov-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</lov-link>
+</lov-actions>

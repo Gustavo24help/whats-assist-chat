@@ -7,6 +7,7 @@ import { Search, LogOut, Settings, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNowStrict } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { fetchUnreadStateForUser } from "@/lib/unreadState";
 
 interface Cliente {
   telefone: string;
@@ -93,19 +94,22 @@ export function MobileConversationList({ onSelectCliente, onLogout, onOpenSettin
     setLoading(false);
   }, [user?.id]);
 
-  // Buscar leituras do operador
-  const fetchReads = useCallback(async () => {
+  // Buscar leituras do operador via RPC (calculada no banco, sem limite de 1000)
+  const fetchReads = useCallback(async (telefones?: string[]) => {
     if (!user?.id) return;
-    const { data } = await (supabase as any)
-      .from("mensagem_leitura_operador")
-      .select("cliente_telefone, last_read_at, manual_unread")
-      .eq("user_id", user.id);
-    if (data) {
-      const map = new Map<string, ReadRow>();
-      data.forEach((r: ReadRow) => map.set(r.cliente_telefone, r));
-      setReads(map);
-    }
-  }, [user?.id]);
+    const list = telefones && telefones.length ? telefones : clientes.map((c) => c.telefone);
+    if (!list.length) return;
+    const stateMap = await fetchUnreadStateForUser(list);
+    const map = new Map<string, ReadRow>();
+    stateMap.forEach((row, telefone) => {
+      map.set(telefone, {
+        cliente_telefone: telefone,
+        last_read_at: row.last_read_at,
+        manual_unread: row.manual_unread === true,
+      });
+    });
+    setReads(map);
+  }, [user?.id, clientes]);
 
   // Buscar última mensagem do cliente p/ cada conversa
   const fetchLastClientMessages = useCallback(async (telefones: string[]) => {
