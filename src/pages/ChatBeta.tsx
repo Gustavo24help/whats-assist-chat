@@ -204,6 +204,7 @@ const ChatBeta = () => {
 
         <div className="flex items-center gap-1">
           <BotSemFichaNotification onSelectCliente={handleSelectCliente} />
+          <FichaSemNomeNotification />
           <OrcamentoNotification onSelectFicha={handleOrcamentoNotification} />
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate("/settings")}>
             <Settings className="h-3.5 w-3.5" />
