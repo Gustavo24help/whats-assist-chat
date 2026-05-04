@@ -1,112 +1,124 @@
-## Contexto
+Você está certo em desconfiar: hoje o sistema já tem webhook, sync manual e monitor, mas ainda não existe uma “fonte de verdade” visível que compare continuamente o que a Twilio tem com o que entrou no Lovable.
 
-Hoje no mobile (`/chat` e `/chat-beta` em <768px):
-- A **lista de conversas** já tem bolinha de não lido (`MobileConversationList.tsx`).
-- A **tela do chat aberto** tem um botão `i` no header que abre `MobileFichaSheet` — mas o sheet só mostra dados estáticos da ficha. Não há ações nem outras visualizações.
-- O usuário quer:
-  1. Manter as regras de lido/não lido também no mobile (já estão — só vou reforçar e tornar acionável).
-  2. Expandir o botão `i` para virar um **painel de ações + visualizações**, equivalente reduzido ao painel lateral do desktop.
+Pelo que encontrei:
+- `twilio-webhook` salva mensagens recebidas em `mensagens` / `mensagens_prestadores` e registra alguns eventos em `webhook_debug_logs`.
+- `sync-twilio-messages` busca mensagens recentes na Twilio e tenta inserir as que faltam.
+- `monitor-mensagens` existe, mas hoje compara apenas um número Twilio principal, filtra de forma antiga e não cobre bem todos os números/rotas.
+- `mensagens_backup_queue` existe, mas o webhook atual não usa essa fila quando falha ao salvar.
+- O callback de status (`update-message-status`) praticamente só atualiza status de mensagens enviadas e descarta `failed/undelivered` sem gravar diagnóstico rico.
 
-A regra de leitura/não leitura continua usando exclusivamente `mensagem_leitura_operador` via `chatBetaUnread.ts` (fonte única, conforme `documentação/chat-beta-leitura.md`). **Nada da lógica de leitura muda** — apenas adiciono pontos de entrada visuais e a ação manual.
+Plano pro próximo passo: transformar isso em um sistema de controle operacional, não só correções pontuais.
 
----
+## 1. Conectar/usar Twilio pelo conector do Lovable
+Vou vincular o conector Twilio ao projeto para que novas chamadas de diagnóstico usem o gateway seguro do Lovable, em vez de depender só de `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` manuais.
 
-## Mudanças
+Isso ajuda em:
+- teste de credencial direto;
+- menos risco de token antigo/errado;
+- padronização das consultas de mensagens;
+- base para um botão “Testar Twilio” dentro do app.
 
-### 1. Bolinha de não lido visível também dentro do chat aberto
+Não vou alterar o envio principal de mensagens neste primeiro passo para evitar risco em produção.
 
-Hoje a bolinha aparece só na lista. Quando o operador entra no chat, ele perde a indicação visual e não consegue marcar como não lido sem voltar.
+## 2. Criar uma reconciliação robusta Twilio x Lovable
+Vou criar/ajustar uma função de backend para comparar, em uma janela configurável, as mensagens da Twilio contra o banco do Lovable.
 
-- No header de `MobileChatScreen.tsx`, ao lado do nome do cliente, mostrar bolinha coral pequena se `manual_unread === true` (lido pela mesma `mensagem_leitura_operador`, filtrado pelo `user.id` atual).
-- Adicionar item "Marcar como não lida" / "Marcar como lida" dentro do novo painel de ações (item 2 abaixo) — usa `markConversationUnread` / `markConversationRead` já existentes.
-- Após "Marcar como não lida", **voltar automaticamente para a lista** (mesma UX do WhatsApp / Gmail mobile).
+Ela deverá:
+- consultar todos os números WhatsApp gerenciados, não apenas um;
+- separar cliente x prestador;
+- comparar por `MessageSid`;
+- retornar mensagens presentes na Twilio e ausentes no Lovable;
+- retornar mensagens no Lovable sem `MessageSid`;
+- mostrar divergências por hora, por número Twilio e por rota;
+- permitir filtro por telefone do cliente/prestador;
+- permitir janela de tempo: 1h, 6h, 24h, 7 dias.
 
-### 2. Substituir `MobileFichaSheet` por `MobileActionsSheet` (painel "i" expandido)
+## 3. Criar tabela de auditoria de reconciliação
+Vou adicionar uma tabela nova para guardar cada execução de diagnóstico, sem alterar mensagens existentes.
 
-Renomear o sheet aberto pelo botão `i` para algo mais amplo. Continua sendo um `Drawer` bottom-sheet, mas agora com **abas no topo** + **lista de ações no rodapé**.
+Exemplo do que será salvo:
+- período analisado;
+- total encontrado na Twilio;
+- total encontrado no Lovable;
+- quantidade faltando;
+- lista dos SIDs faltantes;
+- número Twilio envolvido;
+- telefone do cliente/prestador;
+- status Twilio;
+- erro/detalhes quando houver.
 
-**Estrutura do sheet:**
+Safeguard: essa tabela será apenas de auditoria. Não mexe em horários, status ou conteúdo de mensagens já existentes.
+
+## 4. Reforçar recuperação automática sem duplicar mensagens
+Vou evoluir a recuperação para usar `MessageSid` como chave principal.
+
+Comportamento:
+- se a mensagem existe no Lovable, não duplica;
+- se está faltando, insere com o timestamp original da Twilio (`date_sent`/`date_created`);
+- se for mídia, preserva tipo e URL;
+- se for prestador, salva na tabela de prestadores;
+- se for cliente, salva em `mensagens`;
+- se falhar ao inserir, grava na fila `mensagens_backup_queue` com payload e erro.
+
+Safeguard importante: nenhuma mensagem existente será atualizada em massa. A função só insere mensagens comprovadamente ausentes por `MessageSid`, ou marca tentativas na fila de backup.
+
+## 5. Fazer o webhook usar a fila de backup em falhas
+Hoje, quando `twilio-webhook` falha ao salvar, ele registra log, mas não necessariamente deixa a mensagem pronta para reprocessamento.
+
+Vou ajustar para:
+- registrar payload completo mínimo na fila quando houver erro de insert;
+- guardar `MessageSid`, telefone e payload normalizado;
+- permitir reprocessamento posterior sem depender do webhook original.
+
+## 6. Melhorar logs de status da Twilio
+Vou enriquecer o callback de status para gravar eventos importantes:
+- `failed`;
+- `undelivered`;
+- `ErrorCode`;
+- `ErrorMessage`;
+- SID sem correspondência no banco;
+- status recebido, entregue e lido.
+
+Isso vai para logs internos/auditoria, para você conseguir entender se a mensagem:
+- nem chegou no webhook;
+- chegou no webhook mas falhou ao salvar;
+- foi enviada mas falhou na Twilio;
+- existe na Twilio mas não existe no Lovable.
+
+## 7. Criar painel visual em Manutenção/Logs Twilio
+Vou adicionar uma área no app para você enxergar isso sem depender de console técnico.
+
+A tela terá:
+- botão “Testar conexão Twilio”;
+- botão “Comparar últimas 24h”;
+- seletor de período;
+- campo para buscar por telefone;
+- cards com totais Twilio x Lovable;
+- lista de mensagens faltantes com `MessageSid`, horário, número, telefone, status e trecho do texto;
+- botão “Recuperar faltantes”;
+- histórico das últimas reconciliações.
+
+## 8. Corrigir o monitor atual
+O `monitor-mensagens` atual usa lógica antiga, especialmente filtro por remetente e número único. Vou atualizar para reaproveitar a lógica nova e evitar falsos positivos/negativos.
+
+## 9. Validação depois da implementação
+Depois de implementar, vou testar:
+- execução sem filtro nas últimas 24h;
+- execução por telefone específico;
+- recuperação sem duplicidade;
+- callback de status com payload simulado;
+- leitura dos resultados no painel.
+
+## Resultado esperado
+Você passa a ter um controle objetivo:
 
 ```text
-[Drawer fullscreen 92dvh]
-  Header: nome do cliente + telefone + status_conversa (Ativa/Fechada)
-  Tabs (horizontal scroll):
-    - Ficha       (conteúdo atual do MobileFichaSheet)
-    - Histórico   (outras fichas do mesmo telefone)
-    - Resumo IA   (botão "Gerar resumo" → invoke summarize-conversation)
-    - Bot         (status atual + botão ligar/desligar)
-  Rodapé fixo: lista de ações (ícones + texto)
-    - Marcar como não lida / lida
-    - Ligar/Desligar bot
-    - Solicitar takeover (se ticket é de outro operador)
-    - Abrir ficha completa em nova aba
-    - Copiar telefone
-    - Ver histórico do bot
+Twilio recebeu/enviou X mensagens
+Lovable salvou Y mensagens
+Faltam Z mensagens
+Estas são as mensagens faltantes
+Clique para recuperar
+Se falhar, fica em fila e mostra o erro
 ```
 
-**Detalhamento das abas:**
-
-- **Ficha**: igual ao atual (`Field` rows). Adicionar link "Abrir ficha completa" → `window.open(/fichas/:id)`.
-- **Histórico**: query `fichas_de_servico` por `telefone_cliente`, lista todas com status + data + valor. Tap → abre ficha.
-- **Resumo IA**: botão único que chama `summarize-conversation` edge function (já existe) e mostra resultado em texto. Cache no estado do sheet enquanto aberto.
-- **Bot**: mostra `bot_habilitado` atual; botão alterna via `toggle-bot-status` edge function. Se for ligar manualmente, exigir confirmação digitando `LIGAR` (regra do projeto — memória `bot-security-audit-history`).
-
-**Ações do rodapé:**
-
-| Ação | Implementação |
-|---|---|
-| Marcar como não lida/lida | `markConversationUnread` / `markConversationRead` + `setSelected(null)` para voltar à lista |
-| Ligar/Desligar bot | `supabase.functions.invoke("toggle-bot-status")` (mesma chamada usada no desktop) |
-| Solicitar takeover | só visível se `atendente_id` ≠ `user.id` e `status_conversa === "aberta"`; insere em `takeover_requests` + envia broadcast (lógica copiada de `ChatWindowBeta` → `iniciarTakeover`) |
-| Abrir ficha em nova aba | `window.open('/fichas/' + ficha.id, '_blank')` |
-| Copiar telefone | `navigator.clipboard.writeText` |
-| Ver histórico do bot | abre `BotHistoricoDialog` reutilizado (já existe) |
-
-### 3. Indicador de status no header do chat
-
-Adicionar pequeno badge no header do chat (logo abaixo do telefone) mostrando:
-- Status da ficha (cor conforme `statusFichaCores`)
-- Indicador "Bot OFF" se `bot_habilitado === false`
-- Indicador "👤 Outro operador" se `atendente_id` ≠ user atual
-
-Tap no badge abre o sheet direto na aba correspondente.
-
----
-
-## Arquivos
-
-**Novos:**
-- `src/components/mobile/MobileActionsSheet.tsx` — substitui o atual MobileFichaSheet
-
-**Editados:**
-- `src/components/mobile/MobileChatScreen.tsx`
-  - Substituir import de `MobileFichaSheet` por `MobileActionsSheet`
-  - Adicionar estado de `manual_unread` carregado de `mensagem_leitura_operador`
-  - Adicionar bolinha no header
-  - Receber prop `onBack` para voltar quando marcar como não lida
-  - Adicionar badges (status ficha / bot off / outro operador)
-- `src/components/mobile/MobileFichaSheet.tsx` — **manter o componente** mas usar internamente como aba "Ficha" do novo sheet (extrair só o conteúdo). Ou deletar e mover conteúdo para dentro de `MobileActionsSheet`. Vou manter o arquivo original intacto e o `MobileActionsSheet` consome `<FichaContent />` extraído.
-
-**Não alterado (reuso):**
-- `src/lib/chatBetaUnread.ts` (regras de leitura — intocadas)
-- `src/components/BotHistoricoDialog.tsx` (reuso)
-- Edge functions `toggle-bot-status`, `summarize-conversation`, `stop-twilio-flow`
-
----
-
-## Garantias / safeguards
-
-- **Não toco em `mensagem_leitura_operador`** fora dos handlers já validados (`markConversationAutoRead`, `markConversationRead`, `markConversationUnread`).
-- **Não altero a forma como `manual_unread` é calculado** — apenas leio e exponho na UI mobile.
-- **Não modifico tabelas, RLS, edge functions ou lógica de bot/takeover** — apenas chamo o que já existe.
-- Desktop (`ChatWindowBeta`) **continua exatamente igual**.
-- Roteamento mobile (`useIsMobile()`) já está em `App.tsx` — sem mudanças.
-- Sem mudança em fuso horário, datas ou valores armazenados.
-
----
-
-## Fora de escopo (pode entrar depois se quiser)
-
-- Editar campos da ficha pelo mobile (hoje só leitura).
-- Anexos / áudio gravado pelo mobile.
-- Templates aprovados (já existe via `MobileTemplatesSheet`, mantido).
+Isso não promete que a Twilio nunca falhe, mas elimina o “escuro”: se uma mensagem passou pela Twilio e não apareceu no Lovable, o sistema passa a identificar, listar e recuperar com muito mais segurança.

@@ -2738,6 +2738,72 @@ export type Database = {
         }
         Relationships: []
       }
+      twilio_reconciliation_runs: {
+        Row: {
+          created_at: string
+          customer_phone: string | null
+          duration_ms: number | null
+          errors_details: Json
+          id: string
+          loss_rate_pct: number
+          managed_numbers: string[] | null
+          missing_details: Json
+          period_end: string
+          period_start: string
+          recovery_details: Json
+          scope: string
+          total_extra: number
+          total_lovable: number
+          total_missing: number
+          total_recovered: number
+          total_recovery_errors: number
+          total_twilio: number
+          triggered_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_phone?: string | null
+          duration_ms?: number | null
+          errors_details?: Json
+          id?: string
+          loss_rate_pct?: number
+          managed_numbers?: string[] | null
+          missing_details?: Json
+          period_end: string
+          period_start: string
+          recovery_details?: Json
+          scope?: string
+          total_extra?: number
+          total_lovable?: number
+          total_missing?: number
+          total_recovered?: number
+          total_recovery_errors?: number
+          total_twilio?: number
+          triggered_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_phone?: string | null
+          duration_ms?: number | null
+          errors_details?: Json
+          id?: string
+          loss_rate_pct?: number
+          managed_numbers?: string[] | null
+          missing_details?: Json
+          period_end?: string
+          period_start?: string
+          recovery_details?: Json
+          scope?: string
+          total_extra?: number
+          total_lovable?: number
+          total_missing?: number
+          total_recovered?: number
+          total_recovery_errors?: number
+          total_twilio?: number
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       twilio_sync_control: {
         Row: {
           errors: number | null
