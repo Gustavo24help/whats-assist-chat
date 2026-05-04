@@ -164,6 +164,7 @@ const Chat = () => {
         </div>
         <div className="flex gap-2">
           <BotSemFichaNotification onSelectCliente={handleSelectCliente} />
+          <FichaSemNomeNotification />
           <OrcamentoNotification onSelectFicha={handleOrcamentoNotification} />
           <OrcamentosSemFichaNotification />
           <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
