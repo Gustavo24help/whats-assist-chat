@@ -1,44 +1,67 @@
 
-## Escopo atualizado
+## Objetivo
 
-Identifiquei **30 fichas** com status `Agendado` registrado nos períodos:
-- **14/04 a 18/04** (15 fichas)
-- **22/04 a 24/04** (6 fichas)
-- **27/04 a 30/04** (9 fichas)
+Gerar um documento (`automacoes-externas-internalizaveis.md` em `/mnt/documents/`) que mapeia, para cada automação externa hoje em uso (Make.com, Twilio Studio, Zoho CRM, Asaas, Google Ads), **o que pode ser trazido para dentro do sistema**, com nível de dificuldade, ganho e riscos.
 
-Total estimado: ~600+ mensagens de atendente para classificar.
+Nada será alterado em código ainda — é um documento estratégico. Após sua aprovação dos itens prioritários, posso implementar cada migração de forma incremental.
 
-## Metodologia
+---
 
-Para cada ficha:
+## Estrutura do documento
 
-### 1. Operador responsável pelo agendamento
-Última mensagem de `tipo_remetente='atendente'` **antes** do registro `Agendado` em `ficha_status_historico`. Uso `operador_nome` dessa mensagem.
+### 1. Resumo executivo
+Tabela "semáforo" classificando cada automação externa em:
+- 🟢 **Internalizável já** (lógica simples, sem custo extra)
+- 🟡 **Internalizável com esforço** (precisa de OAuth, API key ou refactor)
+- 🔴 **Manter externo** (Make/Zoho agregam valor real ou risco de regressão alto)
 
-### 2. Janela de horários vs Horário fixo
-Análise textual nas mensagens do atendente entre criação da ficha e o agendamento:
+### 2. Análise por automação externa
 
-- **JANELA**: regex como `entre \d+`, `das? \d+\s*(às|as|até|a)\s*\d+`, `\d+h\s*(às|as|até|-)\s*\d+h`, `período da (manhã|tarde)`, "manhã ou tarde", "qualquer horário".
-- **FIXO**: apenas horário pontual ("às 14h", "14:00") sem intervalo.
-- **Indefinido**: sem evidência clara — listado para auditoria.
+**A. Make — Cenário "Criar Ficha" (Studio Flow → Make → Supabase + Zoho)**
+- 🟢 Parte Supabase: já é só um INSERT em `fichas_de_servico`. Pode virar edge function `criar-ficha-do-bot` chamada direto pelo Studio Flow (elimina hop pelo Make).
+- 🟡 Parte Zoho: depende de manter Zoho como CRM. Se for usado ativamente, manter; se for só "espelho", avaliar descontinuar.
 
-### 3. Mensagem padrão "15. SERVIÇO AGENDADO"
-Texto: *"Obrigada. Seu serviço foi agendado. Fico a disposição! 😊"*
+**B. Make — `MAKE_WEBHOOK_UPDATE_PLANILHA` (Asaas → Planilha + Zoho)**
+- 🟢 **Planilha Google Sheets**: pode ser substituída pelas próprias páginas internas (`PlanilhaControleFinanceiro`, `PlanilhaControlePagamentos`, `ContasReceber`) que já existem e leem do banco. A planilha externa hoje é redundante.
+- 🟡 **Zoho update**: se quiser manter sincronia, criar edge function `sync-zoho-deal` chamando API Zoho direto (precisa de OAuth refresh token Zoho).
 
-Busco nas mensagens do atendente até 2h após o registro `Agendado`. Match por similaridade (tolera variação de emoji/pontuação).
+**C. Make — `MAKE_WEBHOOK_FINANCEIRO` (eventos financeiros)**
+- 🟢 **Internalizável 100%**: hoje só replica dados em planilha. Como `transacoes_financeiras` já é fonte da verdade no app (Financeiro/KPIs), o webhook serve apenas para um espelho externo. Pode ser desligado e os relatórios consumidos diretamente do app + export CSV/PDF.
 
-### 4. Agregação por operador
+**D. Twilio Studio Flow (bot inicial)**
+- 🔴 **Manter** no curto prazo: o Studio é o ponto de entrada do WhatsApp. Migrar o fluxo conversacional inteiro para edge function é viável (`twilio-webhook` já recebe TODAS as mensagens), mas é um projeto grande e arriscado. Recomendação: planejar migração futura para um "router" próprio em edge function que substitua o Studio passo-a-passo.
+- 🟢 **Hooks específicos** (`POST_UserMsg`, `POST_TurnBotOff`): já são edge functions nossas. Nenhuma dependência adicional.
 
-```
-Operador | Fichas agendadas | Janela | Fixo | Indefinido | Padrão enviada | Padrão NÃO enviada
-```
+**E. Asaas (pagamentos)**
+- 🔴 **Manter**: é gateway de pagamento real (PIX/boleto/cartão). Não há como "internalizar" sem virar adquirente. Mas:
+- 🟢 **Reduzir acoplamento**: o `asaas-webhook` já está internalizado. O ponto de melhoria é tirar o Make do meio entre Asaas → Planilha (item B).
 
-Mais um detalhamento ficha-a-ficha para auditoria.
+**F. Google Ads (métricas)**
+- 🟡 **Internalizável**: hoje o Make puxa do Google Ads e POSTa em `google_ads_metrics`. Pode-se chamar a API do Google Ads direto de uma edge function `pull-google-ads-metrics` (cron diário). Requer OAuth Google Ads + refresh token. Ganho: elimina cenário Make pago.
 
-## Entrega
-Relatório em chat com tabelas. Sem alteração de código/banco — análise read-only.
+**G. Zoho CRM (Contacts + Deals)**
+- 🟡 Decisão estratégica: o app já é o CRM operacional (clientes, fichas, prestadores, financeiro). Se o Zoho não tiver uso ativo pelo time comercial, **descontinuar** elimina ~3 cenários Make e o erro `MANDATORY_NOT_FOUND`. Se for usado, criar edge `sync-zoho-deal` direto (API REST Zoho com OAuth).
 
-## Ressalva
-A heurística texto-livre pode marcar casos ambíguos como **Indefinido** — vou listar essas fichas explicitamente para você revisar.
+### 3. Roadmap proposto (ordem de prioridade)
 
-Aprovando, eu rodo a análise e devolvo o relatório.
+| # | Ação | Esforço | Risco | Ganho |
+|---|---|---|---|---|
+| 1 | Desligar `MAKE_WEBHOOK_FINANCEIRO` (substituir por relatórios internos) | Baixo | Baixo | Elimina 1 cenário Make |
+| 2 | Substituir Google Sheets espelho pela página `PlanilhaControleFinanceiro` | Baixo | Baixo | Elimina dependência da planilha |
+| 3 | Edge `criar-ficha-do-bot` (Studio chama direto, sem Make intermediário) | Médio | Médio | Reduz latência + 1 cenário Make |
+| 4 | Decidir destino do Zoho CRM (manter via edge própria OU descontinuar) | Médio | Alto se descontinuar errado | Remove fonte do erro Last_Name |
+| 5 | Edge `pull-google-ads-metrics` (substituir cenário Make Ads) | Alto (OAuth) | Médio | Elimina mais 1 cenário Make |
+| 6 | (Longo prazo) Substituir Twilio Studio por router próprio | Muito alto | Alto | Controle total do bot |
+
+### 4. Recomendações técnicas
+- Antes de desligar qualquer webhook Make, monitorar 7 dias com logs em paralelo.
+- Toda nova edge que substituir Make precisa de `automation_audit` (já usado pelo `asaas-webhook`).
+- Para Zoho/Google Ads OAuth: armazenar refresh token em `secrets`, criar função de renovação automática.
+
+---
+
+## Entregável imediato
+
+Um único arquivo: **`/mnt/documents/automacoes-externas-internalizaveis.md`** seguindo a estrutura acima, pronto para ser usado como base de decisão.
+
+Sem alterações em código nesta etapa.
