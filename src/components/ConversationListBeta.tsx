@@ -23,6 +23,7 @@ import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY,
 import { Bookmark } from "lucide-react";
 import { getBookmarks, toggleBookmark, subscribeBookmarks } from "@/lib/conversationBookmarks";
 import { logChatEvent } from "@/lib/systemLogger";
+import { markConversationRead } from "@/lib/chatBetaUnread";
 
 interface Cliente {
   telefone: string;
@@ -171,6 +172,7 @@ type ConversationRowProps = {
   conversasComSugestao: Set<string>;
   bookmarks: Set<string>;
   handleToggleBookmark: (telefone: string) => void;
+  currentUserId?: string | null;
 };
 
 function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
@@ -198,6 +200,7 @@ function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
     conversasComSugestao,
     bookmarks,
     handleToggleBookmark,
+    currentUserId,
   } = props;
 
   const cliente = filteredClientes[index];
@@ -241,6 +244,11 @@ function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
                   const next = new Set(prev);
                   next.delete(cliente.ficha_id_real!);
                   return next;
+                });
+              }
+              if (currentUserId) {
+                markConversationRead(cliente.telefone, currentUserId).catch((err) => {
+                  console.error('[ConversationListBeta] erro ao marcar como lida na abertura:', err);
                 });
               }
               setClientes((prev) =>
@@ -2066,6 +2074,7 @@ export const ConversationListBeta = ({
                   conversasComSugestao,
                   bookmarks,
                   handleToggleBookmark,
+                  currentUserId: user?.id,
                 }}
                 rowComponent={ConversationRow}
               />

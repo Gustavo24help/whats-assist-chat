@@ -24,6 +24,23 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+export const CHAT_OUTBOUND_SENDERS = new Set([
+  "whatsapp:+554138911555",
+  "whatsapp:+14155238886",
+  "atendente",
+  "bot",
+  "operador",
+  "system",
+]);
+
+export const CHAT_OUTBOUND_TYPES = new Set(["atendente", "bot", "operador", "system"]);
+
+export const isClientMessage = (message: { remetente?: string | null; tipo_remetente?: string | null }): boolean => {
+  if (message.tipo_remetente === "cliente") return true;
+  if (message.tipo_remetente && CHAT_OUTBOUND_TYPES.has(message.tipo_remetente)) return false;
+  return !!message.remetente && !CHAT_OUTBOUND_SENDERS.has(message.remetente);
+};
+
 /**
  * Leitura AUTOMÁTICA (montagem da janela / nova msg em chat aberto).
  * Atualiza apenas last_read_at e NUNCA toca em manual_unread.
@@ -32,7 +49,7 @@ export const markConversationAutoRead = async (
   clienteTelefone: string,
   userId: string,
 ): Promise<void> => {
-  await (supabase as any)
+  const { error } = await (supabase as any)
     .from("mensagem_leitura_operador")
     .upsert(
       {
@@ -42,6 +59,7 @@ export const markConversationAutoRead = async (
       },
       { onConflict: "cliente_telefone,user_id" },
     );
+  if (error) throw error;
 };
 
 /**
@@ -52,7 +70,7 @@ export const markConversationRead = async (
   clienteTelefone: string,
   userId: string,
 ): Promise<void> => {
-  await (supabase as any)
+  const { error } = await (supabase as any)
     .from("mensagem_leitura_operador")
     .upsert(
       {
@@ -64,6 +82,7 @@ export const markConversationRead = async (
       },
       { onConflict: "cliente_telefone,user_id" },
     );
+  if (error) throw error;
 };
 
 export const markConversationUnread = async (
@@ -71,7 +90,7 @@ export const markConversationUnread = async (
   userId: string,
 ): Promise<void> => {
   // Marcação manual NÃO mexe em last_read_at — apenas levanta a flag.
-  await (supabase as any)
+  const { error } = await (supabase as any)
     .from("mensagem_leitura_operador")
     .upsert(
       {
@@ -82,4 +101,5 @@ export const markConversationUnread = async (
       },
       { onConflict: "cliente_telefone,user_id" },
     );
+  if (error) throw error;
 };
