@@ -24,6 +24,23 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+export const CHAT_OUTBOUND_SENDERS = new Set([
+  "whatsapp:+554138911555",
+  "whatsapp:+14155238886",
+  "atendente",
+  "bot",
+  "operador",
+  "system",
+]);
+
+export const CHAT_OUTBOUND_TYPES = new Set(["atendente", "bot", "operador", "system"]);
+
+export const isClientMessage = (message: { remetente?: string | null; tipo_remetente?: string | null }): boolean => {
+  if (message.tipo_remetente === "cliente") return true;
+  if (message.tipo_remetente && CHAT_OUTBOUND_TYPES.has(message.tipo_remetente)) return false;
+  return !!message.remetente && !CHAT_OUTBOUND_SENDERS.has(message.remetente);
+};
+
 /**
  * Leitura AUTOMÁTICA (montagem da janela / nova msg em chat aberto).
  * Atualiza apenas last_read_at e NUNCA toca em manual_unread.
