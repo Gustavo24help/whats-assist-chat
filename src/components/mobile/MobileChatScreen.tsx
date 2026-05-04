@@ -8,7 +8,7 @@ import { ArrowLeft, Send, Info, FileText, Loader2, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { markConversationAutoRead } from "@/lib/chatBetaUnread";
+import { markConversationAutoRead, markConversationRead } from "@/lib/chatBetaUnread";
 import { MobileActionsSheet } from "./MobileActionsSheet";
 import { MobileTemplatesSheet } from "./MobileTemplatesSheet";
 import { AudioPlayer } from "@/components/AudioPlayer";
@@ -71,10 +71,10 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
     fetchMensagens();
   }, [fetchMensagens]);
 
-  // Marcar como lida automaticamente ao abrir
+  // Marcar como lida explicitamente ao abrir (zera badge E apaga manual_unread)
   useEffect(() => {
     if (user?.id) {
-      markConversationAutoRead(cliente.telefone, user.id).catch(() => {});
+      markConversationRead(cliente.telefone, user.id).catch(() => {});
     }
   }, [cliente.telefone, user?.id]);
 

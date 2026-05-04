@@ -31,7 +31,7 @@ import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
 import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 import { ReplyIndicator } from "./ReplyIndicator";
 import { AtribuicaoDescricaoDialog } from "./AtribuicaoDescricaoDialog";
-import { markConversationAutoRead } from "@/lib/chatBetaUnread";
+import { markConversationAutoRead, markConversationRead } from "@/lib/chatBetaUnread";
 
 import {
   AlertDialog,
@@ -411,11 +411,10 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         fetchClienteData(), // Nova função consolidada
         fetchAtendentes()
       ]);
-      // ✅ Marcar como lido APENAS para o operador atual (mensagem_leitura_operador).
-      // Auto-read NÃO apaga manual_unread — preserva intenção de "deixar pendente".
-      // Não escreve mais em clientes.marcado_nao_lido (campo global descontinuado).
+      // ✅ Abrir conversa = leitura EXPLÍCITA: zera badge E apaga manual_unread.
+      // (Auto-read na chegada de mensagem em conversa aberta continua usando autoRead.)
       if (user?.id) {
-        await markConversationAutoRead(clienteTelefone, user.id);
+        await markConversationRead(clienteTelefone, user.id);
       }
       setIsLoadingMessages(false);
     };
