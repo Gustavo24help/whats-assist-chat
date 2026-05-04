@@ -246,6 +246,11 @@ function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
                   return next;
                 });
               }
+              if (currentUserId) {
+                markConversationRead(cliente.telefone, currentUserId).catch((err) => {
+                  console.error('[ConversationListBeta] erro ao marcar como lida na abertura:', err);
+                });
+              }
               setClientes((prev) =>
                 prev.map((c) =>
                   c.telefone === cliente.telefone
@@ -2069,6 +2074,7 @@ export const ConversationListBeta = ({
                   conversasComSugestao,
                   bookmarks,
                   handleToggleBookmark,
+                  currentUserId: user?.id,
                 }}
                 rowComponent={ConversationRow}
               />
