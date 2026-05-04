@@ -1270,7 +1270,9 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   useEffect(() => {
     if (!user || !clienteTelefone || mensagens.length === 0) return;
     const lastMsg = mensagens[mensagens.length - 1];
-    const isClienteMsg = lastMsg?.remetente === "cliente" || lastMsg?.tipo_remetente === "cliente";
+    const isClienteMsg = lastMsg?.tipo_remetente === "cliente" || (
+      lastMsg?.remetente && !["whatsapp:+554138911555", "whatsapp:+14155238886", "atendente", "bot", "operador", "system"].includes(lastMsg.remetente)
+    );
     if (!isClienteMsg) return;
 
     import("@/lib/chatBetaUnread").then(({ isClientMessage, markConversationAutoRead }) => {
