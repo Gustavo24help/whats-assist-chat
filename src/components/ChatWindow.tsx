@@ -31,7 +31,7 @@ import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
 import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 import { ReplyIndicator } from "./ReplyIndicator";
 import { AtribuicaoDescricaoDialog } from "./AtribuicaoDescricaoDialog";
-import { markConversationAutoRead, markConversationRead } from "@/lib/chatBetaUnread";
+import { isClientMessage, markConversationAutoRead, markConversationRead } from "@/lib/chatBetaUnread";
 
 import {
   AlertDialog,
@@ -435,9 +435,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           console.log('[ChatWindow] Nova mensagem detectada, adicionando em tempo real');
           const novaMensagem = payload.new as Mensagem;
 
-          const NUMERO_24HELP = 'whatsapp:+554138911555';
-          const isMensagemCliente = novaMensagem.remetente !== NUMERO_24HELP && novaMensagem.remetente !== 'atendente' && novaMensagem.remetente !== 'bot';
-          if (isMensagemCliente) {
+          if (isClientMessage(novaMensagem)) {
             // ✅ Conversa aberta + nova msg do cliente: marca como lida APENAS
             // para este operador. Auto-read NÃO toca em manual_unread.
             // Não escreve mais em clientes.marcado_nao_lido (global).
