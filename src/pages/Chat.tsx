@@ -14,6 +14,7 @@ import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { PageLayout } from "@/components/PageLayout";
 import { OrcamentosSemFichaNotification } from "@/components/OrcamentosSemFichaNotification";
 import { BotSemFichaNotification } from "@/components/BotSemFichaNotification";
+import { FichaSemNomeNotification } from "@/components/FichaSemNomeNotification";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOpenInNewTab } from "@/hooks/useOpenInNewTab";
@@ -163,6 +164,7 @@ const Chat = () => {
         </div>
         <div className="flex gap-2">
           <BotSemFichaNotification onSelectCliente={handleSelectCliente} />
+          <FichaSemNomeNotification />
           <OrcamentoNotification onSelectFicha={handleOrcamentoNotification} />
           <OrcamentosSemFichaNotification />
           <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
