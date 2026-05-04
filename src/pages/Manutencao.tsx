@@ -4,6 +4,7 @@ import { AccountInfo } from "@/components/AccountInfo";
 import { PasswordChange } from "@/components/PasswordChange";
 import { UserManagement } from "@/components/UserManagement";
 import { FerramentasManutencao } from "@/components/FerramentasManutencao";
+import { TwilioReconcilePanel } from "@/components/TwilioReconcilePanel";
 import { AtribuicaoCadeiaConfig } from "@/components/AtribuicaoCadeiaConfig";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,6 +53,7 @@ const Manutencao = () => {
 
             {isAdmin && (
               <TabsContent value="tools" className="space-y-4">
+                <TwilioReconcilePanel />
                 <FerramentasManutencao />
               </TabsContent>
             )}
