@@ -24,6 +24,7 @@ import { Bookmark } from "lucide-react";
 import { getBookmarks, toggleBookmark, subscribeBookmarks } from "@/lib/conversationBookmarks";
 import { logChatEvent } from "@/lib/systemLogger";
 import { markConversationRead } from "@/lib/chatBetaUnread";
+import { fetchUnreadStateForUser } from "@/lib/unreadState";
 
 interface Cliente {
   telefone: string;
@@ -1305,70 +1306,20 @@ export const ConversationListBeta = ({
         });
       }
 
-      // ✅ Fonte de verdade ÚNICA: mensagem_leitura_operador (last_read_at + manual_unread)
-      let operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread: boolean }>();
-      if (user?.id) {
-        const { data: readData } = await (supabase as any)
-          .from('mensagem_leitura_operador')
-          .select('cliente_telefone, last_read_at, manual_unread')
-          .eq('user_id', user.id);
-        readData?.forEach((r: any) => {
-          operatorReadMap.set(r.cliente_telefone, {
-            last_read_at: r.last_read_at,
-            manual_unread: r.manual_unread === true,
-          });
-        });
-      }
-
-      // ✅ Agregação server-side via RPC (contorna o limite de 1000 do PostgREST).
-      // Antes: duas queries SELECT que truncavam em 1000 linhas → operadores com last_read_at
-      // antigo nunca viam mensagens novas (a "última msg" retornada era anterior ao last_read_at).
-      // Agora a função SQL devolve por telefone: ultima_data + total_nao_lidas (após last_read_at).
+      // ✅ Estado de não-lida calculado no banco para o operador autenticado.
+      // A função SQL retorna por conversa: ultima_data_cliente, last_read_at,
+      // manual_unread, total_nao_lidas e is_unread. Isso elimina a dependência
+      // de carregar todas as linhas de mensagem_leitura_operador no navegador
+      // (PostgREST trunca em 1000), que era a causa da bolinha "voltar sozinha".
+      const operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread: boolean }>();
       const ultimaMsgClienteMap = new Map<string, string>();
       const unreadCountByTelefone = new Map<string, number>();
-      const readMapPayload: Record<string, string | null> = {};
-      operatorReadMap.forEach((v, telefone) => {
-        readMapPayload[telefone] = v.last_read_at;
-      });
-      try {
-        const { data: aggData, error: aggError } = await (supabase as any).rpc(
-          'get_unread_cliente_msgs',
-          { _telefones: telefones, _read_map: readMapPayload }
-        );
-        if (aggError) throw aggError;
-        (aggData || []).forEach((row: any) => {
-          if (row.ultima_data) ultimaMsgClienteMap.set(row.cliente_id, row.ultima_data);
-          unreadCountByTelefone.set(row.cliente_id, row.total_nao_lidas || 0);
-        });
-      } catch (rpcErr) {
-        console.error('[ConversationListBeta] RPC get_unread_cliente_msgs falhou, usando fallback chunked:', rpcErr);
-        // Fallback (mantém comportamento anterior, mesmo que truncado, para não piorar a UX em caso de falha da RPC)
-        const mensagensClienteLegado = await chunkedIn(
-          'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
-          (q) => q.eq('remetente', 'cliente'),
-          'data_hora'
-        );
-        const mensagensClienteTipo = await chunkedIn(
-          'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
-          (q) => q.eq('tipo_remetente', 'cliente'),
-          'data_hora'
-        );
-        const dedupePorTelefone = new Map<string, Set<string>>();
-        [...(mensagensClienteLegado || []), ...(mensagensClienteTipo || [])].forEach((msg: any) => {
-          const existing = ultimaMsgClienteMap.get(msg.cliente_id);
-          if (!existing || new Date(msg.data_hora) > new Date(existing)) {
-            ultimaMsgClienteMap.set(msg.cliente_id, msg.data_hora);
-          }
-          let set = dedupePorTelefone.get(msg.cliente_id);
-          if (!set) { set = new Set<string>(); dedupePorTelefone.set(msg.cliente_id, set); }
-          set.add(msg.data_hora);
-        });
-        dedupePorTelefone.forEach((set, telefone) => {
-          const ref = operatorReadMap.get(telefone)?.last_read_at;
-          const count = ref
-            ? Array.from(set).filter(d => d > ref).length
-            : set.size;
-          unreadCountByTelefone.set(telefone, count);
+      if (user?.id) {
+        const stateMap = await fetchUnreadStateForUser(telefones);
+        stateMap.forEach((row, telefone) => {
+          operatorReadMap.set(telefone, { last_read_at: row.last_read_at, manual_unread: row.manual_unread === true });
+          if (row.ultima_data_cliente) ultimaMsgClienteMap.set(telefone, row.ultima_data_cliente);
+          unreadCountByTelefone.set(telefone, row.total_nao_lidas || 0);
         });
       }
 
