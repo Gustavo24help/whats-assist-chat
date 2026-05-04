@@ -15,6 +15,7 @@ import { NotificationSystem } from "@/components/NotificationSystem";
 import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { PageLayout } from "@/components/PageLayout";
 import { BotSemFichaNotification } from "@/components/BotSemFichaNotification";
+import { FichaSemNomeNotification } from "@/components/FichaSemNomeNotification";
 import { cn } from "@/lib/utils";
 
 const ChatBeta = () => {
