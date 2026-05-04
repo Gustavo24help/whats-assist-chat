@@ -23,6 +23,7 @@ import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY,
 import { getBookmarks, toggleBookmark, subscribeBookmarks } from "@/lib/conversationBookmarks";
 import { logChatEvent } from "@/lib/systemLogger";
 import { markConversationRead, markConversationUnread } from "@/lib/chatBetaUnread";
+import { fetchUnreadStateForUser } from "@/lib/unreadState";
 
 const ChatLegendPopover = () => (
   <Popover>
