@@ -82,3 +82,6 @@ verify_jwt = false
 
 [functions.check-unanswered-clients]
 verify_jwt = false
+
+[functions.criar-ficha-do-bot]
+verify_jwt = false
