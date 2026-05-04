@@ -1685,9 +1685,12 @@ export const ConversationList = ({
                               return next;
                             });
                           }
-                          // ✅ Otimismo local: zera o badge desta conversa para este operador.
-                          // ChatWindow chama markConversationAutoRead após carregar mensagens.
-                          // (NÃO toca em manual_unread aqui — só auto-read no ChatWindow apaga.)
+                          // ✅ Otimismo local + gravação imediata: não esperar o ChatWindow montar.
+                          if (user?.id) {
+                            markConversationRead(cliente.telefone, user.id).catch((err) => {
+                              console.error('[ConversationList] erro ao marcar como lida na abertura:', err);
+                            });
+                          }
                           setClientes(prev => prev.map(c =>
                             c.telefone === cliente.telefone
                               ? { ...c, marcado_nao_lido: false, unread_count_real: 0 }
