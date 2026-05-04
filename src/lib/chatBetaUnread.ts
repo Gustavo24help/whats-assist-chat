@@ -49,7 +49,7 @@ export const markConversationAutoRead = async (
   clienteTelefone: string,
   userId: string,
 ): Promise<void> => {
-  await (supabase as any)
+  const { error } = await (supabase as any)
     .from("mensagem_leitura_operador")
     .upsert(
       {
@@ -59,6 +59,7 @@ export const markConversationAutoRead = async (
       },
       { onConflict: "cliente_telefone,user_id" },
     );
+  if (error) throw error;
 };
 
 /**
@@ -69,7 +70,7 @@ export const markConversationRead = async (
   clienteTelefone: string,
   userId: string,
 ): Promise<void> => {
-  await (supabase as any)
+  const { error } = await (supabase as any)
     .from("mensagem_leitura_operador")
     .upsert(
       {
@@ -81,6 +82,7 @@ export const markConversationRead = async (
       },
       { onConflict: "cliente_telefone,user_id" },
     );
+  if (error) throw error;
 };
 
 export const markConversationUnread = async (
@@ -88,7 +90,7 @@ export const markConversationUnread = async (
   userId: string,
 ): Promise<void> => {
   // Marcação manual NÃO mexe em last_read_at — apenas levanta a flag.
-  await (supabase as any)
+  const { error } = await (supabase as any)
     .from("mensagem_leitura_operador")
     .upsert(
       {
@@ -99,4 +101,5 @@ export const markConversationUnread = async (
       },
       { onConflict: "cliente_telefone,user_id" },
     );
+  if (error) throw error;
 };
