@@ -3131,6 +3131,17 @@ export type Database = {
       }
       can_manage_avisos: { Args: { _user_id: string }; Returns: boolean }
       check_and_close_orcamento_forms: { Args: never; Returns: undefined }
+      fichas_sem_nome_cliente_recentes: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          nome_cliente: string
+          nome_ficha: string
+          status: string
+          telefone_cliente: string
+        }[]
+      }
       find_or_create_internal_conversation: {
         Args: { p_user1: string; p_user2: string }
         Returns: string
