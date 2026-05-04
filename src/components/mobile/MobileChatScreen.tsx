@@ -8,7 +8,7 @@ import { ArrowLeft, Send, Info, FileText, Loader2, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { markConversationAutoRead, markConversationRead } from "@/lib/chatBetaUnread";
+import { isClientMessage, markConversationAutoRead, markConversationRead } from "@/lib/chatBetaUnread";
 import { MobileActionsSheet } from "./MobileActionsSheet";
 import { MobileTemplatesSheet } from "./MobileTemplatesSheet";
 import { AudioPlayer } from "@/components/AudioPlayer";
@@ -124,7 +124,7 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
             );
             return [...filtered, m];
           });
-          if (!isAtendente(m.remetente) && user?.id) {
+          if (isClientMessage(m) && user?.id) {
             markConversationAutoRead(cliente.telefone, user.id).catch(() => {});
           }
         },
