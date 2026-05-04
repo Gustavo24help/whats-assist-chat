@@ -890,19 +890,32 @@ export const ConversationList = ({
     
     setArchivedCount(count || 0);
 
-    // ✅ Query 1: Buscar clientes baseado no estado atual (com atendente)
-    const { data: clientesData, error } = await supabase
-      .from('clientes')
-      .select(`
-        *,
-        atendente:profiles!atendente_id (
-          full_name
-        )
-      `)
-      .eq('arquivado', showArchived)
-      .order('ultima_interacao', { ascending: false });
+    // ✅ Buscar TODOS os clientes com paginação (evita limite de 1000 do PostgREST)
+    let allClientesData: any[] = [];
+    {
+      let from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data: page, error: pageErr } = await supabase
+          .from('clientes')
+          .select(`
+            *,
+            atendente:profiles!atendente_id (
+              full_name
+            )
+          `)
+          .eq('arquivado', showArchived)
+          .order('ultima_interacao', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (pageErr || !page) break;
+        allClientesData = allClientesData.concat(page);
+        if (page.length < PAGE) break;
+        from += PAGE;
+      }
+    }
 
-    if (!error && clientesData) {
+    const clientesData = allClientesData;
+    if (clientesData.length > 0) {
       const telefones = clientesData.map(c => c.telefone);
 
       // ✅ Query 2: Buscar últimas mensagens com limite
@@ -922,43 +935,19 @@ export const ConversationList = ({
         }
       });
 
-      // ✅ Fonte de verdade ÚNICA por operador: mensagem_leitura_operador
-      // (last_read_at + manual_unread). Não usa mais clientes.marcado_nao_lido.
-      let operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread: boolean }>();
-      if (user?.id) {
-        const { data: readData } = await (supabase as any)
-          .from('mensagem_leitura_operador')
-          .select('cliente_telefone, last_read_at, manual_unread')
-          .eq('user_id', user.id);
-        readData?.forEach((r: any) => {
-          operatorReadMap.set(r.cliente_telefone, {
-            last_read_at: r.last_read_at,
-            manual_unread: r.manual_unread === true,
-          });
-        });
-      }
-
-      // Agregação server-side via RPC (igual ChatWindowBeta) — devolve por telefone
-      // a última msg do cliente + total de não-lidas após last_read_at do operador.
+      // ✅ Estado de não-lida calculado no banco para o operador autenticado.
+      // Antes carregávamos todas as linhas de mensagem_leitura_operador, mas o
+      // PostgREST trunca em 1000 → muitas conversas perdiam o last_read_at e a
+      // bolinha voltava sozinha. Agora a função SQL devolve só o resultado.
+      const unreadStateMap = user?.id ? await fetchUnreadStateForUser(telefones) : new Map();
+      const operatorReadMap = new Map<string, { last_read_at: string | null; manual_unread: boolean }>();
       const ultimaMsgClienteMap = new Map<string, string>();
       const unreadCountByTelefone = new Map<string, number>();
-      const readMapPayload: Record<string, string | null> = {};
-      operatorReadMap.forEach((v, telefone) => {
-        readMapPayload[telefone] = v.last_read_at;
+      unreadStateMap.forEach((row: any, telefone: string) => {
+        operatorReadMap.set(telefone, { last_read_at: row.last_read_at, manual_unread: row.manual_unread === true });
+        if (row.ultima_data_cliente) ultimaMsgClienteMap.set(telefone, row.ultima_data_cliente);
+        unreadCountByTelefone.set(telefone, row.total_nao_lidas || 0);
       });
-      try {
-        const { data: aggData, error: aggError } = await (supabase as any).rpc(
-          'get_unread_cliente_msgs',
-          { _telefones: telefones, _read_map: readMapPayload }
-        );
-        if (aggError) throw aggError;
-        (aggData || []).forEach((row: any) => {
-          if (row.ultima_data) ultimaMsgClienteMap.set(row.cliente_id, row.ultima_data);
-          unreadCountByTelefone.set(row.cliente_id, row.total_nao_lidas || 0);
-        });
-      } catch (rpcErr) {
-        console.error('[ConversationList] RPC get_unread_cliente_msgs falhou:', rpcErr);
-      }
 
       const fichasAtivasIds = clientesData
         .filter(c => c.ficha_ativa_id)
