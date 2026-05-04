@@ -1273,7 +1273,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     const isClienteMsg = lastMsg?.remetente === "cliente" || lastMsg?.tipo_remetente === "cliente";
     if (!isClienteMsg) return;
 
-    import("@/lib/chatBetaUnread").then(({ markConversationAutoRead }) => {
+    import("@/lib/chatBetaUnread").then(({ isClientMessage, markConversationAutoRead }) => {
+      if (!isClientMessage(lastMsg)) return;
       markConversationAutoRead(clienteTelefone, user.id).catch(() => {});
     });
   }, [mensagens.length, clienteTelefone, user?.id]);
