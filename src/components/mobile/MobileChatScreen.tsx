@@ -71,10 +71,10 @@ export function MobileChatScreen({ cliente, onBack }: MobileChatScreenProps) {
     fetchMensagens();
   }, [fetchMensagens]);
 
-  // Marcar como lida automaticamente ao abrir
+  // Marcar como lida explicitamente ao abrir (zera badge E apaga manual_unread)
   useEffect(() => {
     if (user?.id) {
-      markConversationAutoRead(cliente.telefone, user.id).catch(() => {});
+      markConversationRead(cliente.telefone, user.id).catch(() => {});
     }
   }, [cliente.telefone, user?.id]);
 
