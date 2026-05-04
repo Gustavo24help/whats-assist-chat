@@ -8,7 +8,7 @@ import { ArrowLeft, Send, Info, FileText, Loader2, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { markConversationAutoRead } from "@/lib/chatBetaUnread";
+import { markConversationAutoRead, markConversationRead } from "@/lib/chatBetaUnread";
 import { MobileActionsSheet } from "./MobileActionsSheet";
 import { MobileTemplatesSheet } from "./MobileTemplatesSheet";
 import { AudioPlayer } from "@/components/AudioPlayer";
