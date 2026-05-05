@@ -393,6 +393,11 @@ export function PopupConfirmacaoFinanceira({
           codigo: prestador?.id_crm,
           cpf: prestador?.cpf,
           cnpj: prestador?.cnpj,
+          chave_pix: prestador?.chave_pix || null,
+          pix_prestador: prestador?.chave_pix || null,
+          banco: prestador?.banco || null,
+          agencia: prestador?.agencia || null,
+          conta: prestador?.conta || null,
         },
         cliente: {
           nome: cliente?.nome || ficha?.nome_cliente || ficha?.telefone_cliente,
@@ -418,6 +423,10 @@ export function PopupConfirmacaoFinanceira({
         forma_pagamento: formaPagamento,
         categoria: categoriaNome,
         observacoes: observacoes,
+        // Sinaliza estado da ficha para a planilha tratar Garantia como Finalizado
+        ficha_status: ficha?.status || null,
+        status_planilha: (ficha?.status === "Garantia") ? "Finalizado" : (ficha?.status || "Finalizado"),
+        is_garantia: ficha?.status === "Garantia",
       };
 
       try {
