@@ -1852,6 +1852,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     const hora = visao === 'prestador' ? horaPrestadorVT : horaClienteVT;
                     const lines: string[] = [
                       '🔍 *Detalhes da Visita Técnica Agendada*',
+                      `🆔 Ficha: #${ficha?.id ?? '—'}`,
                       '',
                       `🔧 Serviço: ${ficha?.descricao || '—'}`,
                       `📅 Data: ${dataFormatada}`,
