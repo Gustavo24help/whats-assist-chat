@@ -58,24 +58,45 @@ Aguardamos sua confirmação para darmos sequência 😊.`
     
     try {
       if (enviarMensagem && mensagem.trim()) {
-        try {
-          const { data, error } = await supabase.functions.invoke("send-whatsapp", {
-            body: { to: clienteTelefone, message: mensagem },
-          });
+        // Tenta enviar até 2x; se falhar, NÃO aprova (evita silêncio)
+        let lastError: any = null;
+        let sucesso = false;
 
-          if (error) {
-            console.error("Erro ao enviar WhatsApp:", error);
-            toast.error("Erro ao enviar mensagem pelo WhatsApp");
-          } else if (data?.success === false) {
-            console.error("Erro ao enviar WhatsApp:", data);
-            toast.error(data?.message || "Erro ao enviar mensagem pelo WhatsApp");
-          } else {
-            toast.success("Mensagem enviada ao cliente!");
+        for (let tentativa = 1; tentativa <= 2 && !sucesso; tentativa++) {
+          try {
+            const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+              body: { to: clienteTelefone, message: mensagem },
+            });
+
+            if (error) {
+              lastError = error;
+              console.error(`[AprovacaoOrcamento] Tentativa ${tentativa} falhou:`, error);
+            } else if (data?.success === false) {
+              lastError = data;
+              console.error(`[AprovacaoOrcamento] Tentativa ${tentativa} retornou erro:`, data);
+            } else {
+              sucesso = true;
+            }
+          } catch (err) {
+            lastError = err;
+            console.error(`[AprovacaoOrcamento] Tentativa ${tentativa} exceção:`, err);
           }
-        } catch (error) {
-          console.error("Erro ao enviar WhatsApp:", error);
-          toast.error("Erro ao enviar mensagem pelo WhatsApp");
+
+          if (!sucesso && tentativa === 1) {
+            await new Promise(r => setTimeout(r, 800));
+          }
         }
+
+        if (!sucesso) {
+          toast.error(
+            lastError?.message ||
+              "Não foi possível enviar a mensagem ao cliente. Verifique a janela de 24h ou envie um template manualmente. Aprovação NÃO confirmada."
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        toast.success("Mensagem enviada ao cliente!");
       }
 
       onConfirm();
