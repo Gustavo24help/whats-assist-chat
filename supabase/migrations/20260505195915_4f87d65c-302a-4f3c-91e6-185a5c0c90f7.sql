@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Anon pode ver backup_teste" ON public.mensagens_backup_teste;
