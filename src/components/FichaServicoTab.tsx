@@ -1642,6 +1642,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     const hora = visao === 'prestador' ? horaPrestador : horaCliente;
                     const lines: string[] = [
                       '📋 *Detalhes do Serviço Agendado*',
+                      `🆔 Ficha: #${ficha?.id ?? '—'}`,
                       '',
                       `🔧 Serviço: ${ficha?.descricao || '—'}`,
                       `📅 Data: ${dataFormatada}`,
@@ -1851,6 +1852,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     const hora = visao === 'prestador' ? horaPrestadorVT : horaClienteVT;
                     const lines: string[] = [
                       '🔍 *Detalhes da Visita Técnica Agendada*',
+                      `🆔 Ficha: #${ficha?.id ?? '—'}`,
                       '',
                       `🔧 Serviço: ${ficha?.descricao || '—'}`,
                       `📅 Data: ${dataFormatada}`,
@@ -2020,6 +2022,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                     const hora = visao === 'prestador' ? horaPrestadorRet : horaClienteRet;
                     const lines: string[] = [
                       '🔄 *Detalhes do Retorno Agendado*',
+                      `🆔 Ficha: #${ficha?.id ?? '—'}`,
                       '',
                       `🔧 Serviço: ${ficha?.descricao || '—'}`,
                       `📅 Data: ${dataFormatada}`,
