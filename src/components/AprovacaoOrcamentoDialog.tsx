@@ -65,7 +65,12 @@ Aguardamos sua confirmação para darmos sequência 😊.`
         for (let tentativa = 1; tentativa <= 2 && !sucesso; tentativa++) {
           try {
             const { data, error } = await supabase.functions.invoke("send-whatsapp", {
-              body: { to: clienteTelefone, message: mensagem },
+              body: {
+                to: clienteTelefone,
+                message: mensagem,
+                tipo_remetente: "atendente",
+                remetente: "operador",
+              },
             });
 
             if (error) {
