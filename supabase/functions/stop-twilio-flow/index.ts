@@ -38,9 +38,16 @@ Deno.serve(async (req) => {
   try {
     const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const flowSid = Deno.env.get("TWILIO_FLOW_SID");
+    // Suportar múltiplos Flow SIDs: TWILIO_FLOW_SIDS (csv) tem prioridade,
+    // fallback para TWILIO_FLOW_SID (single).
+    const flowSidsRaw =
+      Deno.env.get("TWILIO_FLOW_SIDS") ?? Deno.env.get("TWILIO_FLOW_SID") ?? "";
+    const flowSids = flowSidsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-    if (!accountSid || !authToken || !flowSid) {
+    if (!accountSid || !authToken || flowSids.length === 0) {
       throw new Error("Credenciais Twilio não configuradas");
     }
 
@@ -54,39 +61,59 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[stop-twilio-flow] Iniciando encerramento para: ${telefone}`);
+    console.log(
+      `[stop-twilio-flow] Iniciando encerramento para: ${telefone} (flows=${flowSids.length})`,
+    );
 
-    // 1) Encerrar TODAS execuções ativas no Twilio Studio (com paginação)
+    // Normalizadores de telefone para comparação resiliente
+    // (ex.: "whatsapp:+5541...", "+5541...", "5541...")
+    const normalizePhone = (raw: string | null | undefined): string => {
+      if (!raw) return "";
+      return raw.replace(/^whatsapp:/i, "").replace(/[^0-9+]/g, "");
+    };
+    const targetNorm = normalizePhone(telefone);
+
+    // 1) Encerrar TODAS execuções ativas em TODOS os flows configurados
     const auth = btoa(`${accountSid}:${authToken}`);
-    const baseUrl = `https://studio.twilio.com/v2/Flows/${flowSid}/Executions?PageSize=100`;
 
-    const activeExecutions: any[] = [];
-    let nextUrl: string | null = baseUrl;
-    let pages = 0;
+    const activeExecutions: Array<{ sid: string; flowSid: string }> = [];
 
-    while (nextUrl && pages < 10) {
-      pages++;
-      const executionsResponse: Response = await fetch(nextUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Basic ${auth}`,
-          "Content-Type": "application/json",
-        },
-      });
+    for (const flowSid of flowSids) {
+      const baseUrl = `https://studio.twilio.com/v2/Flows/${flowSid}/Executions?PageSize=100`;
+      let nextUrl: string | null = baseUrl;
+      let pages = 0;
 
-      if (!executionsResponse.ok) {
-        const error = await executionsResponse.text();
-        console.error("[stop-twilio-flow] Erro ao buscar execuções:", error);
-        throw new Error("Erro ao consultar Twilio Studio");
+      while (nextUrl && pages < 10) {
+        pages++;
+        const executionsResponse: Response = await fetch(nextUrl, {
+          method: "GET",
+          headers: {
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!executionsResponse.ok) {
+          const error = await executionsResponse.text();
+          console.error(
+            `[stop-twilio-flow] Erro ao buscar execuções (flow=${flowSid}):`,
+            error,
+          );
+          // Não abortar todos os flows; seguir para o próximo
+          break;
+        }
+
+        const executionsData: any = await executionsResponse.json();
+        const matched = (executionsData.executions || []).filter(
+          (exec: any) =>
+            exec.status === "active" &&
+            normalizePhone(exec.contact_channel_address) === targetNorm,
+        );
+        for (const m of matched) {
+          activeExecutions.push({ sid: m.sid, flowSid });
+        }
+        nextUrl = executionsData?.meta?.next_page_url || null;
       }
-
-      const executionsData: any = await executionsResponse.json();
-      const matched = (executionsData.executions || []).filter(
-        (exec: any) =>
-          exec.contact_channel_address === telefone && exec.status === "active",
-      );
-      activeExecutions.push(...matched);
-      nextUrl = executionsData?.meta?.next_page_url || null;
     }
 
     console.log(
@@ -94,8 +121,8 @@ Deno.serve(async (req) => {
     );
 
     const stopResults = await Promise.allSettled(
-      activeExecutions.map(async (exec: any) => {
-        const stopUrl = `https://studio.twilio.com/v2/Flows/${flowSid}/Executions/${exec.sid}`;
+      activeExecutions.map(async (exec) => {
+        const stopUrl = `https://studio.twilio.com/v2/Flows/${exec.flowSid}/Executions/${exec.sid}`;
         const stopResponse = await fetch(stopUrl, {
           method: "POST",
           headers: {

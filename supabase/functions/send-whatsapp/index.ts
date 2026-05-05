@@ -86,24 +86,35 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ========== PROTEÇÃO: Bloquear mensagens do bot se estiver desabilitado (só para clientes) ==========
-    if (remetente === 'bot' && !isPrestadorMessage) {
+    // ========== PROTEÇÃO FAIL-CLOSED: bot desabilitado ==========
+    // Se bot_habilitado=false, só permitir mensagens claramente humanas
+    // (tipo_remetente === 'atendente'). Qualquer outra origem (bot, indefinido,
+    // template automático sem flag de operador) é bloqueada.
+    if (!isPrestadorMessage) {
       const { data: clienteBot } = await supabase
         .from('clientes')
         .select('bot_habilitado')
         .eq('telefone', to)
         .maybeSingle();
-      
-      if (clienteBot?.bot_habilitado === false) {
-        console.log(`⛔ [send-whatsapp] BLOQUEANDO envio - bot DESABILITADO para ${to}`);
+
+      const botDisabled = clienteBot?.bot_habilitado === false;
+      const isHumanSend =
+        tipo_remetente === 'atendente' ||
+        tipo_remetente === 'operador' ||
+        (remetente && remetente !== 'bot' && tipo_remetente !== 'bot');
+
+      if (botDisabled && (!isHumanSend || remetente === 'bot')) {
+        console.log(
+          `⛔ [send-whatsapp] BLOQUEANDO envio - bot DESABILITADO para ${to} (remetente=${remetente}, tipo_remetente=${tipo_remetente})`,
+        );
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             error: 'BOT_DESABILITADO',
             message: 'Bot está desabilitado para este cliente.',
-            blocked: true
+            blocked: true,
           }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
     }
