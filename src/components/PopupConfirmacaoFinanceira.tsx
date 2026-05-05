@@ -339,6 +339,11 @@ export function PopupConfirmacaoFinanceira({
         tem_adiantamento: temAdiantamento,
         observacoes: observacoes || null,
         criado_por: user?.id || null,
+        // Dados bancários do prestador (necessários para a planilha de pagamentos)
+        pix_prestador: prestador?.chave_pix || null,
+        banco_prestador: prestador?.banco || null,
+        agencia_prestador: prestador?.agencia || null,
+        conta_prestador: prestador?.conta || null,
       };
 
       const { data: transacao, error: transacaoError } = await (supabase
