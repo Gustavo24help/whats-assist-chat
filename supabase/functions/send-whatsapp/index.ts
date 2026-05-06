@@ -87,25 +87,22 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // ========== PROTEÇÃO FAIL-CLOSED: bot desabilitado ==========
-    // Se bot_habilitado=false, só permitir mensagens claramente humanas
-    // (tipo_remetente === 'atendente'). Qualquer outra origem (bot, indefinido,
-    // template automático sem flag de operador) é bloqueada.
-    if (!isPrestadorMessage) {
+    // Esta edge JÁ exige JWT válido (validado acima nas linhas 28-45),
+    // então qualquer chamada aqui é de OPERADOR autenticado pela UI.
+    // O bot real envia via Twilio Studio Flow (não passa por esta função).
+    // Por isso só bloqueamos se o caller EXPLICITAMENTE marcar como bot
+    // (tipo_remetente='bot' ou remetente='bot'). Operador autenticado
+    // sempre pode mandar mensagem manual, mesmo com bot desligado.
+    if (!isPrestadorMessage && (tipo_remetente === 'bot' || remetente === 'bot')) {
       const { data: clienteBot } = await supabase
         .from('clientes')
         .select('bot_habilitado')
         .eq('telefone', to)
         .maybeSingle();
 
-      const botDisabled = clienteBot?.bot_habilitado === false;
-      const isHumanSend =
-        tipo_remetente === 'atendente' ||
-        tipo_remetente === 'operador' ||
-        (remetente && remetente !== 'bot' && tipo_remetente !== 'bot');
-
-      if (botDisabled && (!isHumanSend || remetente === 'bot')) {
+      if (clienteBot?.bot_habilitado === false) {
         console.log(
-          `⛔ [send-whatsapp] BLOQUEANDO envio - bot DESABILITADO para ${to} (remetente=${remetente}, tipo_remetente=${tipo_remetente})`,
+          `⛔ [send-whatsapp] BLOQUEANDO envio do BOT - bot DESABILITADO para ${to} (operador=${userData.user.id})`,
         );
         return new Response(
           JSON.stringify({
