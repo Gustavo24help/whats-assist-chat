@@ -121,6 +121,8 @@ Deno.serve(async (req) => {
     }
     // Trigger ensure_nome_cliente_preenchido também garante fallback "Cliente"
     if (!nome_cliente) nome_cliente = "Cliente";
+    // Garantir 2+ palavras (Zoho exige First_Name e Last_Name após split por espaço no Make)
+    if (!nome_cliente.includes(" ")) nome_cliente = `${nome_cliente} (sem sobrenome)`;
 
     // Gerar ID novo
     const novoId = await gerarProximoId(supabase);
