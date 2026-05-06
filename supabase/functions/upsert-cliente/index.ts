@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     // Buscar cliente existente
     const { data: existente, error: findErr } = await supabase
       .from("clientes")
-      .select("telefone, nome, email, endereco, cidade, estado, cep")
+      .select("telefone, nome, cpf, endereco, bairro, cidade")
       .eq("telefone", telefone)
       .maybeSingle();
 
