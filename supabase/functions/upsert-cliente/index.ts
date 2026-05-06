@@ -82,11 +82,10 @@ Deno.serve(async (req) => {
     };
 
     setIfEmpty("nome", body.nome ?? body.nome_cliente);
-    setIfEmpty("email", body.email);
+    setIfEmpty("cpf", body.cpf);
     setIfEmpty("endereco", body.endereco);
+    setIfEmpty("bairro", body.bairro);
     setIfEmpty("cidade", body.cidade);
-    setIfEmpty("estado", body.estado);
-    setIfEmpty("cep", body.cep);
 
     if (existente) {
       const colsParaUpdate = Object.keys(novo).filter((k) => k !== "telefone");
