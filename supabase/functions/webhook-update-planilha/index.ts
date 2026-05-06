@@ -22,6 +22,16 @@ Deno.serve(async (req) => {
     }
 
     const payload = await req.json();
+
+    // Google Sheets interpreta strings com '@' como menção/link e quebra a célula.
+    // Adicionamos um campo `ficha_id_texto` (com apóstrofo prefixado) que força o Sheets
+    // a tratar como texto puro. O campo original `ficha_id` é mantido para compatibilidade.
+    if (payload && typeof payload === "object" && payload.ficha_id) {
+      const idStr = String(payload.ficha_id);
+      payload.ficha_id_texto = `'${idStr}`;
+      payload.ficha_id_safe = idStr.replace(/@/g, "_");
+    }
+
     console.log("[webhook-update-planilha] Enviando payload:", JSON.stringify(payload).substring(0, 500));
 
     const response = await fetch(webhookUrl, {
