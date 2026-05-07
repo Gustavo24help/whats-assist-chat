@@ -85,3 +85,6 @@ verify_jwt = false
 
 [functions.criar-ficha-do-bot]
 verify_jwt = false
+
+[functions.receber-ficha]
+verify_jwt = false
