@@ -34,6 +34,10 @@ Deno.serve(async (req) => {
         hasHeader: !!headerSecret,
         hasBody: !!bodySecret,
         hasQuery: !!querySecret,
+        expectedLen: EXPECTED_SECRET.length,
+        providedLen: provided.length,
+        expectedFirst3: EXPECTED_SECRET.slice(0, 3),
+        providedFirst3: provided.slice(0, 3),
       });
       return new Response(
         JSON.stringify({ error: "unauthorized" }),
