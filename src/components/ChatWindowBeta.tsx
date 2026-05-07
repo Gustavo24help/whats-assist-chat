@@ -2022,6 +2022,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           body: {
             telefone: clienteTelefone,
             executado_por_id: userId,
+            requested_origin: "manual",
+            trigger_source: "manual_button",
           },
         });
 
