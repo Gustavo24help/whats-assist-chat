@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -49,6 +50,10 @@ const formatTimer = (mins: number): string => {
   return `${sign}${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 };
 
+
+const formatHourMinute = (date: Date): string =>
+  date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
 const RegistroPontoPage = () => {
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
@@ -70,6 +75,7 @@ const RegistroPontoPage = () => {
 
   // Manual entry form
   const [showManual, setShowManual] = useState(false);
+  const [showHorarioPrevisto, setShowHorarioPrevisto] = useState(true);
   const [manualData, setManualData] = useState("");
   const [manualEntrada, setManualEntrada] = useState("");
   const [manualSaida, setManualSaida] = useState("");
@@ -138,6 +144,12 @@ const RegistroPontoPage = () => {
     const entrada = registroAberto.entrada_oficial || registroAberto.entrada_em;
     return Math.max(0, (now - new Date(entrada).getTime()) / 60000);
   }, [registroAberto, now]);
+
+  const horarioPrevistoSaida = useMemo(() => {
+    if (!registroAberto) return null;
+    const entrada = new Date(registroAberto.entrada_oficial || registroAberto.entrada_em);
+    return new Date(entrada.getTime() + cargaMinutos * 60000);
+  }, [registroAberto, cargaMinutos]);
 
   const minutosRestantes = Math.max(0, cargaMinutos - horasTrabalhadasHojeMin);
   const emHoraExtra = horasTrabalhadasHojeMin > cargaMinutos;
@@ -372,8 +384,24 @@ const RegistroPontoPage = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Trabalhado: {formatMinutes(horasTrabalhadasHojeMin)}
                 </p>
+                {showHorarioPrevisto && horarioPrevistoSaida && (
+                  <p className="text-xs text-muted-foreground">
+                    Horário previsto saída: <span className="font-medium text-foreground">{formatHourMinute(horarioPrevistoSaida)}</span>
+                  </p>
+                )}
               </div>
             )}
+
+            <div className="flex items-center justify-center gap-2">
+              <Label htmlFor="toggle-horario-previsto" className="text-xs text-muted-foreground cursor-pointer">
+                Mostrar horário previsto saída
+              </Label>
+              <Switch
+                id="toggle-horario-previsto"
+                checked={showHorarioPrevisto}
+                onCheckedChange={setShowHorarioPrevisto}
+              />
+            </div>
 
             {/* Actions */}
             <div className="flex gap-2 flex-wrap">
