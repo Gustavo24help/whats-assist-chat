@@ -1842,7 +1842,9 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         const { data, error } = await supabase.functions.invoke('stop-twilio-flow', {
           body: {
             telefone: clienteTelefone,
-            executado_por_id: userId
+            executado_por_id: userId,
+            requested_origin: "manual",
+            trigger_source: "manual_button"
           }
         });
 
