@@ -126,6 +126,27 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Garante que o cliente existe (FK fichas_de_servico.telefone_cliente -> clientes.telefone)
+    if (telefone_cliente) {
+      const { data: cli } = await supabase
+        .from("clientes")
+        .select("telefone")
+        .eq("telefone", telefone_cliente)
+        .maybeSingle();
+      if (!cli) {
+        const { error: cliErr } = await supabase
+          .from("clientes")
+          .insert({ telefone: telefone_cliente, nome: nome_cliente ?? "Cliente" });
+        if (cliErr) {
+          console.error("[receber-ficha] erro upsert cliente:", cliErr);
+          return new Response(
+            JSON.stringify({ error: `cliente: ${cliErr.message}` }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
     const insertPayload: Record<string, unknown> = {
       id: ficha_id,
       telefone_cliente,
