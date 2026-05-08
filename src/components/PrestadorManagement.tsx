@@ -94,6 +94,9 @@ export const PrestadorManagement = () => {
     conta: "",
     taxa_visita_padrao: null,
     regiao_atuacao: "",
+    cep: "",
+    endereco: "",
+    complemento: "",
     ativo: true,
   });
 
