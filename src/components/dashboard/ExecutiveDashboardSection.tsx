@@ -153,7 +153,7 @@ export const ExecutiveDashboardSection = ({
       icon: <DollarSign className="h-3.5 w-3.5" />,
       onClick: openDrill("valorTotalOS", "Valor Total OS"),
       tooltip:
-        "Soma do valor_total das fichas finalizadas e pagas no período.",
+        "Soma do valor_total das OS pagas no período (status Finalizado / Garantia / Retorno).",
     },
     {
       id: "liquido-24help",
@@ -163,7 +163,7 @@ export const ExecutiveDashboardSection = ({
       icon: <PiggyBank className="h-3.5 w-3.5" />,
       onClick: openDrill("valorLiquido24help", "Líquido 24help"),
       tooltip:
-        "Líquido 24help = Valor da FS − Valor pago ao prestador − Material (quando pago pela 24help).",
+        "Líquido 24help = Total OS − Pago a Prestador − Material pago pela 24help. É o que sobra para a empresa antes de impostos e custos operacionais.",
     },
     {
       id: "take-rate",
@@ -177,7 +177,7 @@ export const ExecutiveDashboardSection = ({
       highlight: true,
       onClick: openDrill("margemBruta24help", "% Take Rate 24help"),
       tooltip:
-        "% Take Rate 24help = Líquido 24help ÷ Valor total das FS × 100.",
+        "% Take Rate 24help = Líquido 24help ÷ Total OS × 100.",
     },
     {
       id: "mao-de-obra",
@@ -187,7 +187,7 @@ export const ExecutiveDashboardSection = ({
       icon: <Hammer className="h-3.5 w-3.5" />,
       onClick: openDrill("valorMaoObra", "Valor Mão de Obra"),
       tooltip:
-        "Soma de valor_final_mao_obra (ou valor_mao_obra como fallback) das fichas finalizadas e pagas.",
+        "Decomposição informativa: soma de mão de obra das mesmas OS. Não soma diretamente com Pago a Prestador.",
     },
     {
       id: "pecas",
@@ -196,7 +196,8 @@ export const ExecutiveDashboardSection = ({
       variation: kpis.variations.valorPecas,
       icon: <Package className="h-3.5 w-3.5" />,
       onClick: openDrill("valorPecas", "Valor Peças"),
-      tooltip: "Soma de valor_final_pecas das fichas finalizadas e pagas.",
+      tooltip:
+        "Decomposição informativa: soma de peças das mesmas OS. Não soma diretamente com Pago a Prestador.",
     },
     {
       id: "pago-prestadores",
@@ -206,7 +207,7 @@ export const ExecutiveDashboardSection = ({
       icon: <HandCoins className="h-3.5 w-3.5" />,
       onClick: openDrill("valorPagoPrestadores", "Pago a Prestadores"),
       tooltip:
-        "Soma de valor_a_pagar_prestador das transações marcadas como PAGO no Financeiro (data_pagamento_realizada no período). Mesma fonte da aba Financeiro > Pagamento Prestadores.",
+        "Soma de valor_a_pagar_prestador da transação financeira de cada OS paga. Quando a 24help paga o material, esse valor não inclui peças.",
     },
   ];
 
