@@ -29,13 +29,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const secret = req.headers.get("x-webhook-secret");
-  if (!secret || secret !== Deno.env.get("PAGAMENTO_WEBHOOK_SECRET")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  // Autenticação via JWT do Supabase (verify_jwt = true por padrão)
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
