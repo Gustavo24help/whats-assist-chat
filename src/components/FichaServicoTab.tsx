@@ -2702,7 +2702,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </Button>
         )}
 
-        {ficha && ficha.status === 'Finalizado' && (
+        {ficha && (ficha.status === 'Finalizado' || ficha.status === 'Garantia') && (
           <Button
             onClick={() => setAjustarDataOpen(true)}
             variant="outline"
@@ -2754,7 +2754,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         />
       )}
 
-      {ficha && ficha.status === 'Finalizado' && (
+      {ficha && (ficha.status === 'Finalizado' || ficha.status === 'Garantia') && (
         <AjustarDataFinalizacaoDialog
           open={ajustarDataOpen}
           onOpenChange={setAjustarDataOpen}
