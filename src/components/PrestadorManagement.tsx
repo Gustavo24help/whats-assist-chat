@@ -55,6 +55,9 @@ interface Prestador {
   conta: string | null;
   taxa_visita_padrao: number | null;
   regiao_atuacao: string | null;
+  cep: string | null;
+  endereco: string | null;
+  complemento: string | null;
   ativo: boolean;
   created_at?: string | null;
 }
@@ -150,6 +153,9 @@ export const PrestadorManagement = () => {
         conta: "",
         taxa_visita_padrao: null,
         regiao_atuacao: "",
+        cep: "",
+        endereco: "",
+        complemento: "",
         ativo: true,
       });
     }
@@ -220,6 +226,9 @@ export const PrestadorManagement = () => {
             conta: formData.conta || null,
             taxa_visita_padrao: formData.taxa_visita_padrao ?? 0,
             regiao_atuacao: formData.regiao_atuacao || null,
+            cep: formData.cep || null,
+            endereco: formData.endereco || null,
+            complemento: formData.complemento || null,
             ativo: formData.ativo ?? true,
           })
           .eq("cpf", editingPrestador.cpf);
@@ -248,6 +257,9 @@ export const PrestadorManagement = () => {
           conta: formData.conta || null,
           taxa_visita_padrao: formData.taxa_visita_padrao ?? 0,
           regiao_atuacao: formData.regiao_atuacao || null,
+          cep: formData.cep || null,
+          endereco: formData.endereco || null,
+          complemento: formData.complemento || null,
           ativo: formData.ativo ?? true,
         }, { onConflict: "cpf", ignoreDuplicates: false });
 
@@ -835,6 +847,21 @@ export const PrestadorManagement = () => {
                       <div className="space-y-2">
                         <Label htmlFor="regiao_atuacao">Região de Atuação</Label>
                         <Input id="regiao_atuacao" placeholder="Ex: Zona Sul, Grande BH" value={formData.regiao_atuacao || ""} onChange={(e) => setFormData({ ...formData, regiao_atuacao: e.target.value })} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cep">CEP</Label>
+                        <Input id="cep" placeholder="00000-000" value={formData.cep || ""} onChange={(e) => setFormData({ ...formData, cep: e.target.value })} />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="endereco">Endereço</Label>
+                        <Input id="endereco" placeholder="Rua, número, bairro, cidade" value={formData.endereco || ""} onChange={(e) => setFormData({ ...formData, endereco: e.target.value })} />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="complemento">Complemento</Label>
+                        <Input id="complemento" placeholder="Apto, bloco, referência" value={formData.complemento || ""} onChange={(e) => setFormData({ ...formData, complemento: e.target.value })} />
                       </div>
                     </div>
 
