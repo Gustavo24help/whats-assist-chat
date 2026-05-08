@@ -485,6 +485,19 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           timestamp: new Date().toISOString()
         });
         // Webhook silencioso - sem toast
+
+        // Chamada paralela para processar-pagamento (nova automação permanente)
+        supabase.functions.invoke('processar-pagamento', {
+          body: webhookPayload,
+        }).then(({ error }) => {
+          if (error) {
+            console.warn('[processar-pagamento] Erro (não bloqueante):', error);
+          } else {
+            console.log('[processar-pagamento] ✅ Processado com sucesso');
+          }
+        }).catch((e) => {
+          console.warn('[processar-pagamento] Falha silenciosa:', e);
+        });
       }
     } catch (webhookError) {
       console.error('Erro ao enviar webhook:', webhookError);
