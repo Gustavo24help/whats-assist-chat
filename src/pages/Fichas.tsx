@@ -197,7 +197,7 @@ const Fichas = () => {
                       <MessageCircle className="h-4 w-4" />
                     </Button>
                   )}
-                  {f.status === "Finalizado" && (
+                  {(f.status === "Finalizado" || f.status === "Garantia") && (
                     <Button
                       variant="ghost"
                       size="icon"
