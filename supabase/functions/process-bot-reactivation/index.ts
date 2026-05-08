@@ -52,7 +52,32 @@ Deno.serve(async (req) => {
 
     for (const schedule of schedules as ReactivationSchedule[]) {
       try {
-        // Delegar à função central. Sem bloqueio por atendente_id ou trava manual.
+        // Pré-checagem: nunca religar se houver trava manual ou atendente humano
+        const { data: cli } = await supabase
+          .from("clientes")
+          .select("bot_desligado_manualmente, atendente_id")
+          .eq("telefone", schedule.telefone_cliente)
+          .maybeSingle();
+
+        if (cli?.bot_desligado_manualmente === true || cli?.atendente_id) {
+          console.log(
+            `[process-bot-reactivation] ⏭️ Ignorado ${schedule.telefone_cliente} — manual_lock=${cli?.bot_desligado_manualmente} atendente=${cli?.atendente_id ?? "null"}`,
+          );
+          await supabase
+            .from("bot_reactivation_schedule")
+            .update({ executed: true })
+            .eq("id", schedule.id);
+          await supabase.from("bot_historico").insert({
+            telefone_cliente: schedule.telefone_cliente,
+            acao: "ligado_bloqueado",
+            origem: "automatico",
+            ficha_id: schedule.ficha_id,
+            observacao: `Reativação ignorada por trava manual/atendente (cron) | manual_lock=${cli?.bot_desligado_manualmente} atendente=${cli?.atendente_id ?? "null"}`,
+          });
+          continue;
+        }
+
+        // Delegar à função central.
         const requestId = crypto.randomUUID();
         const resp = await fetch(toggleUrl, {
           method: "POST",

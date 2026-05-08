@@ -192,6 +192,51 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ===== BLOQUEIO: enable_bot automático com trava manual ativa =====
+    // Qualquer reativação NÃO-manual deve ser recusada se o cliente está com
+    // bot_desligado_manualmente=true. Isso evita que o cron religue o bot
+    // que um operador desligou de propósito.
+    if (requestedAction === "enable_bot" && !isManual && previousManualLock) {
+      console.warn(
+        `[toggle-bot-status] 🛑 Reativação automática BLOQUEADA para ${telefone} (origem=${resolvedOrigin}, trigger=${triggerSource}) — trava manual ativa`,
+      );
+
+      try {
+        await supabase.from("bot_historico").insert({
+          telefone_cliente: telefone,
+          acao: "ligado_bloqueado",
+          origem: resolvedOrigin,
+          executado_por_id: executedByUserId,
+          observacao: `Reativação automática BLOQUEADA — bot_desligado_manualmente=true [trigger=${triggerSource}, request_id=${body.request_id ?? ""}]`,
+          request_id: body.request_id ?? crypto.randomUUID(),
+        });
+      } catch (e) {
+        console.warn("[toggle-bot-status] Falha ao logar bloqueio:", e);
+      }
+
+      // Cancelar agendamentos pendentes deste cliente para parar de tentar
+      await supabase
+        .from("bot_reactivation_schedule")
+        .update({ executed: true })
+        .eq("telefone_cliente", telefone)
+        .eq("executed", false);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "manual_lock",
+          telefone,
+          bot_status: "disabled",
+          previous_state: {
+            bot_habilitado: previousBotEnabled,
+            bot_desligado_manualmente: previousManualLock,
+          },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // ===== Decisão de estado =====
     const newBotEnabled = requestedAction === "enable_bot";
 
