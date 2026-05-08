@@ -1,0 +1,1 @@
+ALTER TABLE public.prestadores ADD COLUMN IF NOT EXISTS cep text, ADD COLUMN IF NOT EXISTS endereco text, ADD COLUMN IF NOT EXISTS complemento text;

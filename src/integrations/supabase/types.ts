@@ -2040,12 +2040,15 @@ export type Database = {
           ativo: boolean
           banco: string | null
           categoria: string | null
+          cep: string | null
           chave_pix: string | null
           cnpj: string | null
+          complemento: string | null
           conta: string | null
           cpf: string
           created_at: string | null
           email: string | null
+          endereco: string | null
           especialidade: string | null
           id_azure: string | null
           id_crm: string | null
@@ -2060,12 +2063,15 @@ export type Database = {
           ativo?: boolean
           banco?: string | null
           categoria?: string | null
+          cep?: string | null
           chave_pix?: string | null
           cnpj?: string | null
+          complemento?: string | null
           conta?: string | null
           cpf: string
           created_at?: string | null
           email?: string | null
+          endereco?: string | null
           especialidade?: string | null
           id_azure?: string | null
           id_crm?: string | null
@@ -2080,12 +2086,15 @@ export type Database = {
           ativo?: boolean
           banco?: string | null
           categoria?: string | null
+          cep?: string | null
           chave_pix?: string | null
           cnpj?: string | null
+          complemento?: string | null
           conta?: string | null
           cpf?: string
           created_at?: string | null
           email?: string | null
+          endereco?: string | null
           especialidade?: string | null
           id_azure?: string | null
           id_crm?: string | null
