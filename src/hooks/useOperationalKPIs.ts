@@ -263,6 +263,7 @@ async function fetchFichasComEvento(
     valor_final_pecas: number | null;
     pagamento_realizado: boolean | null;
     status: string | null;
+    material_pago_24help: boolean | null;
   }>;
 }> {
   // 1. Busca eventos no histórico (inner join p/ herdar filtros da ficha)
