@@ -284,6 +284,7 @@ async function fetchFichasComEvento(
          valor_pecas,
          valor_final_pecas,
          pagamento_realizado,
+         material_pago_24help,
          created_at
        )`,
     )
