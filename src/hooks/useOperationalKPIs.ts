@@ -263,6 +263,7 @@ async function fetchFichasComEvento(
     valor_final_pecas: number | null;
     pagamento_realizado: boolean | null;
     status: string | null;
+    material_pago_24help: boolean | null;
   }>;
 }> {
   // 1. Busca eventos no histórico (inner join p/ herdar filtros da ficha)
@@ -283,6 +284,7 @@ async function fetchFichasComEvento(
          valor_pecas,
          valor_final_pecas,
          pagamento_realizado,
+         material_pago_24help,
          created_at
        )`,
     )
@@ -308,7 +310,7 @@ async function fetchFichasComEvento(
   let fbQ: any = supabase
     .from('fichas_de_servico')
     .select(
-      'id, status, valor_total, valor_mao_obra, valor_final_mao_obra, valor_pecas, valor_final_pecas, pagamento_realizado, created_at',
+      'id, status, valor_total, valor_mao_obra, valor_final_mao_obra, valor_pecas, valor_final_pecas, pagamento_realizado, material_pago_24help, created_at',
     )
     .eq('status', statusNovo as any)
     .gte('created_at', fromStr)
@@ -538,57 +540,21 @@ async function fetchMetricsForWindow(
     0,
   );
 
-  // Buscar transações dessas mesmas fichas (1 transação por ficha — a primeira)
-  let valorPagoPrestadores = 0;
-  let somaValorMaterial24help = 0;
-  let pagoAoPrestador = 0;
+  // ===== Pago a Prestador (definição de negócio) =====
+  // Pago ao Prestador = Mão de Obra + Peças (quando o prestador compra o material).
+  // Quando a 24help paga o material (material_pago_24help=true), as peças NÃO entram
+  // no valor pago ao prestador.
+  // Líquido 24help = Total OS − Pago a Prestador.
+  // % Take Rate = Líquido 24help / Total OS.
+  const valorPagoPrestadores = fichasFinanceiras.reduce((sum, f) => {
+    const mo = Number(f.valor_final_mao_obra ?? f.valor_mao_obra ?? 0);
+    const pecas = Number(f.valor_final_pecas ?? f.valor_pecas ?? 0);
+    const material24 = (f as any).material_pago_24help === true;
+    return sum + mo + (material24 ? 0 : pecas);
+  }, 0);
+  const pagoAoPrestador = fichasFinanceiras.length;
 
-  if (fichasFinanceiras.length > 0) {
-    const fichaIds = fichasFinanceiras.map((f) => f.id as string);
-    const transMap = new Map<string, {
-      valor_a_pagar_prestador: number | null;
-      valor_material: number | null;
-      material_pago_24help: boolean | null;
-    }>();
-
-    const CHUNK = 200;
-    for (let i = 0; i < fichaIds.length; i += CHUNK) {
-      const batch = fichaIds.slice(i, i + CHUNK);
-      const r = await supabase
-        .from('transacoes_financeiras')
-        .select('ficha_id, valor_a_pagar_prestador, valor_material, material_pago_24help, created_at')
-        .in('ficha_id', batch)
-        .order('created_at', { ascending: true });
-      const txs = (r.data as Array<{
-        ficha_id: string | null;
-        valor_a_pagar_prestador: number | null;
-        valor_material: number | null;
-        material_pago_24help: boolean | null;
-      }>) || [];
-      for (const t of txs) {
-        if (!t.ficha_id) continue;
-        // Mantém a PRIMEIRA transação por ficha (idempotente com order asc)
-        if (!transMap.has(t.ficha_id)) {
-          transMap.set(t.ficha_id, {
-            valor_a_pagar_prestador: t.valor_a_pagar_prestador,
-            valor_material: t.valor_material,
-            material_pago_24help: t.material_pago_24help,
-          });
-        }
-      }
-    }
-
-    for (const tx of transMap.values()) {
-      valorPagoPrestadores += Number(tx.valor_a_pagar_prestador ?? 0);
-      if (tx.material_pago_24help) {
-        somaValorMaterial24help += Number(tx.valor_material ?? 0);
-      }
-    }
-    pagoAoPrestador = transMap.size;
-  }
-
-  const valorLiquido24help =
-    valorTotalOS - valorPagoPrestadores - somaValorMaterial24help;
+  const valorLiquido24help = valorTotalOS - valorPagoPrestadores;
   const margemBruta24help =
     valorTotalOS > 0
       ? Number(((valorLiquido24help / valorTotalOS) * 100).toFixed(1))
