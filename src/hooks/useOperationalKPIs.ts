@@ -310,7 +310,7 @@ async function fetchFichasComEvento(
   let fbQ: any = supabase
     .from('fichas_de_servico')
     .select(
-      'id, status, valor_total, valor_mao_obra, valor_final_mao_obra, valor_pecas, valor_final_pecas, pagamento_realizado, created_at',
+      'id, status, valor_total, valor_mao_obra, valor_final_mao_obra, valor_pecas, valor_final_pecas, pagamento_realizado, material_pago_24help, created_at',
     )
     .eq('status', statusNovo as any)
     .gte('created_at', fromStr)
