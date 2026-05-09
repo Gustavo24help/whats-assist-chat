@@ -207,7 +207,7 @@ export const ExecutiveDashboardSection = ({
       icon: <HandCoins className="h-3.5 w-3.5" />,
       onClick: openDrill("valorPagoPrestadores", "Pago a Prestadores"),
       tooltip:
-        "Soma de valor_a_pagar_prestador da transação financeira de cada OS paga. Quando a 24help paga o material, esse valor não inclui peças.",
+        "Pago ao Prestador = Mão de Obra + Peças (quando o prestador paga o material). Quando a 24help paga o material, peças não entram.",
     },
   ];
 
