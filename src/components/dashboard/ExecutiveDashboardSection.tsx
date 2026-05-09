@@ -163,7 +163,7 @@ export const ExecutiveDashboardSection = ({
       icon: <PiggyBank className="h-3.5 w-3.5" />,
       onClick: openDrill("valorLiquido24help", "Líquido 24help"),
       tooltip:
-        "Líquido 24help = Total OS − Pago a Prestador − Material pago pela 24help. É o que sobra para a empresa antes de impostos e custos operacionais.",
+        "Líquido 24help = Total OS − Pago a Prestador. É o que sobra para a empresa.",
     },
     {
       id: "take-rate",
