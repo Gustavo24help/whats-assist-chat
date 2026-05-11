@@ -85,7 +85,51 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const body: RequestBody = await req.json();
+    const rawBody = await req.text();
+    let body: RequestBody;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      body = {} as RequestBody;
+    }
+
+    const inboundRequestId = body.request_id || crypto.randomUUID();
+    const inboundUserAgent = req.headers.get("user-agent") || "desconhecido";
+    const inboundIp =
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("cf-connecting-ip") ||
+      req.headers.get("x-real-ip") ||
+      "desconhecido";
+    const inboundOrigin = req.headers.get("origin") || req.headers.get("referer") || "desconhecido";
+    const inboundHasAuth = !!(req.headers.get("authorization") || req.headers.get("Authorization"));
+
+    // 🔍 LOG DE ENTRADA (toda chamada vira linha em system_logs)
+    // Isso permite rastrear chamadas que "somem" antes do bot_historico ser inserido.
+    try {
+      await supabase.from("system_logs").insert({
+        nivel: "info",
+        categoria: "bot",
+        mensagem: `toggle-bot-status INBOUND: ${body.requested_action ?? body.bot_status ?? "?"} ${body.telefone ?? "?"}`,
+        cliente_telefone: body.telefone ?? null,
+        detalhes: {
+          event: "toggle_bot_inbound",
+          request_id: inboundRequestId,
+          raw_body: rawBody.slice(0, 4000),
+          parsed_body: body,
+          headers: {
+            origin: inboundOrigin,
+            user_agent: inboundUserAgent,
+            ip: inboundIp,
+            has_auth: inboundHasAuth,
+          },
+          received_at: new Date().toISOString(),
+        },
+        url: "edge://toggle-bot-status",
+        user_agent: inboundUserAgent,
+      });
+    } catch (logErr) {
+      console.warn("[toggle-bot-status] falha ao gravar inbound log:", logErr);
+    }
 
     const telefone = body.telefone;
     if (!telefone) {
