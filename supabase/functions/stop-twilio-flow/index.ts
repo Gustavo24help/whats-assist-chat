@@ -10,6 +10,7 @@ interface RequestBody {
   telefone: string;
   executado_por_id?: string; // legado
   executed_by_user_id?: string;
+  force_disable_after_reactivation?: boolean;
   // Novos campos opcionais. Sem eles, é tratado como automático.
   requested_origin?:
     | "manual"
@@ -59,6 +60,71 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Default: automático/webhook (Twilio chamando após finalização do flow).
+    const requestedOrigin = body.requested_origin ?? "automatico";
+    const triggerSource = body.trigger_source ?? "webhook";
+    const executedByUserId =
+      body.executed_by_user_id ?? body.executado_por_id ?? null;
+
+    // Proteção contra duplo clique/estado stale: depois que um operador devolve
+    // a conversa ao bot, não permitir que o mesmo fluxo manual desligue de novo
+    // imediatamente sem confirmação explícita.
+    if (
+      requestedOrigin === "manual" &&
+      (triggerSource === "manual_button" || triggerSource === "manual_template_button") &&
+      body.force_disable_after_reactivation !== true
+    ) {
+      const sinceIso = new Date(Date.now() - 60_000).toISOString();
+      const { data: recentEnable } = await supabase
+        .from("bot_historico")
+        .select("created_at, executado_por_id")
+        .eq("telefone_cliente", telefone)
+        .eq("acao", "ligado")
+        .eq("origem", "manual")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const sameOperatorOrUnknown =
+        !recentEnable?.executado_por_id ||
+        !executedByUserId ||
+        recentEnable.executado_por_id === executedByUserId;
+
+      if (recentEnable && sameOperatorOrUnknown) {
+        await supabase.from("system_logs").insert({
+          nivel: "warn",
+          categoria: "bot",
+          mensagem: `[bot] Desligamento manual bloqueado logo após reativação: ${telefone}`,
+          cliente_telefone: telefone,
+          detalhes: {
+            event: "bot_disable_blocked_recent_reactivation",
+            telefone_cliente: telefone,
+            recent_enable_at: recentEnable.created_at,
+            requested_origin: requestedOrigin,
+            trigger_source: triggerSource,
+            executed_by_user_id: executedByUserId,
+          },
+          url: "edge://stop-twilio-flow",
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            reason: "recent_manual_reactivation",
+            message: "Bot mantido ativo: reativação manual recente detectada.",
+            timestamp: new Date().toISOString(),
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     console.log(
@@ -157,17 +223,6 @@ Deno.serve(async (req) => {
 
     // 2) Delegar a alteração de estado do bot à função central.
     //    NÃO inferimos manual a partir de JWT. O caller decide a origem.
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Default: automático/webhook (Twilio chamando após finalização do flow).
-    const requestedOrigin = body.requested_origin ?? "automatico";
-    const triggerSource = body.trigger_source ?? "webhook";
-
-    const executedByUserId =
-      body.executed_by_user_id ?? body.executado_por_id ?? null;
-
     const togglePayload: Record<string, unknown> = {
       telefone,
       requested_action: "disable_bot",
