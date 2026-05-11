@@ -172,6 +172,9 @@ const PrestadorDetalhes = () => {
         conta: data.conta ?? null,
         taxa_visita_padrao: data.taxa_visita_padrao ?? null,
         regiao_atuacao: data.regiao_atuacao ?? null,
+        cep: (data as any).cep ?? null,
+        endereco: (data as any).endereco ?? null,
+        complemento: (data as any).complemento ?? null,
         ativo: data.ativo ?? true,
       });
       setLoading(false);
