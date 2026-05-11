@@ -534,6 +534,25 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error("[toggle-bot-status] Erro:", error);
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      );
+      await supabase.from("system_logs").insert({
+        nivel: "error",
+        categoria: "bot",
+        mensagem: `toggle-bot-status ERRO: ${error instanceof Error ? error.message : "desconhecido"}`,
+        detalhes: {
+          event: "toggle_bot_error",
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : String(error),
+          received_at: new Date().toISOString(),
+        },
+        url: "edge://toggle-bot-status",
+      });
+    } catch (logErr) {
+      console.warn("[toggle-bot-status] falha ao gravar error log:", logErr);
+    }
     return new Response(
       JSON.stringify({
         error: "Erro interno do servidor",
