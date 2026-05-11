@@ -2001,6 +2001,57 @@ export type Database = {
         }
         Relationships: []
       }
+      pagamento_webhook_log: {
+        Row: {
+          auth_source: string | null
+          created_at: string
+          direcao: string
+          duracao_ms: number | null
+          erro: string | null
+          evento: string | null
+          ficha_id: string | null
+          id: string
+          origem: string
+          pagamento_link: string | null
+          payload: Json | null
+          resposta: Json | null
+          status: string
+          valor: number | null
+        }
+        Insert: {
+          auth_source?: string | null
+          created_at?: string
+          direcao: string
+          duracao_ms?: number | null
+          erro?: string | null
+          evento?: string | null
+          ficha_id?: string | null
+          id?: string
+          origem: string
+          pagamento_link?: string | null
+          payload?: Json | null
+          resposta?: Json | null
+          status?: string
+          valor?: number | null
+        }
+        Update: {
+          auth_source?: string | null
+          created_at?: string
+          direcao?: string
+          duracao_ms?: number | null
+          erro?: string | null
+          evento?: string | null
+          ficha_id?: string | null
+          id?: string
+          origem?: string
+          pagamento_link?: string | null
+          payload?: Json | null
+          resposta?: Json | null
+          status?: string
+          valor?: number | null
+        }
+        Relationships: []
+      }
       prestador_historico: {
         Row: {
           created_at: string

@@ -57,6 +57,7 @@ import AdminPrestadorPortal from "./pages/AdminPrestadorPortal";
 import VisibilitySettings from "./pages/VisibilitySettings";
 import SystemLogs from "./pages/SystemLogs";
 import SystemLogsFicha from "./pages/SystemLogsFicha";
+import LogsPagamento from "./pages/LogsPagamento";
 import Orcamentos from "./pages/Orcamentos";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
@@ -379,6 +380,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <SystemLogsFicha />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/logs-pagamento"
+                element={
+                  <ProtectedRoute>
+                    <LogsPagamento />
                   </ProtectedRoute>
                 }
               />

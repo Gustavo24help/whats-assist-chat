@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { logPagamentoWebhook } from '../_shared/pagamentoLogger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -197,6 +198,19 @@ Deno.serve(async (req) => {
 
     const duration = Date.now() - startTime;
     console.log(`[update-pagamento] ✅ Sucesso em ${duration}ms - Fonte: ${authSource}, Ficha: ${fichaId}`);
+
+    await logPagamentoWebhook(supabase, {
+      direcao: 'recebido',
+      origem: 'make_update_pagamento',
+      ficha_id: fichaId,
+      evento: pagamentoRealizado === true ? 'pagamento_confirmado' : (pagamentoLink !== undefined ? 'link_atualizado' : 'update'),
+      status: 'success',
+      pagamento_link: pagamentoLinkNormalizado ?? data.pagamento_link ?? null,
+      auth_source: authSource,
+      payload: { ficha_id: fichaId, pagamento_link: pagamentoLink, pagamento_realizado: pagamentoRealizado, method: req.method },
+      resposta: { data },
+      duracao_ms: duration,
+    });
 
     return new Response(
       JSON.stringify({ success: true, data, auth_source: authSource, duration_ms: duration }),

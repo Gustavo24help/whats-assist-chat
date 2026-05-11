@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { sanitizeAsaasName, sanitizeAsaasDescription } from '../_shared/sanitizeAsaas.ts'
 import { createFichaLogger } from '../_shared/fichaLogger.ts'
+import { logPagamentoWebhook } from '../_shared/pagamentoLogger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -151,6 +152,21 @@ Deno.serve(async (req) => {
 
     const duration = Date.now() - startTime;
     console.log(`[create-payment-link] ✅ Concluído em ${duration}ms`);
+
+    await logPagamentoWebhook(supabase, {
+      direcao: 'enviado',
+      origem: 'create_payment_link',
+      ficha_id,
+      evento: 'link_criado',
+      status: updateError ? 'error' : 'success',
+      pagamento_link: paymentUrl,
+      valor: typeof valor === 'number' ? valor : null,
+      auth_source: 'service',
+      payload: { ficha_id, valor, parcelas, forma_pagamento, nome_cliente },
+      resposta: { asaas_id: asaasData.id, payment_url: paymentUrl },
+      duracao_ms: duration,
+      erro: updateError?.message ?? null,
+    });
 
     return new Response(
       JSON.stringify({

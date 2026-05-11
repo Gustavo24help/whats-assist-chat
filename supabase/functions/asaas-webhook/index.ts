@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { logPagamentoWebhook } from "../_shared/pagamentoLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -681,6 +682,18 @@ Deno.serve(async (req) => {
 
     const duration = Date.now() - startTime;
     await logAudit(supabase, fichaId, "webhook_pagamento", "success", `Valor: ${valorPago}, Event: ${event}, Duration: ${duration}ms`, payment.id);
+    await logPagamentoWebhook(supabase, {
+      direcao: "recebido",
+      origem: "asaas_webhook",
+      ficha_id: fichaId,
+      evento: event,
+      status: "success",
+      valor: typeof valorPago === "number" ? valorPago : null,
+      auth_source: "asaas",
+      payload: body,
+      resposta: { ficha_id: fichaId, valor_pago: valorPago },
+      duracao_ms: duration,
+    });
     console.log(`[asaas-webhook] ✅ Concluído em ${duration}ms — Ficha: ${fichaId}`);
 
     return new Response(
