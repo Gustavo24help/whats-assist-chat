@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock3, LogIn, LogOut, Plus, Timer, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeft, Clock3, LogIn, LogOut, Pencil, Plus, Timer, TrendingDown, TrendingUp } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +80,9 @@ const RegistroPontoPage = () => {
   const [manualEntrada, setManualEntrada] = useState("");
   const [manualSaida, setManualSaida] = useState("");
   const [manualObs, setManualObs] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editEntrada, setEditEntrada] = useState("");
+  const [editSaida, setEditSaida] = useState("");
 
   // Timer tick
   useEffect(() => {
@@ -338,6 +341,57 @@ const RegistroPontoPage = () => {
     await Promise.all([loadConfig(), loadRegistros()]);
   };
 
+  const iniciarEdicao = (registro: RegistroPonto) => {
+    const entrada = new Date(registro.entrada_oficial || registro.entrada_em);
+    const saida = registro.saida_em ? new Date(registro.saida_em) : null;
+    setEditingId(registro.id);
+    setEditEntrada(entrada.toISOString().slice(0, 16));
+    setEditSaida(saida ? saida.toISOString().slice(0, 16) : "");
+  };
+
+  const cancelarEdicao = () => {
+    setEditingId(null);
+    setEditEntrada("");
+    setEditSaida("");
+  };
+
+  const salvarEdicao = async (registro: RegistroPonto) => {
+    if (!editEntrada || !editSaida) {
+      toast.error("Preencha entrada e saída para editar o registro.");
+      return;
+    }
+    const entradaISO = new Date(editEntrada).toISOString();
+    const saidaISO = new Date(editSaida).toISOString();
+
+    if (new Date(saidaISO) <= new Date(entradaISO)) {
+      toast.error("A saída deve ser maior que a entrada.");
+      return;
+    }
+
+    setSaving(true);
+    const { error } = await (supabase as any)
+      .from("registro_ponto")
+      .update({
+        entrada_em: entradaISO,
+        entrada_oficial: entradaISO,
+        saida_em: saidaISO,
+        observacao: registro.observacao
+          ? `${registro.observacao} • Ajustado manualmente`
+          : "Ajustado manualmente",
+      })
+      .eq("id", registro.id);
+    setSaving(false);
+
+    if (error) {
+      toast.error("Erro ao salvar edição do registro.");
+      return;
+    }
+
+    toast.success("Registro atualizado com sucesso!");
+    cancelarEdicao();
+    await loadRegistros();
+  };
+
   return (
     <PageLayout>
       <header className="h-16 border-b bg-background/80 backdrop-blur-sm flex items-center justify-between px-6 shadow-sm">
@@ -550,7 +604,7 @@ const RegistroPontoPage = () => {
                   const tolerancia = r.entrada_oficial && r.entrada_oficial !== r.entrada_em;
 
                   return (
-                    <div key={r.id} className="rounded-lg border p-3 text-sm">
+                    <div key={r.id} className="rounded-lg border p-3 text-sm space-y-2">
                       <div className="flex justify-between items-start">
                         <div>
                           <p>
@@ -566,8 +620,34 @@ const RegistroPontoPage = () => {
                         <div className="text-right">
                           {durMin != null && <p className="font-medium">{formatMinutes(durMin)}</p>}
                           {r.tipo === "ajuste_manual" && <Badge variant="outline" className="text-xs">Manual</Badge>}
+                          {editingId !== r.id && (
+                            <Button variant="ghost" size="sm" className="mt-2" onClick={() => iniciarEdicao(r)}>
+                              <Pencil className="h-3.5 w-3.5 mr-1" />
+                              Editar
+                            </Button>
+                          )}
                         </div>
                       </div>
+                      {editingId === r.id && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 border-t">
+                          <div>
+                            <Label className="text-xs">Entrada</Label>
+                            <Input type="datetime-local" value={editEntrada} onChange={(e) => setEditEntrada(e.target.value)} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Saída</Label>
+                            <Input type="datetime-local" value={editSaida} onChange={(e) => setEditSaida(e.target.value)} />
+                          </div>
+                          <div className="flex items-end gap-2">
+                            <Button size="sm" onClick={() => salvarEdicao(r)} disabled={saving}>
+                              Salvar
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={cancelarEdicao}>
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
