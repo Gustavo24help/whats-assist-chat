@@ -225,6 +225,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 applySessionUser(currentSession.user);
                 queueProfileLoad(currentSession.user);
               } else {
+                // Logoff involuntário CONFIRMADO — registrar para auditoria
+                const previousUserId = activeUserIdRef.current;
+                if (previousUserId) {
+                  try {
+                    import('@/lib/systemLogger').then(({ logSystemEvent }) => {
+                      logSystemEvent({
+                        nivel: 'error',
+                        categoria: 'auth',
+                        mensagem: 'Logoff involuntário confirmado (sessão revogada pelo servidor)',
+                        skipDedup: true,
+                        detalhes: {
+                          previous_user_id: previousUserId,
+                          path_atual: window.location.pathname + window.location.search,
+                          visibilidade: document.visibilityState,
+                          ultima_atividade: localStorage.getItem('last-activity-timestamp'),
+                          motivo_provavel: 'session_not_found_ou_refresh_token_revogado',
+                        },
+                      });
+                    });
+                  } catch {}
+                }
                 applySessionUser(null);
               }
 
