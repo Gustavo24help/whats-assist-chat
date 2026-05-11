@@ -38,8 +38,12 @@ export const PontoEndModal = ({ open, onContinue }: PontoEndModalProps) => {
 
       try { await redistributeChats(user.id); } catch {}
     }
-    await supabase.auth.signOut();
-    navigate("/auth");
+    try {
+      localStorage.removeItem("last-activity-timestamp");
+    } catch {}
+    await supabase.auth.signOut({ scope: "global" });
+    navigate("/auth", { replace: true });
+    window.location.replace("/auth");
   };
 
   return (
