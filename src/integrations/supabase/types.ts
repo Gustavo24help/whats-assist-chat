@@ -1055,6 +1055,8 @@ export type Database = {
       }
       ficha_status_historico: {
         Row: {
+          alterado_por: string | null
+          alterado_por_nome: string | null
           created_at: string
           data_fim: string | null
           data_inicio: string
@@ -1064,6 +1066,8 @@ export type Database = {
           status_novo: string
         }
         Insert: {
+          alterado_por?: string | null
+          alterado_por_nome?: string | null
           created_at?: string
           data_fim?: string | null
           data_inicio?: string
@@ -1073,6 +1077,8 @@ export type Database = {
           status_novo: string
         }
         Update: {
+          alterado_por?: string | null
+          alterado_por_nome?: string | null
           created_at?: string
           data_fim?: string | null
           data_inicio?: string

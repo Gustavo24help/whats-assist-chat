@@ -1,78 +1,65 @@
-
 ## Objetivo
 
-Criar uma tela de histórico que mostra, em ordem cronológica, **tudo que entra no sistema relacionado a links de pagamento** — tanto a criação/recebimento do link (vindo do Make → `update-pagamento`) quanto as confirmações de pagamento (vindas do webhook do Asaas).
+No calendário, ao abrir uma ficha (`AgendamentoDetalhesModal`), exibir qual operador colocou aquela ficha em **Agendado** (ou em **Retorno**, no caso de slot de retorno), com data/hora.
 
-## O que já existe vs. o que falta
+## Diagnóstico
 
-| Origem | Tabela | Hoje | Ação |
-|---|---|---|---|
-| Webhook Asaas (PAYMENT_CONFIRMED, PAYMENT_RECEIVED, etc.) | `automation_audit` (etapa=`webhook_pagamento`) | ✅ 122 registros desde 14/04 | Apenas mostrar |
-| Reconciliação Asaas manual | `automation_audit` (etapa=`reconcile_asaas`) | ✅ 20 registros | Apenas mostrar |
-| Link de pagamento gravado pelo Make (`update-pagamento`) | nenhuma | ❌ Só `console.log` da edge | **Criar log** |
-| Link gerado por nós (`create-payment-link`) | nenhuma estruturada | ❌ Só `console.log` | **Criar log** |
+- A tabela `fichas_de_servico` **não** tem coluna de "operador que agendou".
+- A tabela `ficha_status_historico` registra cada mudança de status via trigger `registrar_mudanca_status`, mas **não** guarda quem fez a mudança (sem `user_id`).
+- `system_logs` não cobre mudanças de status.
+
+A fonte natural é o histórico de status — basta enriquecê-lo com o autor.
 
 ## Mudanças
 
-### 1. Nova tabela `pagamento_webhook_log` (migration)
+### 1. Banco (migration)
 
-```text
-id              uuid PK
-created_at      timestamptz
-direcao         text  -- 'recebido' | 'enviado'
-origem          text  -- 'make_update_pagamento' | 'asaas_webhook' | 'create_payment_link' | 'reconcile_asaas'
-ficha_id        text  (nullable)
-evento          text  -- ex: 'PAYMENT_CONFIRMED', 'link_atualizado', 'link_criado'
-status          text  -- 'success' | 'error' | 'ignored'
-pagamento_link  text  (nullable)
-valor           numeric (nullable)
-auth_source     text  -- 'make' | 'user' | 'asaas' | 'service'
-payload         jsonb -- corpo bruto recebido/enviado (truncado se grande)
-resposta        jsonb -- resposta enviada/recebida
-duracao_ms      integer
-erro            text  (nullable)
+- Adicionar em `ficha_status_historico`:
+  - `alterado_por uuid` (nullable)
+  - `alterado_por_nome text` (nullable)
+- Atualizar a função `registrar_mudanca_status()` para preencher esses campos com `auth.uid()` e o nome buscado em `profiles` (quando disponível). Quando a mudança vier de service role / webhook (sem `auth.uid()`), os campos ficam nulos — comportamento idêntico ao atual para registros antigos.
+- **Sem backfill / sem alteração de dados existentes**: registros antigos seguem com os campos nulos; a UI mostra `—`. Nenhum dado de status, horário ou ficha é tocado.
+
+### 2. Frontend — `src/components/calendario/AgendamentoDetalhesModal.tsx`
+
+- Ao abrir o modal, fazer um `select` em `ficha_status_historico` filtrando por:
+  - `ficha_id = ficha.id`
+  - `status_novo = 'Agendado'` (slots normais/visita) ou `status_novo = 'Retorno'` (quando `tipoSlot === 'retorno'`/`ficha.tipo_agendamento === 'retorno'`)
+  - `order by created_at desc limit 1`
+- Exibir um novo bloco no grid de informações:
+  - **"Agendado por"**: `alterado_por_nome` (ou `—` se nulo) + data/hora formatada (`dd/MM/yyyy HH:mm`).
+- Estado de loading discreto enquanto busca.
+
+### 3. Sem efeitos colaterais
+
+- Nenhuma alteração em horários, fuso, valores ou status existentes.
+- Trigger continua registrando histórico exatamente como hoje; só passa a anexar o autor quando houver sessão autenticada.
+- Outras telas que leem `ficha_status_historico` (ex.: `FichaDetalhes` aba Histórico) continuam funcionando — campos novos são opcionais.
+
+## Detalhes técnicos
+
+```sql
+ALTER TABLE public.ficha_status_historico
+  ADD COLUMN IF NOT EXISTS alterado_por uuid,
+  ADD COLUMN IF NOT EXISTS alterado_por_nome text;
+
+-- atualizar registrar_mudanca_status() para INSERT com:
+--   alterado_por      := auth.uid(),
+--   alterado_por_nome := (select nome from profiles where id = auth.uid())
 ```
 
-RLS: leitura para `authenticated` (admins/supervisores), insert para `service_role`.
+UI (resumo do bloco novo no modal):
 
-### 2. Instrumentar edge functions para gravar nessa tabela
-
-- `supabase/functions/update-pagamento/index.ts` — gravar entrada (payload, ficha_id, link, auth_source) e saída (sucesso/erro, duração).
-- `supabase/functions/asaas-webhook/index.ts` — espelhar para `pagamento_webhook_log` (hoje só vai em `automation_audit`).
-- `supabase/functions/create-payment-link/index.ts` — gravar criação de link.
-- `supabase/functions/reconcile-asaas-payments/index.ts` — gravar resultado da reconciliação.
-
-Comportamento "fail-safe": qualquer erro de log NÃO interrompe o fluxo principal.
-
-### 3. Backfill (sem perda)
-
-Script de migração que copia o que já existe em `automation_audit` (etapas `webhook_pagamento` e `reconcile_asaas`) para `pagamento_webhook_log` — assim a tela já abre com 142 registros históricos. **Nada é apagado** de `automation_audit`.
-
-### 4. Nova página `Manutenção → Logs de Pagamento`
-
-Rota: `/manutencao/logs-pagamento` (acessível só para admin).
-
-UI:
-- Filtros: período (default últimos 7 dias), origem, status, ficha_id, telefone do cliente.
-- Lista paginada (50 por página) com colunas: data/hora, origem, ficha, evento, status, valor, link.
-- Drawer ao clicar na linha: payload completo (JSON pretty), resposta, erro, duração, auth_source.
-- Botão "Copiar JSON" e "Abrir ficha".
-- Badge colorido por status (verde/amarelo/vermelho) e por origem.
-
-Adicionar entrada na aba **Manutenção → Ferramentas** chamada "Logs de Pagamento".
-
-## Riscos e cuidados
-
-- **Não alterar comportamento atual** do Make ou do Asaas: log é só observação lateral.
-- **Sigilo**: payload pode conter CPF/telefone — RLS restringe a admin/supervisor.
-- **Tamanho do payload**: truncar campos > 10 KB para evitar bloat.
-- **Compatibilidade**: `automation_audit` continua sendo escrita (não removemos lógica existente), só duplicamos para a nova tabela enriquecida.
-
-## Detalhes técnicos (ref)
-
-- Helper compartilhado em `supabase/functions/_shared/pagamentoLogger.ts` com função `logPagamentoWebhook(supabase, entry)` para padronizar os inserts.
-- Frontend: novo hook `usePagamentoWebhookLogs` com `fetchAllPaginated`, componente `PagamentoWebhookLogsViewer` similar ao já existente `SystemLogsViewer`.
-
-## Resultado esperado
-
-Você abre **Manutenção → Logs de Pagamento**, filtra por 18/03/2026 (ou qualquer dia futuro), e vê cada chamada que o Make fez para nos passar o link, cada confirmação do Asaas, com payload, status e duração — clicando em qualquer linha vê o JSON cru.
+```tsx
+<div>
+  <span className="text-muted-foreground">Agendado por</span>
+  <p className="font-medium">
+    {agendadoPor?.nome ?? '—'}
+    {agendadoPor?.created_at && (
+      <span className="text-xs text-muted-foreground ml-1">
+        ({format(new Date(agendadoPor.created_at), "dd/MM/yyyy HH:mm")})
+      </span>
+    )}
+  </p>
+</div>
+```

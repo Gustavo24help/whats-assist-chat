@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +30,28 @@ export function AgendamentoDetalhesModal({ ficha, open, onClose, onSaved }: Prop
   const [novoStatus, setNovoStatus] = useState(ficha?.status || '');
   const [observacao, setObservacao] = useState('');
   const [saving, setSaving] = useState(false);
+  const [agendadoPor, setAgendadoPor] = useState<{ nome: string | null; created_at: string } | null>(null);
+
+  const isRetorno = ficha?.tipo_agendamento === 'retorno';
+  const statusAlvo = isRetorno ? 'Retorno' : 'Agendado';
+
+  useEffect(() => {
+    if (!open || !ficha?.id) { setAgendadoPor(null); return; }
+    let cancel = false;
+    (async () => {
+      const { data } = await supabase
+        .from('ficha_status_historico')
+        .select('alterado_por_nome, created_at')
+        .eq('ficha_id', ficha.id)
+        .eq('status_novo', statusAlvo)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancel) return;
+      setAgendadoPor(data ? { nome: (data as any).alterado_por_nome, created_at: (data as any).created_at } : null);
+    })();
+    return () => { cancel = true; };
+  }, [open, ficha?.id, statusAlvo]);
 
   if (!ficha) return null;
 
@@ -134,6 +156,17 @@ export function AgendamentoDetalhesModal({ ficha, open, onClose, onSaved }: Prop
             <div>
               <span className="text-muted-foreground">Status Atual</span>
               <p className="font-medium">{ficha.status}</p>
+            </div>
+            <div className="col-span-2">
+              <span className="text-muted-foreground">{isRetorno ? 'Retorno agendado por' : 'Agendado por'}</span>
+              <p className="font-medium">
+                {agendadoPor?.nome || '—'}
+                {agendadoPor?.created_at && (
+                  <span className="text-xs text-muted-foreground ml-1">
+                    ({format(new Date(agendadoPor.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })})
+                  </span>
+                )}
+              </p>
             </div>
           </div>
 
