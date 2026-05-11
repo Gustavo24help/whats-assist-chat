@@ -85,7 +85,51 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const body: RequestBody = await req.json();
+    const rawBody = await req.text();
+    let body: RequestBody;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      body = {} as RequestBody;
+    }
+
+    const inboundRequestId = body.request_id || crypto.randomUUID();
+    const inboundUserAgent = req.headers.get("user-agent") || "desconhecido";
+    const inboundIp =
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("cf-connecting-ip") ||
+      req.headers.get("x-real-ip") ||
+      "desconhecido";
+    const inboundOrigin = req.headers.get("origin") || req.headers.get("referer") || "desconhecido";
+    const inboundHasAuth = !!(req.headers.get("authorization") || req.headers.get("Authorization"));
+
+    // 🔍 LOG DE ENTRADA (toda chamada vira linha em system_logs)
+    // Isso permite rastrear chamadas que "somem" antes do bot_historico ser inserido.
+    try {
+      await supabase.from("system_logs").insert({
+        nivel: "info",
+        categoria: "bot",
+        mensagem: `toggle-bot-status INBOUND: ${body.requested_action ?? body.bot_status ?? "?"} ${body.telefone ?? "?"}`,
+        cliente_telefone: body.telefone ?? null,
+        detalhes: {
+          event: "toggle_bot_inbound",
+          request_id: inboundRequestId,
+          raw_body: rawBody.slice(0, 4000),
+          parsed_body: body,
+          headers: {
+            origin: inboundOrigin,
+            user_agent: inboundUserAgent,
+            ip: inboundIp,
+            has_auth: inboundHasAuth,
+          },
+          received_at: new Date().toISOString(),
+        },
+        url: "edge://toggle-bot-status",
+        user_agent: inboundUserAgent,
+      });
+    } catch (logErr) {
+      console.warn("[toggle-bot-status] falha ao gravar inbound log:", logErr);
+    }
 
     const telefone = body.telefone;
     if (!telefone) {
@@ -442,6 +486,31 @@ Deno.serve(async (req) => {
       `[toggle-bot-status] ✅ ${telefone} ${acaoLegacy} | origem=${resolvedOrigin} trigger=${triggerSource} prev=(${previousBotEnabled},${previousManualLock}) new=(${newBotEnabled},${newManualLock})${incoherentState ? " [INCOERENTE]" : ""}`,
     );
 
+    // 🔍 LOG DE SAÍDA (resultado final aplicado)
+    try {
+      await supabase.from("system_logs").insert({
+        nivel: incoherentState ? "warn" : "info",
+        categoria: "bot",
+        mensagem: `toggle-bot-status APLICADO: ${acaoLegacy} ${telefone} (origem=${resolvedOrigin})`,
+        cliente_telefone: telefone,
+        user_id: executedByUserId,
+        detalhes: {
+          event: "toggle_bot_applied",
+          request_id: requestId,
+          requested_action: requestedAction,
+          resolved_origin: resolvedOrigin,
+          trigger_source: triggerSource,
+          previous_state: { bot_habilitado: previousBotEnabled, bot_desligado_manualmente: previousManualLock },
+          new_state: { bot_habilitado: newBotEnabled, bot_desligado_manualmente: newManualLock },
+          incoherent_state: incoherentState,
+          applied_at: new Date().toISOString(),
+        },
+        url: "edge://toggle-bot-status",
+      });
+    } catch (logErr) {
+      console.warn("[toggle-bot-status] falha ao gravar applied log:", logErr);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -465,6 +534,25 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error("[toggle-bot-status] Erro:", error);
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      );
+      await supabase.from("system_logs").insert({
+        nivel: "error",
+        categoria: "bot",
+        mensagem: `toggle-bot-status ERRO: ${error instanceof Error ? error.message : "desconhecido"}`,
+        detalhes: {
+          event: "toggle_bot_error",
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : String(error),
+          received_at: new Date().toISOString(),
+        },
+        url: "edge://toggle-bot-status",
+      });
+    } catch (logErr) {
+      console.warn("[toggle-bot-status] falha ao gravar error log:", logErr);
+    }
     return new Response(
       JSON.stringify({
         error: "Erro interno do servidor",
