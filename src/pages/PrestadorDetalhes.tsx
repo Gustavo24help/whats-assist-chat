@@ -58,6 +58,9 @@ type Prestador = {
   conta: string | null;
   taxa_visita_padrao: number | null;
   regiao_atuacao: string | null;
+  cep: string | null;
+  endereco: string | null;
+  complemento: string | null;
   ativo: boolean;
   created_at: string | null;
 };
