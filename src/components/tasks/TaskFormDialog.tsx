@@ -74,7 +74,7 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
         setTitle('')
         setDescription('')
         setProject('')
-        setAssigneeIds(isManager ? [] : [currentMember.id])
+        setAssigneeIds([currentMember.id])
         setStartDate(undefined)
         setDueDate(undefined)
         setPriority('media')
@@ -200,18 +200,8 @@ export function TaskFormDialog({ open, onOpenChange, task, team, currentMember, 
         .insert(assigneeRows)
       if (aErr) throw aErr
 
-      // Send notification on completion
-      if (isFinishing && createdBy && resolutionNote.trim()) {
-        await (supabase as any)
-          .from('notificacoes')
-          .insert({
-            usuario_destino: createdBy,
-            tipo: 'tarefa_concluida',
-            referencia_id: taskId,
-            titulo: `Tarefa concluída: ${title.trim()}`,
-            descricao: resolutionNote.trim(),
-          })
-      }
+      // Notification is already created by DB trigger when status changes to 'feito'.
+      // Keep UI save resilient even if notification flow fails elsewhere.
 
       toast.success(task ? 'Tarefa atualizada!' : 'Tarefa criada!')
       onOpenChange(false)
