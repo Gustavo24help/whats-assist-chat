@@ -58,6 +58,9 @@ type Prestador = {
   conta: string | null;
   taxa_visita_padrao: number | null;
   regiao_atuacao: string | null;
+  cep: string | null;
+  endereco: string | null;
+  complemento: string | null;
   ativo: boolean;
   created_at: string | null;
 };
@@ -111,6 +114,9 @@ const buildPrestadorPayload = (formData: Omit<Prestador, "created_at">) => {
     conta: formData.conta || null,
     taxa_visita_padrao: formData.taxa_visita_padrao ?? 0,
     regiao_atuacao: formData.regiao_atuacao || null,
+    cep: formData.cep || null,
+    endereco: formData.endereco || null,
+    complemento: formData.complemento || null,
     ativo: formData.ativo ?? true,
   };
 };
@@ -166,6 +172,9 @@ const PrestadorDetalhes = () => {
         conta: data.conta ?? null,
         taxa_visita_padrao: data.taxa_visita_padrao ?? null,
         regiao_atuacao: data.regiao_atuacao ?? null,
+        cep: (data as any).cep ?? null,
+        endereco: (data as any).endereco ?? null,
+        complemento: (data as any).complemento ?? null,
         ativo: data.ativo ?? true,
       });
       setLoading(false);
@@ -529,7 +538,22 @@ const PrestadorDetalhes = () => {
               <div className="space-y-2">
                 <Label htmlFor="regiao_atuacao">Região de Atuação</Label>
                 <Input id="regiao_atuacao" value={(formData as any).regiao_atuacao || ""} onChange={(e) => setFormData({ ...formData, regiao_atuacao: e.target.value })} placeholder="Ex: Zona Sul, Grande BH" />
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cep">CEP</Label>
+                <Input id="cep" value={(formData as any).cep || ""} onChange={(e) => setFormData({ ...formData, cep: e.target.value })} placeholder="00000-000" />
               </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="endereco">Endereço</Label>
+                <Input id="endereco" value={(formData as any).endereco || ""} onChange={(e) => setFormData({ ...formData, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade" />
+              </div>
+              <div className="space-y-2 md:col-span-3">
+                <Label htmlFor="complemento">Complemento</Label>
+                <Input id="complemento" value={(formData as any).complemento || ""} onChange={(e) => setFormData({ ...formData, complemento: e.target.value })} placeholder="Apto, bloco, referência" />
+              </div>
+            </div>
               <div className="space-y-2">
                 <Label htmlFor="ativo">Prestador ativo</Label>
                 <select
