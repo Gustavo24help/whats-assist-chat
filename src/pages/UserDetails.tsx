@@ -52,6 +52,9 @@ const HISTORY_TYPES: Record<string, { label: string; color: string; icon: React.
   pagamento_atualizado: { label: "Pagamento Atualizado", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200", icon: <CreditCard className="h-3.5 w-3.5" /> },
   bot_toggle: { label: "Bot Toggle", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200", icon: <Bot className="h-3.5 w-3.5" /> },
   ficha: { label: "Ficha", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200", icon: <FileText className="h-3.5 w-3.5" /> },
+  ficha_criada: { label: "Ficha Criada", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200", icon: <FileText className="h-3.5 w-3.5" /> },
+  prestador_atribuido: { label: "Prestador Atribuído", color: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200", icon: <Users className="h-3.5 w-3.5" /> },
+  agendamento_alterado: { label: "Agendamento", color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", icon: <Clock className="h-3.5 w-3.5" /> },
   servico_fechado: { label: "Serviço Fechado", color: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", icon: <FileText className="h-3.5 w-3.5" /> },
   observacao: { label: "Observação", color: "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200", icon: <Eye className="h-3.5 w-3.5" /> },
 };
