@@ -486,6 +486,31 @@ Deno.serve(async (req) => {
       `[toggle-bot-status] ✅ ${telefone} ${acaoLegacy} | origem=${resolvedOrigin} trigger=${triggerSource} prev=(${previousBotEnabled},${previousManualLock}) new=(${newBotEnabled},${newManualLock})${incoherentState ? " [INCOERENTE]" : ""}`,
     );
 
+    // 🔍 LOG DE SAÍDA (resultado final aplicado)
+    try {
+      await supabase.from("system_logs").insert({
+        nivel: incoherentState ? "warn" : "info",
+        categoria: "bot",
+        mensagem: `toggle-bot-status APLICADO: ${acaoLegacy} ${telefone} (origem=${resolvedOrigin})`,
+        cliente_telefone: telefone,
+        user_id: executedByUserId,
+        detalhes: {
+          event: "toggle_bot_applied",
+          request_id: requestId,
+          requested_action: requestedAction,
+          resolved_origin: resolvedOrigin,
+          trigger_source: triggerSource,
+          previous_state: { bot_habilitado: previousBotEnabled, bot_desligado_manualmente: previousManualLock },
+          new_state: { bot_habilitado: newBotEnabled, bot_desligado_manualmente: newManualLock },
+          incoherent_state: incoherentState,
+          applied_at: new Date().toISOString(),
+        },
+        url: "edge://toggle-bot-status",
+      });
+    } catch (logErr) {
+      console.warn("[toggle-bot-status] falha ao gravar applied log:", logErr);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
