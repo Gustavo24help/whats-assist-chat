@@ -1,29 +1,78 @@
-## Problema
 
-O botão "Ajustar Data Finalização" só aparece quando o status da ficha é exatamente `Finalizado`. Quando a ficha avança automaticamente para `Garantia` (após o pagamento), o botão some e o operador perde a capacidade de corrigir a data — mesmo que o registro original de `Finalizado` continue presente em `ficha_status_historico`.
+## Objetivo
 
-A lógica interna do dialog (`AjustarDataFinalizacaoDialog.tsx`) já busca o histórico pelo `status_novo = 'Finalizado'`, então **funciona normalmente em fichas que estão em Garantia** — só a UI está bloqueando.
+Criar uma tela de histórico que mostra, em ordem cronológica, **tudo que entra no sistema relacionado a links de pagamento** — tanto a criação/recebimento do link (vindo do Make → `update-pagamento`) quanto as confirmações de pagamento (vindas do webhook do Asaas).
 
-## Mudanças (apenas frontend, sem alterar dados)
+## O que já existe vs. o que falta
 
-Estender a condição de exibição do botão/dialog para aceitar também `Garantia`:
+| Origem | Tabela | Hoje | Ação |
+|---|---|---|---|
+| Webhook Asaas (PAYMENT_CONFIRMED, PAYMENT_RECEIVED, etc.) | `automation_audit` (etapa=`webhook_pagamento`) | ✅ 122 registros desde 14/04 | Apenas mostrar |
+| Reconciliação Asaas manual | `automation_audit` (etapa=`reconcile_asaas`) | ✅ 20 registros | Apenas mostrar |
+| Link de pagamento gravado pelo Make (`update-pagamento`) | nenhuma | ❌ Só `console.log` da edge | **Criar log** |
+| Link gerado por nós (`create-payment-link`) | nenhuma estruturada | ❌ Só `console.log` | **Criar log** |
 
-1. **`src/components/FichaServicoTab.tsx`**
-   - Linha 2705: trocar `ficha.status === 'Finalizado'` por `(ficha.status === 'Finalizado' || ficha.status === 'Garantia')` no bloco do botão.
-   - Linha 2757: mesma mudança no bloco de montagem do `<AjustarDataFinalizacaoDialog>`.
+## Mudanças
 
-2. **`src/pages/Fichas.tsx`**
-   - Linha ~200: na lista de fichas, trocar `f.status === "Finalizado"` por `(f.status === "Finalizado" || f.status === "Garantia")` no botão de ajuste rápido.
+### 1. Nova tabela `pagamento_webhook_log` (migration)
 
-## Salvaguardas (preservação de dados)
+```text
+id              uuid PK
+created_at      timestamptz
+direcao         text  -- 'recebido' | 'enviado'
+origem          text  -- 'make_update_pagamento' | 'asaas_webhook' | 'create_payment_link' | 'reconcile_asaas'
+ficha_id        text  (nullable)
+evento          text  -- ex: 'PAYMENT_CONFIRMED', 'link_atualizado', 'link_criado'
+status          text  -- 'success' | 'error' | 'ignored'
+pagamento_link  text  (nullable)
+valor           numeric (nullable)
+auth_source     text  -- 'make' | 'user' | 'asaas' | 'service'
+payload         jsonb -- corpo bruto recebido/enviado (truncado se grande)
+resposta        jsonb -- resposta enviada/recebida
+duracao_ms      integer
+erro            text  (nullable)
+```
 
-- Nenhuma alteração em banco, triggers, RLS ou edge functions.
-- O `AjustarDataFinalizacaoDialog` já preserva hora/minuto/segundo do registro original (não há shift de timezone).
-- Já protege transações com `pago` (`.neq("status_pagamento_prestador", "pago")`), então ajustar data em ficha de Garantia **não vai sobrescrever pagamentos já realizados** ao prestador. Apenas transações pendentes serão recalculadas — comportamento correto.
-- O webhook `webhook-update-planilha` continua sendo chamado normalmente (não-bloqueante).
+RLS: leitura para `authenticated` (admins/supervisores), insert para `service_role`.
 
-## Validação após implementar
+### 2. Instrumentar edge functions para gravar nessa tabela
 
-- Abrir uma ficha em status `Garantia` → confirmar que botão laranja "Ajustar Data Finalização" aparece.
-- Abrir o dialog, escolher nova data, confirmar → verificar toast de sucesso.
-- Confirmar no banco que `ficha_status_historico` do `Finalizado` foi atualizado e que transações já `pago` permaneceram intactas.
+- `supabase/functions/update-pagamento/index.ts` — gravar entrada (payload, ficha_id, link, auth_source) e saída (sucesso/erro, duração).
+- `supabase/functions/asaas-webhook/index.ts` — espelhar para `pagamento_webhook_log` (hoje só vai em `automation_audit`).
+- `supabase/functions/create-payment-link/index.ts` — gravar criação de link.
+- `supabase/functions/reconcile-asaas-payments/index.ts` — gravar resultado da reconciliação.
+
+Comportamento "fail-safe": qualquer erro de log NÃO interrompe o fluxo principal.
+
+### 3. Backfill (sem perda)
+
+Script de migração que copia o que já existe em `automation_audit` (etapas `webhook_pagamento` e `reconcile_asaas`) para `pagamento_webhook_log` — assim a tela já abre com 142 registros históricos. **Nada é apagado** de `automation_audit`.
+
+### 4. Nova página `Manutenção → Logs de Pagamento`
+
+Rota: `/manutencao/logs-pagamento` (acessível só para admin).
+
+UI:
+- Filtros: período (default últimos 7 dias), origem, status, ficha_id, telefone do cliente.
+- Lista paginada (50 por página) com colunas: data/hora, origem, ficha, evento, status, valor, link.
+- Drawer ao clicar na linha: payload completo (JSON pretty), resposta, erro, duração, auth_source.
+- Botão "Copiar JSON" e "Abrir ficha".
+- Badge colorido por status (verde/amarelo/vermelho) e por origem.
+
+Adicionar entrada na aba **Manutenção → Ferramentas** chamada "Logs de Pagamento".
+
+## Riscos e cuidados
+
+- **Não alterar comportamento atual** do Make ou do Asaas: log é só observação lateral.
+- **Sigilo**: payload pode conter CPF/telefone — RLS restringe a admin/supervisor.
+- **Tamanho do payload**: truncar campos > 10 KB para evitar bloat.
+- **Compatibilidade**: `automation_audit` continua sendo escrita (não removemos lógica existente), só duplicamos para a nova tabela enriquecida.
+
+## Detalhes técnicos (ref)
+
+- Helper compartilhado em `supabase/functions/_shared/pagamentoLogger.ts` com função `logPagamentoWebhook(supabase, entry)` para padronizar os inserts.
+- Frontend: novo hook `usePagamentoWebhookLogs` com `fetchAllPaginated`, componente `PagamentoWebhookLogsViewer` similar ao já existente `SystemLogsViewer`.
+
+## Resultado esperado
+
+Você abre **Manutenção → Logs de Pagamento**, filtra por 18/03/2026 (ou qualquer dia futuro), e vê cada chamada que o Make fez para nos passar o link, cada confirmação do Asaas, com payload, status e duração — clicando em qualquer linha vê o JSON cru.
