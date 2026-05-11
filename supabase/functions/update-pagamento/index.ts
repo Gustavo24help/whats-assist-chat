@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { logPagamentoWebhook } from '../_shared/pagamentoLogger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
