@@ -259,6 +259,51 @@ export function initSystemLogger() {
           mensagem: `HTTP 401 — ${shortenUrl(url)}`,
           detalhes: { url, status: 401, method: init?.method ?? "GET", duration_ms: dur },
         });
+      } else if (
+        !url.includes("/system_logs") &&
+        res.status === 403 &&
+        (url.includes("/auth/v1/") || url.includes("/auth/v1/user") || url.includes("/auth/v1/token"))
+      ) {
+        // Captura específica de logoff involuntário (Supabase Auth)
+        // — session_not_found (refresh token reuse / sessão revogada)
+        // — bad_jwt / missing sub claim (JWT órfão após sessão invalidada)
+        try {
+          const cloned = res.clone();
+          const body = await cloned.text();
+          const lower = body.toLowerCase();
+          let motivo: string = "auth_403";
+          if (lower.includes("session_not_found") || lower.includes("session id") || lower.includes("doesn't exist") || lower.includes("session not found")) {
+            motivo = "session_not_found";
+          } else if (lower.includes("bad_jwt") || lower.includes("missing sub") || lower.includes("invalid claim")) {
+            motivo = "bad_jwt";
+          } else if (lower.includes("refresh_token_already_used") || lower.includes("refresh token")) {
+            motivo = "refresh_token_revogado";
+          }
+          logSystemEvent({
+            nivel: "error",
+            categoria: "auth",
+            mensagem: `Logoff involuntário detectado (${motivo}) — ${shortenUrl(url)}`,
+            skipDedup: true,
+            detalhes: {
+              url,
+              status: 403,
+              motivo,
+              method: init?.method ?? "GET",
+              duration_ms: dur,
+              response_preview: truncate(body, 500),
+              path_atual: typeof window !== "undefined" ? window.location.pathname + window.location.search : null,
+              tabs_abertas_visibilidade: typeof document !== "undefined" ? document.visibilityState : null,
+            },
+          });
+        } catch {
+          logSystemEvent({
+            nivel: "error",
+            categoria: "auth",
+            mensagem: `Logoff involuntário detectado (auth 403) — ${shortenUrl(url)}`,
+            skipDedup: true,
+            detalhes: { url, status: 403, method: init?.method ?? "GET", duration_ms: dur },
+          });
+        }
       }
       return res;
     } catch (err: any) {
