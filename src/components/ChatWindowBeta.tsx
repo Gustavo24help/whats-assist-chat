@@ -2053,7 +2053,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           console.log(`[ChatWindow] ✅ Fluxo encerrado: ${data.executionSid}`);
         } else {
           // Não havia execução ativa, mas ainda desabilita o bot
-          const { error: toggleError } = await supabase.functions.invoke("toggle-bot-status", {
+          const { data: toggleData, error: toggleError } = await supabase.functions.invoke("toggle-bot-status", {
             body: {
               telefone: clienteTelefone,
               requested_action: "disable_bot",
