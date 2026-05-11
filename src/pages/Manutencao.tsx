@@ -55,6 +55,18 @@ const Manutencao = () => {
 
             {isAdmin && (
               <TabsContent value="tools" className="space-y-4">
+                <Card>
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Receipt className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium">Logs de Pagamento</p>
+                        <p className="text-xs text-muted-foreground">Histórico de webhooks Make/Asaas e criação de links.</p>
+                      </div>
+                    </div>
+                    <Button onClick={() => navigate("/logs-pagamento")}>Abrir</Button>
+                  </CardContent>
+                </Card>
                 <TwilioReconcilePanel />
                 <FerramentasManutencao />
               </TabsContent>
