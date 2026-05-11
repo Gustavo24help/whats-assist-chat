@@ -213,8 +213,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             return;
           }
 
-          // Aguardar 500ms e confirmar com getSession antes de aceitar logout
-          setTimeout(() => {
+          // Aguardar 500ms, tentar refreshSession e depois confirmar com getSession
+          setTimeout(async () => {
+            // 1ª tentativa: forçar refresh do token (recupera de SIGNED_OUT por race entre abas)
+            try {
+              const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+              if (!refreshErr && refreshed?.session?.user) {
+                console.warn('⚠️ AuthContext - SIGNED_OUT recuperado via refreshSession');
+                applySessionUser(refreshed.session.user);
+                queueProfileLoad(refreshed.session.user);
+                setLoading(false);
+                return;
+              }
+            } catch (e) {
+              console.warn('⚠️ AuthContext - refreshSession falhou:', e);
+            }
+
             supabase.auth.getSession().then(({ data: { session: currentSession }, error }) => {
               if (error) {
                 console.error('❌ AuthContext - Erro ao reconciliar SIGNED_OUT:', error);
@@ -227,6 +241,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               } else {
                 // Logoff involuntário CONFIRMADO — registrar para auditoria
                 const previousUserId = activeUserIdRef.current;
+                // Toast amigável avisando o operador
+                try {
+                  import('sonner').then(({ toast }) => {
+                    toast.error('Sua sessão expirou (provavelmente outra aba renovou o login). Faça login novamente.', {
+                      duration: 8000,
+                    });
+                  });
+                } catch {}
                 if (previousUserId) {
                   try {
                     import('@/lib/systemLogger').then(({ logSystemEvent }) => {
