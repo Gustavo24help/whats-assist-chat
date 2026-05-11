@@ -2029,6 +2029,19 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
         if (error) throw error;
 
+        if (data?.skipped && data?.reason === "recent_manual_reactivation") {
+          setBotDesabilitado(false);
+          toast.warning("Bot mantido ativo", {
+            description: "Um religamento manual acabou de acontecer; bloqueei o novo desligamento para evitar inversão acidental.",
+          });
+          setUltimaAcaoBot({
+            acao: "habilitado",
+            por: userName,
+            quando: new Date().toISOString(),
+          });
+          return;
+        }
+
         if (data?.success) {
           setBotDesabilitado(true);
           toast.success(`Bot desabilitado por ${userName}`);
@@ -2040,7 +2053,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           console.log(`[ChatWindow] ✅ Fluxo encerrado: ${data.executionSid}`);
         } else {
           // Não havia execução ativa, mas ainda desabilita o bot
-          const { error: toggleError } = await supabase.functions.invoke("toggle-bot-status", {
+          const { data: toggleData, error: toggleError } = await supabase.functions.invoke("toggle-bot-status", {
             body: {
               telefone: clienteTelefone,
               requested_action: "disable_bot",
@@ -2051,6 +2064,19 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           });
 
           if (toggleError) throw toggleError;
+
+          if (toggleData?.skipped && toggleData?.reason === "recent_manual_reactivation") {
+            setBotDesabilitado(false);
+            toast.warning("Bot mantido ativo", {
+              description: "Um religamento manual acabou de acontecer; bloqueei o novo desligamento para evitar inversão acidental.",
+            });
+            setUltimaAcaoBot({
+              acao: "habilitado",
+              por: userName,
+              quando: new Date().toISOString(),
+            });
+            return;
+          }
 
           setBotDesabilitado(true);
           toast.success(`Bot desabilitado por ${userName}`);

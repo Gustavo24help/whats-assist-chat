@@ -66,6 +66,7 @@ interface RequestBody {
 
   confirmacao?: string;
   force_reactivate_manual?: boolean;
+  force_disable_after_reactivation?: boolean;
 }
 
 const MANUAL_TRIGGER_SOURCES: TriggerSource[] = [
@@ -174,6 +175,82 @@ Deno.serve(async (req) => {
 
     const previousBotEnabled = clienteAntes?.bot_habilitado !== false;
     const previousManualLock = clienteAntes?.bot_desligado_manualmente === true;
+
+    // Proteção contra estado stale/duplo clique: se o bot acabou de ser
+    // reativado manualmente, não aceitar um novo desligamento manual imediato
+    // sem override explícito. Isso evita o caso em que a UI antiga ainda acha
+    // que o bot está desligado e reenvia uma ação de "assumir/desligar".
+    if (
+      requestedAction === "disable_bot" &&
+      isManual &&
+      previousBotEnabled &&
+      body.force_disable_after_reactivation !== true
+    ) {
+      const sinceIso = new Date(Date.now() - 60_000).toISOString();
+      const { data: recentEnable } = await supabase
+        .from("bot_historico")
+        .select("created_at, executado_por_id")
+        .eq("telefone_cliente", telefone)
+        .eq("acao", "ligado")
+        .eq("origem", "manual")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const sameOperatorOrUnknown =
+        !recentEnable?.executado_por_id ||
+        !executedByUserId ||
+        recentEnable.executado_por_id === executedByUserId;
+
+      if (recentEnable && sameOperatorOrUnknown) {
+        await supabase.from("system_logs").insert({
+          nivel: "warn",
+          categoria: "bot",
+          mensagem: `Desligamento manual bloqueado logo após reativação: ${telefone}`,
+          cliente_telefone: telefone,
+          detalhes: {
+            event: "bot_disable_blocked_recent_reactivation",
+            telefone_cliente: telefone,
+            recent_enable_at: recentEnable.created_at,
+            requested_action: requestedAction,
+            requested_origin: requestedOrigin,
+            resolved_origin: resolvedOrigin,
+            trigger_source: triggerSource,
+            executed_by_user_id: executedByUserId,
+          },
+          url: "edge://toggle-bot-status",
+        });
+
+        await supabase.from("bot_historico").insert({
+          telefone_cliente: telefone,
+          acao: "desligado_bloqueado",
+          origem: resolvedOrigin,
+          executado_por_id: executedByUserId,
+          observacao: `Desligamento manual BLOQUEADO — reativação manual recente [trigger=${triggerSource}, recent_enable_at=${recentEnable.created_at}, request_id=${body.request_id ?? ""}]`,
+          request_id: body.request_id ?? crypto.randomUUID(),
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            reason: "recent_manual_reactivation",
+            telefone,
+            bot_status: "enabled",
+            previous_state: {
+              bot_habilitado: previousBotEnabled,
+              bot_desligado_manualmente: previousManualLock,
+            },
+            new_state: {
+              bot_habilitado: true,
+              bot_desligado_manualmente: false,
+            },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
 
     // ===== Confirmação manual para LIGAR =====
     // Mantemos a confirmação "LIGAR" para ativações manuais via botão.

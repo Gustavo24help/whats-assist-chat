@@ -1850,6 +1850,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
         if (error) throw error;
 
+        if (data?.skipped && data?.reason === "recent_manual_reactivation") {
+          setBotDesabilitado(false);
+          logChatEvent("bot_desligamento_bloqueado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "stop-twilio-flow", reason: data.reason }, { nivel: "warn" });
+          toast.warning("Bot mantido ativo", {
+            description: "Um religamento manual acabou de acontecer; bloqueei o novo desligamento para evitar inversão acidental.",
+          });
+          setUltimaAcaoBot({
+            acao: 'habilitado',
+            por: userName,
+            quando: new Date().toISOString()
+          });
+          return;
+        }
+
         if (data?.success) {
           setBotDesabilitado(true);
           logChatEvent("bot_desabilitado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "stop-twilio-flow", execution_sid: data.executionSid }, { nivel: "warn" });
@@ -1862,7 +1876,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           console.log(`[ChatWindow] ✅ Fluxo encerrado: ${data.executionSid}`);
         } else {
           // Não havia execução ativa, mas ainda desabilita o bot
-          const { error: toggleError } = await supabase.functions.invoke('toggle-bot-status', {
+          const { data: toggleData, error: toggleError } = await supabase.functions.invoke('toggle-bot-status', {
             body: {
               telefone: clienteTelefone,
               requested_action: 'disable_bot',
@@ -1873,6 +1887,20 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           });
 
           if (toggleError) throw toggleError;
+
+          if (toggleData?.skipped && toggleData?.reason === "recent_manual_reactivation") {
+            setBotDesabilitado(false);
+            logChatEvent("bot_desligamento_bloqueado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "toggle-bot-status", reason: toggleData.reason }, { nivel: "warn" });
+            toast.warning("Bot mantido ativo", {
+              description: "Um religamento manual acabou de acontecer; bloqueei o novo desligamento para evitar inversão acidental.",
+            });
+            setUltimaAcaoBot({
+              acao: 'habilitado',
+              por: userName,
+              quando: new Date().toISOString()
+            });
+            return;
+          }
 
           setBotDesabilitado(true);
           logChatEvent("bot_desabilitado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "toggle-bot-status" }, { nivel: "warn" });
