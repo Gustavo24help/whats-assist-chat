@@ -114,6 +114,9 @@ const buildPrestadorPayload = (formData: Omit<Prestador, "created_at">) => {
     conta: formData.conta || null,
     taxa_visita_padrao: formData.taxa_visita_padrao ?? 0,
     regiao_atuacao: formData.regiao_atuacao || null,
+    cep: formData.cep || null,
+    endereco: formData.endereco || null,
+    complemento: formData.complemento || null,
     ativo: formData.ativo ?? true,
   };
 };
