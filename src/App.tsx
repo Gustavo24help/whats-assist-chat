@@ -384,6 +384,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/logs-pagamento"
+                element={
+                  <ProtectedRoute>
+                    <LogsPagamento />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/admin-prestador"
                 element={
                   <ProtectedRoute>
