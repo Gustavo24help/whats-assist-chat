@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import {
   CheckCircle2, Loader2, Copy, CreditCard, ChevronLeft, ChevronRight,
   History, DollarSign, Info, Ban, Search, Star, Building2, X, CalendarIcon,
+  Hash, Plus, FileText, Trash2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
@@ -27,6 +28,11 @@ import {
   EXCLUDED_FICHAS_PAGAMENTO,
   calcFinanceiroPrestador,
 } from "@/lib/financeiroPrestador";
+import { IdBadge } from "@/components/ui/IdBadge";
+import { BuscarPorIdTab, type BuscaIdItem } from "./BuscarPorIdTab";
+import { NovoLancamentoManualDialog } from "./NovoLancamentoManualDialog";
+import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const EXCLUDED_FICHAS = EXCLUDED_FICHAS_PAGAMENTO;
