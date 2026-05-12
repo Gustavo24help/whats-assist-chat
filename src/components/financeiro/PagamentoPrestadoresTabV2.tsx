@@ -587,9 +587,11 @@ export const PagamentoPrestadoresTabV2 = () => {
       </div>
 
       <Tabs value={subTab} onValueChange={setSubTab}>
-        <TabsList className="mb-3">
+        <TabsList className="mb-3 flex-wrap h-auto gap-1">
           <TabsTrigger value="pendentes" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Pendentes</TabsTrigger>
           <TabsTrigger value="historico" className="gap-1.5"><History className="h-3.5 w-3.5" /> Pagos</TabsTrigger>
+          <TabsTrigger value="manual" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Lançamento Manual</TabsTrigger>
+          <TabsTrigger value="ids" className="gap-1.5"><Hash className="h-3.5 w-3.5" /> IDs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pendentes">
