@@ -629,6 +629,66 @@ export type Database = {
           },
         ]
       }
+      contas_pagar_manual: {
+        Row: {
+          beneficiario_nome: string
+          beneficiario_tipo: string
+          categoria: string | null
+          comprovante_url: string | null
+          created_at: string
+          criado_por: string | null
+          data_pagamento: string | null
+          data_vencimento: string | null
+          descricao: string
+          ficha_id: string | null
+          forma_pagamento: string | null
+          id: string
+          observacoes: string | null
+          prestador_id: string | null
+          status: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          beneficiario_nome: string
+          beneficiario_tipo?: string
+          categoria?: string | null
+          comprovante_url?: string | null
+          created_at?: string
+          criado_por?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string | null
+          descricao: string
+          ficha_id?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          observacoes?: string | null
+          prestador_id?: string | null
+          status?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          beneficiario_nome?: string
+          beneficiario_tipo?: string
+          categoria?: string | null
+          comprovante_url?: string | null
+          created_at?: string
+          criado_por?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string | null
+          descricao?: string
+          ficha_id?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          observacoes?: string | null
+          prestador_id?: string | null
+          status?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       contas_receber: {
         Row: {
           asaas_id: string | null
