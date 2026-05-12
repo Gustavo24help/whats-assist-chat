@@ -97,6 +97,7 @@ export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoH
                       tipoSlot={slot.tipoSlot}
                       slotInicio={slot.inicio}
                       slotFim={slot.fim}
+                      vizinhosProximos={proximidadeMapa?.get(`${ficha.id}-${slot.tipoSlot}`)}
                     />
                   ))}
                   {daySlots.length > 4 && (
