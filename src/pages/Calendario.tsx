@@ -138,6 +138,8 @@ export default function Calendario() {
     return c;
   }, [fichas]);
 
+  const proximidadeMapa = useMemo(() => computarProximidadeCalendario(fichas, 60), [fichas]);
+
   const toggleStatus = (status: string) => {
     setFiltroStatus(prev =>
       prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
