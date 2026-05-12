@@ -78,6 +78,7 @@ export function CalendarioSemanal({ fichas, currentDate, onSelectFicha, contexto
                       tipoSlot={slot.tipoSlot}
                       slotInicio={slot.inicio}
                       slotFim={slot.fim}
+                      vizinhosProximos={proximidadeMapa?.get(`${ficha.id}-${slot.tipoSlot}`)}
                     />
                   ))}
                 </div>
