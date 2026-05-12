@@ -31,6 +31,7 @@ import {
 import { IdBadge } from "@/components/ui/IdBadge";
 import { BuscarPorIdTab, type BuscaIdItem } from "./BuscarPorIdTab";
 import { NovoLancamentoManualDialog } from "./NovoLancamentoManualDialog";
+import { FichaPagamentosTab } from "./FichaPagamentosTab";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -894,9 +895,12 @@ export const PagamentoPrestadoresTabV2 = () => {
       <NovoLancamentoManualDialog open={novoManualOpen} onOpenChange={setNovoManualOpen} onSaved={carregarManuais} />
       {/* Detail Dialog */}
       <Dialog open={detalhesOpen} onOpenChange={setDetalhesOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detalhes — {detalhesSel?.id}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              <span>Detalhes</span>
+              {detalhesSel?.id && <IdBadge id={detalhesSel.id} kind="ficha" />}
+            </DialogTitle>
           </DialogHeader>
           {detalhesSel && (
             <div className="space-y-3 text-sm">
@@ -958,6 +962,11 @@ export const PagamentoPrestadoresTabV2 = () => {
                     <div>{detalhesSel.conta}</div>
                   </>
                 )}
+              </div>
+              <Separator />
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground mb-2">IDs de Pagamento Vinculados</div>
+                <FichaPagamentosTab fichaId={detalhesSel.id} />
               </div>
             </div>
           )}
