@@ -801,7 +801,7 @@ export const PagamentoPrestadoresTabV2 = () => {
                     ) : (
                       manuais.map((m) => (
                         <TableRow key={m.id} className="hover:bg-muted/50">
-                          <TableCell><IdBadge id={m.id} /></TableCell>
+                          <TableCell><IdBadge id={m.id} kind="pagar_manual" /></TableCell>
                           <TableCell className="text-sm">
                             {m.descricao}
                             {m.ficha_id && <div className="text-[10px] text-muted-foreground">Ficha: {m.ficha_id}</div>}
@@ -852,6 +852,7 @@ export const PagamentoPrestadoresTabV2 = () => {
                 status: "Pendente",
                 statusColor: "border-blue-300 text-blue-700 bg-blue-50",
                 origem: `Ficha · Cliente: ${f.nome_cliente_resolved}`,
+                idKind: "ficha",
                 raw: f,
               })),
               ...historico.map<BuscaIdItem>((f) => ({
@@ -862,6 +863,7 @@ export const PagamentoPrestadoresTabV2 = () => {
                 status: "Pago",
                 statusColor: "border-green-300 text-green-700 bg-green-50",
                 origem: `Ficha · Cliente: ${f.nome_cliente_resolved}`,
+                idKind: "ficha",
                 raw: f,
               })),
               ...manuais.map<BuscaIdItem>((m) => ({
@@ -874,6 +876,7 @@ export const PagamentoPrestadoresTabV2 = () => {
                   : m.status === "cancelado" ? "border-muted text-muted-foreground"
                   : "border-blue-300 text-blue-700 bg-blue-50",
                 origem: `Manual · ${m.descricao}`,
+                idKind: "pagar_manual",
                 raw: m,
               })),
             ]}
