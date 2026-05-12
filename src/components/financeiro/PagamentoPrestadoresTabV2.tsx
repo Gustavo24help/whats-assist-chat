@@ -895,9 +895,12 @@ export const PagamentoPrestadoresTabV2 = () => {
       <NovoLancamentoManualDialog open={novoManualOpen} onOpenChange={setNovoManualOpen} onSaved={carregarManuais} />
       {/* Detail Dialog */}
       <Dialog open={detalhesOpen} onOpenChange={setDetalhesOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detalhes — {detalhesSel?.id}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              <span>Detalhes</span>
+              {detalhesSel?.id && <IdBadge id={detalhesSel.id} kind="ficha" />}
+            </DialogTitle>
           </DialogHeader>
           {detalhesSel && (
             <div className="space-y-3 text-sm">
