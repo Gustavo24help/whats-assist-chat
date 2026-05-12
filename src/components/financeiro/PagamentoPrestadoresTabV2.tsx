@@ -31,6 +31,7 @@ import {
 import { IdBadge } from "@/components/ui/IdBadge";
 import { BuscarPorIdTab, type BuscaIdItem } from "./BuscarPorIdTab";
 import { NovoLancamentoManualDialog } from "./NovoLancamentoManualDialog";
+import { FichaPagamentosTab } from "./FichaPagamentosTab";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
