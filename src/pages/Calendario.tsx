@@ -18,6 +18,7 @@ import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { PageLayout } from "@/components/PageLayout";
 import { EditarCoresStatusModal } from "@/components/calendario/EditarCoresStatusModal";
 import { carregarCoresStatus, type CoresStatusMap } from "@/lib/calendarioStatusCores";
+import { computarProximidadeCalendario } from "@/lib/conflitoAgendamentoPrestador";
 
 const tiposAgendamento = [
   { value: 'all', label: 'Todos' },
