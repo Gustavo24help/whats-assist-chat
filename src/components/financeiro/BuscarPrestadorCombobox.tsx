@@ -7,9 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export interface PrestadorOption {
-  id: string;
+  cpf: string;
   nome: string;
-  cpf?: string | null;
 }
 
 interface Props {
@@ -25,28 +24,27 @@ export function BuscarPrestadorCombobox({ value, onChange, placeholder = "Buscar
   const [selected, setSelected] = useState<PrestadorOption | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Load selected when value changes externally
   useEffect(() => {
     if (!value) { setSelected(null); return; }
-    if (selected?.id === value) return;
+    if (selected?.cpf === value) return;
     (async () => {
-      const { data } = await supabase.from("prestadores").select("id,nome,cpf").eq("id", value).maybeSingle();
-      if (data) setSelected(data as any);
+      const { data } = await (supabase as any).from("prestadores").select("cpf,nome").eq("cpf", value).maybeSingle();
+      if (data) setSelected(data as PrestadorOption);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
-  // Search
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(async () => {
       setLoading(true);
-      let q = supabase.from("prestadores").select("id,nome,cpf").order("nome").limit(30);
+      let q: any = (supabase as any).from("prestadores").select("cpf,nome").order("nome").limit(30);
       if (query.trim()) {
         const term = `%${query.trim()}%`;
         q = q.or(`nome.ilike.${term},cpf.ilike.${term}`);
       }
       const { data } = await q;
-      if (!cancelled) setItems((data as any[]) || []);
+      if (!cancelled) setItems(((data as any[]) || []) as PrestadorOption[]);
       setLoading(false);
     }, 200);
     return () => { cancelled = true; clearTimeout(t); };
@@ -77,14 +75,14 @@ export function BuscarPrestadorCombobox({ value, onChange, placeholder = "Buscar
               )}
               {items.map((p) => (
                 <CommandItem
-                  key={p.id}
-                  value={p.id}
+                  key={p.cpf}
+                  value={p.cpf}
                   onSelect={() => { setSelected(p); onChange(p); setOpen(false); }}
                 >
-                  <Check className={cn("mr-2 h-4 w-4", selected?.id === p.id ? "opacity-100" : "opacity-0")} />
+                  <Check className={cn("mr-2 h-4 w-4", selected?.cpf === p.cpf ? "opacity-100" : "opacity-0")} />
                   <div className="flex flex-col">
                     <span className="text-sm">{p.nome}</span>
-                    {p.cpf && <span className="text-[10px] text-muted-foreground font-mono">{p.cpf}</span>}
+                    <span className="text-[10px] text-muted-foreground font-mono">{p.cpf}</span>
                   </div>
                 </CommandItem>
               ))}
