@@ -181,6 +181,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   } | null>(null);
   const pendingGerarLinkRef = useRef(false);
 
+  // Conflito de agendamento do prestador
+  const [conflitoDialog, setConflitoDialog] = useState<{
+    avisos: ConflitoSlot[];
+    onConfirm: () => void;
+  } | null>(null);
+  const ultimoAvisoFichasRef = useRef<string>(''); // para evitar repetir toast no autoSave
+
   /** Pré-check: se já houve envio prévio (auto OU manual), pede confirmação. */
   const checarEnviosPrevios = useCallback(async (): Promise<boolean> => {
     if (!ficha) return true;
