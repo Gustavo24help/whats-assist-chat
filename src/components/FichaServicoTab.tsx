@@ -2910,6 +2910,31 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Conflito de agendamento do prestador */}
+      <AlertDialog open={!!conflitoDialog} onOpenChange={(o) => !o && setConflitoDialog(null)}>
+        <AlertDialogContent className="border-2 border-amber-400">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
+              ⚠ Agendamento próximo do prestador
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>O prestador já tem agendamento(s) próximo(s) (≤ 1h):</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {conflitoDialog?.avisos.map((a) => (
+                    <li key={`${a.fichaId}-${a.tipoSlot}`}>{descreverConflito(a)}{a.distanciaMin !== 0 && <span className="text-muted-foreground"> — {a.distanciaMin > 0 ? `+${a.distanciaMin}` : a.distanciaMin}min</span>}</li>
+                  ))}
+                </ul>
+                <p>Deseja agendar mesmo assim?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConflitoDialog(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => conflitoDialog?.onConfirm()}>Agendar mesmo assim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
