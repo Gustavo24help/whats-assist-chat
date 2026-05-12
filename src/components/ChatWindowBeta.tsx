@@ -1283,10 +1283,10 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
   const clearUnreadMark = async () => {
     if (!user) return;
-    // Abrir a conversa conta como leitura EXPLÍCITA: apaga manual_unread também.
-    // (Auto-read na chegada de mensagem em conversa aberta continua preservando manual_unread.)
-    const { markConversationRead } = await import("@/lib/chatBetaUnread");
-    await markConversationRead(clienteTelefone, user.id);
+    // Abrir a conversa é leitura AUTOMÁTICA: atualiza last_read_at mas
+    // PRESERVA manual_unread. Só o menu "Marcar como lida" apaga a flag.
+    const { markConversationAutoRead } = await import("@/lib/chatBetaUnread");
+    await markConversationAutoRead(clienteTelefone, user.id);
   };
 
   // ✅ Removidas funções duplicadas - consolidadas em fetchClienteData()
