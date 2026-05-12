@@ -963,6 +963,11 @@ export const PagamentoPrestadoresTabV2 = () => {
                   </>
                 )}
               </div>
+              <Separator />
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground mb-2">IDs de Pagamento Vinculados</div>
+                <FichaPagamentosTab fichaId={detalhesSel.id} />
+              </div>
             </div>
           )}
         </DialogContent>
