@@ -16,6 +16,7 @@ export interface BuscaIdItem {
   statusColor?: string;
   origem?: string;
   raw?: any;
+  idKind?: "receber" | "pagar" | "transacao" | "pagar_manual" | "ficha" | "generic";
 }
 
 interface Props {
