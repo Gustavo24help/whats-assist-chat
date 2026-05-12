@@ -8,8 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { IdBadge } from "@/components/ui/IdBadge";
+import { BuscarPorIdTab, type BuscaIdItem } from "@/components/financeiro/BuscarPorIdTab";
 import { toast } from "sonner";
-import { Eye, Send, Edit, Copy, ExternalLink, Filter, DollarSign, Clock, AlertTriangle, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { Eye, Send, Edit, Copy, ExternalLink, Filter, DollarSign, Clock, AlertTriangle, CheckCircle2, Loader2, XCircle, Hash, List } from "lucide-react";
 
 const formatMoeda = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
