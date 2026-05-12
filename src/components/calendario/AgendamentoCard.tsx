@@ -3,6 +3,9 @@ import { calcularEstadoAgendamento, type AgendamentoData, type TipoSlot } from "
 import { formatJanela, getJanelaHorario, type HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { format } from "date-fns";
 import { carregarCoresStatus, type CoresStatusMap } from "@/lib/calendarioStatusCores";
+import { AlertTriangle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { ConflitoSlot } from "@/lib/conflitoAgendamentoPrestador";
 
 interface AgendamentoCardProps {
   ficha: any;
@@ -15,6 +18,8 @@ interface AgendamentoCardProps {
   /** Pre-computed slot start/end (when provided, used to display the time of THIS slot) */
   slotInicio?: Date | null;
   slotFim?: Date | null;
+  /** Vizinhos próximos do mesmo prestador (≤ 60 min). Quando presente, mostra alerta. */
+  vizinhosProximos?: ConflitoSlot[];
 }
 
 const statusCancelados = ['Não foi adiante', 'Perdido', 'Orçamento Não Aprovado'];
