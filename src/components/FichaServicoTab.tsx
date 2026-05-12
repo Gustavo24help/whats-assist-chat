@@ -30,6 +30,13 @@ import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizaca
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
 import { validateAsaasLink } from "@/lib/asaasLinkValidator";
+import {
+  buscarFichasPrestadorDia,
+  detectarConflitos,
+  descreverConflito,
+  type ConflitoSlot,
+  type DeteccaoResultado,
+} from "@/lib/conflitoAgendamentoPrestador";
 
 interface FichaServicoTabProps {
   fichaId: string;
