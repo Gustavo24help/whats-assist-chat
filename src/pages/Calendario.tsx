@@ -18,6 +18,7 @@ import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { PageLayout } from "@/components/PageLayout";
 import { EditarCoresStatusModal } from "@/components/calendario/EditarCoresStatusModal";
 import { carregarCoresStatus, type CoresStatusMap } from "@/lib/calendarioStatusCores";
+import { computarProximidadeCalendario } from "@/lib/conflitoAgendamentoPrestador";
 
 const tiposAgendamento = [
   { value: 'all', label: 'Todos' },
@@ -136,6 +137,8 @@ export default function Calendario() {
     });
     return c;
   }, [fichas]);
+
+  const proximidadeMapa = useMemo(() => computarProximidadeCalendario(fichas, 60), [fichas]);
 
   const toggleStatus = (status: string) => {
     setFiltroStatus(prev =>
@@ -286,13 +289,13 @@ export default function Calendario() {
           </TabsList>
 
           <TabsContent value="mensal" className="mt-3">
-            <CalendarioMensal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} />
+            <CalendarioMensal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} proximidadeMapa={proximidadeMapa} />
           </TabsContent>
           <TabsContent value="semanal" className="mt-3">
-            <CalendarioSemanal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} />
+            <CalendarioSemanal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} proximidadeMapa={proximidadeMapa} />
           </TabsContent>
           <TabsContent value="diario" className="mt-3">
-            <CalendarioDiario fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} />
+            <CalendarioDiario fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} proximidadeMapa={proximidadeMapa} />
           </TabsContent>
         </Tabs>
       </main>

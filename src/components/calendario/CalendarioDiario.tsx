@@ -4,6 +4,7 @@ import { ptBR } from "date-fns/locale";
 import { AgendamentoCard } from "./AgendamentoCard";
 import { getAllAgendamentoSlots, type AgendamentoSlot } from "@/lib/calcularEstadoAgendamento";
 import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
+import type { ProximidadeMapa } from "@/lib/conflitoAgendamentoPrestador";
 
 interface Props {
   fichas: any[];
@@ -11,13 +12,14 @@ interface Props {
   onSelectFicha: (ficha: any) => void;
   contextoHorario?: HorarioContexto;
   mostrarVisitaHistorica?: boolean;
+  proximidadeMapa?: ProximidadeMapa;
 }
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 7);
 
 interface SlotItem { ficha: any; slot: AgendamentoSlot; }
 
-export function CalendarioDiario({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente', mostrarVisitaHistorica = true }: Props) {
+export function CalendarioDiario({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente', mostrarVisitaHistorica = true, proximidadeMapa }: Props) {
   const slotsByHour = useMemo(() => {
     const map: Record<number, SlotItem[]> = {};
     fichas.forEach(f => {
@@ -57,6 +59,7 @@ export function CalendarioDiario({ fichas, currentDate, onSelectFicha, contextoH
                     tipoSlot={slot.tipoSlot}
                     slotInicio={slot.inicio}
                     slotFim={slot.fim}
+                    vizinhosProximos={proximidadeMapa?.get(`${ficha.id}-${slot.tipoSlot}`)}
                   />
                 ))}
               </div>

@@ -3,6 +3,9 @@ import { calcularEstadoAgendamento, type AgendamentoData, type TipoSlot } from "
 import { formatJanela, getJanelaHorario, type HorarioContexto } from "@/lib/janelaHorarioPrestador";
 import { format } from "date-fns";
 import { carregarCoresStatus, type CoresStatusMap } from "@/lib/calendarioStatusCores";
+import { AlertTriangle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { ConflitoSlot } from "@/lib/conflitoAgendamentoPrestador";
 
 interface AgendamentoCardProps {
   ficha: any;
@@ -15,6 +18,8 @@ interface AgendamentoCardProps {
   /** Pre-computed slot start/end (when provided, used to display the time of THIS slot) */
   slotInicio?: Date | null;
   slotFim?: Date | null;
+  /** Vizinhos próximos do mesmo prestador (≤ 60 min). Quando presente, mostra alerta. */
+  vizinhosProximos?: ConflitoSlot[];
 }
 
 const statusCancelados = ['Não foi adiante', 'Perdido', 'Orçamento Não Aprovado'];
@@ -33,6 +38,7 @@ export function AgendamentoCard({
   tipoSlot,
   slotInicio,
   slotFim,
+  vizinhosProximos,
 }: AgendamentoCardProps) {
   const agData: AgendamentoData = {
     tipo_agendamento: ficha.tipo_agendamento,
@@ -117,13 +123,27 @@ export function AgendamentoCard({
   const prefixo = tipoSlot === 'visita' ? '[VT] ' : '';
   const tooltipExtra = isVisitaHistorica ? ' — Visita técnica realizada' : '';
 
-  return (
+  const temVizinhos = !!(vizinhosProximos && vizinhosProximos.length > 0);
+  const tooltipVizinhos = temVizinhos
+    ? vizinhosProximos!
+        .map(v => {
+          const h = format(v.inicio, 'HH:mm');
+          const tipoL = v.tipoSlot === 'visita' ? 'VT' : v.tipoSlot === 'retorno' ? 'Ret' : 'Serv';
+          return `${h} ${tipoL} — ${v.nomeCliente || v.nomeFicha || v.fichaId} (#${v.fichaId})`;
+        })
+        .join('\n')
+    : '';
+
+  const button = (
     <button
       onClick={onClick}
-      className={`w-full text-left rounded-lg px-2 py-1 text-xs font-medium text-white truncate transition-all duration-150 active:scale-[0.97] ${opacidadeClasse} ${isVisitaHistorica ? 'border border-dashed border-white/60' : ''}`}
+      className={`relative w-full text-left rounded-lg px-2 py-1 text-xs font-medium text-white truncate transition-all duration-150 active:scale-[0.97] ${opacidadeClasse} ${isVisitaHistorica ? 'border border-dashed border-white/60' : ''} ${temVizinhos ? 'ring-1 ring-amber-400/80' : ''}`}
       style={{ backgroundColor: corFundo }}
-      title={`${prefixo}${ficha.id} - ${ficha.nome_cliente || 'Cliente'} - ${ficha.prestadores?.nome || 'Sem prestador'}${tooltipExtra}`}
+      title={`${prefixo}${ficha.id} - ${ficha.nome_cliente || 'Cliente'} - ${ficha.prestadores?.nome || 'Sem prestador'}${tooltipExtra}${temVizinhos ? `\n⚠ Próximo:\n${tooltipVizinhos}` : ''}`}
     >
+      {temVizinhos && (
+        <AlertTriangle className="absolute top-0.5 right-0.5 h-3 w-3 text-amber-300 drop-shadow" />
+      )}
       {compact ? (
         <span className="truncate block">
           {prefixo && <span className="font-bold mr-0.5">{prefixo}</span>}
@@ -143,4 +163,6 @@ export function AgendamentoCard({
       )}
     </button>
   );
+
+  return button;
 }

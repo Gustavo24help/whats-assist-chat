@@ -1,65 +1,52 @@
 ## Objetivo
 
-No calendário, ao abrir uma ficha (`AgendamentoDetalhesModal`), exibir qual operador colocou aquela ficha em **Agendado** (ou em **Retorno**, no caso de slot de retorno), com data/hora.
+Evitar agendamentos sobrepostos para o mesmo prestador e dar visibilidade de proximidade. Aplicado em todos os pontos onde se define horário de prestador (Ficha, reagendamento) e marcado visualmente no Calendário.
 
-## Diagnóstico
+## Regras
 
-- A tabela `fichas_de_servico` **não** tem coluna de "operador que agendou".
-- A tabela `ficha_status_historico` registra cada mudança de status via trigger `registrar_mudanca_status`, mas **não** guarda quem fez a mudança (sem `user_id`).
-- `system_logs` não cobre mudanças de status.
+- **Janela usada**: Janela do Prestador (`hora_inicio_prestador_agendamento`/`hora_fim_prestador_agendamento`, e equivalentes de `_retorno`). Quando faltar, usa a janela do cliente como fallback.
+- **Escopo**: todos os compromissos do prestador — Serviço (`Agendado`), Visita Técnica e Retorno — exceto fichas com status `Finalizado`, `Perdido`, `Cancelado`, `Garantia`.
+- **Severidades**:
+  - **BLOQUEIO**: novo início é exatamente igual ao início de outro compromisso do mesmo prestador no mesmo dia. Não permite salvar; mostra alerta com link para a ficha em conflito.
+  - **AVISO (confirmação)**: novo início está dentro de 60 min (antes ou depois) do início de outro compromisso, ou as janelas se sobrepõem parcialmente. Abre AlertDialog mostrando os agendamentos próximos; operador confirma ou cancela.
+  - **MARCAÇÃO VISUAL** (calendário): ao final, qualquer slot que tenha outro compromisso do mesmo prestador a ≤ 60 min ganha um badge "⚠ Próximo" com tooltip listando os vizinhos.
 
-A fonte natural é o histórico de status — basta enriquecê-lo com o autor.
+## Arquivos
 
-## Mudanças
+**Novo** `src/lib/conflitoAgendamentoPrestador.ts`
+- `detectarConflitos({ prestadorId, fichaIdAtual, inicio, fim, fichas }) → { bloqueio: Conflito|null, avisos: Conflito[] }`.
+- `Conflito`: `{ fichaId, nome, tipoSlot, inicio, fim, distanciaMin }`.
+- Resolve janela de cada ficha via `getAllAgendamentoSlots` (já existente em `calcularEstadoAgendamento.ts`).
+- Helper `buscarFichasPrestadorParaConflito(prestadorId, dataRef)` que faz `select` em `fichas_de_servico` filtrando dia ±1 e exclui status finalizados/perdidos/cancelados/garantia e a própria ficha.
 
-### 1. Banco (migration)
+**`src/components/FichaServicoTab.tsx`** (e demais formulários de agendamento — `FichaPanel*`, qualquer reagendamento)
+- Antes de salvar `horario_agendamento`/`data_retorno`/`data_visita_tecnica` (ou suas janelas de prestador), chamar `detectarConflitos`.
+- Se `bloqueio`: `toast.error` com nome/horário do conflito e impede save.
+- Se há `avisos`: AlertDialog "O prestador X já tem um atendimento próximo em <hora> (<ficha Y>). Deseja agendar mesmo assim?" → confirmar prossegue, cancelar aborta.
+- Reaplicar nas funções existentes `salvarAgendamento`/`salvarRetorno`/`salvarVisitaTecnica` (encontrar por busca por `hora_inicio_prestador`).
 
-- Adicionar em `ficha_status_historico`:
-  - `alterado_por uuid` (nullable)
-  - `alterado_por_nome text` (nullable)
-- Atualizar a função `registrar_mudanca_status()` para preencher esses campos com `auth.uid()` e o nome buscado em `profiles` (quando disponível). Quando a mudança vier de service role / webhook (sem `auth.uid()`), os campos ficam nulos — comportamento idêntico ao atual para registros antigos.
-- **Sem backfill / sem alteração de dados existentes**: registros antigos seguem com os campos nulos; a UI mostra `—`. Nenhum dado de status, horário ou ficha é tocado.
+**`src/components/calendario/AgendamentoDetalhesModal.tsx`**
+- Mesma validação ao alterar horário pelo modal.
 
-### 2. Frontend — `src/components/calendario/AgendamentoDetalhesModal.tsx`
+**Calendário (visual)** — `src/lib/calcularEstadoAgendamento.ts` ou um wrapper em `Calendario.tsx`
+- Após carregar `fichas`, pré-computar mapa `Map<fichaId+slot, vizinhos[]>` agrupando por `prestador_id` e ordenando por início; marcar `proximo: true` quando vizinho ≤ 60 min.
+- Passar a flag `proximo` + lista para `AgendamentoCard`.
 
-- Ao abrir o modal, fazer um `select` em `ficha_status_historico` filtrando por:
-  - `ficha_id = ficha.id`
-  - `status_novo = 'Agendado'` (slots normais/visita) ou `status_novo = 'Retorno'` (quando `tipoSlot === 'retorno'`/`ficha.tipo_agendamento === 'retorno'`)
-  - `order by created_at desc limit 1`
-- Exibir um novo bloco no grid de informações:
-  - **"Agendado por"**: `alterado_por_nome` (ou `—` se nulo) + data/hora formatada (`dd/MM/yyyy HH:mm`).
-- Estado de loading discreto enquanto busca.
+**`src/components/calendario/AgendamentoCard.tsx`**
+- Quando `proximo`, exibir um pequeno ícone `AlertTriangle` (lucide) com tooltip listando vizinhos (`hora — nome_ficha`).
+- Borda/anel sutil `ring-1 ring-amber-500/60` para destacar sem mudar a cor de status.
 
-### 3. Sem efeitos colaterais
+## Pontos de atenção (preservação de dados)
 
-- Nenhuma alteração em horários, fuso, valores ou status existentes.
-- Trigger continua registrando histórico exatamente como hoje; só passa a anexar o autor quando houver sessão autenticada.
-- Outras telas que leem `ficha_status_historico` (ex.: `FichaDetalhes` aba Histórico) continuam funcionando — campos novos são opcionais.
+- **Não alterar dados existentes**: a verificação ocorre apenas em novos saves; fichas já salvas com conflito permanecem como estão e apenas recebem o badge visual.
+- **Timezone**: comparar via `Date.getTime()` em horários já normalizados em UTC pelo `getAllAgendamentoSlots` (não recriar parse manual; reutilizar o existente para evitar shift de horário como o incidente anterior).
+- **Janela do prestador opcional**: quando ausente, fallback para janela do cliente — sem regravar dados.
+- **Performance**: query de conflito limitada à data alvo ±1 dia e ao `prestador_id`.
 
-## Detalhes técnicos
+## Testes manuais sugeridos
 
-```sql
-ALTER TABLE public.ficha_status_historico
-  ADD COLUMN IF NOT EXISTS alterado_por uuid,
-  ADD COLUMN IF NOT EXISTS alterado_por_nome text;
-
--- atualizar registrar_mudanca_status() para INSERT com:
---   alterado_por      := auth.uid(),
---   alterado_por_nome := (select nome from profiles where id = auth.uid())
-```
-
-UI (resumo do bloco novo no modal):
-
-```tsx
-<div>
-  <span className="text-muted-foreground">Agendado por</span>
-  <p className="font-medium">
-    {agendadoPor?.nome ?? '—'}
-    {agendadoPor?.created_at && (
-      <span className="text-xs text-muted-foreground ml-1">
-        ({format(new Date(agendadoPor.created_at), "dd/MM/yyyy HH:mm")})
-      </span>
-    )}
-  </p>
-</div>
-```
+1. Marcar Serviço 14:00 quando já existe Serviço 14:00 do mesmo prestador → bloqueia.
+2. Marcar Serviço 14:30 quando existe 14:00 → AlertDialog de aviso.
+3. Marcar Serviço 16:00 quando existe Visita Técnica 15:30 → aviso.
+4. Calendário: dois agendamentos do mesmo prestador a 30 min de distância → ambos com badge ⚠.
+5. Trocar prestador para um livre → sem aviso.

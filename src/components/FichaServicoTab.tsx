@@ -30,6 +30,13 @@ import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizaca
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
 import { validateAsaasLink } from "@/lib/asaasLinkValidator";
+import {
+  buscarFichasPrestadorDia,
+  detectarConflitos,
+  descreverConflito,
+  type ConflitoSlot,
+  type DeteccaoResultado,
+} from "@/lib/conflitoAgendamentoPrestador";
 
 interface FichaServicoTabProps {
   fichaId: string;
@@ -173,6 +180,13 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     ultimoEnvioPorNome: string | null;
   } | null>(null);
   const pendingGerarLinkRef = useRef(false);
+
+  // Conflito de agendamento do prestador
+  const [conflitoDialog, setConflitoDialog] = useState<{
+    avisos: ConflitoSlot[];
+    onConfirm: () => void;
+  } | null>(null);
+  const ultimoAvisoFichasRef = useRef<string>(''); // para evitar repetir toast no autoSave
 
   /** Pré-check: se já houve envio prévio (auto OU manual), pede confirmação. */
   const checarEnviosPrevios = useCallback(async (): Promise<boolean> => {
@@ -507,6 +521,52 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   };
 
   // Função única para salvar e enviar webhook
+  /**
+   * Verifica conflito de agendamento do prestador (mesmo prestador, ≤60min ou início igual).
+   * Retorna 'ok' (segue), 'block' (interrompe save) ou 'aviso' (com lista para confirmar).
+   */
+  const verificarConflitoAgendamento = async (
+    fichaData: Ficha,
+    dataAgend: string,
+    horaAgend: string,
+    horaFimAgend: string,
+    dataRet: string,
+    horaRet: string,
+    horaFimRet: string,
+  ): Promise<{ status: 'ok' | 'block'; resultado?: DeteccaoResultado } | { status: 'aviso'; resultado: DeteccaoResultado }> => {
+    if (!fichaData.prestador_id) return { status: 'ok' };
+
+    // Determina o slot novo (prioriza agendamento; senão retorno)
+    let dataAlvo = '';
+    let inicioAlvo = '';
+    let fimAlvo = '';
+    if (dataAgend && horaAgend) {
+      dataAlvo = dataAgend; inicioAlvo = horaAgend; fimAlvo = horaFimAgend || '';
+    } else if (dataRet && horaRet) {
+      dataAlvo = dataRet; inicioAlvo = horaRet; fimAlvo = horaFimRet || '';
+    } else {
+      return { status: 'ok' };
+    }
+
+    const novoInicio = new Date(`${dataAlvo}T${inicioAlvo}:00-03:00`);
+    const novoFim = fimAlvo ? new Date(`${dataAlvo}T${fimAlvo}:00-03:00`) : null;
+    if (isNaN(novoInicio.getTime())) return { status: 'ok' };
+
+    const outras = await buscarFichasPrestadorDia(fichaData.prestador_id, novoInicio);
+    const resultado = detectarConflitos({
+      prestadorId: fichaData.prestador_id,
+      fichaIdAtual: fichaData.id,
+      novoInicio,
+      novoFim,
+      outrasFichas: outras,
+      janelaAvisoMin: 60,
+    });
+
+    if (resultado.bloqueio) return { status: 'block', resultado };
+    if (resultado.avisos.length > 0) return { status: 'aviso', resultado };
+    return { status: 'ok' };
+  };
+
   const salvarFichaEEnviarWebhook = async (
     targetFichaId: string,
     fichaData: Ficha,
@@ -517,13 +577,35 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     horaFimAgend: string = '',
     dataRet: string = '',
     horaRet: string = '',
-    horaFimRet: string = ''
+    horaFimRet: string = '',
+    forcarConflito: boolean = false,
   ) => {
     if (!targetFichaId) {
       console.error('❌ Salvamento: fichaId inválido');
       toast.error('Erro: ID da ficha não encontrado');
       return;
     }
+
+    // Verificação de conflito de agendamento por prestador
+    if (!forcarConflito) {
+      const checagem = await verificarConflitoAgendamento(
+        fichaData, dataAgend, horaAgend, horaFimAgend, dataRet, horaRet, horaFimRet,
+      );
+      if (checagem.status === 'block' && checagem.resultado?.bloqueio) {
+        toast.error(`Conflito: prestador já tem agendamento neste horário — ${descreverConflito(checagem.resultado.bloqueio)}`, { duration: 6000 });
+        return;
+      }
+      if (checagem.status === 'aviso') {
+        // Toast leve para autoSave; apenas uma vez por conjunto idêntico
+        const fp = checagem.resultado.avisos.map(a => `${a.fichaId}:${a.distanciaMin}`).join('|');
+        if (ultimoAvisoFichasRef.current !== fp) {
+          ultimoAvisoFichasRef.current = fp;
+          toast.warning(`Atenção: prestador tem ${checagem.resultado.avisos.length} agendamento(s) próximo(s) (≤1h)`, { duration: 5000 });
+        }
+        // Não bloqueia o autoSave — apenas avisa. O AlertDialog é aberto via salvarManualmente.
+      }
+    }
+
 
     try {
       // Validar dados
@@ -1153,6 +1235,27 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
 
     console.log('💾 Salvamento manual disparado');
+
+    // Pré-checa conflito para abrir AlertDialog se houver aviso
+    const checagem = await verificarConflitoAgendamento(
+      ficha, dataAgendamento, horaAgendamento, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno,
+    );
+    if (checagem.status === 'block' && checagem.resultado?.bloqueio) {
+      toast.error(`Conflito: prestador já tem agendamento neste horário — ${descreverConflito(checagem.resultado.bloqueio)}`, { duration: 6000 });
+      return;
+    }
+    if (checagem.status === 'aviso') {
+      setConflitoDialog({
+        avisos: checagem.resultado.avisos,
+        onConfirm: async () => {
+          setConflitoDialog(null);
+          await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno, true);
+          toast.success("Salvo", { duration: 1500, id: 'ficha-salva' });
+        },
+      });
+      return;
+    }
+
     await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     toast.success("Salvo", { duration: 1500, id: 'ficha-salva' });
   };
@@ -2804,6 +2907,31 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
             <AlertDialogAction onClick={() => { setShowAutoLinkWarning(false); handleGerarLinkManual(); }}>
               Gerar Manualmente
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Conflito de agendamento do prestador */}
+      <AlertDialog open={!!conflitoDialog} onOpenChange={(o) => !o && setConflitoDialog(null)}>
+        <AlertDialogContent className="border-2 border-amber-400">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
+              ⚠ Agendamento próximo do prestador
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>O prestador já tem agendamento(s) próximo(s) (≤ 1h):</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {conflitoDialog?.avisos.map((a) => (
+                    <li key={`${a.fichaId}-${a.tipoSlot}`}>{descreverConflito(a)}{a.distanciaMin !== 0 && <span className="text-muted-foreground"> — {a.distanciaMin > 0 ? `+${a.distanciaMin}` : a.distanciaMin}min</span>}</li>
+                  ))}
+                </ul>
+                <p>Deseja agendar mesmo assim?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConflitoDialog(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => conflitoDialog?.onConfirm()}>Agendar mesmo assim</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
