@@ -1235,6 +1235,27 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     }
 
     console.log('💾 Salvamento manual disparado');
+
+    // Pré-checa conflito para abrir AlertDialog se houver aviso
+    const checagem = await verificarConflitoAgendamento(
+      ficha, dataAgendamento, horaAgendamento, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno,
+    );
+    if (checagem.status === 'block' && checagem.resultado?.bloqueio) {
+      toast.error(`Conflito: prestador já tem agendamento neste horário — ${descreverConflito(checagem.resultado.bloqueio)}`, { duration: 6000 });
+      return;
+    }
+    if (checagem.status === 'aviso') {
+      setConflitoDialog({
+        avisos: checagem.resultado.avisos,
+        onConfirm: async () => {
+          setConflitoDialog(null);
+          await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno, true);
+          toast.success("Salvo", { duration: 1500, id: 'ficha-salva' });
+        },
+      });
+      return;
+    }
+
     await salvarFichaEEnviarWebhook(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     toast.success("Salvo", { duration: 1500, id: 'ficha-salva' });
   };
