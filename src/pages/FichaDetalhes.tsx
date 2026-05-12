@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/Logo";
-import { ArrowLeft, Loader2, History, User, DollarSign, FileText, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, History, User, DollarSign, FileText, RefreshCw, Wallet } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FichaServicoTab } from "@/components/FichaServicoTab";
 import { OrcamentosTab } from "@/components/OrcamentosTab";
@@ -15,6 +15,8 @@ import { TrocarPrestadorDialog } from "@/components/TrocarPrestadorDialog";
 import { PageLayout } from "@/components/PageLayout";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "@/components/FichaVinculoBadge";
+import { FichaPagamentosTab } from "@/components/financeiro/FichaPagamentosTab";
+import { IdBadge } from "@/components/ui/IdBadge";
 
 const formatMoeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
@@ -217,6 +219,9 @@ const FichaDetalhes = () => {
             <TabsTrigger value="orcamentos" className="gap-1.5">
               <DollarSign className="h-4 w-4" /> Orçamentos
             </TabsTrigger>
+            <TabsTrigger value="pagamentos" className="gap-1.5">
+              <Wallet className="h-4 w-4" /> Pagamentos
+            </TabsTrigger>
             <TabsTrigger value="acompanhamento" className="gap-1.5">
               <User className="h-4 w-4" /> Acompanhamento
             </TabsTrigger>
@@ -231,6 +236,10 @@ const FichaDetalhes = () => {
 
           <TabsContent value="orcamentos">
             <OrcamentosTab fichaId={fichaId!} />
+          </TabsContent>
+
+          <TabsContent value="pagamentos">
+            <FichaPagamentosTab fichaId={fichaId!} />
           </TabsContent>
 
           <TabsContent value="acompanhamento">
