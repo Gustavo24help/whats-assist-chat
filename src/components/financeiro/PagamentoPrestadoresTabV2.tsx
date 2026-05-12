@@ -766,8 +766,129 @@ export const PagamentoPrestadoresTabV2 = () => {
             )}
           </div>
         </TabsContent>
+
+        <TabsContent value="manual">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-base font-semibold">Lançamentos Manuais</h3>
+                <p className="text-xs text-muted-foreground">Despesas avulsas (não vinculadas a fichas automáticas)</p>
+              </div>
+              <Button onClick={() => setNovoManualOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" /> Novo Lançamento
+              </Button>
+            </div>
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[120px]">ID</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Beneficiário</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {manuaisLoading ? (
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></TableCell></TableRow>
+                    ) : manuais.length === 0 ? (
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum lançamento manual</TableCell></TableRow>
+                    ) : (
+                      manuais.map((m) => (
+                        <TableRow key={m.id} className="hover:bg-muted/50">
+                          <TableCell><IdBadge id={m.id} /></TableCell>
+                          <TableCell className="text-sm">
+                            {m.descricao}
+                            {m.ficha_id && <div className="text-[10px] text-muted-foreground">Ficha: {m.ficha_id}</div>}
+                          </TableCell>
+                          <TableCell className="text-sm">{m.beneficiario_nome}</TableCell>
+                          <TableCell className="text-xs">{m.categoria || "—"}</TableCell>
+                          <TableCell className="text-xs">{m.data_vencimento ? new Date(m.data_vencimento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</TableCell>
+                          <TableCell className="font-semibold">{formatMoeda(Number(m.valor))}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={
+                              m.status === "pago" ? "border-green-300 text-green-700 bg-green-50" :
+                              m.status === "cancelado" ? "border-muted text-muted-foreground" :
+                              "border-blue-300 text-blue-700 bg-blue-50"
+                            }>{m.status}</Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {m.status === "pendente" && (
+                              <div className="flex gap-1 justify-center">
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-green-700" onClick={() => marcarManualPago(m)}>
+                                  <CheckCircle2 className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive" onClick={() => cancelarManual(m)}>
+                                  <Ban className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ids">
+          <BuscarPorIdTab
+            loading={loading || manuaisLoading}
+            beneficiarioLabel="Beneficiário"
+            items={[
+              ...pendentes.map<BuscaIdItem>((f) => ({
+                id: f.id,
+                data: f.created_at,
+                beneficiario: f.prestador_nome,
+                valor: f.financeiro.liquidoPrestador,
+                status: "Pendente",
+                statusColor: "border-blue-300 text-blue-700 bg-blue-50",
+                origem: `Ficha · Cliente: ${f.nome_cliente_resolved}`,
+                raw: f,
+              })),
+              ...historico.map<BuscaIdItem>((f) => ({
+                id: f.id,
+                data: f.data_pagamento_realizada || f.created_at,
+                beneficiario: f.prestador_nome,
+                valor: f.financeiro.liquidoPrestador,
+                status: "Pago",
+                statusColor: "border-green-300 text-green-700 bg-green-50",
+                origem: `Ficha · Cliente: ${f.nome_cliente_resolved}`,
+                raw: f,
+              })),
+              ...manuais.map<BuscaIdItem>((m) => ({
+                id: m.id,
+                data: m.data_vencimento || m.created_at,
+                beneficiario: m.beneficiario_nome,
+                valor: Number(m.valor),
+                status: m.status === "pago" ? "Pago" : m.status === "cancelado" ? "Cancelado" : "Pendente",
+                statusColor: m.status === "pago" ? "border-green-300 text-green-700 bg-green-50"
+                  : m.status === "cancelado" ? "border-muted text-muted-foreground"
+                  : "border-blue-300 text-blue-700 bg-blue-50",
+                origem: `Manual · ${m.descricao}`,
+                raw: m,
+              })),
+            ]}
+            onView={(item) => {
+              if (item.raw && "financeiro" in item.raw) {
+                setDetalhesSel(item.raw); setDetalhesOpen(true);
+              } else {
+                toast({ title: `Lançamento ${item.id.slice(0,8)}`, description: `${item.beneficiario} — ${formatMoeda(item.valor)}` });
+              }
+            }}
+          />
+        </TabsContent>
       </Tabs>
 
+      <NovoLancamentoManualDialog open={novoManualOpen} onOpenChange={setNovoManualOpen} onSaved={carregarManuais} />
       {/* Detail Dialog */}
       <Dialog open={detalhesOpen} onOpenChange={setDetalhesOpen}>
         <DialogContent className="max-w-lg">
