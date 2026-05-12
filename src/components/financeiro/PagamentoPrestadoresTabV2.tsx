@@ -119,6 +119,44 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [filterMode, setFilterMode] = useState<"single" | "range">("single");
   const [obsPopup, setObsPopup] = useState<FichaFinanceira | null>(null);
 
+  // Lançamentos manuais
+  const [manuais, setManuais] = useState<any[]>([]);
+  const [manuaisLoading, setManuaisLoading] = useState(false);
+  const [novoManualOpen, setNovoManualOpen] = useState(false);
+
+  const carregarManuais = useCallback(async () => {
+    setManuaisLoading(true);
+    const { data } = await (supabase as any)
+      .from("contas_pagar_manual")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    setManuais((data as any[]) || []);
+    setManuaisLoading(false);
+  }, []);
+
+  useEffect(() => { carregarManuais(); }, [carregarManuais]);
+
+  const marcarManualPago = async (m: any) => {
+    const { error } = await (supabase as any)
+      .from("contas_pagar_manual")
+      .update({ status: "pago", data_pagamento: new Date().toISOString().split("T")[0] })
+      .eq("id", m.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "✅ Lançamento marcado como pago" });
+    carregarManuais();
+  };
+
+  const cancelarManual = async (m: any) => {
+    const { error } = await (supabase as any)
+      .from("contas_pagar_manual")
+      .update({ status: "cancelado" })
+      .eq("id", m.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Lançamento cancelado" });
+    carregarManuais();
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
