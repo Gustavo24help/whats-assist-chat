@@ -4,6 +4,7 @@ import { ptBR } from "date-fns/locale";
 import { AgendamentoCard } from "./AgendamentoCard";
 import { getAllAgendamentoSlots, type AgendamentoSlot } from "@/lib/calcularEstadoAgendamento";
 import type { HorarioContexto } from "@/lib/janelaHorarioPrestador";
+import type { ProximidadeMapa } from "@/lib/conflitoAgendamentoPrestador";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,11 +15,12 @@ interface Props {
   onSelectFicha: (ficha: any) => void;
   contextoHorario?: HorarioContexto;
   mostrarVisitaHistorica?: boolean;
+  proximidadeMapa?: ProximidadeMapa;
 }
 
 interface SlotItem { ficha: any; slot: AgendamentoSlot; }
 
-export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente', mostrarVisitaHistorica = true }: Props) {
+export function CalendarioMensal({ fichas, currentDate, onSelectFicha, contextoHorario = 'cliente', mostrarVisitaHistorica = true, proximidadeMapa }: Props) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const days = useMemo(() => {
