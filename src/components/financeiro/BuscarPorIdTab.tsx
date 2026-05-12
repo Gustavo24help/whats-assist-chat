@@ -84,7 +84,7 @@ export function BuscarPorIdTab({ items, loading, onView, beneficiarioLabel = "Be
               ) : (
                 filtered.slice(0, 200).map((item) => (
                   <TableRow key={item.id} className="hover:bg-muted/50">
-                    <TableCell><IdBadge id={item.id} /></TableCell>
+                    <TableCell><IdBadge id={item.id} kind={item.idKind || "generic"} /></TableCell>
                     <TableCell className="text-xs">{formatData(item.data)}</TableCell>
                     <TableCell>
                       <div className="flex flex-col">
