@@ -38,6 +38,7 @@ export function AgendamentoCard({
   tipoSlot,
   slotInicio,
   slotFim,
+  vizinhosProximos,
 }: AgendamentoCardProps) {
   const agData: AgendamentoData = {
     tipo_agendamento: ficha.tipo_agendamento,
