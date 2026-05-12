@@ -254,111 +254,140 @@ export default function ContasReceber() {
           </Card>
         </div>
 
-        {/* Filtros */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Filtros</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os Status</SelectItem>
-                  <SelectItem value="aguardando">Aguardando</SelectItem>
-                  <SelectItem value="pago">Pago</SelectItem>
-                  <SelectItem value="vencido">Vencido</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
-                <SelectTrigger><SelectValue placeholder="Período" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">Últimos 7 dias</SelectItem>
-                  <SelectItem value="30">Últimos 30 dias</SelectItem>
-                  <SelectItem value="90">Últimos 90 dias</SelectItem>
-                  <SelectItem value="365">Último ano</SelectItem>
-                  <SelectItem value="0">Todos</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Buscar cliente, ficha ou telefone..."
-                value={filtroCliente}
-                onChange={(e) => setFiltroCliente(e.target.value)}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="lista">
+          <TabsList>
+            <TabsTrigger value="lista" className="gap-1.5"><List className="h-3.5 w-3.5" /> Lista</TabsTrigger>
+            <TabsTrigger value="ids" className="gap-1.5"><Hash className="h-3.5 w-3.5" /> IDs</TabsTrigger>
+          </TabsList>
 
-        {/* Tabela */}
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ficha</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead>Pagamento</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-center">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                      Carregando...
-                    </TableCell>
-                  </TableRow>
-                ) : contasFiltradas.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Nenhuma conta encontrada
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  contasFiltradas.map((conta) => {
-                    const cfg = statusConfig[conta.status] || statusConfig.aguardando;
-                    const dias = diasParaVencer(conta.data_vencimento);
-                    return (
-                      <TableRow key={conta.id} className="hover:bg-muted/50">
-                        <TableCell className="font-mono text-xs font-semibold">{conta.ficha_id || conta.id.slice(0, 8)}</TableCell>
-                        <TableCell>{conta.cliente_nome || conta.cliente_telefone}</TableCell>
-                        <TableCell className="font-semibold">{formatMoeda(conta.valor_total)}</TableCell>
-                        <TableCell>
-                          {formatData(conta.data_vencimento)}
-                          {conta.status === "aguardando" && dias !== null && (
-                            <div className={`text-xs mt-0.5 ${dias < 0 ? "text-red-600 font-medium" : dias <= 3 ? "text-amber-600" : "text-muted-foreground"}`}>
-                              {dias < 0 ? `${Math.abs(dias)}d atrasado` : dias === 0 ? "Vence hoje" : `${dias}d restantes`}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>{conta.status === "pago" ? formatData(conta.data_pagamento) : "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={`${cfg.color} gap-1`}>
-                            {cfg.icon} {cfg.label}
-                          </Badge>
-                          {conta.requer_template && (
-                            <div className="text-[10px] text-amber-600 mt-0.5">Requer template</div>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button variant="ghost" size="sm" onClick={() => { setContaSelecionada(conta); setModalAberto(true); }}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
+          <TabsContent value="lista" className="space-y-4 mt-4">
+            {/* Filtros */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Filtros</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                    <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Status</SelectItem>
+                      <SelectItem value="aguardando">Aguardando</SelectItem>
+                      <SelectItem value="pago">Pago</SelectItem>
+                      <SelectItem value="vencido">Vencido</SelectItem>
+                      <SelectItem value="cancelado">Cancelado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
+                    <SelectTrigger><SelectValue placeholder="Período" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">Últimos 7 dias</SelectItem>
+                      <SelectItem value="30">Últimos 30 dias</SelectItem>
+                      <SelectItem value="90">Últimos 90 dias</SelectItem>
+                      <SelectItem value="365">Último ano</SelectItem>
+                      <SelectItem value="0">Todos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder="Buscar cliente, ficha ou telefone..."
+                    value={filtroCliente}
+                    onChange={(e) => setFiltroCliente(e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tabela */}
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[120px]">ID</TableHead>
+                      <TableHead>Ficha</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead>Pagamento</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                          Carregando...
                         </TableCell>
                       </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                    ) : contasFiltradas.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          Nenhuma conta encontrada
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      contasFiltradas.map((conta) => {
+                        const cfg = statusConfig[conta.status] || statusConfig.aguardando;
+                        const dias = diasParaVencer(conta.data_vencimento);
+                        return (
+                          <TableRow key={conta.id} className="hover:bg-muted/50">
+                            <TableCell><IdBadge id={conta.id} /></TableCell>
+                            <TableCell className="font-mono text-xs font-semibold">{conta.ficha_id || "—"}</TableCell>
+                            <TableCell>{conta.cliente_nome || conta.cliente_telefone}</TableCell>
+                            <TableCell className="font-semibold">{formatMoeda(conta.valor_total)}</TableCell>
+                            <TableCell>
+                              {formatData(conta.data_vencimento)}
+                              {conta.status === "aguardando" && dias !== null && (
+                                <div className={`text-xs mt-0.5 ${dias < 0 ? "text-red-600 font-medium" : dias <= 3 ? "text-amber-600" : "text-muted-foreground"}`}>
+                                  {dias < 0 ? `${Math.abs(dias)}d atrasado` : dias === 0 ? "Vence hoje" : `${dias}d restantes`}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>{conta.status === "pago" ? formatData(conta.data_pagamento) : "—"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={`${cfg.color} gap-1`}>
+                                {cfg.icon} {cfg.label}
+                              </Badge>
+                              {conta.requer_template && (
+                                <div className="text-[10px] text-amber-600 mt-0.5">Requer template</div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button variant="ghost" size="sm" onClick={() => { setContaSelecionada(conta); setModalAberto(true); }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="ids" className="mt-4">
+            <BuscarPorIdTab
+              loading={loading}
+              beneficiarioLabel="Cliente"
+              items={contas.map<BuscaIdItem>((c) => ({
+                id: c.id,
+                data: c.created_at,
+                beneficiario: c.cliente_nome || c.cliente_telefone,
+                valor: c.valor_total,
+                status: statusConfig[c.status]?.label || c.status,
+                statusColor: statusConfig[c.status]?.color,
+                origem: c.ficha_id ? `Ficha ${c.ficha_id}` : undefined,
+                raw: c,
+              }))}
+              onView={(item) => { setContaSelecionada(item.raw); setModalAberto(true); }}
+            />
+          </TabsContent>
+        </Tabs>
 
         {/* Modal detalhes */}
         <Dialog open={modalAberto} onOpenChange={setModalAberto}>
