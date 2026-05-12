@@ -23,7 +23,7 @@ import { getEscalatedAlertColor, parseStatusAlertRules, STATUS_ALERT_CONFIG_KEY,
 import { Bookmark } from "lucide-react";
 import { getBookmarks, toggleBookmark, subscribeBookmarks } from "@/lib/conversationBookmarks";
 import { logChatEvent } from "@/lib/systemLogger";
-import { markConversationRead } from "@/lib/chatBetaUnread";
+import { markConversationAutoRead } from "@/lib/chatBetaUnread";
 import { fetchUnreadStateForUser } from "@/lib/unreadState";
 
 interface Cliente {
@@ -248,14 +248,19 @@ function ConversationRow(props: RowComponentProps<ConversationRowProps>) {
                 });
               }
               if (currentUserId) {
-                markConversationRead(cliente.telefone, currentUserId).catch((err) => {
+                // Leitura AUTOMÁTICA — preserva manual_unread se operador
+                // marcou explicitamente como "não lida". Só o menu "Marcar
+                // como lida" deve apagar a flag.
+                markConversationAutoRead(cliente.telefone, currentUserId).catch((err) => {
                   console.error('[ConversationListBeta] erro ao marcar como lida na abertura:', err);
                 });
               }
               setClientes((prev) =>
                 prev.map((c) =>
                   c.telefone === cliente.telefone
-                    ? { ...c, marcado_nao_lido: false, unread_count_real: 0 }
+                    ? c.marcado_nao_lido
+                      ? c // preserva marcação manual no estado local
+                      : { ...c, unread_count_real: 0 }
                     : c
                 )
               );
