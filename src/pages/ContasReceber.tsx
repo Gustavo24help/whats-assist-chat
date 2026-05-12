@@ -334,8 +334,8 @@ export default function ContasReceber() {
                         const dias = diasParaVencer(conta.data_vencimento);
                         return (
                           <TableRow key={conta.id} className="hover:bg-muted/50">
-                            <TableCell><IdBadge id={conta.id} /></TableCell>
-                            <TableCell className="font-mono text-xs font-semibold">{conta.ficha_id || "—"}</TableCell>
+                            <TableCell><IdBadge id={conta.id} kind="receber" /></TableCell>
+                            <TableCell>{conta.ficha_id ? <IdBadge id={conta.ficha_id} kind="ficha" /> : "—"}</TableCell>
                             <TableCell>{conta.cliente_nome || conta.cliente_telefone}</TableCell>
                             <TableCell className="font-semibold">{formatMoeda(conta.valor_total)}</TableCell>
                             <TableCell>
@@ -382,6 +382,7 @@ export default function ContasReceber() {
                 status: statusConfig[c.status]?.label || c.status,
                 statusColor: statusConfig[c.status]?.color,
                 origem: c.ficha_id ? `Ficha ${c.ficha_id}` : undefined,
+                idKind: "receber",
                 raw: c,
               }))}
               onView={(item) => { setContaSelecionada(item.raw); setModalAberto(true); }}
