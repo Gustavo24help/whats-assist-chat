@@ -289,13 +289,13 @@ export default function Calendario() {
           </TabsList>
 
           <TabsContent value="mensal" className="mt-3">
-            <CalendarioMensal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} />
+            <CalendarioMensal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} proximidadeMapa={proximidadeMapa} />
           </TabsContent>
           <TabsContent value="semanal" className="mt-3">
-            <CalendarioSemanal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} />
+            <CalendarioSemanal fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} proximidadeMapa={proximidadeMapa} />
           </TabsContent>
           <TabsContent value="diario" className="mt-3">
-            <CalendarioDiario fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} />
+            <CalendarioDiario fichas={filteredFichas} currentDate={currentDate} onSelectFicha={setSelectedFicha} contextoHorario={visaoHorario} mostrarVisitaHistorica={mostrarVisitaHistorica} proximidadeMapa={proximidadeMapa} />
           </TabsContent>
         </Tabs>
       </main>
