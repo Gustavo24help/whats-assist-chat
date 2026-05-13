@@ -1,94 +1,64 @@
-## Correção proposta
+## Problema
 
-Você está certo: não vou mais assumir “operador ligou sem querer”. A regra passa a ser: **se não existir prova auditável de que alguém digitou `LIGAR`, o bot não pode religar**.
+No card "Valores" da Ficha, o campo **Observação Financeira** está apagando/perdendo caracteres conforme o usuário digita.
 
-## O que vou implementar
+## Causa raiz
 
-1. **Criar auditoria obrigatória de confirmação**
-   - Criar uma tabela de auditoria para registrar cada tentativa de reativação manual do bot.
-   - Campos principais:
-     - telefone do cliente
-     - operador logado
-     - ficha ativa
-     - texto digitado no campo de confirmação
-     - horário em que o modal abriu
-     - horário em que `LIGAR` foi digitado
-     - horário do clique final
-     - origem da tela
-     - user agent/IP quando disponível
-     - resultado: permitido, bloqueado ou expirado
+Em `src/components/FichaServicoTab.tsx` (linhas 2481-2495), o `onChange` do textarea é **assíncrono** e faz `await supabase.auth.getUser()` ANTES de chamar `updateFicha`:
 
-2. **Criar um desafio por tentativa**
-   - Ao abrir o modal de “Reativar Bot”, o sistema cria um `challenge_id` único.
-   - O botão “Reativar Bot” só envia esse `challenge_id`.
-   - O backend só aceita religar o bot se existir um desafio fresco, do mesmo operador, mesmo telefone, ainda não usado, com texto exatamente `LIGAR` registrado.
-
-3. **Remover qualquer bypass frágil**
-   - Remover `force_reactivate_manual: true` do frontend.
-   - No backend, não aceitar mais esse bypass como prova de confirmação.
-   - `confirmacao='LIGAR'` sozinho também não será suficiente; precisa existir o registro auditável do desafio.
-
-4. **Bloquear religamento quando há atendimento humano ativo**
-   - Mesmo com `LIGAR`, o backend bloqueará `enable_bot` se o cliente tiver `atendente_id` preenchido e `status_conversa != 'fechada'`.
-   - Isso impede que uma conversa em atendimento humano volte para o bot por qualquer automação, bug de tela ou chamada indevida.
-
-5. **Manter automações bloqueadas por trava manual**
-   - Qualquer reativação automática/cron/webhook continuará bloqueada quando `bot_desligado_manualmente=true`.
-   - Vou reforçar o log nesses bloqueios para diferenciar claramente:
-     - tentativa automática bloqueada
-     - tentativa manual sem desafio
-     - tentativa manual com desafio inválido
-     - tentativa manual permitida
-
-6. **Corrigir a trava que piora a recuperação**
-   - Hoje, quando o bot religa, o sistema pode bloquear um desligamento manual logo em seguida por `recent_manual_reactivation`.
-   - Isso pode impedir a equipe de corrigir rapidamente um religamento indevido.
-   - Vou ajustar para que **desligar manualmente sempre seja permitido**, especialmente após um religamento suspeito.
-
-7. **Corrigir Noely imediatamente após aprovação**
-   - Conferir o estado atual de Noely.
-   - Se ainda estiver com bot ativo, desligar o bot e restaurar a trava manual.
-   - Registrar isso em `bot_historico` como correção operacional, não como ação automática normal.
-
-## Arquitetura técnica
-
-### Banco
-
-Criar tabela nova, por exemplo `bot_reactivation_confirmations`, para auditar a confirmação manual.
-
-Ela não altera dados antigos e não muda horários existentes.
-
-### Frontend
-
-Alterar os dois chats:
-
-- `ChatWindow.tsx`
-- `ChatWindowBeta.tsx`
-
-Fluxo novo:
-
-```text
-abre modal de reativação
-→ cria desafio auditável
-→ operador digita LIGAR
-→ sistema registra que LIGAR foi digitado naquele desafio
-→ operador clica Reativar Bot
-→ backend valida desafio
-→ só então permite ligar
+```tsx
+onChange={async (e) => {
+  const value = e.target.value || null;
+  const { data: { user } } = await supabase.auth.getUser();  // ← demora ~50-200ms
+  updateFicha({
+    observacao_financeira: value,
+    observacao_financeira_por: value ? (user?.id || null) : null,
+  });
+}}
 ```
 
-### Backend
+Como o textarea é controlado (`value={ficha?.observacao_financeira || ""}`), entre o início do `await` e o `setFicha`:
 
-Alterar `toggle-bot-status`:
+1. O usuário digita rápido várias teclas em sequência.
+2. Cada `onChange` captura o `e.target.value` daquele instante e fica esperando o `await`.
+3. Quando os `await`s resolvem (fora de ordem ou atrasados), `updateFicha` é chamado com valores **antigos**, sobrescrevendo o que o usuário digitou depois.
+4. O React renderiza o valor antigo no textarea → caracteres "somem".
 
-- Para `enable_bot` manual, exigir `confirmation_id/challenge_id` válido.
-- Rejeitar chamadas sem desafio válido.
-- Rejeitar chamadas com conversa ainda atribuída a operador ativo.
-- Gravar motivo claro no `system_logs` e `bot_historico`.
+Os outros campos da aba (`valor_mao_obra`, `tempo_servico`, `notas`, etc.) usam `onChange` síncrono direto em `updateFicha` e não têm esse bug.
 
-## Resultado esperado
+## Correção
 
-- Se o operador não digitou `LIGAR`, o bot não religa.
-- Se o bot tentar religar sozinho, a chamada fica bloqueada e registrada.
-- Se algum bug de frontend tentar enviar `enable_bot`, o backend bloqueia.
-- Se acontecer de novo, teremos prova objetiva: quem abriu o modal, quem digitou, quando digitou, qual telefone/ficha e qual chamada tentou religar.
+Tornar o `onChange` síncrono: atualizar o texto imediatamente e resolver o `observacao_financeira_por` sem await (usar `user?.id` cacheado do contexto de auth, ou apenas registrar o autor quando o valor finalmente for salvo no banco).
+
+### Arquivo
+
+`src/components/FichaServicoTab.tsx` — apenas o handler do `observacao_financeira` (linhas 2481-2495).
+
+### Mudança
+
+```tsx
+onChange={(e) => {
+  const value = e.target.value || null;
+  updateFicha({
+    observacao_financeira: value,
+    // marcar autor da observação imediatamente usando user já disponível no escopo
+    observacao_financeira_por: value ? (currentUserId ?? null) : null,
+  } as any);
+}}
+```
+
+Onde `currentUserId` vem de uma única chamada `supabase.auth.getUser()` feita **uma vez** no `useEffect` de inicialização do componente (já existe `user` em vários lugares — verificar e reutilizar). Sem `await` no caminho de digitação.
+
+## Salvaguardas (project-knowledge)
+
+- Mudança é **apenas no handler de digitação**: não altera o valor já salvo no banco, não muda formato/timezone, não toca em RLS, triggers ou outros campos.
+- O `skipRealtimeRef` (2s) e o `autoSave` continuam intactos — ou seja, o comportamento de salvar permanece idêntico.
+- `observacao_financeira_por` continua sendo gravado com o `auth.uid()` do operador atual (apenas obtido de forma cacheada em vez de a cada tecla).
+- Nenhuma migration necessária; nenhuma alteração em dados existentes.
+
+## Validação
+
+1. Abrir uma ficha → aba Valores → digitar texto longo rapidamente em "Observação Financeira".
+2. Confirmar que nenhum caractere é apagado/reordenado.
+3. Confirmar que após salvar, `observacao_financeira_por` segue preenchido com o usuário correto.
+4. Confirmar que o campo `notas` (Notas Adicionais) continua funcionando normalmente.
