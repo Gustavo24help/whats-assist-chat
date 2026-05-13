@@ -1,64 +1,44 @@
-## Problema
 
-No card "Valores" da Ficha, o campo **Observação Financeira** está apagando/perdendo caracteres conforme o usuário digita.
+## Objetivo
+No bloco "Funil de conversão" hoje só aparece o número do período atual e a variação em % (ex: `-53.2%`). Você quer ver também o **valor absoluto do período comparado** (ex: mês anterior) ao lado de cada etapa, para conferir se o `%` bate com a conta.
 
-## Causa raiz
+## O que vai mudar (somente UI + 1 hook)
 
-Em `src/components/FichaServicoTab.tsx` (linhas 2481-2495), o `onChange` do textarea é **assíncrono** e faz `await supabase.auth.getUser()` ANTES de chamar `updateFicha`:
+### 1) `src/hooks/useOperationalKPIs.ts`
+- Hoje o hook só devolve `kpis` (atual) + `variations` (%).
+- Vou adicionar um objeto `previous` no retorno, com os mesmos campos numéricos do período de comparação efetivamente usado (mês anterior, média 3 meses ou range custom — o mesmo que já é usado para calcular a variação).
+- Também vou expor `comparisonLabel` (ex: `"Fev/26"`, `"Média últ. 3 meses"`, `"01–28/02"`) só para rotular a UI.
+- **Sem mexer nas queries**: os números `previous` já são calculados internamente para gerar a variação, só não estavam sendo expostos. Nenhuma métrica ou data muda.
 
-```tsx
-onChange={async (e) => {
-  const value = e.target.value || null;
-  const { data: { user } } = await supabase.auth.getUser();  // ← demora ~50-200ms
-  updateFicha({
-    observacao_financeira: value,
-    observacao_financeira_por: value ? (user?.id || null) : null,
-  });
-}}
+### 2) `src/components/dashboard/ExecutiveFunnel.tsx`
+- Adicionar campo opcional `previousValue?: number | null` e `comparisonLabel?: string` em `ExecutiveFunnelStep`.
+- Logo abaixo do número grande de cada etapa (e antes do "X% vs etapa anterior"), mostrar uma linha discreta:
+  ```
+  Fev/26: 205
+  ```
+  Renderizado em `text-xs text-muted-foreground`, com o número em `font-semibold`.
+- Se `previousValue` for `null`/indefinido, mostra `Fev/26: —`.
+
+### 3) `src/components/dashboard/ExecutiveDashboardSection.tsx`
+- Passar `previousValue` para cada uma das 5 etapas, lendo de `kpis.previous` (`fsCriadas`, `fsComOrcamento`, `servicoAgendado`, `servicoFinalizado`, `finalizadoPago`).
+- Passar `comparisonLabel` igual em todas as etapas.
+
+## Exemplo visual depois da mudança
+
+```text
+┌─────────────────────────┐
+│ FS CRIADAS      -53.2%  │
+│                         │
+│ 96                      │
+│ Fev/26: 205             │  ← novo
+│ base 100%               │
+└─────────────────────────┘
 ```
 
-Como o textarea é controlado (`value={ficha?.observacao_financeira || ""}`), entre o início do `await` e o `setFicha`:
+Conferência: `(96 − 205) / 205 = −53.2%` ✅
 
-1. O usuário digita rápido várias teclas em sequência.
-2. Cada `onChange` captura o `e.target.value` daquele instante e fica esperando o `await`.
-3. Quando os `await`s resolvem (fora de ordem ou atrasados), `updateFicha` é chamado com valores **antigos**, sobrescrevendo o que o usuário digitou depois.
-4. O React renderiza o valor antigo no textarea → caracteres "somem".
-
-Os outros campos da aba (`valor_mao_obra`, `tempo_servico`, `notas`, etc.) usam `onChange` síncrono direto em `updateFicha` e não têm esse bug.
-
-## Correção
-
-Tornar o `onChange` síncrono: atualizar o texto imediatamente e resolver o `observacao_financeira_por` sem await (usar `user?.id` cacheado do contexto de auth, ou apenas registrar o autor quando o valor finalmente for salvo no banco).
-
-### Arquivo
-
-`src/components/FichaServicoTab.tsx` — apenas o handler do `observacao_financeira` (linhas 2481-2495).
-
-### Mudança
-
-```tsx
-onChange={(e) => {
-  const value = e.target.value || null;
-  updateFicha({
-    observacao_financeira: value,
-    // marcar autor da observação imediatamente usando user já disponível no escopo
-    observacao_financeira_por: value ? (currentUserId ?? null) : null,
-  } as any);
-}}
-```
-
-Onde `currentUserId` vem de uma única chamada `supabase.auth.getUser()` feita **uma vez** no `useEffect` de inicialização do componente (já existe `user` em vários lugares — verificar e reutilizar). Sem `await` no caminho de digitação.
-
-## Salvaguardas (project-knowledge)
-
-- Mudança é **apenas no handler de digitação**: não altera o valor já salvo no banco, não muda formato/timezone, não toca em RLS, triggers ou outros campos.
-- O `skipRealtimeRef` (2s) e o `autoSave` continuam intactos — ou seja, o comportamento de salvar permanece idêntico.
-- `observacao_financeira_por` continua sendo gravado com o `auth.uid()` do operador atual (apenas obtido de forma cacheada em vez de a cada tecla).
-- Nenhuma migration necessária; nenhuma alteração em dados existentes.
-
-## Validação
-
-1. Abrir uma ficha → aba Valores → digitar texto longo rapidamente em "Observação Financeira".
-2. Confirmar que nenhum caractere é apagado/reordenado.
-3. Confirmar que após salvar, `observacao_financeira_por` segue preenchido com o usuário correto.
-4. Confirmar que o campo `notas` (Notas Adicionais) continua funcionando normalmente.
+## Garantias (project-knowledge)
+- Não altera nenhuma query, fuso horário, regra de negócio ou cálculo existente.
+- Não altera dados armazenados.
+- Não muda layout dos demais blocos do Dashboard, só adiciona uma linha em cada card do funil.
+- Mudança contida em 3 arquivos (1 hook + 2 componentes do dashboard).
