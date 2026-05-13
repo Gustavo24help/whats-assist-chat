@@ -220,97 +220,146 @@ Deno.serve(async (req) => {
     const previousBotEnabled = clienteAntes?.bot_habilitado !== false;
     const previousManualLock = clienteAntes?.bot_desligado_manualmente === true;
 
-    // Proteção contra estado stale/duplo clique: se o bot acabou de ser
-    // reativado manualmente, não aceitar um novo desligamento manual imediato
-    // sem override explícito. Isso evita o caso em que a UI antiga ainda acha
-    // que o bot está desligado e reenvia uma ação de "assumir/desligar".
-    if (
-      requestedAction === "disable_bot" &&
-      isManual &&
-      previousBotEnabled &&
-      body.force_disable_after_reactivation !== true
-    ) {
-      const sinceIso = new Date(Date.now() - 60_000).toISOString();
-      const { data: recentEnable } = await supabase
-        .from("bot_historico")
-        .select("created_at, executado_por_id")
-        .eq("telefone_cliente", telefone)
-        .eq("acao", "ligado")
-        .eq("origem", "manual")
-        .gte("created_at", sinceIso)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    // (Removido) Trava `recent_manual_reactivation` — desligamento manual
+    // sempre é permitido para que a equipe consiga corrigir um religamento
+    // indevido imediatamente.
 
-      const sameOperatorOrUnknown =
-        !recentEnable?.executado_por_id ||
-        !executedByUserId ||
-        recentEnable.executado_por_id === executedByUserId;
+    // ===== Confirmação manual auditável para LIGAR =====
+    // Reativação manual exige um challenge_id criado quando o modal abriu,
+    // do mesmo operador, mesmo telefone, ainda não consumido, não expirado
+    // e com texto "LIGAR" registrado pelo backend (record_bot_reactivation_typed).
+    // Não existe mais bypass por força bruta (force_reactivate_manual removido).
+    if (requestedAction === "enable_bot" && isManual) {
+      const challengeId =
+        (body as any).confirmation_id ?? (body as any).challenge_id ?? null;
 
-      if (recentEnable && sameOperatorOrUnknown) {
+      if (!challengeId) {
         await supabase.from("system_logs").insert({
           nivel: "warn",
           categoria: "bot",
-          mensagem: `Desligamento manual bloqueado logo após reativação: ${telefone}`,
+          mensagem: `enable_bot manual SEM challenge: ${telefone}`,
           cliente_telefone: telefone,
           detalhes: {
-            event: "bot_disable_blocked_recent_reactivation",
-            telefone_cliente: telefone,
-            recent_enable_at: recentEnable.created_at,
-            requested_action: requestedAction,
-            requested_origin: requestedOrigin,
-            resolved_origin: resolvedOrigin,
-            trigger_source: triggerSource,
+            event: "enable_bot_no_challenge",
             executed_by_user_id: executedByUserId,
+            trigger_source: triggerSource,
+            ip: inboundIp,
+            user_agent: inboundUserAgent,
           },
           url: "edge://toggle-bot-status",
         });
-
-        await supabase.from("bot_historico").insert({
-          telefone_cliente: telefone,
-          acao: "desligado_bloqueado",
-          origem: resolvedOrigin,
-          executado_por_id: executedByUserId,
-          observacao: `Desligamento manual BLOQUEADO — reativação manual recente [trigger=${triggerSource}, recent_enable_at=${recentEnable.created_at}, request_id=${body.request_id ?? ""}]`,
-          request_id: body.request_id ?? crypto.randomUUID(),
-        });
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            skipped: true,
-            reason: "recent_manual_reactivation",
-            telefone,
-            bot_status: "enabled",
-            previous_state: {
-              bot_habilitado: previousBotEnabled,
-              bot_desligado_manualmente: previousManualLock,
-            },
-            new_state: {
-              bot_habilitado: true,
-              bot_desligado_manualmente: false,
-            },
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-    }
-
-    // ===== Confirmação manual para LIGAR =====
-    // Mantemos a confirmação "LIGAR" para ativações manuais via botão.
-    // Não checamos atendente_id como bloqueio.
-    if (requestedAction === "enable_bot" && isManual) {
-      const okConfirmacao =
-        body.confirmacao === "LIGAR" || body.force_reactivate_manual === true;
-      if (!okConfirmacao) {
         return new Response(
           JSON.stringify({
             error:
-              "Reativação manual exige confirmação. Envie confirmacao='LIGAR' ou force_reactivate_manual=true.",
+              "Reativação manual exige confirmation_id auditável criado pelo modal.",
           }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
+
+      const { data: challenge } = await supabase
+        .from("bot_reactivation_confirmations")
+        .select("id, telefone_cliente, operador_id, texto_digitado, digitado_em, consumido, expira_em")
+        .eq("id", challengeId)
+        .maybeSingle();
+
+      const nowTs = Date.now();
+      const challengeOk =
+        challenge &&
+        challenge.consumido === false &&
+        challenge.telefone_cliente === telefone &&
+        (!executedByUserId || challenge.operador_id === executedByUserId) &&
+        new Date(challenge.expira_em).getTime() > nowTs &&
+        (challenge.texto_digitado ?? "").toString().trim().toUpperCase() === "LIGAR" &&
+        challenge.digitado_em !== null;
+
+      if (!challengeOk) {
+        await supabase.from("system_logs").insert({
+          nivel: "warn",
+          categoria: "bot",
+          mensagem: `enable_bot manual com challenge INVÁLIDO: ${telefone}`,
+          cliente_telefone: telefone,
+          detalhes: {
+            event: "enable_bot_invalid_challenge",
+            challenge_id: challengeId,
+            challenge_row: challenge,
+            executed_by_user_id: executedByUserId,
+            trigger_source: triggerSource,
+            ip: inboundIp,
+            user_agent: inboundUserAgent,
+          },
+          url: "edge://toggle-bot-status",
+        });
+
+        if (challenge) {
+          await supabase
+            .from("bot_reactivation_confirmations")
+            .update({
+              resultado: "bloqueado",
+              clicado_em: new Date().toISOString(),
+            })
+            .eq("id", challengeId);
+        }
+
+        return new Response(
+          JSON.stringify({
+            error:
+              "Confirmação inválida. Digite LIGAR no modal e tente novamente.",
+            reason: "invalid_challenge",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // Bloqueio: conversa atribuída a operador humano e ainda aberta
+      if (
+        clienteAntes?.atendente_id &&
+        clienteAntes?.status_conversa &&
+        clienteAntes.status_conversa !== "fechada"
+      ) {
+        await supabase.from("system_logs").insert({
+          nivel: "warn",
+          categoria: "bot",
+          mensagem: `enable_bot BLOQUEADO — conversa em atendimento humano: ${telefone}`,
+          cliente_telefone: telefone,
+          detalhes: {
+            event: "enable_bot_blocked_human_open",
+            atendente_id: clienteAntes.atendente_id,
+            status_conversa: clienteAntes.status_conversa,
+            executed_by_user_id: executedByUserId,
+            challenge_id: challengeId,
+          },
+          url: "edge://toggle-bot-status",
+        });
+
+        await supabase
+          .from("bot_reactivation_confirmations")
+          .update({
+            resultado: "bloqueado_humano_ativo",
+            clicado_em: new Date().toISOString(),
+          })
+          .eq("id", challengeId);
+
+        return new Response(
+          JSON.stringify({
+            error:
+              "Conversa está em atendimento humano (status diferente de fechada). Feche a conversa antes de religar o bot.",
+            reason: "human_operator_active",
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // Consome o challenge AGORA (antes do update do cliente) — uso único
+      await supabase
+        .from("bot_reactivation_confirmations")
+        .update({
+          resultado: "permitido",
+          clicado_em: new Date().toISOString(),
+          consumido: true,
+          consumido_em: new Date().toISOString(),
+        })
+        .eq("id", challengeId);
     }
 
     // ===== BLOQUEIO: enable_bot automático com trava manual ativa =====
