@@ -14,6 +14,7 @@ export interface ExecutiveFunnelStep {
   label: string;
   value: number;
   variation: number | null;
+  previousValue?: number | null;
   onClick?: () => void;
   tooltip?: string;
   secondaryAction?: {
@@ -25,6 +26,7 @@ export interface ExecutiveFunnelStep {
 interface ExecutiveFunnelProps {
   steps: ExecutiveFunnelStep[];
   isLoading?: boolean;
+  comparisonLabel?: string;
 }
 
 const formatNumber = (num: number): string => {
