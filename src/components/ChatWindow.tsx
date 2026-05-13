@@ -1779,6 +1779,27 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       // 🔒 Capturar estado FIXO para uso durante toda a interação do dialog
       // Este valor NÃO será atualizado pelo realtime, prevenindo race conditions
       setBotStatusNoDialog(botDesativado);
+
+      // Se vamos religar, criar challenge auditável
+      if (botDesativado) {
+        try {
+          const { data: chId, error: chErr } = await supabase.rpc(
+            "create_bot_reactivation_challenge",
+            {
+              _telefone: clienteTelefone,
+              _ficha_id: fichaId || null,
+              _origem_tela: "ChatWindow",
+              _user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+            },
+          );
+          if (chErr) throw chErr;
+          setReactivationChallengeId(chId as unknown as string);
+        } catch (e) {
+          console.error("[ChatWindow] erro ao criar challenge de reativação", e);
+          toast.error("Não foi possível abrir a confirmação de reativação. Tente novamente.");
+          return;
+        }
+      }
     }
     setAssumirDialogOpen(true);
   };
