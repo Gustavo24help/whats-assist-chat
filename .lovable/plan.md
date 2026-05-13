@@ -1,44 +1,48 @@
+## Problema
 
-## Objetivo
-No bloco "Funil de conversão" hoje só aparece o número do período atual e a variação em % (ex: `-53.2%`). Você quer ver também o **valor absoluto do período comparado** (ex: mês anterior) ao lado de cada etapa, para conferir se o `%` bate com a conta.
+Quando você escolhe o período "Este mês", o intervalo atual vai de **01/05 até 31/05** (fim do mês), mesmo estando dia 13/05. Aí a comparação "mês anterior" pega **01/04 até 30/04 inteiro = 49 agendamentos**, comparando contra o mês atual ainda em curso. Isso distorce a variação.
 
-## O que vai mudar (somente UI + 1 hook)
+Você quer: período atual `01–13/05` deve comparar contra `01–13/04`.
 
-### 1) `src/hooks/useOperationalKPIs.ts`
-- Hoje o hook só devolve `kpis` (atual) + `variations` (%).
-- Vou adicionar um objeto `previous` no retorno, com os mesmos campos numéricos do período de comparação efetivamente usado (mês anterior, média 3 meses ou range custom — o mesmo que já é usado para calcular a variação).
-- Também vou expor `comparisonLabel` (ex: `"Fev/26"`, `"Média últ. 3 meses"`, `"01–28/02"`) só para rotular a UI.
-- **Sem mexer nas queries**: os números `previous` já são calculados internamente para gerar a variação, só não estavam sendo expostos. Nenhuma métrica ou data muda.
+## Causa
 
-### 2) `src/components/dashboard/ExecutiveFunnel.tsx`
-- Adicionar campo opcional `previousValue?: number | null` e `comparisonLabel?: string` em `ExecutiveFunnelStep`.
-- Logo abaixo do número grande de cada etapa (e antes do "X% vs etapa anterior"), mostrar uma linha discreta:
-  ```
-  Fev/26: 205
-  ```
-  Renderizado em `text-xs text-muted-foreground`, com o número em `font-semibold`.
-- Se `previousValue` for `null`/indefinido, mostra `Fev/26: —`.
+Em `src/hooks/useOperationalKPIs.ts`, na função `getDateRange`:
 
-### 3) `src/components/dashboard/ExecutiveDashboardSection.tsx`
-- Passar `previousValue` para cada uma das 5 etapas, lendo de `kpis.previous` (`fsCriadas`, `fsComOrcamento`, `servicoAgendado`, `servicoFinalizado`, `finalizadoPago`).
-- Passar `comparisonLabel` igual em todas as etapas.
-
-## Exemplo visual depois da mudança
-
-```text
-┌─────────────────────────┐
-│ FS CRIADAS      -53.2%  │
-│                         │
-│ 96                      │
-│ Fev/26: 205             │  ← novo
-│ base 100%               │
-└─────────────────────────┘
+```ts
+case 'month':
+  return { from: startOfMonth(now), to: endOfMonth(now) };
 ```
 
-Conferência: `(96 − 205) / 205 = −53.2%` ✅
+O `to` vai até o último dia do mês, mesmo no mês corrente. Como `getComparisonRanges('previous-month')` apenas subtrai 1 mês de `from` e `to`, o período comparado também vira o mês inteiro anterior.
 
-## Garantias (project-knowledge)
-- Não altera nenhuma query, fuso horário, regra de negócio ou cálculo existente.
-- Não altera dados armazenados.
-- Não muda layout dos demais blocos do Dashboard, só adiciona uma linha em cada card do funil.
-- Mudança contida em 3 arquivos (1 hook + 2 componentes do dashboard).
+## Solução (1 ponto, 1 arquivo)
+
+Em `getDateRange`, no case `'month'`, **limitar `to` ao mínimo entre fim do mês e hoje**:
+
+```ts
+case 'month': {
+  const monthEnd = endOfMonth(now);
+  const today = endOfDay(now);
+  return {
+    from: startOfMonth(now),
+    to: monthEnd < today ? monthEnd : today,
+  };
+}
+```
+
+Efeito automático:
+- Período atual: `01/05 00:00` → `13/05 23:59`
+- Comparação "mês anterior" (já calculada via shift de -1 mês de `from` e `to`): `01/04 00:00` → `13/04 23:59` ✅
+- Variação passa a ser justa (mesma quantidade de dias).
+
+## Garantias
+
+- **Não altera nenhum dado armazenado.** Só muda o limite superior da janela do filtro "Este mês" no dashboard.
+- **Não afeta meses passados**: se você escolher um mês já finalizado (ex: abril estando em maio), `monthEnd < today` → mantém o mês inteiro como hoje já faz.
+- **Não mexe** em fuso horário, em outros períodos (`today`, `7days`, `30days`, `custom`), nem em queries SQL.
+- **Não mexe** na lógica de comparação `avg-3-months` nem `custom` — eles continuam idênticos.
+- O label de comparação (`Abr/26`) e o número absoluto exibido sob cada etapa do funil (já implementados na rodada anterior) passam a refletir corretamente `01–13/04`.
+
+## Arquivos alterados
+
+- `src/hooks/useOperationalKPIs.ts` — apenas o case `'month'` da função `getDateRange` (≈4 linhas).
