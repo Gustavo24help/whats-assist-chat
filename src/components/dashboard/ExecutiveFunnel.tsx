@@ -14,6 +14,7 @@ export interface ExecutiveFunnelStep {
   label: string;
   value: number;
   variation: number | null;
+  previousValue?: number | null;
   onClick?: () => void;
   tooltip?: string;
   secondaryAction?: {
@@ -25,6 +26,7 @@ export interface ExecutiveFunnelStep {
 interface ExecutiveFunnelProps {
   steps: ExecutiveFunnelStep[];
   isLoading?: boolean;
+  comparisonLabel?: string;
 }
 
 const formatNumber = (num: number): string => {
@@ -62,7 +64,7 @@ const VariationBadge = ({ variation }: { variation: number | null }) => {
   );
 };
 
-export const ExecutiveFunnel = ({ steps, isLoading }: ExecutiveFunnelProps) => {
+export const ExecutiveFunnel = ({ steps, isLoading, comparisonLabel }: ExecutiveFunnelProps) => {
   const baseValue = steps[0]?.value ?? 0;
 
   const { biggestDrop, globalCloseRate } = useMemo(() => {
@@ -149,6 +151,16 @@ export const ExecutiveFunnel = ({ steps, isLoading }: ExecutiveFunnelProps) => {
                 <div className="text-3xl font-bold text-foreground font-jakarta leading-none">
                   {formatNumber(step.value)}
                 </div>
+                {comparisonLabel && (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {comparisonLabel}:{" "}
+                    <span className="font-semibold text-foreground/80">
+                      {step.previousValue == null
+                        ? "—"
+                        : formatNumber(Math.round(step.previousValue))}
+                    </span>
+                  </div>
+                )}
                 <div className="mt-1 text-xs text-muted-foreground">
                   {index === 0 ? (
                     <span className="font-medium text-brand-green">base 100%</span>
