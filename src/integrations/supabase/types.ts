@@ -369,6 +369,63 @@ export type Database = {
           },
         ]
       }
+      bot_reactivation_confirmations: {
+        Row: {
+          clicado_em: string | null
+          consumido: boolean
+          consumido_em: string | null
+          created_at: string
+          digitado_em: string | null
+          expira_em: string
+          ficha_id: string | null
+          id: string
+          ip_address: string | null
+          modal_aberto_em: string
+          operador_id: string | null
+          origem_tela: string | null
+          resultado: string
+          telefone_cliente: string
+          texto_digitado: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          clicado_em?: string | null
+          consumido?: boolean
+          consumido_em?: string | null
+          created_at?: string
+          digitado_em?: string | null
+          expira_em?: string
+          ficha_id?: string | null
+          id?: string
+          ip_address?: string | null
+          modal_aberto_em?: string
+          operador_id?: string | null
+          origem_tela?: string | null
+          resultado?: string
+          telefone_cliente: string
+          texto_digitado?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          clicado_em?: string | null
+          consumido?: boolean
+          consumido_em?: string | null
+          created_at?: string
+          digitado_em?: string | null
+          expira_em?: string
+          ficha_id?: string | null
+          id?: string
+          ip_address?: string | null
+          modal_aberto_em?: string
+          operador_id?: string | null
+          origem_tela?: string | null
+          resultado?: string
+          telefone_cliente?: string
+          texto_digitado?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       bot_reactivation_schedule: {
         Row: {
           created_at: string | null
@@ -3257,6 +3314,15 @@ export type Database = {
       }
       can_manage_avisos: { Args: { _user_id: string }; Returns: boolean }
       check_and_close_orcamento_forms: { Args: never; Returns: undefined }
+      create_bot_reactivation_challenge: {
+        Args: {
+          _ficha_id?: string
+          _origem_tela?: string
+          _telefone: string
+          _user_agent?: string
+        }
+        Returns: string
+      }
       fichas_sem_nome_cliente_recentes: {
         Args: never
         Returns: {
@@ -3301,6 +3367,10 @@ export type Database = {
       is_internal_conversation_member: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
+      }
+      record_bot_reactivation_typed: {
+        Args: { _challenge_id: string; _texto: string }
+        Returns: undefined
       }
       redistribute_chats_silent: {
         Args: { _target_user_id: string; _telefones: string[] }
