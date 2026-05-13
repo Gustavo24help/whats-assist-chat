@@ -2617,6 +2617,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           if (!open) {
             setConfirmacaoTexto("");
             setBotStatusNoDialog(null); // 🔒 Limpar estado isolado ao fechar
+            setReactivationChallengeId(null);
           }
         }}
       >
