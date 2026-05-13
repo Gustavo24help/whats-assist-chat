@@ -1953,7 +1953,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             trigger_source: 'manual_button',
             executed_by_user_id: userId,
             confirmacao: confirmacaoTexto,
-            force_reactivate_manual: true
+            confirmation_id: reactivationChallengeId,
           }
         });
 
