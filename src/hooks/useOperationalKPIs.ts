@@ -758,6 +758,26 @@ export const FALLBACK_OPERATIONAL_KPIS: OperationalKPIs = {
     valorLiquido24help: null,
     margemBruta24help: null,
   },
+  comparisonLabel: '',
+  previous: {
+    conversasIniciadas: 0,
+    fsCriadas: 0,
+    fsComOrcamento: 0,
+    totalOrcamentos: 0,
+    mediaOrcamentosPorFS: 0,
+    visitaAgendada: 0,
+    servicoAgendado: 0,
+    servicoAgendadoBruto: 0,
+    servicoFinalizado: 0,
+    finalizadoPago: 0,
+    pagoAoPrestador: 0,
+    valorTotalOS: 0,
+    valorMaoObra: 0,
+    valorPecas: 0,
+    valorPagoPrestadores: 0,
+    valorLiquido24help: 0,
+    margemBruta24help: 0,
+  },
 };
 
 export function useOperationalKPIs(filters: KPIFilters) {
