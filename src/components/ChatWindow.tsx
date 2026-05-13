@@ -2467,6 +2467,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           if (!open) {
             setConfirmacaoTexto("");
             setBotStatusNoDialog(null); // 🔒 Limpar estado isolado ao fechar
+            setReactivationChallengeId(null);
           }
         }}
       >
