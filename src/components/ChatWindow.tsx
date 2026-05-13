@@ -187,6 +187,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   } | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [confirmacaoTexto, setConfirmacaoTexto] = useState("");
+  const [reactivationChallengeId, setReactivationChallengeId] = useState<string | null>(null);
   // 🔒 Estado isolado do dialog para prevenir race condition com realtime
   const [botStatusNoDialog, setBotStatusNoDialog] = useState<boolean | null>(null);
   
