@@ -164,6 +164,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [horaRetorno, setHoraRetorno] = useState<string>('');
   const [horaFimRetorno, setHoraFimRetorno] = useState<string>('');
   const skipRealtimeRef = useRef(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [ajustarDataOpen, setAjustarDataOpen] = useState(false);
@@ -805,6 +806,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       ),
     []
   );
+
+  // Cache do user atual (uma única chamada) para evitar await em onChange de inputs controlados
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!cancelled) setCurrentUserId(user?.id || null);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     // ✅ CANCELAR DEBOUNCE PENDENTE
@@ -2481,12 +2491,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <textarea
                   id="observacao_financeira"
                   value={ficha?.observacao_financeira || ""}
-                  onChange={async (e) => {
+                  onChange={(e) => {
                     const value = e.target.value || null;
-                    const { data: { user } } = await supabase.auth.getUser();
                     updateFicha({
                       observacao_financeira: value,
-                      observacao_financeira_por: value ? (user?.id || null) : null,
+                      observacao_financeira_por: value ? (currentUserId ?? null) : null,
                     } as any);
                   }}
                   placeholder="Explique irregularidades nos valores, margem, etc."
