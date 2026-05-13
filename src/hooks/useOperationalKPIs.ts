@@ -106,8 +106,14 @@ const getDateRange = (
       return { from: startOfDay(subDays(now, 6)), to: endOfDay(now) };
     case '30days':
       return { from: startOfDay(subDays(now, 29)), to: endOfDay(now) };
-    case 'month':
-      return { from: startOfMonth(now), to: endOfMonth(now) };
+    case 'month': {
+      const monthEnd = endOfMonth(now);
+      const today = endOfDay(now);
+      return {
+        from: startOfMonth(now),
+        to: monthEnd < today ? monthEnd : today,
+      };
+    }
     case 'custom':
       if (customRange) {
         return { from: startOfDay(customRange.from), to: endOfDay(customRange.to) };
