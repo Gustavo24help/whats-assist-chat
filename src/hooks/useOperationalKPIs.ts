@@ -49,6 +49,26 @@ export interface OperationalKPIs {
   // Taxas
   taxaAgendamento: number;
   taxaFinalizacao: number;
+  comparisonLabel: string;
+  previous: {
+    conversasIniciadas: number;
+    fsCriadas: number;
+    fsComOrcamento: number;
+    totalOrcamentos: number;
+    mediaOrcamentosPorFS: number;
+    visitaAgendada: number;
+    servicoAgendado: number;
+    servicoAgendadoBruto: number;
+    servicoFinalizado: number;
+    finalizadoPago: number;
+    pagoAoPrestador: number;
+    valorTotalOS: number;
+    valorMaoObra: number;
+    valorPecas: number;
+    valorPagoPrestadores: number;
+    valorLiquido24help: number;
+    margemBruta24help: number;
+  };
   variations: {
     conversasIniciadas: number | null;
     fsCriadas: number | null;
