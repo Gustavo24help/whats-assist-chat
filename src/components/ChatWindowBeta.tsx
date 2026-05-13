@@ -1961,6 +1961,26 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       const botDesativado = data.bot_habilitado === false;
       setBotDesabilitado(botDesativado);
       setBotStatusNoDialog(botDesativado);
+
+      if (botDesativado) {
+        try {
+          const { data: chId, error: chErr } = await supabase.rpc(
+            "create_bot_reactivation_challenge",
+            {
+              _telefone: clienteTelefone,
+              _ficha_id: fichaId || null,
+              _origem_tela: "ChatWindowBeta",
+              _user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+            },
+          );
+          if (chErr) throw chErr;
+          setReactivationChallengeId(chId as unknown as string);
+        } catch (e) {
+          console.error("[ChatWindowBeta] erro ao criar challenge", e);
+          toast.error("Não foi possível abrir a confirmação de reativação. Tente novamente.");
+          return;
+        }
+      }
     }
     setAssumirDialogOpen(true);
   };
