@@ -92,6 +92,7 @@ export const ExecutiveDashboardSection = ({
       label: "FS Criadas",
       value: kpis.fsCriadas,
       variation: kpis.variations.fsCriadas,
+      previousValue: kpis.previous?.fsCriadas,
       onClick: openDrill("fsCriadas", "FS Criadas"),
       tooltip: "Fichas de serviço criadas no período (data de criação).",
     },
@@ -100,6 +101,7 @@ export const ExecutiveDashboardSection = ({
       label: "Com Orçamento",
       value: kpis.fsComOrcamento,
       variation: kpis.variations.fsComOrcamento,
+      previousValue: kpis.previous?.fsComOrcamento,
       onClick: openDrill("totalOrcamentos", "FS com Orçamento"),
       tooltip:
         "Fichas que receberam pelo menos 1 orçamento de prestador no período.",
@@ -109,6 +111,7 @@ export const ExecutiveDashboardSection = ({
       label: "Agendados",
       value: kpis.servicoAgendado,
       variation: kpis.variations.servicoAgendado,
+      previousValue: kpis.previous?.servicoAgendado,
       onClick: openDrill("servicoAgendado", "Serviços Agendados"),
       tooltip:
         "Fichas cujo status virou 'Agendado' no período (exclui fichas que hoje estão como 'Perdido').",
@@ -128,6 +131,7 @@ export const ExecutiveDashboardSection = ({
       label: "Finalizados",
       value: kpis.servicoFinalizado,
       variation: kpis.variations.servicoFinalizado,
+      previousValue: kpis.previous?.servicoFinalizado,
       onClick: openDrill("servicoFinalizado", "Serviços Finalizados"),
       tooltip:
         "Fichas cujo status mudou para 'Finalizado' no período. Independe de pagamento.",
@@ -137,6 +141,7 @@ export const ExecutiveDashboardSection = ({
       label: "Pago (cliente)",
       value: kpis.finalizadoPago,
       variation: kpis.variations.finalizadoPago,
+      previousValue: kpis.previous?.finalizadoPago,
       onClick: openDrill("finalizadoPago", "Finalizado e Pago (Cliente)"),
       tooltip:
         "Fichas finalizadas no período E com pagamento_realizado = true.",
