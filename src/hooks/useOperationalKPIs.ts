@@ -684,6 +684,37 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
       valorLiquido24help: calculateVariation(safeMetrics.valorLiquido24help, avg('valorLiquido24help')),
       margemBruta24help: calculateVariation(safeMetrics.margemBruta24help, avg('margemBruta24help')),
     },
+    comparisonLabel: (() => {
+      if (mode === 'avg-3-months') return 'Média 3 meses';
+      const r = compRanges[0];
+      if (!r) return '';
+      const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      const sameMonth = r.from.getMonth() === r.to.getMonth() && r.from.getFullYear() === r.to.getFullYear();
+      if (sameMonth) {
+        return `${months[r.from.getMonth()]}/${String(r.from.getFullYear()).slice(-2)}`;
+      }
+      const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+      return `${fmt(r.from)}–${fmt(r.to)}`;
+    })(),
+    previous: {
+      conversasIniciadas: avg('conversasIniciadas'),
+      fsCriadas: avg('fsCriadas'),
+      fsComOrcamento: avg('fsComOrcamento'),
+      totalOrcamentos: avg('totalOrcamentos'),
+      mediaOrcamentosPorFS: avg('mediaOrcamentosPorFS'),
+      visitaAgendada: avg('visitaAgendada'),
+      servicoAgendado: avg('servicoAgendado'),
+      servicoAgendadoBruto: avg('servicoAgendadoBruto'),
+      servicoFinalizado: avg('servicoFinalizado'),
+      finalizadoPago: avg('finalizadoPago'),
+      pagoAoPrestador: avg('pagoAoPrestador'),
+      valorTotalOS: avg('valorTotalOS'),
+      valorMaoObra: avg('valorMaoObra'),
+      valorPecas: avg('valorPecas'),
+      valorPagoPrestadores: avg('valorPagoPrestadores'),
+      valorLiquido24help: avg('valorLiquido24help'),
+      margemBruta24help: avg('margemBruta24help'),
+    },
   };
 }
 
