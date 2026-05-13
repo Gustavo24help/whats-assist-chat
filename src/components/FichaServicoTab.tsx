@@ -807,6 +807,15 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     []
   );
 
+  // Cache do user atual (uma única chamada) para evitar await em onChange de inputs controlados
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!cancelled) setCurrentUserId(user?.id || null);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     // ✅ CANCELAR DEBOUNCE PENDENTE
     autoSave.cancel();
