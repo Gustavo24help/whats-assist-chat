@@ -64,7 +64,7 @@ const VariationBadge = ({ variation }: { variation: number | null }) => {
   );
 };
 
-export const ExecutiveFunnel = ({ steps, isLoading }: ExecutiveFunnelProps) => {
+export const ExecutiveFunnel = ({ steps, isLoading, comparisonLabel }: ExecutiveFunnelProps) => {
   const baseValue = steps[0]?.value ?? 0;
 
   const { biggestDrop, globalCloseRate } = useMemo(() => {
