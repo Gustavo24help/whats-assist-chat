@@ -2490,7 +2490,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     </p>
                     <Input
                       value={confirmacaoTexto}
-                      onChange={(e) => setConfirmacaoTexto(e.target.value.toUpperCase())}
+                      onChange={(e) => {
+                        const v = e.target.value.toUpperCase();
+                        setConfirmacaoTexto(v);
+                        if (reactivationChallengeId) {
+                          supabase.rpc("record_bot_reactivation_typed", {
+                            _challenge_id: reactivationChallengeId,
+                            _texto: v,
+                          }).then(({ error }) => {
+                            if (error) console.warn("[record_typed]", error);
+                          });
+                        }
+                      }}
                       placeholder="Digite LIGAR"
                       className="font-mono"
                       autoComplete="off"
