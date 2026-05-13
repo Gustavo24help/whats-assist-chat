@@ -277,7 +277,7 @@ export const ExecutiveDashboardSection = ({
       {isLoading ? (
         <Skeleton className="h-64 w-full rounded-xl" />
       ) : (
-        <ExecutiveFunnel steps={funnelSteps} isLoading={false} />
+        <ExecutiveFunnel steps={funnelSteps} isLoading={false} comparisonLabel={kpis.comparisonLabel} />
       )}
 
       {/* Bloco 2 — Financeiro */}
