@@ -228,6 +228,7 @@ export const ChatWindowBeta = ({
   } | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [confirmacaoTexto, setConfirmacaoTexto] = useState("");
+  const [reactivationChallengeId, setReactivationChallengeId] = useState<string | null>(null);
   // 🔒 Estado isolado do dialog para prevenir race condition com realtime
   const [botStatusNoDialog, setBotStatusNoDialog] = useState<boolean | null>(null);
 
@@ -1960,6 +1961,26 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       const botDesativado = data.bot_habilitado === false;
       setBotDesabilitado(botDesativado);
       setBotStatusNoDialog(botDesativado);
+
+      if (botDesativado) {
+        try {
+          const { data: chId, error: chErr } = await supabase.rpc(
+            "create_bot_reactivation_challenge",
+            {
+              _telefone: clienteTelefone,
+              _ficha_id: fichaId || null,
+              _origem_tela: "ChatWindowBeta",
+              _user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+            },
+          );
+          if (chErr) throw chErr;
+          setReactivationChallengeId(chId as unknown as string);
+        } catch (e) {
+          console.error("[ChatWindowBeta] erro ao criar challenge", e);
+          toast.error("Não foi possível abrir a confirmação de reativação. Tente novamente.");
+          return;
+        }
+      }
     }
     setAssumirDialogOpen(true);
   };
@@ -2106,7 +2127,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
             trigger_source: "manual_button",
             executed_by_user_id: userId,
             confirmacao: confirmacaoTexto,
-            force_reactivate_manual: true,
+            confirmation_id: reactivationChallengeId,
           },
         });
 
@@ -2596,6 +2617,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           if (!open) {
             setConfirmacaoTexto("");
             setBotStatusNoDialog(null); // 🔒 Limpar estado isolado ao fechar
+            setReactivationChallengeId(null);
           }
         }}
       >
@@ -2619,7 +2641,18 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                     <p className="text-sm font-medium text-destructive">⚠️ Para confirmar, digite "LIGAR" abaixo:</p>
                     <Input
                       value={confirmacaoTexto}
-                      onChange={(e) => setConfirmacaoTexto(e.target.value.toUpperCase())}
+                      onChange={(e) => {
+                        const v = e.target.value.toUpperCase();
+                        setConfirmacaoTexto(v);
+                        if (reactivationChallengeId) {
+                          supabase.rpc("record_bot_reactivation_typed", {
+                            _challenge_id: reactivationChallengeId,
+                            _texto: v,
+                          }).then(({ error }) => {
+                            if (error) console.warn("[record_typed]", error);
+                          });
+                        }
+                      }}
                       placeholder="Digite LIGAR"
                       className="font-mono"
                       autoComplete="off"

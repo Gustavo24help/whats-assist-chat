@@ -187,6 +187,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   } | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [confirmacaoTexto, setConfirmacaoTexto] = useState("");
+  const [reactivationChallengeId, setReactivationChallengeId] = useState<string | null>(null);
   // 🔒 Estado isolado do dialog para prevenir race condition com realtime
   const [botStatusNoDialog, setBotStatusNoDialog] = useState<boolean | null>(null);
   
@@ -1778,6 +1779,27 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       // 🔒 Capturar estado FIXO para uso durante toda a interação do dialog
       // Este valor NÃO será atualizado pelo realtime, prevenindo race conditions
       setBotStatusNoDialog(botDesativado);
+
+      // Se vamos religar, criar challenge auditável
+      if (botDesativado) {
+        try {
+          const { data: chId, error: chErr } = await supabase.rpc(
+            "create_bot_reactivation_challenge",
+            {
+              _telefone: clienteTelefone,
+              _ficha_id: fichaId || null,
+              _origem_tela: "ChatWindow",
+              _user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+            },
+          );
+          if (chErr) throw chErr;
+          setReactivationChallengeId(chId as unknown as string);
+        } catch (e) {
+          console.error("[ChatWindow] erro ao criar challenge de reativação", e);
+          toast.error("Não foi possível abrir a confirmação de reativação. Tente novamente.");
+          return;
+        }
+      }
     }
     setAssumirDialogOpen(true);
   };
@@ -1931,7 +1953,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
             trigger_source: 'manual_button',
             executed_by_user_id: userId,
             confirmacao: confirmacaoTexto,
-            force_reactivate_manual: true
+            confirmation_id: reactivationChallengeId,
           }
         });
 
@@ -2445,6 +2467,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           if (!open) {
             setConfirmacaoTexto("");
             setBotStatusNoDialog(null); // 🔒 Limpar estado isolado ao fechar
+            setReactivationChallengeId(null);
           }
         }}
       >
@@ -2468,7 +2491,18 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                     </p>
                     <Input
                       value={confirmacaoTexto}
-                      onChange={(e) => setConfirmacaoTexto(e.target.value.toUpperCase())}
+                      onChange={(e) => {
+                        const v = e.target.value.toUpperCase();
+                        setConfirmacaoTexto(v);
+                        if (reactivationChallengeId) {
+                          supabase.rpc("record_bot_reactivation_typed", {
+                            _challenge_id: reactivationChallengeId,
+                            _texto: v,
+                          }).then(({ error }) => {
+                            if (error) console.warn("[record_typed]", error);
+                          });
+                        }
+                      }}
                       placeholder="Digite LIGAR"
                       className="font-mono"
                       autoComplete="off"
