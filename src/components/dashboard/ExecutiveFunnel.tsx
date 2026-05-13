@@ -151,6 +151,16 @@ export const ExecutiveFunnel = ({ steps, isLoading, comparisonLabel }: Executive
                 <div className="text-3xl font-bold text-foreground font-jakarta leading-none">
                   {formatNumber(step.value)}
                 </div>
+                {comparisonLabel && (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {comparisonLabel}:{" "}
+                    <span className="font-semibold text-foreground/80">
+                      {step.previousValue == null
+                        ? "—"
+                        : formatNumber(Math.round(step.previousValue))}
+                    </span>
+                  </div>
+                )}
                 <div className="mt-1 text-xs text-muted-foreground">
                   {index === 0 ? (
                     <span className="font-medium text-brand-green">base 100%</span>
