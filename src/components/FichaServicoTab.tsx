@@ -2491,12 +2491,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 <textarea
                   id="observacao_financeira"
                   value={ficha?.observacao_financeira || ""}
-                  onChange={async (e) => {
+                  onChange={(e) => {
                     const value = e.target.value || null;
-                    const { data: { user } } = await supabase.auth.getUser();
                     updateFicha({
                       observacao_financeira: value,
-                      observacao_financeira_por: value ? (user?.id || null) : null,
+                      observacao_financeira_por: value ? (currentUserId ?? null) : null,
                     } as any);
                   }}
                   placeholder="Explique irregularidades nos valores, margem, etc."
