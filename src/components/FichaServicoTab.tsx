@@ -164,6 +164,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [horaRetorno, setHoraRetorno] = useState<string>('');
   const [horaFimRetorno, setHoraFimRetorno] = useState<string>('');
   const skipRealtimeRef = useRef(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [ajustarDataOpen, setAjustarDataOpen] = useState(false);
