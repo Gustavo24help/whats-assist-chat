@@ -2127,7 +2127,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
             trigger_source: "manual_button",
             executed_by_user_id: userId,
             confirmacao: confirmacaoTexto,
-            force_reactivate_manual: true,
+            confirmation_id: reactivationChallengeId,
           },
         });
 
