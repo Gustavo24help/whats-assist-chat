@@ -96,7 +96,24 @@ const PlanilhaControlePagamentos = () => {
       };
     });
 
-    setRows(mapped);
+    const manuaisRows: RowData[] = ((manuaisRes as any)?.data || []).map((m: any) => {
+      const pago = m.status === "pago";
+      return {
+        ficha_id: m.ficha_id || `MAN-${String(m.id).slice(0, 8)}`,
+        cliente: m.descricao || "(lançamento manual)",
+        prestador: m.beneficiario_nome || "-",
+        data_conclusao: m.data_vencimento || m.created_at,
+        valor: Number(m.valor) || 0,
+        valor_mo: Number(m.valor) || 0,
+        cliente_pagou: true,
+        data_pgto_prestador: m.data_pagamento || null,
+        pagamento_feito: pago,
+        link_asaas: null,
+        valor_pago: pago ? Number(m.valor) || 0 : 0,
+      };
+    });
+
+    setRows([...mapped, ...manuaisRows]);
     setLoading(false);
   };
 
