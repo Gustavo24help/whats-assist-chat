@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
 
     const descricao = (payload.descricao as string | null) ?? (descricaoMontada || null);
     const preferencia_horario_cliente =
-      (payload.preferencia_horario_cliente as string | null) ?? getField(adicionais, "3.2") || null;
+      ((payload.preferencia_horario_cliente as string | null) ?? getField(adicionais, "3.2")) || null;
     const id_zoho = (payload.id_zoho as string | null) ?? null;
 
     if (!ficha_id) {
