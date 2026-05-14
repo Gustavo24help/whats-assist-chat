@@ -224,6 +224,47 @@ Lista completa em `src/pages/`:
 | `UserDetails.tsx` | `/user/:id` | Detalhes de usuário |
 | `NotFound.tsx` | `*` | 404 |
 
+### 4.1 Sub-views, Tabs e Painéis Internos
+
+Várias páginas funcionam como contêineres de múltiplas "sub-páginas" (painéis laterais, abas internas, modais full-screen). Cada sub-view tem função própria e, em muitos casos, dados/contextos isolados — devem ser tratadas como unidades independentes ao planejar mudanças.
+
+**Chat (`/chat`, `/chat-beta`, `/chat-prestadores`)**
+Layout de 3 colunas: lista de conversas → janela de mensagens → painel lateral. O painel lateral (`FichaPanel` / `FichaPanelBeta` / `PrestadorInfoPanel`) é praticamente uma página independente:
+- Seletor de fichas do cliente (multi-ficha) + botões: criar, vincular, abrir logs em nova aba.
+- Tabs internas: **Ficha** (`FichaServicoTab`) · **Acompanhamento** (`AcompanhamentoTab`) · **Orçamentos** (`OrcamentosTab`) · **Histórico** (`FichaHistoricoTab`).
+- Em Chat BETA o painel ganha tabs adicionais: **Resumo IA**, **Resumo Ficha**, **Histórico Cliente**, **Nina** e **Vendas** (Coach IA).
+- Define `setChatContext({ ficha_id, cliente_telefone })` para correlação automática de logs enquanto montado.
+
+**Chat Prestadores**: painel lateral com `PrestadorInfoPanel` + `FichaVinculoSelector` (uma conversa pode vincular-se a múltiplas fichas via headers).
+
+**Mensagens Internas (`/mensagens-internas`)**: lista (`InternalChatList`) + janela (`InternalChatWindow`) + diálogo de nova conversa.
+
+**Dashboard (`/dashboard`)**: tabs internas — **Operacional**, **Financeiro**, **Avaliação Prestadores**, **NPS**, **Visita / Conversão**, **Tempo de Status**, **Orçamento**, **Acompanhamento Conversas**. Cada tab carrega hooks/queries próprios (`useOperationalKPIs`, `useDashboardSummary`, etc.). Drill-down via `useKPIDrillDown` abre fichas em nova aba.
+
+**Dashboard TV (`/dashboard-tv`)**: layout freeform (`TVFreeformContext`) com widgets reposicionáveis; modo "layout" alterna para grid editável.
+
+**Ficha Detalhes (`/ficha/:id`)**: as mesmas tabs do painel do chat (Ficha · Acompanhamento · Orçamentos · Histórico) em modo full-page, mais ações de WhatsApp, recibo e link de pagamento.
+
+**Manutenção (`/manutencao`)**: tabs — **Conta** (`AccountInfo`/`PasswordChange`) · **Usuários** (`UserManagement`) · **Prestadores** (`PrestadorManagement`) · **Templates** (`TemplateManagement`) · **Mensagens Padronizadas** · **Ferramentas** (`FerramentasManutencao`, `TwilioReconcilePanel`) · **Cadeia de Atribuição** (`AtribuicaoCadeiaConfig`) · **Status/Cores** (`EditarCoresStatusFichaModal`) · **Alertas de Status** (`StatusAlertSettings`) · **Metas Diárias** (`DailyGoalsManager`).
+
+**Settings (`/settings`)**: tabs — **Geral** · **Visibilidade** (somente `admin_ti`) · **Logs** · **Webhooks** (`PagamentoWebhookLogsViewer`).
+
+**Financeiro / Contas a Receber / Contas a Pagar**: cada página tem filtros próprios (período, status pagamento, prestador) e modais — `EnviarLinkPagamentoDialog`, `PopupConfirmacaoFinanceira`, `TrocaPrestadorPagamentoDialog`, `AjustarDataFinalizacaoDialog`. A planilha (`/planilha*`) é uma view tabular separada com sincronização via `webhook-update-planilha`.
+
+**Tarefas / Tarefas Operacionais**: lista + `TaskFormDialog` (criação/edição) + `TaskAlertModal` (alertas pop-up via `useTaskAlert`). Tarefas Operacionais adiciona tabs **Delegação** e **Resolver Conversas**.
+
+**Calendário (`/calendario`)**: alterna entre **Janela do Cliente** (comercial) e **Janela do Prestador** (operacional) — são duas visualizações distintas dos mesmos serviços, com regras de mapeamento próprias.
+
+**Prestador Detalhes (`/prestador/:id`)**: tabs — **Perfil**, **Financeiro** (cálculo líquido), **Histórico de Serviços**, **Avaliações/NPS**.
+
+**Portal Prestador (`/portal-prestador`, `/admin-prestador`)**: app dedicado com suas próprias rotas internas (agenda, ficha aberta, finalização). `/admin-prestador` bypassa middleware estrito e permite auto-login via CPF para suporte.
+
+**System Logs (`/system-logs`, `/system-logs/:fichaId`)**: a versão por ficha é uma sub-view filtrada por `ficha_id` com correlação automática de eventos de chat.
+
+**Mobile (`/mobile-chat`)**: substitui o layout 3-colunas por bottom sheets (`MobileActionsSheet`, `MobileTemplatesSheet`) — cada sheet é equivalente a um painel desktop.
+
+> **Regra ao planejar mudanças:** mudar uma "página" pode na verdade afetar várias sub-views. Sempre identifique se a alteração é no contêiner (rota), no painel lateral, em uma tab específica ou em um modal — e valide cada uma isoladamente.
+
 ---
 
 ## 5. Componentes Principais
