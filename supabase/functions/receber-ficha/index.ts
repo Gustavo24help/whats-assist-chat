@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
     const bairroFromInfo = partes[2] || "";
 
     const nome_cliente = String(payload.nome_cliente ?? payload.nome ?? nomeFromInfo ?? "").trim() || null;
-    const cidade = (payload.cidade as string | null) ?? cidadeFromInfo || null;
-    const bairro = (payload.bairro as string | null) ?? bairroFromInfo || null;
+    const cidade = ((payload.cidade as string | null) ?? cidadeFromInfo) || null;
+    const bairro = ((payload.bairro as string | null) ?? bairroFromInfo) || null;
 
     const categoriaRaw: any = payload.categoria_id ?? getField(info, "1.2") ?? null;
     let categoria_id: number | null = null;
