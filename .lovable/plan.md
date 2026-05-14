@@ -1,64 +1,52 @@
 
 ## Problema
 
-No dashboard, **Pago ao Prestador = 15** (período 01–14/05/26). Em Contas a Pagar (mesmo período), **Pagos = 23**.
+Na janela de chat, ao abrir **Notas Internas** e começar a digitar, o texto é sobrescrito antes do usuário conseguir clicar em "Salvar Notas".
 
-São métricas diferentes medindo coisas diferentes:
+## Causa raiz
 
-| Onde | O que conta hoje | Filtro de data |
-|---|---|---|
-| Dashboard | Fichas em Finalizado/Garantia/Retorno onde **o cliente pagou** (`pagamento_realizado=true`) | `fichas.created_at` no período |
-| Contas a Pagar → Pagos | Registros em `transacoes_financeiras` onde **nós pagamos o prestador** (`status_pagamento_prestador='pago'`) | `data_pagamento_realizada` no período |
+Em `ChatWindow.tsx` e `ChatWindowBeta.tsx` existe um polling de 30 s (e outras chamadas) que executa `fetchClienteData()`. Essa função faz:
 
-Confirmação no banco para 01–14/05/2026:
-- Lógica atual do dashboard: **14** fichas (≈15 do print)
-- Lógica de Contas a Pagar: **23** pagamentos
-
-A diferença é estrutural: o pagamento ao prestador ocorre ~2 dias úteis após a finalização, então boa parte dos 23 pagos em maio veio de fichas criadas em abril. E várias fichas criadas em maio com cliente já pago ainda não tiveram o prestador pago.
-
-O rótulo "Pago ao Prestador" no dashboard é enganoso — ele na prática mede "fichas faturadas no período cujo cliente já pagou", não "quantos prestadores pagamos no período".
-
-## Objetivo
-
-Fazer o card **Pago ao Prestador** do dashboard usar exatamente a mesma definição de Contas a Pagar, para que os números batam.
-
-## Mudança proposta
-
-Em `src/hooks/useOperationalKPIs.ts`, substituir a fonte do KPI `pagoAoPrestador` (e a comparação correspondente) por uma consulta a `transacoes_financeiras`:
-
-```sql
-SELECT count(*) FROM transacoes_financeiras
-WHERE status_pagamento_prestador = 'pago'
-  AND data_pagamento_realizada >= :from
-  AND data_pagamento_realizada <= :to
+```ts
+setNotasInternas(clienteData.notas_internas || "");
 ```
 
-- Período atual usa `from`/`to` já calculados por `getDateRange` (que agora considera o dia de hoje no caso `month`).
-- Período de comparação usa o mesmo intervalo deslocado pela lógica existente (`previous-month`, `previous-period`, `avg-3-months`), exatamente como os demais KPIs.
-- Excluir `FS4-260127` (mesma exclusão usada hoje) via `not('ficha_id', 'eq', ...)`.
+Como o `<Textarea value={notasInternas}>` é controlado por esse mesmo state, qualquer recarga durante a digitação substitui o texto pelo valor salvo no banco — exatamente o comportamento relatado ("o que foi escrito é apagado").
 
-## Impacto controlado (sem efeito colateral)
+A janela de Notas é um diálogo que pode ficar aberto por minutos enquanto o operador escreve. Em ~30 s o polling roda e zera o input.
 
-Só muda **o número e a variação do card "Pago ao Prestador"** no funil executivo. Não afeta:
+## Correção
 
-- `valorPagoPrestadores` (KPI financeiro em R$, no bloco financeiro) — continua somando MO + Peças das fichas financeiras do período por `created_at`. Esse KPI é uma métrica de custo do volume produzido no período, conceito diferente do "fluxo de caixa pago no período".
-- `valorLiquido24help`, `margemBruta24help`, `valorTotalOS`, `valorMaoObra`, `valorPecas` — inalterados.
-- Nenhum dado armazenado, nenhuma alteração em `transacoes_financeiras`, nenhum trigger.
-- Drilldown do KPI: o `KPIDrillDownDialog` para `pagoAoPrestador` precisa apontar para os mesmos registros (transações pagas no período), em vez das fichas atuais. Atualizar a query de drilldown em `useKPIDrillDown.ts` para listar fichas cujo `transacoes_financeiras.data_pagamento_realizada` esteja no período e `status_pagamento_prestador='pago'`. Sem mudança nas colunas exibidas.
+Não recarregar o conteúdo de **notas_internas** enquanto o diálogo de Notas estiver aberto. As demais informações (bot, atendente, ficha ativa) continuam sendo atualizadas normalmente.
 
-## Tooltip
+Implementação:
 
-Atualizar o tooltip do card para deixar explícito:
-> "Quantidade de prestadores pagos no período (data do pagamento realizada). Mesma base de Contas a Pagar → Pagos."
+1. Em ambos os componentes (`ChatWindow.tsx` e `ChatWindowBeta.tsx`), criar um `notasDialogOpenRef = useRef(false)` e mantê-lo sincronizado com `notasDialogOpen` via `useEffect`. Usar ref evita o problema de closure obsoleta dentro do `setInterval`.
+2. Dentro de `fetchClienteData`, envolver as duas linhas que tocam o estado das notas:
+
+   ```ts
+   if (!notasDialogOpenRef.current) {
+     setNotasInternas(clienteData.notas_internas || "");
+     setHasNotas(!!clienteData.notas_internas && clienteData.notas_internas.trim().length > 0);
+   }
+   ```
+
+3. `salvarNotas` continua igual: ao salvar, fecha o diálogo, e a próxima `fetchClienteData` (ou chamada manual após salvar, se quisermos) repõe o `hasNotas` corretamente. Na prática o próprio `salvarNotas` já atualiza `hasNotas` localmente, então nada quebra.
+
+## Salvaguardas
+
+- Nenhuma alteração no schema, RLS, edge functions ou em `transacoes_financeiras`.
+- O valor exibido no Textarea continua vindo do banco na primeira carga (quando o diálogo está fechado).
+- Se outro operador editar a nota enquanto o diálogo está aberto, o operador atual mantém o texto local até salvar — comportamento esperado para evitar perda de digitação. Após fechar (cancelar ou salvar), o próximo refresh traz o estado atual do banco.
+- Sem efeitos colaterais nos demais campos atualizados por `fetchClienteData` (bot, atendente, ficha ativa).
 
 ## Arquivos a alterar
 
-- `src/hooks/useOperationalKPIs.ts` — nova consulta para `pagoAoPrestador` (atual + comparação) usando `transacoes_financeiras`.
-- `src/hooks/useKPIDrillDown.ts` — drilldown do KPI `pagoAoPrestador` passa a usar `transacoes_financeiras.data_pagamento_realizada` no período.
-- `src/components/dashboard/ExecutiveDashboardSection.tsx` — atualizar `tooltip` do card "Pago ao Prestador".
+- `src/components/ChatWindow.tsx` — adicionar `notasDialogOpenRef`, sincronizar com `notasDialogOpen`, guardar `setNotasInternas`/`setHasNotas` em `fetchClienteData`.
+- `src/components/ChatWindowBeta.tsx` — mesma alteração.
 
-## Validação após implementar
+## Validação
 
-1. Filtrar dashboard em "Este mês" → card "Pago ao Prestador" deve mostrar **23** (igual a Contas a Pagar).
-2. Conferir mês anterior (abril) — número do dashboard deve bater com o que aparece em Contas a Pagar quando o usuário filtra abril.
-3. Demais cards do funil e do bloco financeiro inalterados.
+1. Abrir uma conversa, abrir o diálogo de Notas, começar a digitar e aguardar > 30 s sem clicar em Salvar — o texto deve permanecer intacto.
+2. Salvar — o toast "Notas salvas com sucesso" aparece e o badge `hasNotas` reflete o novo conteúdo.
+3. Cancelar sem salvar — ao reabrir o diálogo, o último valor persistido é exibido.

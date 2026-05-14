@@ -208,6 +208,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   const [notasDialogOpen, setNotasDialogOpen] = useState(false);
   const [notasInternas, setNotasInternas] = useState("");
   const [hasNotas, setHasNotas] = useState(false);
+  // Ref para evitar que o polling sobrescreva o textarea enquanto o usuário digita
+  const notasDialogOpenRef = useRef(false);
+  useEffect(() => {
+    notasDialogOpenRef.current = notasDialogOpen;
+  }, [notasDialogOpen]);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   
   // Estado para histórico do bot
@@ -986,9 +991,11 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       // Bot status
       setBotDesabilitado(clienteData.bot_habilitado === false);
       
-      // Notas
-      setNotasInternas(clienteData.notas_internas || "");
-      setHasNotas(!!clienteData.notas_internas && clienteData.notas_internas.trim().length > 0);
+      // Notas — não sobrescrever enquanto o diálogo estiver aberto (usuário digitando)
+      if (!notasDialogOpenRef.current) {
+        setNotasInternas(clienteData.notas_internas || "");
+        setHasNotas(!!clienteData.notas_internas && clienteData.notas_internas.trim().length > 0);
+      }
       
       // Atendente
       if (clienteData.atendente_id && (clienteData as any).atendente) {
