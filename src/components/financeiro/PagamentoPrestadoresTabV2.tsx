@@ -252,8 +252,10 @@ export const PagamentoPrestadoresTabV2 = () => {
         finalizacaoMap.set(h.ficha_id, h.data_inicio);
       }
     }
+    const ajusteFinalizacaoMap = new Map<string, string>();
     for (const ajuste of ((ajustesFinalizacaoRes as any).data || [])) {
-      if (!finalizacaoMap.has(ajuste.ficha_id) || ajuste.created_at) {
+      if (!ajusteFinalizacaoMap.has(ajuste.ficha_id)) {
+        ajusteFinalizacaoMap.set(ajuste.ficha_id, ajuste.data_nova);
         finalizacaoMap.set(ajuste.ficha_id, ajuste.data_nova);
       }
     }
@@ -301,7 +303,9 @@ export const PagamentoPrestadoresTabV2 = () => {
         pago_prestador: trans?.status_pagamento_prestador === "pago",
         nps_nota: npsMap.get(f.id) ?? null,
         financeiro: fin,
-        data_pagamento_prevista: trans?.data_pagamento_prevista ? new Date(trans.data_pagamento_prevista) : addBusinessDays(finalizacaoMap.get(f.id) || f.updated_at || f.created_at, 2),
+        data_pagamento_prevista: ajusteFinalizacaoMap.has(f.id) || !trans?.data_pagamento_prevista
+          ? addBusinessDays(finalizacaoMap.get(f.id) || f.updated_at || f.created_at, 2)
+          : new Date(trans.data_pagamento_prevista),
         data_pagamento_realizada: trans?.data_pagamento_realizada ? new Date(trans.data_pagamento_realizada) : null,
         observacao_financeira: f.observacao_financeira || null,
         observacao_financeira_por: f.observacao_financeira_por || null,
