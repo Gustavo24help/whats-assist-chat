@@ -2175,6 +2175,41 @@ export type Database = {
         }
         Relationships: []
       }
+      pre_qualificacao_bot: {
+        Row: {
+          confianca_classificacao: number | null
+          created_at: string | null
+          dados: Json | null
+          ficha_id: string
+          id: string
+          sku_sugerido: string | null
+        }
+        Insert: {
+          confianca_classificacao?: number | null
+          created_at?: string | null
+          dados?: Json | null
+          ficha_id: string
+          id?: string
+          sku_sugerido?: string | null
+        }
+        Update: {
+          confianca_classificacao?: number | null
+          created_at?: string | null
+          dados?: Json | null
+          ficha_id?: string
+          id?: string
+          sku_sugerido?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pre_qualificacao_bot_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prestador_historico: {
         Row: {
           created_at: string
