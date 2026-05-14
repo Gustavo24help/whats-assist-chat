@@ -16,13 +16,25 @@ import { cn } from "@/lib/utils";
 const formatMoeda = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
+const parseDateForDisplay = (d: string | null) => {
+  if (!d) return null;
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+  if (dateOnly) {
+    return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]), 12);
+  }
+  return new Date(d);
+};
 
 const formatDate = (d: string | null) => {
   if (!d) return "-";
-  try { return format(new Date(d), "dd/MM/yyyy"); } catch { return "-"; }
+  try {
+    const parsed = parseDateForDisplay(d);
+    return parsed && !Number.isNaN(parsed.getTime()) ? format(parsed, "dd/MM/yyyy") : "-";
+  } catch { return "-"; }
 };
 
 interface RowData {
+  row_key: string;
   ficha_id: string;
   cliente: string;
   prestador: string;
@@ -56,22 +68,21 @@ const PlanilhaControlePagamentos = () => {
       .gt("valor_total", 0)
       .order("updated_at", { ascending: false });
 
-    if (!fichas || fichas.length === 0) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    const prestadorIds = [...new Set(fichas.map((f: any) => f.prestador_id).filter(Boolean))];
-    const phones = [...new Set(fichas.map((f: any) => f.telefone_cliente))];
-    const fichaIds = fichas.map((f: any) => f.id);
+    const safeFichas = fichas || [];
+    const prestadorIds = [...new Set(safeFichas.map((f: any) => f.prestador_id).filter(Boolean))];
+    const phones = [...new Set(safeFichas.map((f: any) => f.telefone_cliente).filter(Boolean))];
+    const fichaIds = safeFichas.map((f: any) => f.id);
 
     const [prestRes, clienteRes, transRes, manuaisRes] = await Promise.all([
       prestadorIds.length > 0
         ? supabase.from("prestadores").select("cpf, nome").in("cpf", prestadorIds)
         : { data: [] },
-      supabase.from("clientes").select("telefone, nome").in("telefone", phones),
-      supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_realizada, valor_cliente_final").in("ficha_id", fichaIds),
+      phones.length > 0
+        ? supabase.from("clientes").select("telefone, nome").in("telefone", phones)
+        : { data: [] },
+      fichaIds.length > 0
+        ? supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_realizada, valor_cliente_final").in("ficha_id", fichaIds)
+        : { data: [] },
       (supabase as any).from("contas_pagar_manual").select("*").neq("status", "cancelado").order("created_at", { ascending: false }).limit(1000),
     ]);
 
@@ -79,9 +90,10 @@ const PlanilhaControlePagamentos = () => {
     const clienteMap = new Map((clienteRes.data || []).map((c: any) => [c.telefone, c.nome]));
     const transMap = new Map((transRes.data || []).map((t: any) => [t.ficha_id, t]));
 
-    const mapped: RowData[] = fichas.map((f: any) => {
+    const mapped: RowData[] = safeFichas.map((f: any) => {
       const trans = transMap.get(f.id);
       return {
+        row_key: `ficha:${f.id}`,
         ficha_id: f.id,
         cliente: f.nome_cliente || clienteMap.get(f.telefone_cliente) || f.telefone_cliente.replace("whatsapp:+55", ""),
         prestador: prestMap.get(f.prestador_id) || f.prestador_id || "-",
@@ -99,6 +111,7 @@ const PlanilhaControlePagamentos = () => {
     const manuaisRows: RowData[] = ((manuaisRes as any)?.data || []).map((m: any) => {
       const pago = m.status === "pago";
       return {
+        row_key: `manual:${m.id}`,
         ficha_id: m.ficha_id || `MAN-${String(m.id).slice(0, 8)}`,
         cliente: m.descricao || "(lançamento manual)",
         prestador: m.beneficiario_nome || "-",
@@ -113,7 +126,13 @@ const PlanilhaControlePagamentos = () => {
       };
     });
 
-    setRows([...mapped, ...manuaisRows]);
+    const combined = [...mapped, ...manuaisRows].sort((a, b) => {
+      const da = parseDateForDisplay(a.data_conclusao)?.getTime() || 0;
+      const db = parseDateForDisplay(b.data_conclusao)?.getTime() || 0;
+      return db - da;
+    });
+
+    setRows(combined);
     setLoading(false);
   };
 
@@ -128,7 +147,7 @@ const PlanilhaControlePagamentos = () => {
     if (filterDate) {
       const start = new Date(filterDate); start.setHours(0,0,0,0);
       const end = new Date(filterDate); end.setHours(23,59,59,999);
-      const d = r.data_conclusao ? new Date(r.data_conclusao) : null;
+      const d = parseDateForDisplay(r.data_conclusao);
       if (!d || d < start || d > end) return false;
     }
     return true;
@@ -231,7 +250,7 @@ const PlanilhaControlePagamentos = () => {
                   </thead>
                   <tbody>
                     {filteredRows.map((r) => (
-                      <tr key={r.ficha_id} className="hover:bg-muted/30">
+                      <tr key={r.row_key} className="hover:bg-muted/30">
                         <td className="p-2.5 whitespace-nowrap border-t border-r text-xs font-medium">{r.ficha_id}</td>
                         <td className="p-2.5 whitespace-nowrap border-t border-r text-xs">{r.cliente}</td>
                         <td className="p-2.5 whitespace-nowrap border-t border-r text-xs">{r.prestador}</td>
