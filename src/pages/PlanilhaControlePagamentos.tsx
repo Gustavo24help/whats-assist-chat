@@ -66,12 +66,13 @@ const PlanilhaControlePagamentos = () => {
     const phones = [...new Set(fichas.map((f: any) => f.telefone_cliente))];
     const fichaIds = fichas.map((f: any) => f.id);
 
-    const [prestRes, clienteRes, transRes] = await Promise.all([
+    const [prestRes, clienteRes, transRes, manuaisRes] = await Promise.all([
       prestadorIds.length > 0
         ? supabase.from("prestadores").select("cpf, nome").in("cpf", prestadorIds)
         : { data: [] },
       supabase.from("clientes").select("telefone, nome").in("telefone", phones),
       supabase.from("transacoes_financeiras").select("ficha_id, status_pagamento_prestador, data_pagamento_realizada, valor_cliente_final").in("ficha_id", fichaIds),
+      (supabase as any).from("contas_pagar_manual").select("*").neq("status", "cancelado").order("created_at", { ascending: false }).limit(1000),
     ]);
 
     const prestMap = new Map((prestRes.data || []).map((p: any) => [p.cpf, p.nome]));
@@ -95,7 +96,24 @@ const PlanilhaControlePagamentos = () => {
       };
     });
 
-    setRows(mapped);
+    const manuaisRows: RowData[] = ((manuaisRes as any)?.data || []).map((m: any) => {
+      const pago = m.status === "pago";
+      return {
+        ficha_id: m.ficha_id || `MAN-${String(m.id).slice(0, 8)}`,
+        cliente: m.descricao || "(lançamento manual)",
+        prestador: m.beneficiario_nome || "-",
+        data_conclusao: m.data_vencimento || m.created_at,
+        valor: Number(m.valor) || 0,
+        valor_mo: Number(m.valor) || 0,
+        cliente_pagou: true,
+        data_pgto_prestador: m.data_pagamento || null,
+        pagamento_feito: pago,
+        link_asaas: null,
+        valor_pago: pago ? Number(m.valor) || 0 : 0,
+      };
+    });
+
+    setRows([...mapped, ...manuaisRows]);
     setLoading(false);
   };
 
