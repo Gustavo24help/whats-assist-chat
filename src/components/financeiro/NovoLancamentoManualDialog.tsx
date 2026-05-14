@@ -53,7 +53,7 @@ export function NovoLancamentoManualDialog({ open, onOpenChange, onSaved }: Prop
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await (supabase as any).from("contas_pagar_manual").insert({
+      const { data: inserted, error } = await (supabase as any).from("contas_pagar_manual").insert({
         descricao: descricao.trim(),
         categoria: categoria || null,
         beneficiario_nome: nomeFinal,
@@ -66,8 +66,36 @@ export function NovoLancamentoManualDialog({ open, onOpenChange, onSaved }: Prop
         observacoes: observacoes.trim() || null,
         criado_por: user?.id || null,
         status: "pendente",
-      });
+      }).select().single();
       if (error) throw error;
+
+      // Sincronizar com Google Sheets (não bloqueia o salvamento)
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        await fetch(`https://${projectId}.supabase.co/functions/v1/webhook-update-planilha`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            acao: "lancamento_manual_criado",
+            lancamento_id: inserted?.id,
+            ficha_id: ficha?.id || null,
+            descricao: descricao.trim(),
+            categoria: categoria || null,
+            beneficiario_nome: nomeFinal,
+            beneficiario_tipo: prestador ? "prestador" : "externo",
+            prestador_cpf: prestador?.cpf || null,
+            valor: valorNum,
+            data_vencimento: dataVencimento || null,
+            forma_pagamento: formaPagamento || null,
+            observacoes: observacoes.trim() || null,
+            status: "pendente",
+            created_at: new Date().toISOString(),
+          }),
+        });
+      } catch (whErr) {
+        console.error("[NovoLancamentoManual] webhook-update-planilha falhou:", whErr);
+      }
+
       toast.success("Lançamento criado com sucesso");
       reset();
       onOpenChange(false);
