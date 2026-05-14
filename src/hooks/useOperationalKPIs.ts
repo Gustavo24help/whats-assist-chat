@@ -637,13 +637,16 @@ async function fetchKPIs(filters: KPIFilters): Promise<OperationalKPIs> {
   // data_pagamento_realizada cai no período. Isso garante paridade entre
   // o card do dashboard e a tela financeira.
   const countPagoPrestador = async (rFrom: Date, rTo: Date): Promise<number> => {
-    const { count, error } = await supabase
+    let q: any = supabase
       .from('transacoes_financeiras')
       .select('id', { count: 'exact', head: true })
       .eq('status_pagamento_prestador', 'pago')
       .gte('data_pagamento_realizada', rFrom.toISOString())
-      .lte('data_pagamento_realizada', rTo.toISOString())
-      .not('ficha_id', 'in', `(${EXCLUDED_FICHAS_PAGAMENTO.map((f) => `"${f}"`).join(',')})`);
+      .lte('data_pagamento_realizada', rTo.toISOString());
+    for (const ex of EXCLUDED_FICHAS_PAGAMENTO) {
+      q = q.neq('ficha_id', ex);
+    }
+    const { count, error } = await q;
     if (error) {
       console.error('[useOperationalKPIs] erro contando pago_prestador:', error);
       return 0;
