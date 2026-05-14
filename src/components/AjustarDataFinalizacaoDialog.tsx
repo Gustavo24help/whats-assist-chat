@@ -60,30 +60,16 @@ export function AjustarDataFinalizacaoDialog({
       // Preserve the time-of-day from the original finalization (avoid timezone shifts)
       const novaData = new Date(dataFinal);
 
-      // 1. Get the CURRENT Finalizado entry (the one without data_fim = active status)
-      // Falls back to the most recent Finalizado entry if none is active.
-      const { data: historicoAtivo } = await supabase
+      // 1. Get the canonical Finalizado entry used by finance: the FIRST finalization.
+      // This keeps the 2-business-day payment calculation aligned with Contas a Pagar.
+      const { data: historico } = await supabase
         .from("ficha_status_historico")
         .select("id, data_inicio")
         .eq("ficha_id", fichaId)
         .eq("status_novo", "Finalizado")
-        .is("data_fim", null)
-        .order("created_at", { ascending: false })
+        .order("data_inicio", { ascending: true })
         .limit(1)
         .maybeSingle();
-
-      let historico = historicoAtivo;
-      if (!historico) {
-        const { data: historicoFallback } = await supabase
-          .from("ficha_status_historico")
-          .select("id, data_inicio")
-          .eq("ficha_id", fichaId)
-          .eq("status_novo", "Finalizado")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        historico = historicoFallback;
-      }
 
       const dataAnterior = historico?.data_inicio || new Date().toISOString();
 
@@ -103,7 +89,7 @@ export function AjustarDataFinalizacaoDialog({
           .eq("id", historico.id);
       }
 
-      // 3. Update ONLY unpaid transactions (do NOT overwrite already-paid ones)
+      // 3. Update derived finance dates. Preserve actual payment fields/status.
       const { data: transacoesAfetadas, error: txErr } = await supabase
         .from("transacoes_financeiras")
         .update({
@@ -112,7 +98,6 @@ export function AjustarDataFinalizacaoDialog({
           atualizado_por: user.id,
         } as any)
         .eq("ficha_id", fichaId)
-        .neq("status_pagamento_prestador", "pago")
         .select("id");
 
       if (txErr) console.warn("[AjustarData] Erro ao atualizar transações:", txErr);
@@ -155,7 +140,7 @@ export function AjustarDataFinalizacaoDialog({
 
       const msgExtra = transacoesAfetadas && transacoesAfetadas.length > 0
         ? ` (${transacoesAfetadas.length} transação(ões) atualizadas)`
-        : " (nenhuma transação pendente afetada)";
+        : " (sem transação financeira vinculada)";
       toast.success("Data de finalização ajustada com sucesso" + msgExtra);
       setDataFinal(undefined);
       setJustificativa("");
