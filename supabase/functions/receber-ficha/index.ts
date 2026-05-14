@@ -76,13 +76,37 @@ Deno.serve(async (req) => {
     const cidade = ((payload.cidade as string | null) ?? cidadeFromInfo) || null;
     const bairro = ((payload.bairro as string | null) ?? bairroFromInfo) || null;
 
+    // Mapa de categorias por nome (case-insensitive)
+    const CATEGORIAS: Record<string, number> = {
+      "elétrica": 1, "eletrica": 1,
+      "hidráulica": 2, "hidraulica": 2,
+      "fechaduras": 3, "fechadura": 3,
+      "marido de aluguel": 4,
+      "aquecedores": 5, "aquecedor": 5,
+      "ar condicionado": 6,
+      "coifas": 7, "coifa": 7,
+      "pintura": 8,
+      "pisos e laminados": 9, "piso": 9, "laminado": 9,
+      "montagem de móveis": 10, "montagem de moveis": 10, "montagem": 10,
+      "drywall": 11,
+      "limpeza e conservação": 12, "limpeza e conservacao": 12, "limpeza": 12,
+    };
+
     const categoriaRaw: any = payload.categoria_id ?? getField(info, "1.2") ?? null;
     let categoria_id: number | null = null;
     if (typeof categoriaRaw === "number") {
       categoria_id = categoriaRaw;
     } else if (typeof categoriaRaw === "string") {
+      // Tenta número no início: "4 - Marido de aluguel"
       const m = categoriaRaw.match(/^\s*(\d+)/);
-      if (m) categoria_id = parseInt(m[1], 10);
+      if (m) {
+        categoria_id = parseInt(m[1], 10);
+      } else {
+        // Tenta match por nome
+        const nome = categoriaRaw.toLowerCase().trim();
+        const match = Object.keys(CATEGORIAS).find(k => nome.includes(k));
+        if (match) categoria_id = CATEGORIAS[match];
+      }
     }
 
     const descricaoMontada = [
