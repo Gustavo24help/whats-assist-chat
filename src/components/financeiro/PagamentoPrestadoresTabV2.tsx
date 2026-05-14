@@ -138,12 +138,39 @@ export const PagamentoPrestadoresTabV2 = () => {
 
   useEffect(() => { carregarManuais(); }, [carregarManuais]);
 
+  const notifyPlanilhaManual = async (m: any, acao: string, extras: Record<string, any> = {}) => {
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      await fetch(`https://${projectId}.supabase.co/functions/v1/webhook-update-planilha`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acao,
+          lancamento_id: m.id,
+          ficha_id: m.ficha_id || null,
+          descricao: m.descricao,
+          categoria: m.categoria || null,
+          beneficiario_nome: m.beneficiario_nome,
+          beneficiario_tipo: m.beneficiario_tipo,
+          prestador_cpf: m.prestador_id || null,
+          valor: Number(m.valor || 0),
+          forma_pagamento: m.forma_pagamento || null,
+          ...extras,
+        }),
+      });
+    } catch (whErr) {
+      console.error(`[contas_pagar_manual] webhook ${acao} falhou:`, whErr);
+    }
+  };
+
   const marcarManualPago = async (m: any) => {
+    const dataPgto = new Date().toISOString().split("T")[0];
     const { error } = await (supabase as any)
       .from("contas_pagar_manual")
-      .update({ status: "pago", data_pagamento: new Date().toISOString().split("T")[0] })
+      .update({ status: "pago", data_pagamento: dataPgto })
       .eq("id", m.id);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    await notifyPlanilhaManual(m, "lancamento_manual_pago", { status: "pago", data_pagamento: dataPgto });
     toast({ title: "✅ Lançamento marcado como pago" });
     carregarManuais();
   };
@@ -154,6 +181,7 @@ export const PagamentoPrestadoresTabV2 = () => {
       .update({ status: "cancelado" })
       .eq("id", m.id);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    await notifyPlanilhaManual(m, "lancamento_manual_cancelado", { status: "cancelado" });
     toast({ title: "Lançamento cancelado" });
     carregarManuais();
   };
