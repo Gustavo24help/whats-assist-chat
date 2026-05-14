@@ -263,6 +263,8 @@ export const ExecutiveDashboardSection = ({
       value: String(kpis.pagoAoPrestador),
       variation: kpis.variations.pagoAoPrestador,
       onClick: openDrill("pagoAoPrestador", "Pago ao Prestador"),
+      tooltip:
+        "Quantidade de prestadores pagos no período (data do pagamento realizada). Mesma base de Contas a Pagar → Pagos.",
     },
   ];
 
