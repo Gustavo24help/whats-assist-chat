@@ -230,19 +230,31 @@ export const PagamentoPrestadoresTabV2 = () => {
     const fichaIds = fichas.map((f: any) => f.id);
     const obsOperadorIds = [...new Set(fichas.map((f: any) => f.observacao_financeira_por).filter(Boolean))];
 
-    // Fetch finalization dates from status history for fallback payment date calculation
-    const finalizacaoRes = await supabase
-      .from("ficha_status_historico")
-      .select("ficha_id, data_inicio")
-      .in("ficha_id", fichaIds)
-      .eq("status_novo", "Finalizado" as any)
-      .order("created_at", { ascending: true });
+    // Fetch finalization dates from explicit adjustments first, then status history.
+    const [finalizacaoRes, ajustesFinalizacaoRes] = await Promise.all([
+      supabase
+        .from("ficha_status_historico")
+        .select("ficha_id, data_inicio")
+        .in("ficha_id", fichaIds)
+        .eq("status_novo", "Finalizado" as any)
+        .order("data_inicio", { ascending: true }),
+      (supabase as any)
+        .from("ajustes_data_finalizacao")
+        .select("ficha_id, data_nova, created_at")
+        .in("ficha_id", fichaIds)
+        .order("created_at", { ascending: false }),
+    ]);
     
     // Map: ficha_id → first (earliest) finalization date
     const finalizacaoMap = new Map<string, string>();
     for (const h of (finalizacaoRes.data || [])) {
       if (!finalizacaoMap.has(h.ficha_id)) {
         finalizacaoMap.set(h.ficha_id, h.data_inicio);
+      }
+    }
+    for (const ajuste of ((ajustesFinalizacaoRes as any).data || [])) {
+      if (!finalizacaoMap.has(ajuste.ficha_id) || ajuste.created_at) {
+        finalizacaoMap.set(ajuste.ficha_id, ajuste.data_nova);
       }
     }
 
