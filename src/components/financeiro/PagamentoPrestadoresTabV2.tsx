@@ -119,6 +119,13 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [showAllDates, setShowAllDates] = useState(true);
   const [filterMode, setFilterMode] = useState<"single" | "range">("single");
   const [obsPopup, setObsPopup] = useState<FichaFinanceira | null>(null);
+  const [confirmUnmark, setConfirmUnmark] = useState<FichaFinanceira | null>(null);
+  const [editDateFor, setEditDateFor] = useState<FichaFinanceira | null>(null);
+  const [editDateValue, setEditDateValue] = useState<Date | undefined>(undefined);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [confirmUnmarkManual, setConfirmUnmarkManual] = useState<any | null>(null);
+  const [editDateManualFor, setEditDateManualFor] = useState<any | null>(null);
+  const [editDateManualValue, setEditDateManualValue] = useState<Date | undefined>(undefined);
 
   // Lançamentos manuais
   const [manuais, setManuais] = useState<any[]>([]);
