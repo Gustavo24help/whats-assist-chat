@@ -424,7 +424,83 @@ export const PagamentoPrestadoresTabV2 = () => {
     }
   };
 
-  const cancelar = async (ficha: FichaFinanceira) => {
+  const desmarcarPago = async (ficha: FichaFinanceira) => {
+    try {
+      setSavingEdit(true);
+      await supabase.from("transacoes_financeiras")
+        .update({ status_pagamento_prestador: "pendente", data_pagamento_realizada: null } as any)
+        .eq("ficha_id", ficha.id);
+
+      await supabase.from("fichas_de_servico")
+        .update({ webhook_pendente: true } as any)
+        .eq("id", ficha.id);
+
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        await fetch(`https://${projectId}.supabase.co/functions/v1/webhook-update-planilha`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ficha_id: ficha.id,
+            acao: "pagamento_prestador_desmarcado",
+            prestador_nome: ficha.prestador_nome,
+            prestador_cpf: ficha.prestador_cpf,
+            status_pagamento_prestador: "pendente",
+            data_pagamento_realizada: null,
+          }),
+        });
+      } catch (e) { console.error("[desmarcarPago] webhook:", e); }
+
+      toast({ title: "Pagamento desmarcado", description: "Ficha voltou para pendentes" });
+      setHistorico(prev => prev.filter(f => f.id !== ficha.id));
+      setConfirmUnmark(null);
+      fetchPendentes();
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const alterarDataPagamento = async (ficha: FichaFinanceira, novaData: Date) => {
+    try {
+      setSavingEdit(true);
+      const iso = novaData.toISOString();
+      await supabase.from("transacoes_financeiras")
+        .update({ data_pagamento_realizada: iso } as any)
+        .eq("ficha_id", ficha.id);
+
+      await supabase.from("fichas_de_servico")
+        .update({ webhook_pendente: true } as any)
+        .eq("id", ficha.id);
+
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        await fetch(`https://${projectId}.supabase.co/functions/v1/webhook-update-planilha`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ficha_id: ficha.id,
+            acao: "pagamento_prestador_data_alterada",
+            prestador_nome: ficha.prestador_nome,
+            prestador_cpf: ficha.prestador_cpf,
+            data_pagamento_realizada: iso,
+          }),
+        });
+      } catch (e) { console.error("[alterarDataPagamento] webhook:", e); }
+
+      toast({ title: "Data atualizada" });
+      setHistorico(prev => prev.map(f => f.id === ficha.id ? { ...f, data_pagamento_realizada: novaData } : f));
+      setEditDateFor(null);
+      setEditDateValue(undefined);
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+
     setCancelando(ficha.id);
     setConfirmCancel(null);
     await supabase.from("fichas_de_servico")
