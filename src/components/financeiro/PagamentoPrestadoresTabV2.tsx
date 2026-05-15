@@ -193,6 +193,32 @@ export const PagamentoPrestadoresTabV2 = () => {
     carregarManuais();
   };
 
+  const desmarcarManualPago = async (m: any) => {
+    const { error } = await (supabase as any)
+      .from("contas_pagar_manual")
+      .update({ status: "pendente", data_pagamento: null })
+      .eq("id", m.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    await notifyPlanilhaManual(m, "lancamento_manual_desmarcado", { status: "pendente", data_pagamento: null });
+    toast({ title: "Pagamento desmarcado" });
+    setConfirmUnmarkManual(null);
+    carregarManuais();
+  };
+
+  const alterarDataManualPago = async (m: any, novaData: Date) => {
+    const dataPgto = format(novaData, "yyyy-MM-dd");
+    const { error } = await (supabase as any)
+      .from("contas_pagar_manual")
+      .update({ data_pagamento: dataPgto })
+      .eq("id", m.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    await notifyPlanilhaManual(m, "lancamento_manual_data_alterada", { data_pagamento: dataPgto });
+    toast({ title: "Data atualizada" });
+    setEditDateManualFor(null);
+    setEditDateManualValue(undefined);
+    carregarManuais();
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
