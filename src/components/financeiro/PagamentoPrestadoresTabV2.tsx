@@ -1018,11 +1018,62 @@ export const PagamentoPrestadoresTabV2 = () => {
                           <TableCell className="text-center">
                             {m.status === "pendente" && (
                               <div className="flex gap-1 justify-center">
-                                <Button variant="ghost" size="sm" className="h-7 px-2 text-green-700" onClick={() => marcarManualPago(m)}>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-green-700" onClick={() => marcarManualPago(m)} title="Marcar como pago">
                                   <CheckCircle2 className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive" onClick={() => cancelarManual(m)}>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive" onClick={() => cancelarManual(m)} title="Cancelar">
                                   <Ban className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                            {m.status === "pago" && (
+                              <div className="flex gap-1 justify-center">
+                                <Popover
+                                  open={editDateManualFor?.id === m.id}
+                                  onOpenChange={(o) => { if (!o) { setEditDateManualFor(null); setEditDateManualValue(undefined); } }}
+                                >
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2"
+                                      title="Alterar data do pagamento"
+                                      onClick={() => {
+                                        setEditDateManualFor(m);
+                                        setEditDateManualValue(m.data_pagamento ? new Date(m.data_pagamento + "T12:00:00") : undefined);
+                                      }}
+                                    >
+                                      <CalendarIcon className="h-4 w-4" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="end">
+                                    <Calendar
+                                      mode="single"
+                                      selected={editDateManualValue}
+                                      onSelect={setEditDateManualValue}
+                                      initialFocus
+                                      className="p-3 pointer-events-auto"
+                                    />
+                                    <div className="p-2 border-t flex justify-end gap-2">
+                                      <Button size="sm" variant="outline" onClick={() => { setEditDateManualFor(null); setEditDateManualValue(undefined); }}>Cancelar</Button>
+                                      <Button
+                                        size="sm"
+                                        disabled={!editDateManualValue}
+                                        onClick={() => editDateManualValue && alterarDataManualPago(m, editDateManualValue)}
+                                      >
+                                        Salvar
+                                      </Button>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-destructive"
+                                  title="Desmarcar pagamento"
+                                  onClick={() => setConfirmUnmarkManual(m)}
+                                >
+                                  <X className="h-4 w-4" />
                                 </Button>
                               </div>
                             )}
