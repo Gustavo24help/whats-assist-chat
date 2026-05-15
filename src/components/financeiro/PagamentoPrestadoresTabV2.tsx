@@ -902,6 +902,50 @@ export const PagamentoPrestadoresTabV2 = () => {
                       <Button variant="outline" size="sm" className="h-9 px-3" onClick={() => { setDetalhesSel(f); setDetalhesOpen(true); }}>
                         <Info className="h-3.5 w-3.5" />
                       </Button>
+                      <Popover
+                        open={editDateFor?.id === f.id}
+                        onOpenChange={(o) => { if (!o) { setEditDateFor(null); setEditDateValue(undefined); } }}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3"
+                            title="Alterar data do pagamento"
+                            onClick={() => { setEditDateFor(f); setEditDateValue(f.data_pagamento_realizada || undefined); }}
+                          >
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={editDateValue}
+                            onSelect={setEditDateValue}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                          <div className="p-2 border-t flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => { setEditDateFor(null); setEditDateValue(undefined); }}>Cancelar</Button>
+                            <Button
+                              size="sm"
+                              disabled={!editDateValue || savingEdit}
+                              onClick={() => editDateValue && alterarDataPagamento(f, editDateValue)}
+                            >
+                              {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Salvar"}
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 px-3 text-destructive border-destructive/30"
+                        title="Desmarcar pagamento"
+                        onClick={() => setConfirmUnmark(f)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
                       <Badge variant="secondary" className="text-xs h-9 px-3 flex items-center">Pago</Badge>
                     </div>
                   </div>
