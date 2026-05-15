@@ -119,6 +119,13 @@ export const PagamentoPrestadoresTabV2 = () => {
   const [showAllDates, setShowAllDates] = useState(true);
   const [filterMode, setFilterMode] = useState<"single" | "range">("single");
   const [obsPopup, setObsPopup] = useState<FichaFinanceira | null>(null);
+  const [confirmUnmark, setConfirmUnmark] = useState<FichaFinanceira | null>(null);
+  const [editDateFor, setEditDateFor] = useState<FichaFinanceira | null>(null);
+  const [editDateValue, setEditDateValue] = useState<Date | undefined>(undefined);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [confirmUnmarkManual, setConfirmUnmarkManual] = useState<any | null>(null);
+  const [editDateManualFor, setEditDateManualFor] = useState<any | null>(null);
+  const [editDateManualValue, setEditDateManualValue] = useState<Date | undefined>(undefined);
 
   // Lançamentos manuais
   const [manuais, setManuais] = useState<any[]>([]);
@@ -183,6 +190,32 @@ export const PagamentoPrestadoresTabV2 = () => {
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     await notifyPlanilhaManual(m, "lancamento_manual_cancelado", { status: "cancelado" });
     toast({ title: "Lançamento cancelado" });
+    carregarManuais();
+  };
+
+  const desmarcarManualPago = async (m: any) => {
+    const { error } = await (supabase as any)
+      .from("contas_pagar_manual")
+      .update({ status: "pendente", data_pagamento: null })
+      .eq("id", m.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    await notifyPlanilhaManual(m, "lancamento_manual_desmarcado", { status: "pendente", data_pagamento: null });
+    toast({ title: "Pagamento desmarcado" });
+    setConfirmUnmarkManual(null);
+    carregarManuais();
+  };
+
+  const alterarDataManualPago = async (m: any, novaData: Date) => {
+    const dataPgto = format(novaData, "yyyy-MM-dd");
+    const { error } = await (supabase as any)
+      .from("contas_pagar_manual")
+      .update({ data_pagamento: dataPgto })
+      .eq("id", m.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    await notifyPlanilhaManual(m, "lancamento_manual_data_alterada", { data_pagamento: dataPgto });
+    toast({ title: "Data atualizada" });
+    setEditDateManualFor(null);
+    setEditDateManualValue(undefined);
     carregarManuais();
   };
 
@@ -414,6 +447,82 @@ export const PagamentoPrestadoresTabV2 = () => {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     } finally {
       setMarkingPaid(null);
+    }
+  };
+
+  const desmarcarPago = async (ficha: FichaFinanceira) => {
+    try {
+      setSavingEdit(true);
+      await supabase.from("transacoes_financeiras")
+        .update({ status_pagamento_prestador: "pendente", data_pagamento_realizada: null } as any)
+        .eq("ficha_id", ficha.id);
+
+      await supabase.from("fichas_de_servico")
+        .update({ webhook_pendente: true } as any)
+        .eq("id", ficha.id);
+
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        await fetch(`https://${projectId}.supabase.co/functions/v1/webhook-update-planilha`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ficha_id: ficha.id,
+            acao: "pagamento_prestador_desmarcado",
+            prestador_nome: ficha.prestador_nome,
+            prestador_cpf: ficha.prestador_cpf,
+            status_pagamento_prestador: "pendente",
+            data_pagamento_realizada: null,
+          }),
+        });
+      } catch (e) { console.error("[desmarcarPago] webhook:", e); }
+
+      toast({ title: "Pagamento desmarcado", description: "Ficha voltou para pendentes" });
+      setHistorico(prev => prev.filter(f => f.id !== ficha.id));
+      setConfirmUnmark(null);
+      fetchPendentes();
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const alterarDataPagamento = async (ficha: FichaFinanceira, novaData: Date) => {
+    try {
+      setSavingEdit(true);
+      const iso = novaData.toISOString();
+      await supabase.from("transacoes_financeiras")
+        .update({ data_pagamento_realizada: iso } as any)
+        .eq("ficha_id", ficha.id);
+
+      await supabase.from("fichas_de_servico")
+        .update({ webhook_pendente: true } as any)
+        .eq("id", ficha.id);
+
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        await fetch(`https://${projectId}.supabase.co/functions/v1/webhook-update-planilha`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ficha_id: ficha.id,
+            acao: "pagamento_prestador_data_alterada",
+            prestador_nome: ficha.prestador_nome,
+            prestador_cpf: ficha.prestador_cpf,
+            data_pagamento_realizada: iso,
+          }),
+        });
+      } catch (e) { console.error("[alterarDataPagamento] webhook:", e); }
+
+      toast({ title: "Data atualizada" });
+      setHistorico(prev => prev.map(f => f.id === ficha.id ? { ...f, data_pagamento_realizada: novaData } : f));
+      setEditDateFor(null);
+      setEditDateValue(undefined);
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -793,6 +902,50 @@ export const PagamentoPrestadoresTabV2 = () => {
                       <Button variant="outline" size="sm" className="h-9 px-3" onClick={() => { setDetalhesSel(f); setDetalhesOpen(true); }}>
                         <Info className="h-3.5 w-3.5" />
                       </Button>
+                      <Popover
+                        open={editDateFor?.id === f.id}
+                        onOpenChange={(o) => { if (!o) { setEditDateFor(null); setEditDateValue(undefined); } }}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3"
+                            title="Alterar data do pagamento"
+                            onClick={() => { setEditDateFor(f); setEditDateValue(f.data_pagamento_realizada || undefined); }}
+                          >
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={editDateValue}
+                            onSelect={setEditDateValue}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                          <div className="p-2 border-t flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => { setEditDateFor(null); setEditDateValue(undefined); }}>Cancelar</Button>
+                            <Button
+                              size="sm"
+                              disabled={!editDateValue || savingEdit}
+                              onClick={() => editDateValue && alterarDataPagamento(f, editDateValue)}
+                            >
+                              {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Salvar"}
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 px-3 text-destructive border-destructive/30"
+                        title="Desmarcar pagamento"
+                        onClick={() => setConfirmUnmark(f)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
                       <Badge variant="secondary" className="text-xs h-9 px-3 flex items-center">Pago</Badge>
                     </div>
                   </div>
@@ -865,11 +1018,62 @@ export const PagamentoPrestadoresTabV2 = () => {
                           <TableCell className="text-center">
                             {m.status === "pendente" && (
                               <div className="flex gap-1 justify-center">
-                                <Button variant="ghost" size="sm" className="h-7 px-2 text-green-700" onClick={() => marcarManualPago(m)}>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-green-700" onClick={() => marcarManualPago(m)} title="Marcar como pago">
                                   <CheckCircle2 className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive" onClick={() => cancelarManual(m)}>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive" onClick={() => cancelarManual(m)} title="Cancelar">
                                   <Ban className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                            {m.status === "pago" && (
+                              <div className="flex gap-1 justify-center">
+                                <Popover
+                                  open={editDateManualFor?.id === m.id}
+                                  onOpenChange={(o) => { if (!o) { setEditDateManualFor(null); setEditDateManualValue(undefined); } }}
+                                >
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2"
+                                      title="Alterar data do pagamento"
+                                      onClick={() => {
+                                        setEditDateManualFor(m);
+                                        setEditDateManualValue(m.data_pagamento ? new Date(m.data_pagamento + "T12:00:00") : undefined);
+                                      }}
+                                    >
+                                      <CalendarIcon className="h-4 w-4" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="end">
+                                    <Calendar
+                                      mode="single"
+                                      selected={editDateManualValue}
+                                      onSelect={setEditDateManualValue}
+                                      initialFocus
+                                      className="p-3 pointer-events-auto"
+                                    />
+                                    <div className="p-2 border-t flex justify-end gap-2">
+                                      <Button size="sm" variant="outline" onClick={() => { setEditDateManualFor(null); setEditDateManualValue(undefined); }}>Cancelar</Button>
+                                      <Button
+                                        size="sm"
+                                        disabled={!editDateManualValue}
+                                        onClick={() => editDateManualValue && alterarDataManualPago(m, editDateManualValue)}
+                                      >
+                                        Salvar
+                                      </Button>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-destructive"
+                                  title="Desmarcar pagamento"
+                                  onClick={() => setConfirmUnmarkManual(m)}
+                                >
+                                  <X className="h-4 w-4" />
                                 </Button>
                               </div>
                             )}
@@ -1183,6 +1387,48 @@ export const PagamentoPrestadoresTabV2 = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Voltar</AlertDialogCancel>
             <AlertDialogAction onClick={() => confirmCancel && cancelar(confirmCancel)}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unmark prestador payment confirmation */}
+      <AlertDialog open={!!confirmUnmark} onOpenChange={() => setConfirmUnmark(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desmarcar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A ficha {confirmUnmark?.id} voltará para a aba <b>Pendentes</b> e a data de pagamento será removida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={savingEdit}
+              onClick={(e) => { e.preventDefault(); confirmUnmark && desmarcarPago(confirmUnmark); }}
+            >
+              {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+              Desmarcar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unmark manual payment confirmation */}
+      <AlertDialog open={!!confirmUnmarkManual} onOpenChange={() => setConfirmUnmarkManual(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desmarcar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O lançamento "{confirmUnmarkManual?.descricao}" voltará para o status <b>Pendente</b> e a data de pagamento será removida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmUnmarkManual && desmarcarManualPago(confirmUnmarkManual); }}
+            >
+              Desmarcar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
