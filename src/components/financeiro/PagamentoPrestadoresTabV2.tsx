@@ -1391,6 +1391,48 @@ export const PagamentoPrestadoresTabV2 = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Unmark prestador payment confirmation */}
+      <AlertDialog open={!!confirmUnmark} onOpenChange={() => setConfirmUnmark(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desmarcar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A ficha {confirmUnmark?.id} voltará para a aba <b>Pendentes</b> e a data de pagamento será removida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={savingEdit}
+              onClick={(e) => { e.preventDefault(); confirmUnmark && desmarcarPago(confirmUnmark); }}
+            >
+              {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+              Desmarcar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unmark manual payment confirmation */}
+      <AlertDialog open={!!confirmUnmarkManual} onOpenChange={() => setConfirmUnmarkManual(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desmarcar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O lançamento "{confirmUnmarkManual?.descricao}" voltará para o status <b>Pendente</b> e a data de pagamento será removida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmUnmarkManual && desmarcarManualPago(confirmUnmarkManual); }}
+            >
+              Desmarcar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Observação Financeira popup */}
       <Dialog open={!!obsPopup} onOpenChange={() => setObsPopup(null)}>
         <DialogContent className="max-w-md">
