@@ -500,7 +500,7 @@ export const PagamentoPrestadoresTabV2 = () => {
     }
   };
 
-
+  const cancelar = async (ficha: FichaFinanceira) => {
     setCancelando(ficha.id);
     setConfirmCancel(null);
     await supabase.from("fichas_de_servico")
