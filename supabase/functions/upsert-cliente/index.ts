@@ -36,17 +36,21 @@ Deno.serve(async (req) => {
 
   try {
     const expectedSecret = Deno.env.get("BOT_CRIAR_FICHA_SECRET");
-    const providedSecret =
-      req.headers.get("x-bot-secret") || req.headers.get("X-Bot-Secret");
     if (!expectedSecret) {
       return jsonResp({ error: "Secret não configurado no servidor" }, 500);
-    }
-    if (providedSecret !== expectedSecret) {
-      return jsonResp({ error: "Não autorizado" }, 401);
     }
 
     const body = await req.json().catch(() => ({}));
     console.log("[upsert-cliente] payload:", JSON.stringify(body).substring(0, 500));
+
+    const url = new URL(req.url);
+    const headerSecret = req.headers.get("x-bot-secret") || req.headers.get("X-Bot-Secret");
+    const querySecret = url.searchParams.get("apikey") || url.searchParams.get("secret");
+    const bodySecret = typeof body?.secret === "string" ? body.secret : "";
+    const providedSecret = headerSecret || querySecret || bodySecret;
+    if (providedSecret !== expectedSecret) {
+      return jsonResp({ error: "Não autorizado" }, 401);
+    }
 
     const telefone_raw = body.telefone || body.telefone_cliente || body.From;
     if (!telefone_raw) {

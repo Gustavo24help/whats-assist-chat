@@ -67,21 +67,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth por shared secret
+    // Auth por shared secret — aceita via header (Make), query (?apikey=/?secret=) ou body.secret (Twilio Studio make-http-request não suporta header custom)
     const expectedSecret = Deno.env.get("BOT_CRIAR_FICHA_SECRET");
-    const providedSecret =
-      req.headers.get("x-bot-secret") || req.headers.get("X-Bot-Secret");
     if (!expectedSecret) {
       console.error("[criar-ficha-do-bot] BOT_CRIAR_FICHA_SECRET não configurado");
       return jsonResp({ error: "Secret não configurado no servidor" }, 500);
     }
+
+    const body = await req.json().catch(() => ({}));
+    console.log("[criar-ficha-do-bot] payload:", JSON.stringify(body).substring(0, 500));
+
+    const url = new URL(req.url);
+    const headerSecret = req.headers.get("x-bot-secret") || req.headers.get("X-Bot-Secret");
+    const querySecret = url.searchParams.get("apikey") || url.searchParams.get("secret");
+    const bodySecret = typeof body?.secret === "string" ? body.secret : "";
+    const providedSecret = headerSecret || querySecret || bodySecret;
     if (providedSecret !== expectedSecret) {
       console.warn("[criar-ficha-do-bot] Secret inválido");
       return jsonResp({ error: "Não autorizado" }, 401);
     }
-
-    const body = await req.json().catch(() => ({}));
-    console.log("[criar-ficha-do-bot] payload:", JSON.stringify(body).substring(0, 500));
 
     const telefone_cliente_raw = body.telefone_cliente || body.telefone || body.From;
     if (!telefone_cliente_raw) {

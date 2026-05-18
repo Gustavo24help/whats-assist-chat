@@ -49,19 +49,23 @@ Deno.serve(async (req) => {
 
   try {
     const expectedSecret = Deno.env.get("BOT_CRIAR_FICHA_SECRET");
-    const providedSecret =
-      req.headers.get("x-bot-secret") || req.headers.get("X-Bot-Secret");
     if (!expectedSecret) {
       console.error("[atualizar-status-ficha] BOT_CRIAR_FICHA_SECRET não configurado");
       return jsonResp({ error: "Secret não configurado no servidor" }, 500);
     }
+
+    const body = await req.json().catch(() => ({}));
+    console.log("[atualizar-status-ficha] payload:", JSON.stringify(body).substring(0, 500));
+
+    const url = new URL(req.url);
+    const headerSecret = req.headers.get("x-bot-secret") || req.headers.get("X-Bot-Secret");
+    const querySecret = url.searchParams.get("apikey") || url.searchParams.get("secret");
+    const bodySecret = typeof body?.secret === "string" ? body.secret : "";
+    const providedSecret = headerSecret || querySecret || bodySecret;
     if (providedSecret !== expectedSecret) {
       console.warn("[atualizar-status-ficha] Secret inválido");
       return jsonResp({ error: "Não autorizado" }, 401);
     }
-
-    const body = await req.json().catch(() => ({}));
-    console.log("[atualizar-status-ficha] payload:", JSON.stringify(body).substring(0, 500));
 
     const ficha_id: string | undefined = body.ficha_id || body.id;
     const id_zoho: string | undefined = body.id_zoho || body.zoho_id;
