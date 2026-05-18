@@ -1,71 +1,54 @@
+# Correção: ficha não está sendo criada (Twilio Studio → Edge Functions)
+
 ## Diagnóstico
 
-A conversa do telefone `whatsapp:+554197973799` tem 15 mensagens recentes do cliente salvas com:
-- `tipo_remetente = NULL`
-- `remetente = 'whatsapp:+554197973799'` (o próprio número do cliente, não a string `'cliente'`)
+Sim, o que o técnico descreveu **faz total sentido**. Desde sexta, as Edge Functions que o Twilio Studio chama estão exigindo o segredo **apenas via header customizado** (`x-bot-secret` ou `x-ficha-secret`). O widget `make-http-request` do Twilio Studio Flow **não suporta headers customizados** — só envia `Content-Type` e `Authorization` básicos. Resultado: as funções retornam **401 Unauthorized** e a ficha nunca é criada.
 
-A função SQL `get_unread_state_for_user` (usada pelo Chat para calcular a bolinha) filtra apenas:
-```sql
-where (m.tipo_remetente = 'cliente' or m.remetente = 'cliente')
+Funções afetadas (todas validam segredo só por header hoje):
+
+- `criar-ficha-do-bot` — header `x-bot-secret` → `BOT_CRIAR_FICHA_SECRET`
+- `atualizar-status-ficha` — header `x-bot-secret` → `BOT_CRIAR_FICHA_SECRET`
+- `upsert-cliente` — header `x-bot-secret` → `BOT_CRIAR_FICHA_SECRET`
+- `vincular-conversa-ficha` — header `x-bot-secret` → `BOT_CRIAR_FICHA_SECRET`
+- `receber-ficha` — header `x-ficha-secret` / `x-api-key` (já aceita `?secret=` na query, então **só essa já tolera query** — as outras 4 não)
+
+## Correção proposta
+
+Em cada uma das 4 funções listadas (exceto `receber-ficha`, que já tem fallback), aceitar o segredo via **três fontes**, nessa ordem:
+
+1. Header `x-bot-secret` / `X-Bot-Secret` (mantém compatibilidade com Make e com chamadas internas que já mandam header).
+2. Query string `?apikey=...` (também aceitar `?secret=...` por consistência com `receber-ficha`).
+3. Campo `secret` no body JSON (fallback final caso o Studio só consiga injetar variável no body).
+
+Pseudo-código:
+
+```ts
+const url = new URL(req.url);
+const headerSecret = req.headers.get("x-bot-secret") || req.headers.get("X-Bot-Secret");
+const querySecret = url.searchParams.get("apikey") || url.searchParams.get("secret");
+const bodySecret = typeof body?.secret === "string" ? body.secret : "";
+const providedSecret = headerSecret || querySecret || bodySecret;
+if (providedSecret !== expectedSecret) return jsonResp({ error: "Não autorizado" }, 401);
 ```
 
-Como nenhuma das duas condições casa, essas mensagens são ignoradas → `ultima_data_cliente` vem nulo, `total_nao_lidas = 0`, `is_unread = false`. Resultado: **sem bolinha, mesmo com mensagem nova do cliente**.
+Importante: ler o body **antes** da validação (como `receber-ficha` já faz) para permitir o fallback 3.
 
-O helper do frontend (`isClientMessage` em `src/lib/chatBetaUnread.ts`) já trata esse caso corretamente (considera inbound quando o `remetente` não está na lista de saída), mas a SQL não. Há também o problema de origem: o `twilio-webhook` / `sync-twilio-messages` está gravando inbound sem setar `tipo_remetente='cliente'`.
+## Segurança
 
-## Plano
+- O segredo continua sendo `BOT_CRIAR_FICHA_SECRET` (sem mudança).
+- Query string em HTTPS é cifrada em trânsito; o risco real é só logging (Twilio loga URL). Mitigação: **rotacionar** o segredo logo após confirmar funcionamento, caso o usuário queira. Sugiro fazer só se ele pedir — não é bloqueante.
+- Nenhuma alteração em RLS, schema ou dados existentes. Nenhuma ficha já criada é afetada.
 
-### 1. Corrigir a função SQL `get_unread_state_for_user` (e a irmã `get_unread_cliente_msgs`)
+## Passos de implementação
 
-Trocar o filtro de "mensagem do cliente" por uma regra equivalente ao frontend:
+1. Editar `supabase/functions/criar-ficha-do-bot/index.ts` — mover o `req.json()` para antes da checagem de secret e adicionar fallback query+body.
+2. Mesmo padrão em `atualizar-status-ficha/index.ts`, `upsert-cliente/index.ts`, `vincular-conversa-ficha/index.ts`.
+3. Deploy das 4 funções.
+4. Testar via `curl` com `?apikey=...` (sem header) para validar 200.
+5. Avisar usuário para reconfigurar o widget no Twilio Studio: passar `?apikey=<BOT_CRIAR_FICHA_SECRET>` na URL do endpoint (não precisa mais de header).
 
-```sql
--- inbound = tipo_remetente='cliente' OR (remetente é o próprio cliente_id)
-where (
-  m.tipo_remetente = 'cliente'
-  or m.remetente = m.cliente_id
-  or m.remetente = 'cliente'
-)
-and (
-  m.tipo_remetente is null
-  or m.tipo_remetente not in ('atendente','bot','operador','system','sistema')
-)
-```
+## Não está no escopo
 
-Isso resolve imediatamente os ~1500 contatos com mensagens salvas em formato legado, sem precisar fazer backfill.
-
-### 2. Garantir no source que toda mensagem inbound nasça com `tipo_remetente='cliente'`
-
-Auditar e ajustar onde a inserção vem sem `tipo_remetente`:
-- `supabase/functions/twilio-webhook/index.ts` (entrada principal)
-- `supabase/functions/sync-twilio-messages/index.ts`
-- `supabase/functions/sync-twilio-messages-com-recuperacao/index.ts`
-- `supabase/functions/recover-prestador-history/index.ts` (se aplicável a cliente)
-
-Regra: se `From` é o número do cliente (não é um número Twilio nosso), gravar `tipo_remetente='cliente'`. Mantém retrocompatibilidade com mensagens já existentes.
-
-### 3. Atualizar o trigger `aumentar_nao_lidos_nova_msg`
-
-Hoje usa `IF NEW.remetente = 'cliente'`, que também nunca casa (legado da tabela antiga `conversa_operador_leitura`). Como o sistema vigente é `mensagem_leitura_operador` v3, o trigger virou ruído — vamos **remover** o trigger ou ajustar o filtro para `remetente = cliente_id`. Decisão: remover, já que a fonte de verdade é `mensagem_leitura_operador` calculado on-demand.
-
-### 4. Validação
-
-Após aplicar:
-- Rodar `SELECT * FROM get_unread_state_for_user(ARRAY['whatsapp:+554197973799'])` na sessão do operador `cac6e28a-fa91-4c6d-a3c8-5f2804b18304` (atual atendente da conversa) e confirmar `is_unread=true` e `total_nao_lidas>0`.
-- Abrir `/chat-beta` e conferir bolinha na lista para esse contato.
-- Enviar mensagem de teste de outro número e verificar que a bolinha aparece em tempo real.
-
-### Segurança / dados existentes
-
-- **Sem migration de dados**: nenhuma mensagem antiga será reescrita. Só o filtro da função SQL muda. Conversas que já estavam corretas continuam corretas.
-- **Não afeta leitura**: `last_read_at` continua sendo respeitado, então conversas marcadas como lidas continuam sem bolinha (a menos que tenha chegado msg depois).
-- **Sem mudança de timezone, valores ou status de ficha.**
-
-## Detalhes técnicos (resumo)
-
-| Arquivo | Mudança |
-|---|---|
-| Migration SQL | Recriar `get_unread_state_for_user` e `get_unread_cliente_msgs` com filtro corrigido |
-| Migration SQL | `DROP TRIGGER` de `aumentar_nao_lidos_nova_msg` (ou recriar com filtro novo) |
-| `twilio-webhook/index.ts` | Forçar `tipo_remetente: 'cliente'` no insert inbound |
-| `sync-twilio-messages*/index.ts` | Idem para mensagens reconstruídas vindas do Twilio |
+- Não vou alterar lógica de criação/parsing de ficha — só a porta de entrada.
+- Não vou tocar em `receber-ficha` (já aceita query).
+- Não vou criar nova função nem mexer em triggers, RLS ou tabelas.
