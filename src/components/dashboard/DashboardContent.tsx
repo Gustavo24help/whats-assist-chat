@@ -3,6 +3,7 @@ import { ExecutiveDashboardSection } from './ExecutiveDashboardSection';
 import { ServicesLineChart, TicketMedioChart } from './index';
 import { ExportReportSection } from './ExportReportSection';
 import { SectionHeader } from './SectionHeader';
+import { B2BvsB2CSection } from './B2BvsB2CSection';
 import {
   type PeriodOption,
   type ComparisonMode,
@@ -52,6 +53,17 @@ export const DashboardContent = ({
       case 'google-ads':
         // Google Ads removido temporariamente do dashboard.
         return null;
+
+      case 'b2b-b2c':
+        return (
+          <B2BvsB2CSection
+            key={blockId}
+            period={period}
+            customDateRange={customDateRange}
+          />
+        );
+
+
 
       case 'charts':
         return (
