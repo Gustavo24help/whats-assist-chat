@@ -54,6 +54,17 @@ export const DashboardContent = ({
         // Google Ads removido temporariamente do dashboard.
         return null;
 
+      case 'b2b-b2c':
+        return (
+          <B2BvsB2CSection
+            key={blockId}
+            period={period}
+            customDateRange={customDateRange}
+          />
+        );
+
+
+
       case 'charts':
         return (
           <section key={blockId}>
