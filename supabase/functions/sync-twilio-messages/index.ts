@@ -414,6 +414,7 @@ Deno.serve(async (req) => {
             ficha_id: cliente?.ficha_ativa_id || null,
             message_sid: msgTwilio.sid || null,
             reply_to_message_id: null,
+            tipo_remetente: isOutgoing ? "atendente" : "cliente",
           };
 
           if (isOutgoing && msgTwilio.sid) {
