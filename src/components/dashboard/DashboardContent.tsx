@@ -3,6 +3,7 @@ import { ExecutiveDashboardSection } from './ExecutiveDashboardSection';
 import { ServicesLineChart, TicketMedioChart } from './index';
 import { ExportReportSection } from './ExportReportSection';
 import { SectionHeader } from './SectionHeader';
+import { B2BvsB2CSection } from './B2BvsB2CSection';
 import {
   type PeriodOption,
   type ComparisonMode,
