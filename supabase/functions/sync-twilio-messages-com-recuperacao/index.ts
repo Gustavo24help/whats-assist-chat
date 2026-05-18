@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
 
         const mensagem = {
           cliente_id: telefoneCliente,
-          remetente: "cliente",
+          remetente: telefoneCliente,
           texto,
           tipo,
           arquivo_url: arquivoUrl,
@@ -159,6 +159,7 @@ Deno.serve(async (req) => {
           ficha_id: fichaAtiva?.id || null,
           message_sid: msgTwilio.sid,
           reply_to_message_id: null,
+          tipo_remetente: "cliente",
         };
 
         const { error } = await supabase.from("mensagens").insert(mensagem);
