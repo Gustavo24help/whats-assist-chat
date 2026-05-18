@@ -6,6 +6,7 @@ export type BlockType =
   | 'google-ads'
   | 'whatsapp-metrics'
   | 'sales-metrics'
+  | 'b2b-b2c'
   | 'charts'
   | 'export';
 
@@ -23,8 +24,9 @@ const DEFAULT_BLOCKS: DashboardBlock[] = [
   { id: 'google-ads', label: 'Google Ads', enabled: true, order: 2, size: 'full' },
   { id: 'whatsapp-metrics', label: 'WhatsApp', enabled: false, order: 3, size: 'full' },
   { id: 'sales-metrics', label: 'Vendas', enabled: false, order: 4, size: 'full' },
-  { id: 'charts', label: 'Gráficos de Evolução', enabled: true, order: 5, size: 'full' },
-  { id: 'export', label: 'Exportar Relatórios', enabled: false, order: 6, size: 'full' },
+  { id: 'b2b-b2c', label: 'B2B vs B2C', enabled: true, order: 5, size: 'full' },
+  { id: 'charts', label: 'Gráficos de Evolução', enabled: true, order: 6, size: 'full' },
+  { id: 'export', label: 'Exportar Relatórios', enabled: false, order: 7, size: 'full' },
 ];
 
 interface DashboardLayoutContextType {
