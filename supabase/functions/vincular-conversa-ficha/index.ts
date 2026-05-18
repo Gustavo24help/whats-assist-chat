@@ -38,17 +38,21 @@ Deno.serve(async (req) => {
 
   try {
     const expectedSecret = Deno.env.get("BOT_CRIAR_FICHA_SECRET");
-    const providedSecret =
-      req.headers.get("x-bot-secret") || req.headers.get("X-Bot-Secret");
     if (!expectedSecret) {
       return jsonResp({ error: "Secret não configurado no servidor" }, 500);
-    }
-    if (providedSecret !== expectedSecret) {
-      return jsonResp({ error: "Não autorizado" }, 401);
     }
 
     const body = await req.json().catch(() => ({}));
     console.log("[vincular-conversa-ficha] payload:", JSON.stringify(body).substring(0, 500));
+
+    const url = new URL(req.url);
+    const headerSecret = req.headers.get("x-bot-secret") || req.headers.get("X-Bot-Secret");
+    const querySecret = url.searchParams.get("apikey") || url.searchParams.get("secret");
+    const bodySecret = typeof body?.secret === "string" ? body.secret : "";
+    const providedSecret = headerSecret || querySecret || bodySecret;
+    if (providedSecret !== expectedSecret) {
+      return jsonResp({ error: "Não autorizado" }, 401);
+    }
 
     const ficha_id: string | undefined = body.ficha_id || body.id;
     const cliente_telefone = normalizeTelefone(body.cliente_telefone || body.telefone_cliente);
