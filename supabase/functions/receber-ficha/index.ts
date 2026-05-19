@@ -30,7 +30,10 @@ Deno.serve(async (req) => {
       req.headers.get("x-api-key") ??
       "";
     const url = new URL(req.url);
-    const querySecret = url.searchParams.get("secret") ?? "";
+    const querySecret =
+      url.searchParams.get("apikey") ??
+      url.searchParams.get("secret") ??
+      "";
 
     let payload: Record<string, any> = {};
     try {
