@@ -64,10 +64,19 @@ Deno.serve(async (req) => {
       payload.ficha_id ?? payload.id ?? payload.nome_ficha ?? payload.FichaDeServicos ?? ""
     ).trim();
 
-    const telefone_cliente =
-      (String(
-        payload.telefone_cliente ?? payload.telefone ?? payload.from ?? payload.ContactPhone ?? ""
-      ).replace(/^whatsapp:/i, "").trim()) || null;
+    const normalizeTelefone = (raw: unknown): string | null => {
+      if (raw === null || raw === undefined) return null;
+      let t = String(raw).trim();
+      if (!t) return null;
+      if (!t.startsWith("whatsapp:")) {
+        if (!t.startsWith("+")) t = "+" + t.replace(/\D/g, "");
+        t = "whatsapp:" + t;
+      }
+      return t;
+    };
+    const telefone_cliente = normalizeTelefone(
+      payload.telefone_cliente ?? payload.telefone ?? payload.from ?? payload.ContactPhone ?? null
+    );
 
     const nomeCidadeBairro = getField(info, "1.1");
     const partes = nomeCidadeBairro.split(",").map((s) => s.trim());
