@@ -1,0 +1,4 @@
+project_id = "halqtsowfqkczvlvwmdd"
+
+[functions.claude-read]
+verify_jwt = false
