@@ -1,29 +1,57 @@
-## Apagar ficha duplicada FGM4@260519
 
-### Situação
-O cliente `whatsapp:+554196868812` (Regina Lugnani) tem **duas fichas criadas hoje**:
+# Edge Function `claude-read` — acesso de leitura do Claude
 
-| ficha | criada em | status |
-|---|---|---|
-| `FGM4@260519` | 14:21 | Ficha Criada (duplicada — apagar) |
-| `FS5-260519` | 14:58 | Ficha Criada (manter) |
+## Objetivo
+Criar uma edge function que permita ao Claude (externo) ler qualquer tabela do banco, autenticada por um token secreto que só você e o Claude conhecem. Usa a `service_role` internamente (bypassa RLS), mas só responde se o token bater.
 
-### Referências encontradas em `FGM4@260519`
-- `mensagens`: **27 registros** vinculados
-- `conversa_ficha_vinculo`: **1 registro** ativo
-- Nenhuma referência em transações financeiras, tarefas, contas a receber, NPS, histórico de status, pré-qualificação, bot, coaching, grupos, etc.
-- Nenhum cliente tem `ficha_ativa_id = 'FGM4@260519'`
+## Como vai funcionar
 
-### Ação proposta (uma migration de dados, atômica)
+```text
+Claude  ──POST──▶  /functions/v1/claude-read
+                   Header: X-Claude-Token: <segredo>
+                   Body:   { "table": "fichas_de_servico",
+                             "select": "id,status,created_at",
+                             "filters": [{"col":"status","op":"eq","val":"Agendado"}],
+                             "order":  {"col":"created_at","dir":"desc"},
+                             "limit":  100 }
+                   ▼
+            Valida token  →  service_role  →  Supabase  →  JSON
+```
 
-1. `UPDATE mensagens SET ficha_id = 'FS5-260519' WHERE ficha_id = 'FGM4@260519'` — preserva o histórico de chat na ficha correta (mesmo telefone, mesmo cliente).
-2. `UPDATE conversa_ficha_vinculo SET ficha_id = 'FS5-260519' WHERE ficha_id = 'FGM4@260519'` — religa o vínculo de conversa à ficha que fica.
-3. `DELETE FROM fichas_de_servico WHERE id = 'FGM4@260519'` — remove a ficha duplicada.
+## Segurança
+- Apenas **SELECT**. Qualquer outra operação é rejeitada.
+- Header `X-Claude-Token` obrigatório, comparado em tempo constante com o secret `CLAUDE_READ_TOKEN`.
+- Sem token → 401. Token errado → 401.
+- `verify_jwt = false` (Claude não tem sessão Supabase), mas o token próprio substitui o JWT.
+- Limite máximo de 1000 linhas por request (proteção contra dump acidental).
+- Lista de tabelas **bloqueadas** por padrão (sensíveis):
+  - `user_roles`, `profiles` (dados pessoais de operadores)
+  - Qualquer tabela do schema `auth`, `storage`, `vault`
+  - Se quiser liberar, é só me pedir depois.
 
-### Validação pós-execução
-- `FGM4@260519` não existe mais em `fichas_de_servico`.
-- `FS5-260519` aparece com **27+ mensagens** na conversa (sem perda de histórico).
-- Nenhuma outra ficha, cliente, transação ou agendamento é tocada.
+## Entrada aceita (JSON)
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `table` | string | sim | Nome da tabela (schema `public`) |
+| `select` | string | não | Colunas (default `*`) |
+| `filters` | array | não | `[{col, op, val}]` — op: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `in`, `is` |
+| `order` | object | não | `{col, dir}` — dir: `asc`/`desc` |
+| `limit` | number | não | 1–1000, default 100 |
+| `offset` | number | não | Para paginação |
 
-### Fora de escopo
-Qualquer alteração nas outras 39 fichas `FGM4@*` listadas, ou em `FS5-260519`.
+## Saída
+```json
+{ "ok": true, "count": 42, "data": [ ... ] }
+```
+
+## Setup necessário
+1. **Você adiciona o secret** `CLAUDE_READ_TOKEN` (gere um valor aleatório forte — ex: `openssl rand -hex 32`). Eu disparo o pedido depois que você aprovar o plano.
+2. Eu crio `supabase/functions/claude-read/index.ts`.
+3. Eu te entrego: URL final + exemplo de `curl` pronto para colar nas instruções do Claude.
+
+## Fora de escopo
+- Não implementa escrita (insert/update/delete).
+- Não cria UI no app — é só endpoint.
+- Não mexe em RLS nem em nenhuma tabela existente.
+
+Confirma para eu seguir? Quando aprovar, primeiro peço o secret, depois crio a function.
