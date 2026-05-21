@@ -254,7 +254,7 @@ const ChatBeta = () => {
         {/* ─── COL 2: Conversation List (collapsible) ─── */}
         {conversationListOpen ? (
           <div className={cn(
-            "border-r border-border/60 bg-card shrink-0 flex flex-col w-full md:w-[280px] lg:w-[300px]",
+            "border-r border-border/60 bg-card shrink-0 flex flex-col w-full md:w-[340px] lg:w-[380px]",
             selectedCliente && "max-md:hidden"
           )}>
             {activeTab === "conversas" ? (
