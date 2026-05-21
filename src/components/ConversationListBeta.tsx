@@ -486,7 +486,24 @@ export const ConversationListBeta = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'clientes' },
-        () => debouncedFetchClientes()
+        (payload) => {
+          // Incremental: UPDATE em cliente já carregado → merge local sem refetch.
+          // INSERT/DELETE ou cliente desconhecido → refetch (debounced).
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            const row: any = payload.new;
+            let found = false;
+            setClientes(prev => {
+              const idx = prev.findIndex(c => c.telefone === row.telefone);
+              if (idx === -1) return prev;
+              found = true;
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...row };
+              return updated;
+            });
+            if (found) return;
+          }
+          debouncedFetchClientes();
+        }
       )
       .subscribe();
 
@@ -495,7 +512,36 @@ export const ConversationListBeta = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'mensagens' },
-        () => debouncedFetchClientes()
+        (payload) => {
+          // Otimização: se a mensagem pertence a um cliente já carregado, atualizar
+          // apenas a `ultima_interacao` local para reordenar o card — SEM refetch global.
+          // Refetch global só é disparado quando aparece mensagem de cliente novo.
+          const row: any = (payload.new as any) ?? (payload.old as any);
+          const clienteId: string | undefined = row?.cliente_id;
+          const dataHora: string | undefined = row?.data_hora;
+          if (!clienteId) {
+            debouncedFetchClientes();
+            return;
+          }
+          let found = false;
+          setClientes(prev => {
+            const idx = prev.findIndex(c => c.telefone === clienteId);
+            if (idx === -1) return prev;
+            found = true;
+            if (!dataHora) return prev;
+            const updated = [...prev];
+            const cur = updated[idx];
+            // Só atualiza se a nova for mais recente
+            if (!cur.ultima_interacao || new Date(dataHora) > new Date(cur.ultima_interacao)) {
+              updated[idx] = { ...cur, ultima_interacao: dataHora };
+            }
+            return updated;
+          });
+          if (!found) {
+            // Cliente novo (ou ainda não carregado) — refetch debounce
+            debouncedFetchClientes();
+          }
+        }
       )
       .subscribe();
 
@@ -543,13 +589,12 @@ export const ConversationListBeta = ({
           .subscribe()
       : null;
 
-    // Polling de rede de proteção: 5 minutos (Realtime já cobre o caso comum).
-    // Antes era 60s e disparava 3 fetchs pesados em sequência.
+    // Polling de rede de proteção: 15 minutos (Realtime + atualizações incrementais cobrem o caso comum).
     const pollingInterval = window.setInterval(() => {
       fetchClientes();
       fetchServicosParaFinalizar();
       fetchSemOrcamento();
-    }, 5 * 60 * 1000);
+    }, 15 * 60 * 1000);
 
     return () => {
       supabase.removeChannel(channel);
