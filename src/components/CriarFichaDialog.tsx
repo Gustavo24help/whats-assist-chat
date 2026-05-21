@@ -192,10 +192,11 @@ export const CriarFichaDialog = ({
           });
         });
 
-      // 4. Aguardar 3 segundos antes de recarregar
-      setTimeout(() => {
-        window.location.reload();
-      }, 3000);
+      // 4. Notificar componentes interessados (FichaPanel, ConversationList) sem reload
+      window.dispatchEvent(new CustomEvent('ficha-criada', {
+        detail: { telefone: clienteTelefone, fichaId: nomeFicha }
+      }));
+      setLoading(false);
 
     } catch (error: any) {
       console.error("Erro ao criar ficha:", error);
