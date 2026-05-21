@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
     const porCliente: Record<string, typeof mensagens> = {}
     for (const m of mensagens) {
-      const tel = m.cliente_id?.replace('whatsapp:', '') || 'desconhecido'
+      const tel = m.cliente_id || 'desconhecido'
       if (!porCliente[tel]) porCliente[tel] = []
       porCliente[tel].push(m)
     }
