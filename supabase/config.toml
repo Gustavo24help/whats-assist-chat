@@ -96,3 +96,6 @@ verify_jwt = true
 
 [functions.claude-read]
 verify_jwt = false
+
+[functions.processar-analise-diaria]
+verify_jwt = false
