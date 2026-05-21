@@ -103,6 +103,15 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
     setFichas([]);
     setFichaAtual(null);
     fetchFichas();
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.telefone === clienteTelefone) {
+        fetchFichas();
+      }
+    };
+    window.addEventListener('ficha-criada', handler);
+    return () => window.removeEventListener('ficha-criada', handler);
   }, [clienteTelefone]);
 
   const fetchFichas = async () => {
