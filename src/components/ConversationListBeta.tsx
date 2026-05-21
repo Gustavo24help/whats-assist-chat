@@ -486,7 +486,24 @@ export const ConversationListBeta = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'clientes' },
-        () => debouncedFetchClientes()
+        (payload) => {
+          // Incremental: UPDATE em cliente já carregado → merge local sem refetch.
+          // INSERT/DELETE ou cliente desconhecido → refetch (debounced).
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            const row: any = payload.new;
+            let found = false;
+            setClientes(prev => {
+              const idx = prev.findIndex(c => c.telefone === row.telefone);
+              if (idx === -1) return prev;
+              found = true;
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...row };
+              return updated;
+            });
+            if (found) return;
+          }
+          debouncedFetchClientes();
+        }
       )
       .subscribe();
 
