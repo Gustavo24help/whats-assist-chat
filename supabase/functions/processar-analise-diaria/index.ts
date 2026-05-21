@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
         let iaSugestao: string | null = null
         let tokensUsados = 0
 
-        if (msgs.length >= 3) {
+        if (msgsCliente.length >= 1 && msgsAtendente.length >= 1) {
           const conversa = msgs.map(m => {
             const hora = toBRT(new Date(m.data_hora)).toISOString().substring(11, 16)
             const quem = m.tipo_remetente === 'cliente' ? 'CLIENTE' : `ATENDENTE(${m.operador_nome || '?'})`
