@@ -100,6 +100,98 @@ export type Database = {
         }
         Relationships: []
       }
+      analise_operacional_diaria: {
+        Row: {
+          cliente_telefone: string
+          data_analise: string
+          fase: string | null
+          ficha_id: string | null
+          ia_insatisfacao_detectada: boolean | null
+          ia_momento_critico: string | null
+          ia_qualidade_ortografica: number | null
+          ia_resumo: string | null
+          ia_sugestao: string | null
+          ia_tom: string | null
+          id: string
+          lacuna_detalhes: Json | null
+          lacuna_orcamento_pendente: boolean | null
+          lacuna_problema_servico: boolean | null
+          lacuna_sem_followup: boolean | null
+          lacuna_sem_janela_horario: boolean | null
+          lacuna_sem_resposta: boolean | null
+          operador_principal: string | null
+          processado_em: string | null
+          tempo_em_fase_horas: number | null
+          tempo_primeira_resposta_min: number | null
+          tempo_resposta_medio_min: number | null
+          tokens_usados: number | null
+          total_msgs_atendente: number | null
+          total_msgs_cliente: number | null
+        }
+        Insert: {
+          cliente_telefone: string
+          data_analise: string
+          fase?: string | null
+          ficha_id?: string | null
+          ia_insatisfacao_detectada?: boolean | null
+          ia_momento_critico?: string | null
+          ia_qualidade_ortografica?: number | null
+          ia_resumo?: string | null
+          ia_sugestao?: string | null
+          ia_tom?: string | null
+          id?: string
+          lacuna_detalhes?: Json | null
+          lacuna_orcamento_pendente?: boolean | null
+          lacuna_problema_servico?: boolean | null
+          lacuna_sem_followup?: boolean | null
+          lacuna_sem_janela_horario?: boolean | null
+          lacuna_sem_resposta?: boolean | null
+          operador_principal?: string | null
+          processado_em?: string | null
+          tempo_em_fase_horas?: number | null
+          tempo_primeira_resposta_min?: number | null
+          tempo_resposta_medio_min?: number | null
+          tokens_usados?: number | null
+          total_msgs_atendente?: number | null
+          total_msgs_cliente?: number | null
+        }
+        Update: {
+          cliente_telefone?: string
+          data_analise?: string
+          fase?: string | null
+          ficha_id?: string | null
+          ia_insatisfacao_detectada?: boolean | null
+          ia_momento_critico?: string | null
+          ia_qualidade_ortografica?: number | null
+          ia_resumo?: string | null
+          ia_sugestao?: string | null
+          ia_tom?: string | null
+          id?: string
+          lacuna_detalhes?: Json | null
+          lacuna_orcamento_pendente?: boolean | null
+          lacuna_problema_servico?: boolean | null
+          lacuna_sem_followup?: boolean | null
+          lacuna_sem_janela_horario?: boolean | null
+          lacuna_sem_resposta?: boolean | null
+          operador_principal?: string | null
+          processado_em?: string | null
+          tempo_em_fase_horas?: number | null
+          tempo_primeira_resposta_min?: number | null
+          tempo_resposta_medio_min?: number | null
+          tokens_usados?: number | null
+          total_msgs_atendente?: number | null
+          total_msgs_cliente?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analise_operacional_diaria_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       atribuicao_cadeia: {
         Row: {
           created_at: string | null
