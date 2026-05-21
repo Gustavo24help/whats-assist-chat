@@ -7,6 +7,17 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const BRT_OFFSET = -3;
 
+// TESTE TEMPORÁRIO - remover depois
+if (req.method === "GET") {
+  return new Response(
+    JSON.stringify({
+      tem_key: !!ANTHROPIC_API_KEY,
+      key_prefix: ANTHROPIC_API_KEY?.slice(0, 10) || "VAZIA",
+    }),
+    { headers: { "Content-Type": "application/json" } },
+  );
+}
+
 function toBRT(dateStr: string): Date {
   const d = new Date(dateStr);
   d.setHours(d.getHours() + BRT_OFFSET);
