@@ -574,6 +574,8 @@ export const ConversationListBeta = ({
           if (fichaId) {
             setRecentOrcamentoFichas(prev => new Set(prev).add(fichaId));
           }
+          // Refrescar lista para atualizar badge 🧾 com nova contagem
+          debouncedFetchClientes();
         }
       )
       .subscribe();

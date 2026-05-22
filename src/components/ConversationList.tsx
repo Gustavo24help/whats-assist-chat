@@ -297,6 +297,8 @@ export const ConversationList = ({
           if (fichaId) {
             setRecentOrcamentoFichas(prev => new Set(prev).add(fichaId));
           }
+          // Refrescar lista para atualizar badge 🧾 com nova contagem
+          scheduleClientesRefresh();
         }
       )
       .subscribe();
