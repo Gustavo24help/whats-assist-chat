@@ -1211,7 +1211,12 @@ export const ConversationListBeta = ({
     if (clientesData.length > 0) {
       const telefones = clientesData.map(c => c.telefone);
 
-      // Helper to chunk .in() queries that might exceed URL length limits
+      // Helper to chunk .in() queries that might exceed URL length limits.
+      // ⚠️ Importante: cada chunk pagina internamente em range(0..999, 1000..1999, …)
+      // para ultrapassar o limite default de 1000 linhas do PostgREST. Sem isso,
+      // mensagens/orçamentos/histórico eram silenciosamente truncados quando o
+      // chunk gerava mais de 1000 linhas, fazendo a ficha/contagem sumir de
+      // algumas conversas.
       const chunkedIn = async (
         table: string,
         selectCols: string,
@@ -1222,14 +1227,22 @@ export const ConversationListBeta = ({
       ): Promise<any[]> => {
         if (filterValues.length === 0) return [];
         const CHUNK = 500;
+        const PAGE = 1000;
         const results: any[] = [];
         for (let i = 0; i < filterValues.length; i += CHUNK) {
           const chunk = filterValues.slice(i, i + CHUNK);
-          let q = (supabase as any).from(table).select(selectCols).in(filterCol, chunk);
-          if (extraFilters) q = extraFilters(q);
-          if (orderCol) q = q.order(orderCol, { ascending: false });
-          const { data } = await q;
-          if (data) results.push(...data);
+          let pageFrom = 0;
+          while (true) {
+            let q = (supabase as any).from(table).select(selectCols).in(filterCol, chunk);
+            if (extraFilters) q = extraFilters(q);
+            if (orderCol) q = q.order(orderCol, { ascending: false });
+            q = q.range(pageFrom, pageFrom + PAGE - 1);
+            const { data } = await q;
+            if (!data || data.length === 0) break;
+            results.push(...data);
+            if (data.length < PAGE) break;
+            pageFrom += PAGE;
+          }
         }
         return results;
       };
