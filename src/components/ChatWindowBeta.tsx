@@ -2268,7 +2268,15 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   };
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden">
+    <div
+      className="h-full flex flex-col bg-background overflow-hidden"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onPaste={handlePaste}
+    >
+
       <header className="bg-card border-b flex flex-col gap-2 px-3 py-2 shrink-0">
         {/* ─── Linha 1: Info do cliente ─── */}
         <div className="flex items-center gap-2 md:gap-3 min-w-0 w-full">
