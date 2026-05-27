@@ -1608,11 +1608,16 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Só sair do modo drag se realmente saiu da área
-    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+    // Só sair do modo drag se realmente saiu da área raiz do chat.
+    // Usamos currentTarget (o elemento com o listener) para que o overlay
+    // continue ativo ao atravessar áreas internas (lista, painel da ficha…).
+    const container = e.currentTarget as HTMLElement;
+    const related = e.relatedTarget as Node | null;
+    if (!related || !container.contains(related)) {
       setIsDragging(false);
     }
   };
+
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
