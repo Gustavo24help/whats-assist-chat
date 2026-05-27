@@ -3465,6 +3465,23 @@ export type Database = {
         Args: { p_user1: string; p_user2: string }
         Returns: string
       }
+      get_ultima_msg_cliente: {
+        Args: { _telefones: string[] }
+        Returns: {
+          cliente_id: string
+          ultima_data_hora: string
+        }[]
+      }
+      get_ultima_msg_qualquer: {
+        Args: { _telefones: string[] }
+        Returns: {
+          cliente_id: string
+          data_hora: string
+          operador_nome: string
+          remetente: string
+          tipo_remetente: string
+        }[]
+      }
       get_unread_cliente_msgs: {
         Args: { _read_map: Json; _telefones: string[] }
         Returns: {
