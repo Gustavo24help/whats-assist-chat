@@ -1247,48 +1247,65 @@ export const ConversationListBeta = ({
         return results;
       };
 
-      // ✅ Query 2: Buscar últimas mensagens
-      const ultimasMensagens = await chunkedIn(
-        'mensagens', 'cliente_id, data_hora', 'cliente_id', telefones,
-        (q) => q.neq('remetente', 'whatsapp:+554138911555'),
-        'data_hora'
-      );
-
-      const mensagensMap = new Map();
-      ultimasMensagens.forEach(msg => {
-        if (!mensagensMap.has(msg.cliente_id)) {
-          mensagensMap.set(msg.cliente_id, msg.data_hora);
+      // ✅ Query 2: Últimas mensagens do CLIENTE por telefone (janela 24h)
+      // Via RPC que agrega no banco — sem o limite de 1000 do PostgREST
+      // e sem dezenas de páginas no navegador.
+      const mensagensMap = new Map<string, string>();
+      {
+        const CHUNK = 500;
+        for (let i = 0; i < telefones.length; i += CHUNK) {
+          const slice = telefones.slice(i, i + CHUNK);
+          const { data, error } = await (supabase as any).rpc(
+            'get_ultima_msg_cliente',
+            { _telefones: slice },
+          );
+          if (error) {
+            console.error('[ConversationListBeta] get_ultima_msg_cliente falhou:', error);
+            continue;
+          }
+          (data || []).forEach((row: any) => {
+            if (row?.cliente_id && row?.ultima_data_hora) {
+              mensagensMap.set(row.cliente_id, row.ultima_data_hora);
+            }
+          });
         }
-      });
+      }
 
       // ✅ Query 2b: Última mensagem QUALQUER (incluindo bot/atendente) para mostrar
-      // tag discreta "última msg por X" em cada cartão.
-      const ultimasMensagensQualquer = await chunkedIn(
-        'mensagens',
-        'cliente_id, data_hora, remetente, tipo_remetente, operador_nome',
-        'cliente_id',
-        telefones,
-        undefined,
-        'data_hora'
-      );
-
+      // tag discreta "última msg por X" em cada cartão — também via RPC.
       const ultimaMsgPorMap = new Map<string, string>();
       const TWILIO_NUM = 'whatsapp:+554138911555';
-      ultimasMensagensQualquer.forEach((msg: any) => {
-        if (ultimaMsgPorMap.has(msg.cliente_id)) return; // já temos a mais recente
-        let label: string;
-        const isOutbound = msg.remetente === TWILIO_NUM
-          || msg.tipo_remetente === 'atendente'
-          || msg.tipo_remetente === 'bot';
-        if (!isOutbound) {
-          label = 'Cliente';
-        } else if (msg.tipo_remetente === 'atendente' && msg.operador_nome) {
-          label = msg.operador_nome.trim().split(/\s+/)[0]; // primeiro nome
-        } else {
-          label = '🤖 Bot';
+      {
+        const CHUNK = 500;
+        for (let i = 0; i < telefones.length; i += CHUNK) {
+          const slice = telefones.slice(i, i + CHUNK);
+          const { data, error } = await (supabase as any).rpc(
+            'get_ultima_msg_qualquer',
+            { _telefones: slice },
+          );
+          if (error) {
+            console.error('[ConversationListBeta] get_ultima_msg_qualquer falhou:', error);
+            continue;
+          }
+          (data || []).forEach((msg: any) => {
+            if (!msg?.cliente_id) return;
+            if (ultimaMsgPorMap.has(msg.cliente_id)) return;
+            let label: string;
+            const isOutbound = msg.remetente === TWILIO_NUM
+              || msg.tipo_remetente === 'atendente'
+              || msg.tipo_remetente === 'bot';
+            if (!isOutbound) {
+              label = 'Cliente';
+            } else if (msg.tipo_remetente === 'atendente' && msg.operador_nome) {
+              label = String(msg.operador_nome).trim().split(/\s+/)[0];
+            } else {
+              label = '🤖 Bot';
+            }
+            ultimaMsgPorMap.set(msg.cliente_id, label);
+          });
         }
-        ultimaMsgPorMap.set(msg.cliente_id, label);
-      });
+      }
+
 
 
       // ✅ Query 3: Buscar TODAS as fichas ativas de uma vez

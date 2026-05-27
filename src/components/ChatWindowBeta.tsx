@@ -1608,11 +1608,16 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Só sair do modo drag se realmente saiu da área
-    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+    // Só sair do modo drag se realmente saiu da área raiz do chat.
+    // Usamos currentTarget (o elemento com o listener) para que o overlay
+    // continue ativo ao atravessar áreas internas (lista, painel da ficha…).
+    const container = e.currentTarget as HTMLElement;
+    const related = e.relatedTarget as Node | null;
+    if (!related || !container.contains(related)) {
       setIsDragging(false);
     }
   };
+
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -2268,7 +2273,15 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   };
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden">
+    <div
+      className="h-full flex flex-col bg-background overflow-hidden"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onPaste={handlePaste}
+    >
+
       <header className="bg-card border-b flex flex-col gap-2 px-3 py-2 shrink-0">
         {/* ─── Linha 1: Info do cliente ─── */}
         <div className="flex items-center gap-2 md:gap-3 min-w-0 w-full">
@@ -2734,10 +2747,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       <div
         ref={setMessagesContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10 relative"
-        onDragEnter={handleDragEnter}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+
         onCopy={(e) => {
           const selection = window.getSelection()?.toString();
           if (selection) {
