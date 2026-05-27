@@ -2742,10 +2742,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       <div
         ref={setMessagesContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10 relative"
-        onDragEnter={handleDragEnter}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+
         onCopy={(e) => {
           const selection = window.getSelection()?.toString();
           if (selection) {
