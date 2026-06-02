@@ -32,6 +32,7 @@ import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 import { ReplyIndicator } from "./ReplyIndicator";
 import { AtribuicaoDescricaoDialog } from "./AtribuicaoDescricaoDialog";
 import { isClientMessage, markConversationAutoRead, markConversationRead } from "@/lib/chatBetaUnread";
+import { shouldAutoTakeover } from "@/lib/autoTakeoverOperators";
 
 import {
   AlertDialog,

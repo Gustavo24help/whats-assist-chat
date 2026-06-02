@@ -64,6 +64,7 @@ import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
 import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 import { ReplyIndicator } from "./ReplyIndicator";
 import { AtribuicaoDescricaoDialog } from "./AtribuicaoDescricaoDialog";
+import { shouldAutoTakeover } from "@/lib/autoTakeoverOperators";
 
 import {
   AlertDialog,
