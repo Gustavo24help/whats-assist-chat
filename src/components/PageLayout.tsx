@@ -103,6 +103,7 @@ const sidebarEntries: SidebarEntry[] = [
       { label: "Mensagens Internas", icon: MessageSquare, route: "/mensagens" },
     ],
   },
+  { label: "Clientes (CRM)", icon: Users, route: "/clientes" },
   { label: "Tarefas", icon: ClipboardList, route: "/tarefas" },
   { label: "Tarefas Operacionais", icon: ClipboardList, route: "/tarefas-operacionais" },
   { label: "Bairros", icon: MapPin, route: "/bairros" },
