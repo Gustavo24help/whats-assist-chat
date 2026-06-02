@@ -1089,28 +1089,29 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const updateDataAgendamento = (data: string) => {
     setDataAgendamento(data);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
+      autoSave(fichaId, fichaRef.current ?? ficha, data, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
   const updateHoraAgendamento = (hora: string) => {
     setHoraAgendamento(hora);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
+      autoSave(fichaId, fichaRef.current ?? ficha, dataAgendamento, hora, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
   const updateHoraFimAgendamento = (hora: string) => {
     setHoraFimAgendamento(hora);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, hora, dataRetorno, horaRetorno, horaFimRetorno);
+      autoSave(fichaId, fichaRef.current ?? ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, hora, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
   const updateDataVisitaTecnica = (data: string) => {
     setDataVisitaTecnica(data);
     if (ficha) {
-      const updatedFicha = { ...ficha, data_visita_tecnica: data };
+      const base = fichaRef.current ?? ficha;
+      const updatedFicha = { ...base, data_visita_tecnica: data };
       setFicha(updatedFicha);
       if (fichaId) {
         autoSave(fichaId, updatedFicha, dataAgendamento, horaAgendamento, data, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
@@ -1121,7 +1122,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const updateHoraVisitaTecnica = (hora: string) => {
     setHoraVisitaTecnica(hora);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, hora, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
+      autoSave(fichaId, fichaRef.current ?? ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, hora, horaFimAgendamento, dataRetorno, horaRetorno, horaFimRetorno);
     }
   };
 
@@ -1133,21 +1134,21 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const updateDataRetorno = (data: string) => {
     setDataRetorno(data);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, data, horaRetorno, horaFimRetorno);
+      autoSave(fichaId, fichaRef.current ?? ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, data, horaRetorno, horaFimRetorno);
     }
   };
 
   const updateHoraRetorno = (hora: string) => {
     setHoraRetorno(hora);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, hora, horaFimRetorno);
+      autoSave(fichaId, fichaRef.current ?? ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, hora, horaFimRetorno);
     }
   };
 
   const updateHoraFimRetorno = (hora: string) => {
     setHoraFimRetorno(hora);
     if (ficha && fichaId) {
-      autoSave(fichaId, ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, hora);
+      autoSave(fichaId, fichaRef.current ?? ficha, dataAgendamento, horaAgendamento, dataVisitaTecnica, horaVisitaTecnica, horaFimAgendamento, dataRetorno, horaRetorno, hora);
     }
   };
 
