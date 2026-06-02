@@ -1,59 +1,65 @@
-## Problema
+## Objetivo
 
-Em `FichaServicoTab.tsx`, ao mudar o status para **Agendado** e logo em seguida preencher (ou já ter aberto) os campos de data/hora, o sistema às vezes **reverte o status** para o valor anterior (ex.: Orçamento Enviado). Foi exatamente o que aconteceu ontem em **FS4-260525** (Paula: Agendado → Orçamento Enviado → Agendado em 20s) e em outras fichas. Hoje em **FS7-260525** o status até gravou como Agendado, mas sem `horario_agendamento` — mesma família de bug.
+Quando a operadora **Paula** ou **Valentina** enviar mensagem em uma conversa atribuída a outro operador, o sistema deve **assumir automaticamente** a conversa e enviar a mensagem, sem mostrar o AlertDialog de "Tem certeza?".
 
-## Causa raiz (stale closure + debounce)
+Para todos os outros operadores, o comportamento atual (popup de confirmação) continua igual.
 
-Todos os handlers de data/hora (`updateDataAgendamento`, `updateHoraAgendamento`, `updateHoraFimAgendamento`, `updateDataRetorno`, `updateHora*Retorno`, `updateHoraVisitaTecnica`) chamam:
+## Onde está hoje
 
-```ts
-autoSave(fichaId, ficha, ...)
+Existem dois componentes que mostram esse popup quando `isOtherOperatorTicket` é true:
+
+- `src/components/ChatWindowBeta.tsx` — Chat BETA (rota `/chat-beta`, em uso principal)
+- `src/components/ChatWindow.tsx` — Chat clássico (ainda usado no mobile / fallback)
+
+Em ambos, o fluxo é:
+
+```text
+enviarMensagem() 
+  └── se isOtherOperatorTicket → abre AlertDialog (takeoverConfirmOpen)
+        └── usuário clica "Sim" → handleConfirmTakeoverAndSend()
+              ├── atribuirOperador(currentUser, nome, undefined, true)  ← assume
+              └── enviarMensagemReal()                                   ← envia
 ```
 
-passando a variável `ficha` do **closure do render atual**. O `autoSave` é debounced em 500ms — só a última chamada vai ao banco.
+## Mudança
 
-Cenário do bug:
-1. Operadora clica no dropdown e seleciona **Agendado** → `handleFichaUpdate` faz `setFicha({...,status:'Agendado'})` e chama `autoSave(..., updatedFicha, ...)`. Correto.
-2. Em menos de 500ms ela preenche a data/hora → o handler roda com `ficha` capturado **antes do React aplicar o novo status**. Chama `autoSave(..., ficha, ...)` com `status:'Orçamento Enviado'`.
-3. O debounce descarta a 1ª chamada (status correto) e grava a 2ª (status antigo). Resultado: status volta para "Orçamento Enviado".
+Em **`enviarMensagem()`** (ambos os arquivos), antes de abrir o dialog, verificar o `full_name` do operador logado. Se o primeiro nome (normalizado, sem acento, lowercase) for `paula` ou `valentina`, pular o dialog e executar diretamente o mesmo fluxo do `handleConfirmTakeoverAndSend` (assumir + enviar).
 
-Isso viola a regra documentada na memória `data-integrity-fichas`: salvamento deve usar **parâmetros explícitos**, não closures stale.
-
-## Correção (cirúrgica, sem mudar UX)
-
-Adicionar um `fichaRef` que sempre aponta para o estado mais recente de `ficha`, e fazer todos os handlers de data/hora lerem dele em vez do `ficha` do closure.
+Pseudocódigo:
 
 ```ts
-// novo ref
-const fichaRef = useRef<Ficha | null>(null);
-useEffect(() => { fichaRef.current = ficha; }, [ficha]);
+const AUTO_TAKEOVER_NAMES = ["paula", "valentina"];
+
+const enviarMensagem = async () => {
+  if (isOtherOperatorTicket) {
+    const firstName = currentUserFullName
+      ?.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .trim().split(/\s+/)[0]?.toLowerCase();
+
+    if (firstName && AUTO_TAKEOVER_NAMES.includes(firstName)) {
+      await handleConfirmTakeoverAndSend(); // assume e envia, sem dialog
+      return;
+    }
+    setTakeoverConfirmOpen(true);
+    return;
+  }
+  enviarMensagemReal();
+};
 ```
 
-Trocar nos handlers (linhas ~1085-1148):
+O `full_name` já é buscado dentro de `handleConfirmTakeoverAndSend` via `profiles`. Vou cachear o `full_name` do usuário atual em um `useRef`/`useState` no mount do componente (já existe lookup parecido em outros pontos) para ter a checagem disponível no momento do clique sem `await` extra.
 
-```ts
-// antes
-autoSave(fichaId, ficha, data, horaAgendamento, ...);
-// depois
-autoSave(fichaId, fichaRef.current ?? ficha, data, horaAgendamento, ...);
-```
+## Detalhes / salvaguardas
 
-Aplicar em: `updateDataAgendamento`, `updateHoraAgendamento`, `updateHoraFimAgendamento`, `updateDataVisitaTecnica` (já cria updatedFicha, manter), `updateHoraVisitaTecnica`, `updateDataRetorno`, `updateHoraRetorno`, `updateHoraFimRetorno`.
+- **Identificação por primeiro nome** (Paula/Valentina) — match exato, sem acento, case-insensitive. Não uso ID hardcoded para não amarrar a uuids específicos; se amanhã elas trocarem de conta o comportamento segue válido pelo nome.
+- **Nenhuma mudança no banco**, nas policies ou em edge functions. Só lógica de UI.
+- **Outros operadores**: dialog continua aparecendo igual. A função `handleConfirmTakeoverAndSend` permanece intacta (continua sendo chamada pelo "Sim" do dialog).
+- **Logs**: a chamada interna `atribuirOperador(..., true)` já registra a troca de dono no histórico — o auto-takeover continua rastreável.
+- **Mobile**: `MobileActionsSheet` apenas mostra ações; o envio de mensagem mobile passa pelo `ChatWindow.tsx`, então a mudança lá cobre o mobile também.
 
-Garantia adicional: dentro de `salvarFichaEEnviarWebhook`, no momento do `update`, comparar `fichaData.status` com `fichaRef.current?.status` — se o ref tem um status **mais novo** (mudou depois do debounce começar), usar o do ref. Isto serve como segunda barreira contra qualquer outro caminho que ainda passe closure stale.
+## Arquivos a editar
 
-## Salvaguardas (custom-instructions)
+1. `src/components/ChatWindowBeta.tsx` — adicionar lista `AUTO_TAKEOVER_NAMES`, cachear `full_name` do usuário e ajustar `enviarMensagem()`.
+2. `src/components/ChatWindow.tsx` — mesma mudança no `enviarMensagem()` equivalente (linha ~1751).
 
-- Não altera schema, não toca em dados existentes, não muda fusos. Apenas corrige qual valor de status/datas vai para o `UPDATE`.
-- Mantém o `skipRealtimeRef` de 2s já existente.
-- Não mexe em fichas já gravadas. Apenas a próxima edição respeitará o novo fluxo.
-
-## Verificação após implementação
-
-1. Abrir uma ficha em "Orçamento Enviado", mudar status para "Agendado" e **imediatamente** preencher data/hora. Verificar no banco que `status='Agendado'` e `horario_agendamento` foram persistidos juntos.
-2. Repetir invertendo a ordem (data primeiro, depois status).
-3. Conferir o `ficha_status_historico` — não deve haver mais sequência `Agendado → Orçamento Enviado → Agendado` feita pelo mesmo usuário em segundos.
-
-## Fichas afetadas ontem/hoje (para conhecimento, não mexer)
-
-Identificadas no histórico com padrão de revert do mesmo operador em curto intervalo: `FS4-260525` (Paula, 02/06), e candidatas `FGM5@260429`, `FS7-260529` (revert por outro operador — pode ser intencional). FS7-260525 ficou Agendado mas sem horário — operadora deve repreencher após o fix.
+Nada mais é alterado.

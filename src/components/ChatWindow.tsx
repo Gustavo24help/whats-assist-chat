@@ -32,6 +32,7 @@ import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 import { ReplyIndicator } from "./ReplyIndicator";
 import { AtribuicaoDescricaoDialog } from "./AtribuicaoDescricaoDialog";
 import { isClientMessage, markConversationAutoRead, markConversationRead } from "@/lib/chatBetaUnread";
+import { shouldAutoTakeover } from "@/lib/autoTakeoverOperators";
 
 import {
   AlertDialog,
@@ -1746,8 +1747,26 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
   };
 
   // Wrapper que intercepta envio quando conversa é de outro operador
-  const enviarMensagem = () => {
+  const enviarMensagem = async () => {
     if (isOtherOperatorTicket) {
+      // Operadores em AUTO_TAKEOVER_FIRST_NAMES (Paula, Valentina) assumem
+      // automaticamente, sem popup de confirmação.
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', currentUser.id)
+            .single();
+          if (shouldAutoTakeover(profile?.full_name)) {
+            await handleConfirmTakeoverAndSend();
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('[enviarMensagem] auto-takeover check falhou:', e);
+      }
       setTakeoverConfirmOpen(true);
       return;
     }
