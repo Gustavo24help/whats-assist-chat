@@ -664,8 +664,18 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       // 🎯 Auto-promoção: se há valor_total > 0 manual e status ainda é "Ficha Criada",
       // considerar como orçamento e mover para "Orçamento Enviado".
       let statusFinal = fichaData.status;
+
+      // 🛡️ Barreira anti stale-closure: se o ref aponta para um status diferente do
+      // payload (operadora alterou status entre o início do debounce e o flush),
+      // usar o status mais recente do ref para evitar reverter mudanças.
+      const refStatus = fichaRef.current?.status;
+      if (refStatus && refStatus !== statusFinal) {
+        console.log(`🛡️ Status corrigido por ref: ${statusFinal} → ${refStatus}`);
+        statusFinal = refStatus;
+      }
+
       if (
-        fichaData.status === 'Ficha Criada' &&
+        statusFinal === 'Ficha Criada' &&
         typeof fichaData.valor_total === 'number' &&
         fichaData.valor_total > 0
       ) {
