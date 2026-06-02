@@ -1933,8 +1933,26 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   };
 
   // Wrapper que intercepta envio quando conversa é de outro operador
-  const enviarMensagem = () => {
+  const enviarMensagem = async () => {
     if (isOtherOperatorTicket) {
+      // Operadores configurados em AUTO_TAKEOVER_FIRST_NAMES (Paula, Valentina)
+      // assumem a conversa automaticamente, sem popup de confirmação.
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", currentUser.id)
+            .single();
+          if (shouldAutoTakeover(profile?.full_name)) {
+            await handleConfirmTakeoverAndSend();
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("[enviarMensagem] auto-takeover check falhou:", e);
+      }
       setTakeoverConfirmOpen(true);
       return;
     }
