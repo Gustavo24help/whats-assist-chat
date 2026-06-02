@@ -62,6 +62,7 @@ import Orcamentos from "./pages/Orcamentos";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
 import PagamentosOrfaos from "./pages/PagamentosOrfaos";
+import Customers from "./pages/Customers";
 
 
 const queryClient = new QueryClient();
