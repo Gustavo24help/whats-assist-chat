@@ -1,68 +1,59 @@
-## Diagnóstico
+## Problema
 
-Tirei um raio-X do banco. O disco está em 58% porque o Postgres está fazendo varreduras completas (seq scan) excessivas em poucas tabelas pequenas, lendo bilhões de linhas:
+Em `FichaServicoTab.tsx`, ao mudar o status para **Agendado** e logo em seguida preencher (ou já ter aberto) os campos de data/hora, o sistema às vezes **reverte o status** para o valor anterior (ex.: Orçamento Enviado). Foi exatamente o que aconteceu ontem em **FS4-260525** (Paula: Agendado → Orçamento Enviado → Agendado em 20s) e em outras fichas. Hoje em **FS7-260525** o status até gravou como Agendado, mas sem `horario_agendamento` — mesma família de bug.
 
-| Tabela | Seq scans | Linhas lidas em seq scan |
-|---|---|---|
-| `mensagens` (72k linhas, 42 MB) | 4,37 milhões | **18,6 bilhões** |
-| `fichas_de_servico` (1,5k linhas) | 3,78 milhões | 665 milhões |
-| `clientes` (1,8k linhas) | 601 mil | 640 milhões |
-| `mensagem_leitura_operador` | 59 mil | 166 milhões |
-| `orcamentos` | 191 mil | 153 milhões |
+## Causa raiz (stale closure + debounce)
 
-Também há ~100 MB de tabelas de backup/log que não são mais usadas (`mensagens_backup_teste` 52 MB, `webhook_debug_logs` 37 MB, `mensagens_backup` 12 MB) inflando o disco e os backups WAL.
+Todos os handlers de data/hora (`updateDataAgendamento`, `updateHoraAgendamento`, `updateHoraFimAgendamento`, `updateDataRetorno`, `updateHora*Retorno`, `updateHoraVisitaTecnica`) chamam:
 
-Memória em 74% e 2,4 M de transações com rollback (provavelmente conflitos de inserts duplicados do Realtime/Twilio) também contribuem.
+```ts
+autoSave(fichaId, ficha, ...)
+```
 
-**Conclusão:** dá para reduzir bem o IO sem upgrade, atacando as causas. Plano abaixo é só ajuste de banco e queries — não muda nenhuma regra de negócio nem nenhum dado salvo.
+passando a variável `ficha` do **closure do render atual**. O `autoSave` é debounced em 500ms — só a última chamada vai ao banco.
 
-## Plano (apenas otimização, sem mudar comportamento)
+Cenário do bug:
+1. Operadora clica no dropdown e seleciona **Agendado** → `handleFichaUpdate` faz `setFicha({...,status:'Agendado'})` e chama `autoSave(..., updatedFicha, ...)`. Correto.
+2. Em menos de 500ms ela preenche a data/hora → o handler roda com `ficha` capturado **antes do React aplicar o novo status**. Chama `autoSave(..., ficha, ...)` com `status:'Orçamento Enviado'`.
+3. O debounce descarta a 1ª chamada (status correto) e grava a 2ª (status antigo). Resultado: status volta para "Orçamento Enviado".
 
-### 1. Limpar tabelas mortas (≈ 100 MB liberados)
-Migration única, com `DROP TABLE IF EXISTS` apenas para tabelas comprovadamente sem uso:
-- `mensagens_backup_teste` (52 MB, nenhuma referência no código).
-- `mensagens_backup` (12 MB, nenhuma referência no código).
-- Truncar `webhook_debug_logs` mantendo só últimos 7 dias (37 MB → ~2 MB) e criar policy de retenção (cron diário já existente).
+Isso viola a regra documentada na memória `data-integrity-fichas`: salvamento deve usar **parâmetros explícitos**, não closures stale.
 
-Antes de cada drop a migration faz `SELECT count(*)` e grava num log para você poder auditar. Nenhum dado operacional é tocado.
+## Correção (cirúrgica, sem mudar UX)
 
-### 2. Índices que estão faltando (causa principal dos seq scans)
-Adicionar como `CREATE INDEX CONCURRENTLY IF NOT EXISTS` (não bloqueia o app):
+Adicionar um `fichaRef` que sempre aponta para o estado mais recente de `ficha`, e fazer todos os handlers de data/hora lerem dele em vez do `ficha` do closure.
 
-- `mensagens(data_hora DESC)` — usado por sync-twilio, reconcile, painel.
-- `mensagens(remetente, data_hora DESC)` — usado pela RPC `get_ultima_msg_cliente` (hoje filtra `remetente <> '...whatsapp:+554138911555'` sem índice composto).
-- `mensagens(tipo_remetente)` parcial onde `tipo_remetente IS NOT NULL`.
-- `fichas_de_servico(status, created_at DESC)` — dashboards e KPIs filtram por status + data.
-- `fichas_de_servico(cliente_id)` se a coluna existir (verifico antes).
-- `clientes(status_conversa)` e `clientes(ultima_interacao DESC)` — usado pelo Chat BETA.
-- `orcamentos(ficha_id)` e `orcamentos(created_at DESC)`.
-- `mensagem_leitura_operador(cliente_telefone)` — leituras de unread por telefone.
+```ts
+// novo ref
+const fichaRef = useRef<Ficha | null>(null);
+useEffect(() => { fichaRef.current = ficha; }, [ficha]);
+```
 
-Já existe o índice certo para `(cliente_id, data_hora DESC)`, então as RPCs novas vão começar a usar plano correto assim que os índices acima entrarem e o ANALYZE rodar.
+Trocar nos handlers (linhas ~1085-1148):
 
-### 3. Ajustar a RPC `get_ultima_msg_cliente`
-Substituir `MAX(data_hora) ... GROUP BY cliente_id` por `DISTINCT ON (cliente_id) ... ORDER BY cliente_id, data_hora DESC`. Mesmo resultado, mas usa direto o índice `(cliente_id, data_hora DESC)` em loose-index-scan e evita ler todas as linhas do cliente. Comportamento idêntico para o frontend.
+```ts
+// antes
+autoSave(fichaId, ficha, data, horaAgendamento, ...);
+// depois
+autoSave(fichaId, fichaRef.current ?? ficha, data, horaAgendamento, ...);
+```
 
-### 4. Reduzir poll/refetch redundante (sem mudar UX)
-Sem mexer em regras, só em frequência:
-- `ConversationListBeta`: trocar refetch de fichas/orçamentos a cada mudança Realtime por debounce de 800 ms (hoje dispara várias vezes por segundo quando chega rajada de mensagens).
-- `useDashboardSummary` e `useDashboardTV`: aumentar intervalo de re-execução de 30 s para 60 s (valor já era arbitrário; nada visual muda perceptivelmente).
-- Remover `select('*')` em 3 lugares onde só são lidas 2–3 colunas (`ChatWindow`, `MobileConversationList`, `useClienteSignalsBeta`), reduzindo bytes lidos por chamada.
+Aplicar em: `updateDataAgendamento`, `updateHoraAgendamento`, `updateHoraFimAgendamento`, `updateDataVisitaTecnica` (já cria updatedFicha, manter), `updateHoraVisitaTecnica`, `updateDataRetorno`, `updateHoraRetorno`, `updateHoraFimRetorno`.
 
-### 5. VACUUM + ANALYZE pós-migration
-Migration final roda `VACUUM (ANALYZE)` em `mensagens`, `fichas_de_servico`, `clientes`, `mensagem_leitura_operador`, `orcamentos` para o planner usar os novos índices imediatamente.
+Garantia adicional: dentro de `salvarFichaEEnviarWebhook`, no momento do `update`, comparar `fichaData.status` com `fichaRef.current?.status` — se o ref tem um status **mais novo** (mudou depois do debounce começar), usar o do ref. Isto serve como segunda barreira contra qualquer outro caminho que ainda passe closure stale.
 
-### Salvaguardas
-- Todos os índices são `CREATE INDEX CONCURRENTLY IF NOT EXISTS` → não trava tabela, não muda dados.
-- Drops só nas duas tabelas de backup que não aparecem em nenhum arquivo do projeto (`rg` confirmado).
-- Truncamento de `webhook_debug_logs` mantém últimos 7 dias para preservar auditoria recente.
-- Mudança na RPC mantém assinatura e retorno idênticos; o frontend não precisa mudar.
-- Nenhuma alteração em RLS, em valores, em fusos, em status, em campos de horário, ou em dados de fichas/clientes/mensagens.
+## Salvaguardas (custom-instructions)
 
-## Impacto esperado
-- Seq scans em `mensagens` devem cair em mais de 90% (consultas que hoje leem 72k linhas vão ler dezenas).
-- Disk IO budget projetado: **58% → ~20–25%**.
-- Latência percebida no Chat BETA e nas listas cai (menos round trips, menos bytes).
-- Sem necessidade de upgrade da instância no curto prazo.
+- Não altera schema, não toca em dados existentes, não muda fusos. Apenas corrige qual valor de status/datas vai para o `UPDATE`.
+- Mantém o `skipRealtimeRef` de 2s já existente.
+- Não mexe em fichas já gravadas. Apenas a próxima edição respeitará o novo fluxo.
 
-Se aprovar, eu já mando: 1 migration de limpeza + 1 migration de índices + 1 migration da RPC ajustada, mais os 4 ajustes de frontend (debounce/intervalo/colunas).
+## Verificação após implementação
+
+1. Abrir uma ficha em "Orçamento Enviado", mudar status para "Agendado" e **imediatamente** preencher data/hora. Verificar no banco que `status='Agendado'` e `horario_agendamento` foram persistidos juntos.
+2. Repetir invertendo a ordem (data primeiro, depois status).
+3. Conferir o `ficha_status_historico` — não deve haver mais sequência `Agendado → Orçamento Enviado → Agendado` feita pelo mesmo usuário em segundos.
+
+## Fichas afetadas ontem/hoje (para conhecimento, não mexer)
+
+Identificadas no histórico com padrão de revert do mesmo operador em curto intervalo: `FS4-260525` (Paula, 02/06), e candidatas `FGM5@260429`, `FS7-260529` (revert por outro operador — pode ser intencional). FS7-260525 ficou Agendado mas sem horário — operadora deve repreencher após o fix.
