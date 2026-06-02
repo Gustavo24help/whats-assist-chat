@@ -988,6 +988,217 @@ export type Database = {
           },
         ]
       }
+      customer_services: {
+        Row: {
+          address_used: string | null
+          cancellation_reason: string | null
+          completed_at: string | null
+          created_at: string
+          customer_feedback: string | null
+          customer_id: string
+          customer_rating: number | null
+          description: string | null
+          diagnosis: string | null
+          ficha_id: string | null
+          final_value: number | null
+          had_warranty_claim: boolean
+          id: string
+          notes: string | null
+          payment_method: string | null
+          photos_after: string[]
+          photos_before: string[]
+          provider_id: string | null
+          provider_name: string | null
+          provider_phone: string | null
+          quoted_value: number | null
+          requested_at: string | null
+          service_date: string | null
+          sku: string | null
+          status: string
+          warranty_description: string | null
+        }
+        Insert: {
+          address_used?: string | null
+          cancellation_reason?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_feedback?: string | null
+          customer_id: string
+          customer_rating?: number | null
+          description?: string | null
+          diagnosis?: string | null
+          ficha_id?: string | null
+          final_value?: number | null
+          had_warranty_claim?: boolean
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          photos_after?: string[]
+          photos_before?: string[]
+          provider_id?: string | null
+          provider_name?: string | null
+          provider_phone?: string | null
+          quoted_value?: number | null
+          requested_at?: string | null
+          service_date?: string | null
+          sku?: string | null
+          status: string
+          warranty_description?: string | null
+        }
+        Update: {
+          address_used?: string | null
+          cancellation_reason?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_feedback?: string | null
+          customer_id?: string
+          customer_rating?: number | null
+          description?: string | null
+          diagnosis?: string | null
+          ficha_id?: string | null
+          final_value?: number | null
+          had_warranty_claim?: boolean
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          photos_after?: string[]
+          photos_before?: string[]
+          provider_id?: string | null
+          provider_name?: string | null
+          provider_phone?: string | null
+          quoted_value?: number | null
+          requested_at?: string | null
+          service_date?: string | null
+          sku?: string | null
+          status?: string
+          warranty_description?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_services_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          acquisition_source: string | null
+          address_city: string | null
+          address_complement: string | null
+          address_lat: number | null
+          address_lng: number | null
+          address_neighborhood: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          avg_ticket: number
+          cpf: string | null
+          created_at: string
+          days_since_last_service: number | null
+          email: string | null
+          first_service_at: string | null
+          id: string
+          last_contact_at: string | null
+          last_service_at: string | null
+          name: string
+          notes: string | null
+          phone: string
+          preferred_provider_id: string | null
+          preferred_provider_name: string | null
+          preferred_skus: string[]
+          referred_by_customer_id: string | null
+          satisfaction_avg: number | null
+          segment: string | null
+          status: string
+          tags: string[]
+          total_services_cancelled: number
+          total_services_completed: number
+          total_spent: number
+          updated_at: string
+        }
+        Insert: {
+          acquisition_source?: string | null
+          address_city?: string | null
+          address_complement?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
+          address_neighborhood?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          avg_ticket?: number
+          cpf?: string | null
+          created_at?: string
+          days_since_last_service?: number | null
+          email?: string | null
+          first_service_at?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_service_at?: string | null
+          name: string
+          notes?: string | null
+          phone: string
+          preferred_provider_id?: string | null
+          preferred_provider_name?: string | null
+          preferred_skus?: string[]
+          referred_by_customer_id?: string | null
+          satisfaction_avg?: number | null
+          segment?: string | null
+          status?: string
+          tags?: string[]
+          total_services_cancelled?: number
+          total_services_completed?: number
+          total_spent?: number
+          updated_at?: string
+        }
+        Update: {
+          acquisition_source?: string | null
+          address_city?: string | null
+          address_complement?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
+          address_neighborhood?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          avg_ticket?: number
+          cpf?: string | null
+          created_at?: string
+          days_since_last_service?: number | null
+          email?: string | null
+          first_service_at?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_service_at?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          preferred_provider_id?: string | null
+          preferred_provider_name?: string | null
+          preferred_skus?: string[]
+          referred_by_customer_id?: string | null
+          satisfaction_avg?: number | null
+          segment?: string | null
+          status?: string
+          tags?: string[]
+          total_services_cancelled?: number
+          total_services_completed?: number
+          total_spent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_referred_by_customer_id_fkey"
+            columns: ["referred_by_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_goals: {
         Row: {
           created_at: string | null
@@ -1718,6 +1929,92 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "internal_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          acquisition_source: string | null
+          address_city: string | null
+          address_neighborhood: string | null
+          address_state: string | null
+          converted_at: string | null
+          converted_to_customer_id: string | null
+          created_at: string
+          email: string | null
+          first_contact_at: string | null
+          id: string
+          last_contact_at: string | null
+          last_quote_at: string | null
+          last_quoted_value: number | null
+          last_sku_requested: string | null
+          lost_reason: string | null
+          name: string
+          notes: string | null
+          phone: string
+          skus_requested: string[]
+          status: string
+          tags: string[]
+          total_quotes_requested: number
+          updated_at: string
+        }
+        Insert: {
+          acquisition_source?: string | null
+          address_city?: string | null
+          address_neighborhood?: string | null
+          address_state?: string | null
+          converted_at?: string | null
+          converted_to_customer_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_contact_at?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_quote_at?: string | null
+          last_quoted_value?: number | null
+          last_sku_requested?: string | null
+          lost_reason?: string | null
+          name: string
+          notes?: string | null
+          phone: string
+          skus_requested?: string[]
+          status?: string
+          tags?: string[]
+          total_quotes_requested?: number
+          updated_at?: string
+        }
+        Update: {
+          acquisition_source?: string | null
+          address_city?: string | null
+          address_neighborhood?: string | null
+          address_state?: string | null
+          converted_at?: string | null
+          converted_to_customer_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_contact_at?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_quote_at?: string | null
+          last_quoted_value?: number | null
+          last_sku_requested?: string | null
+          lost_reason?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          skus_requested?: string[]
+          status?: string
+          tags?: string[]
+          total_quotes_requested?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_converted_to_customer_id_fkey"
+            columns: ["converted_to_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]
@@ -3339,6 +3636,14 @@ export type Database = {
         }
         Returns: string
       }
+      crm_is_closed_status: { Args: { _status: string }; Returns: boolean }
+      crm_map_ficha_status: { Args: { _status: string }; Returns: string }
+      crm_sync_ficha: {
+        Args: {
+          _ficha: Database["public"]["Tables"]["fichas_de_servico"]["Row"]
+        }
+        Returns: undefined
+      }
       fichas_sem_nome_cliente_recentes: {
         Args: never
         Returns: {
@@ -3400,6 +3705,11 @@ export type Database = {
       is_internal_conversation_member: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
+      }
+      promote_lead_to_customer: { Args: { _lead_id: string }; Returns: string }
+      recalc_customer_aggregates: {
+        Args: { _customer_id: string }
+        Returns: undefined
       }
       record_bot_reactivation_typed: {
         Args: { _challenge_id: string; _texto: string }
