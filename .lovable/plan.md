@@ -1,65 +1,45 @@
 ## Objetivo
+Criar arquivo `documentação/dashboard-executivo.md` documentando a origem (tabela, coluna, filtro, lógica) de cada indicador exibido no dashboard executivo.
 
-Quando a operadora **Paula** ou **Valentina** enviar mensagem em uma conversa atribuída a outro operador, o sistema deve **assumir automaticamente** a conversa e enviar a mensagem, sem mostrar o AlertDialog de "Tem certeza?".
+## Escopo
+Documentar as seguintes seções e métricas:
 
-Para todos os outros operadores, o comportamento atual (popup de confirmação) continua igual.
+1. **Funil de Conversão**
+   - FS Criadas
+   - Com Orçamento
+   - Agendados
+   - Finalizados
+   - Pago (cliente)
+   - Taxa de fechamento global
+   - Variações percentuais
 
-## Onde está hoje
+2. **Financeiro**
+   - Valor Total OS
+   - Mão de Obra
+   - Peças
+   - Pago a Prestadores
+   - Líquido 24help
+   - % Take Rate
 
-Existem dois componentes que mostram esse popup quando `isOtherOperatorTicket` é true:
+3. **Volume de Atendimento**
+   - Reaproveita dados do hook de KPIs
+   - Pago ao Prestador (usa `data_pagamento_realizada` de transações)
 
-- `src/components/ChatWindowBeta.tsx` — Chat BETA (rota `/chat-beta`, em uso principal)
-- `src/components/ChatWindow.tsx` — Chat clássico (ainda usado no mobile / fallback)
+4. **B2B vs B2C**
+   - Classificação por CNPJ/CPF
+   - Contagem, receita, ticket médio, clientes únicos
 
-Em ambos, o fluxo é:
+## Arquivos a serem lidos (referência)
+- `src/hooks/useOperationalKPIs.ts` — origem dos KPIs operacionais
+- `src/components/ExecutiveDashboardSection.tsx` — funil e financeiro
+- `src/components/B2BvsB2CSection.tsx` — B2B vs B2C
+- `src/components/DashboardContent.tsx` — layout geral
 
-```text
-enviarMensagem() 
-  └── se isOtherOperatorTicket → abre AlertDialog (takeoverConfirmOpen)
-        └── usuário clica "Sim" → handleConfirmTakeoverAndSend()
-              ├── atribuirOperador(currentUser, nome, undefined, true)  ← assume
-              └── enviarMensagemReal()                                   ← envia
-```
+## Entregável
+Arquivo `documentação/dashboard-executivo.md` com:
+- Tabela de mapeamento métrica → tabela/campo/filtro
+- Notas sobre campos de fallback (ex: `valor_final_mao_obra ?? valor_mao_obra`)
+- Observações sobre distinção entre status histórico vs status atual
+- Mencionar que quase tudo filtra por `created_at` da ficha, exceto "Pago ao Prestador"
 
-## Mudança
-
-Em **`enviarMensagem()`** (ambos os arquivos), antes de abrir o dialog, verificar o `full_name` do operador logado. Se o primeiro nome (normalizado, sem acento, lowercase) for `paula` ou `valentina`, pular o dialog e executar diretamente o mesmo fluxo do `handleConfirmTakeoverAndSend` (assumir + enviar).
-
-Pseudocódigo:
-
-```ts
-const AUTO_TAKEOVER_NAMES = ["paula", "valentina"];
-
-const enviarMensagem = async () => {
-  if (isOtherOperatorTicket) {
-    const firstName = currentUserFullName
-      ?.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .trim().split(/\s+/)[0]?.toLowerCase();
-
-    if (firstName && AUTO_TAKEOVER_NAMES.includes(firstName)) {
-      await handleConfirmTakeoverAndSend(); // assume e envia, sem dialog
-      return;
-    }
-    setTakeoverConfirmOpen(true);
-    return;
-  }
-  enviarMensagemReal();
-};
-```
-
-O `full_name` já é buscado dentro de `handleConfirmTakeoverAndSend` via `profiles`. Vou cachear o `full_name` do usuário atual em um `useRef`/`useState` no mount do componente (já existe lookup parecido em outros pontos) para ter a checagem disponível no momento do clique sem `await` extra.
-
-## Detalhes / salvaguardas
-
-- **Identificação por primeiro nome** (Paula/Valentina) — match exato, sem acento, case-insensitive. Não uso ID hardcoded para não amarrar a uuids específicos; se amanhã elas trocarem de conta o comportamento segue válido pelo nome.
-- **Nenhuma mudança no banco**, nas policies ou em edge functions. Só lógica de UI.
-- **Outros operadores**: dialog continua aparecendo igual. A função `handleConfirmTakeoverAndSend` permanece intacta (continua sendo chamada pelo "Sim" do dialog).
-- **Logs**: a chamada interna `atribuirOperador(..., true)` já registra a troca de dono no histórico — o auto-takeover continua rastreável.
-- **Mobile**: `MobileActionsSheet` apenas mostra ações; o envio de mensagem mobile passa pelo `ChatWindow.tsx`, então a mudança lá cobre o mobile também.
-
-## Arquivos a editar
-
-1. `src/components/ChatWindowBeta.tsx` — adicionar lista `AUTO_TAKEOVER_NAMES`, cachear `full_name` do usuário e ajustar `enviarMensagem()`.
-2. `src/components/ChatWindow.tsx` — mesma mudança no `enviarMensagem()` equivalente (linha ~1751).
-
-Nada mais é alterado.
+Nenhuma alteração de código necessária. Apenas documentação.
