@@ -164,6 +164,10 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [horaRetorno, setHoraRetorno] = useState<string>('');
   const [horaFimRetorno, setHoraFimRetorno] = useState<string>('');
   const skipRealtimeRef = useRef(false);
+  // 🛡️ Ref sempre apontando para o ficha mais recente — evita stale closure em handlers
+  // de data/hora que rodam dentro da janela de debounce do autoSave (bug de reverter status).
+  const fichaRef = useRef<Ficha | null>(null);
+  useEffect(() => { fichaRef.current = ficha; }, [ficha]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [nomeCliente, setNomeCliente] = useState<string>('');
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
