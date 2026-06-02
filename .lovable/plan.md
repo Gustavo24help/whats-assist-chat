@@ -1,83 +1,68 @@
-## Objetivos
+## Diagnóstico
 
-1. Acabar com o limite de 1000 linhas que faz fichas/orçamentos sumirem.
-2. Voltar a permitir arrastar/colar imagem fora da janela de mensagens (na lateral da ficha, lista de conversas, etc.).
-3. Acelerar o carregamento do Chat.
+Tirei um raio-X do banco. O disco está em 58% porque o Postgres está fazendo varreduras completas (seq scan) excessivas em poucas tabelas pequenas, lendo bilhões de linhas:
 
----
+| Tabela | Seq scans | Linhas lidas em seq scan |
+|---|---|---|
+| `mensagens` (72k linhas, 42 MB) | 4,37 milhões | **18,6 bilhões** |
+| `fichas_de_servico` (1,5k linhas) | 3,78 milhões | 665 milhões |
+| `clientes` (1,8k linhas) | 601 mil | 640 milhões |
+| `mensagem_leitura_operador` | 59 mil | 166 milhões |
+| `orcamentos` | 191 mil | 153 milhões |
 
-## 1. Velocidade + fim do limite (RPCs no banco)
+Também há ~100 MB de tabelas de backup/log que não são mais usadas (`mensagens_backup_teste` 52 MB, `webhook_debug_logs` 37 MB, `mensagens_backup` 12 MB) inflando o disco e os backups WAL.
 
-Hoje o `ConversationListBeta` faz, para cada lote de 500 telefones, várias páginas de `.range(0..999, 1000..1999, …)` em `mensagens`. Com ~70k mensagens isso vira centenas de round-trips e trava o navegador.
+Memória em 74% e 2,4 M de transações com rollback (provavelmente conflitos de inserts duplicados do Realtime/Twilio) também contribuem.
 
-A solução é deixar o banco fazer a agregação. Crio duas funções `STABLE SECURITY DEFINER`:
+**Conclusão:** dá para reduzir bem o IO sem upgrade, atacando as causas. Plano abaixo é só ajuste de banco e queries — não muda nenhuma regra de negócio nem nenhum dado salvo.
 
-- `get_ultima_msg_cliente(_telefones text[])` — devolve a data da última mensagem do CLIENTE por telefone (ignora o número Twilio de saída). Usado para janela 24h.
-- `get_ultima_msg_qualquer(_telefones text[])` — devolve a última mensagem (qualquer remetente) por telefone com `remetente`, `tipo_remetente`, `operador_nome`. Usado para a tag "última msg por X".
+## Plano (apenas otimização, sem mudar comportamento)
 
-Ambas com `GRANT EXECUTE` a `authenticated`, `anon`, `service_role`. Nenhuma altera regra de negócio, só lê.
+### 1. Limpar tabelas mortas (≈ 100 MB liberados)
+Migration única, com `DROP TABLE IF EXISTS` apenas para tabelas comprovadamente sem uso:
+- `mensagens_backup_teste` (52 MB, nenhuma referência no código).
+- `mensagens_backup` (12 MB, nenhuma referência no código).
+- Truncar `webhook_debug_logs` mantendo só últimos 7 dias (37 MB → ~2 MB) e criar policy de retenção (cron diário já existente).
 
-No frontend (`ConversationListBeta.tsx`):
+Antes de cada drop a migration faz `SELECT count(*)` e grava num log para você poder auditar. Nenhum dado operacional é tocado.
 
-- Substituo as duas chamadas `chunkedIn('mensagens', …)` por `supabase.rpc(...)` em lotes de 500 telefones (mesma estratégia do `fetchUnreadStateForUser`).
-- Mantenho `chunkedIn` para `fichas_de_servico`, `orcamentos` e `ficha_status_historico` — tabelas menores, onde a paginação interna já protege contra o truncamento de 1000.
+### 2. Índices que estão faltando (causa principal dos seq scans)
+Adicionar como `CREATE INDEX CONCURRENTLY IF NOT EXISTS` (não bloqueia o app):
 
-Resultado: mesmas informações, sem limite, e o número de requisições cai de centenas para 3–4. O chat destrava e a lista entra cheia.
+- `mensagens(data_hora DESC)` — usado por sync-twilio, reconcile, painel.
+- `mensagens(remetente, data_hora DESC)` — usado pela RPC `get_ultima_msg_cliente` (hoje filtra `remetente <> '...whatsapp:+554138911555'` sem índice composto).
+- `mensagens(tipo_remetente)` parcial onde `tipo_remetente IS NOT NULL`.
+- `fichas_de_servico(status, created_at DESC)` — dashboards e KPIs filtram por status + data.
+- `fichas_de_servico(cliente_id)` se a coluna existir (verifico antes).
+- `clientes(status_conversa)` e `clientes(ultima_interacao DESC)` — usado pelo Chat BETA.
+- `orcamentos(ficha_id)` e `orcamentos(created_at DESC)`.
+- `mensagem_leitura_operador(cliente_telefone)` — leituras de unread por telefone.
 
-Nada muda no comportamento, layout, contagem de não-lidas, badges ou regras de negócio. Apenas o transporte das duas consultas de mensagem.
+Já existe o índice certo para `(cliente_id, data_hora DESC)`, então as RPCs novas vão começar a usar plano correto assim que os índices acima entrarem e o ANALYZE rodar.
 
----
+### 3. Ajustar a RPC `get_ultima_msg_cliente`
+Substituir `MAX(data_hora) ... GROUP BY cliente_id` por `DISTINCT ON (cliente_id) ... ORDER BY cliente_id, data_hora DESC`. Mesmo resultado, mas usa direto o índice `(cliente_id, data_hora DESC)` em loose-index-scan e evita ler todas as linhas do cliente. Comportamento idêntico para o frontend.
 
-## 2. Arrastar/colar imagem fora da janela de mensagens
+### 4. Reduzir poll/refetch redundante (sem mudar UX)
+Sem mexer em regras, só em frequência:
+- `ConversationListBeta`: trocar refetch de fichas/orçamentos a cada mudança Realtime por debounce de 800 ms (hoje dispara várias vezes por segundo quando chega rajada de mensagens).
+- `useDashboardSummary` e `useDashboardTV`: aumentar intervalo de re-execução de 30 s para 60 s (valor já era arbitrário; nada visual muda perceptivelmente).
+- Remover `select('*')` em 3 lugares onde só são lidas 2–3 colunas (`ChatWindow`, `MobileConversationList`, `useClienteSignalsBeta`), reduzindo bytes lidos por chamada.
 
-Hoje `onDragEnter/Over/Leave/Drop` e `onPaste` estão amarrados só ao container das mensagens (`ChatWindowBeta.tsx` linhas 2734 e 3144). Se você solta a imagem na lateral da ficha, na lista ou em qualquer outra área do chat, nada acontece.
+### 5. VACUUM + ANALYZE pós-migration
+Migration final roda `VACUUM (ANALYZE)` em `mensagens`, `fichas_de_servico`, `clientes`, `mensagem_leitura_operador`, `orcamentos` para o planner usar os novos índices imediatamente.
 
-Mudança:
+### Salvaguardas
+- Todos os índices são `CREATE INDEX CONCURRENTLY IF NOT EXISTS` → não trava tabela, não muda dados.
+- Drops só nas duas tabelas de backup que não aparecem em nenhum arquivo do projeto (`rg` confirmado).
+- Truncamento de `webhook_debug_logs` mantém últimos 7 dias para preservar auditoria recente.
+- Mudança na RPC mantém assinatura e retorno idênticos; o frontend não precisa mudar.
+- Nenhuma alteração em RLS, em valores, em fusos, em status, em campos de horário, ou em dados de fichas/clientes/mensagens.
 
-- Mover os handlers de drag-and-drop para o wrapper raiz do `ChatWindowBeta` (o `<div>` mais externo do componente), mantendo o overlay visual centralizado sobre a área das mensagens.
-- Adicionar `onPaste` no mesmo wrapper raiz (além do textarea), para que Ctrl+V cole imagem mesmo com o foco fora do campo de texto.
-- Manter as mesmas regras atuais: bloqueia se `statusConversa === "fechada"` e só aceita image/video/audio/PDF.
+## Impacto esperado
+- Seq scans em `mensagens` devem cair em mais de 90% (consultas que hoje leem 72k linhas vão ler dezenas).
+- Disk IO budget projetado: **58% → ~20–25%**.
+- Latência percebida no Chat BETA e nas listas cai (menos round trips, menos bytes).
+- Sem necessidade de upgrade da instância no curto prazo.
 
-Sem alterar o fluxo de upload, validação 24h ou Twilio.
-
----
-
-## 3. Detalhes técnicos
-
-**Migração SQL (resumo):**
-
-```text
-CREATE OR REPLACE FUNCTION public.get_ultima_msg_cliente(_telefones text[])
-RETURNS TABLE(cliente_id text, ultima_data_hora timestamptz)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT cliente_id, MAX(data_hora)
-  FROM mensagens
-  WHERE cliente_id = ANY(_telefones)
-    AND remetente <> 'whatsapp:+554138911555'
-  GROUP BY cliente_id
-$$;
-
-CREATE OR REPLACE FUNCTION public.get_ultima_msg_qualquer(_telefones text[])
-RETURNS TABLE(cliente_id text, data_hora timestamptz, remetente text, tipo_remetente text, operador_nome text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT DISTINCT ON (cliente_id) cliente_id, data_hora, remetente, tipo_remetente, operador_nome
-  FROM mensagens
-  WHERE cliente_id = ANY(_telefones)
-  ORDER BY cliente_id, data_hora DESC
-$$;
-
-GRANT EXECUTE ON FUNCTION public.get_ultima_msg_cliente(text[]) TO authenticated, anon, service_role;
-GRANT EXECUTE ON FUNCTION public.get_ultima_msg_qualquer(text[]) TO authenticated, anon, service_role;
-```
-
-Índice já existente em `mensagens(cliente_id, data_hora)` cobre as duas (se faltar, crio).
-
-**Arquivos alterados:**
-- nova migração SQL (funções acima)
-- `src/components/ConversationListBeta.tsx` — troca dos dois `chunkedIn('mensagens', …)` por `rpc` em chunks de 500
-- `src/components/ChatWindowBeta.tsx` — move drag/drop/paste para o wrapper raiz
-
-**Salvaguardas (regra do projeto):**
-- Nenhuma escrita; só leitura agregada. Não muda dados existentes nem fuso/horários.
-- Mesmos campos retornados que o código já consome (`cliente_id`, `data_hora`, `remetente`, `tipo_remetente`, `operador_nome`).
-- Lógica de não-lidas, badges, alertas, conversa aberta/fechada e janela 24h ficam inalteradas.
+Se aprovar, eu já mando: 1 migration de limpeza + 1 migration de índices + 1 migration da RPC ajustada, mais os 4 ajustes de frontend (debounce/intervalo/colunas).
