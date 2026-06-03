@@ -392,12 +392,27 @@ Deno.serve(async (req) => {
     const newDataDesabilitado =
       requestedAction === "disable_bot" ? new Date().toISOString() : null;
 
+    // ===== Auto-liberação da conversa ao religar bot =====
+    // Qualquer enable_bot que encontre conversa atribuída a humano OU não fechada
+    // deve limpar atendente_id e fechar a conversa — sem bloqueio.
+    const previousAtendenteId = clienteAntes?.atendente_id ?? null;
+    const previousStatusConversa = clienteAntes?.status_conversa ?? null;
+    const autoReleaseConversation =
+      requestedAction === "enable_bot" &&
+      (Boolean(previousAtendenteId) ||
+        (previousStatusConversa !== null && previousStatusConversa !== "fechada"));
+
     // ===== Aplicar update =====
     const updatePayload: Record<string, unknown> = {
       bot_habilitado: newBotEnabled,
       data_bot_desabilitado: newDataDesabilitado,
       bot_desligado_manualmente: newManualLock,
     };
+
+    if (autoReleaseConversation) {
+      updatePayload.atendente_id = null;
+      updatePayload.status_conversa = "fechada";
+    }
 
     // bot_ja_desligado_alguma_vez fica como flag histórica
     if (requestedAction === "disable_bot") {
