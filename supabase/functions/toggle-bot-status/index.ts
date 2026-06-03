@@ -311,44 +311,10 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Bloqueio: conversa atribuída a operador humano e ainda aberta
-      if (
-        clienteAntes?.atendente_id &&
-        clienteAntes?.status_conversa &&
-        clienteAntes.status_conversa !== "fechada"
-      ) {
-        await supabase.from("system_logs").insert({
-          nivel: "warn",
-          categoria: "bot",
-          mensagem: `enable_bot BLOQUEADO — conversa em atendimento humano: ${telefone}`,
-          cliente_telefone: telefone,
-          detalhes: {
-            event: "enable_bot_blocked_human_open",
-            atendente_id: clienteAntes.atendente_id,
-            status_conversa: clienteAntes.status_conversa,
-            executed_by_user_id: executedByUserId,
-            challenge_id: challengeId,
-          },
-          url: "edge://toggle-bot-status",
-        });
-
-        await supabase
-          .from("bot_reactivation_confirmations")
-          .update({
-            resultado: "bloqueado_humano_ativo",
-            clicado_em: new Date().toISOString(),
-          })
-          .eq("id", challengeId);
-
-        return new Response(
-          JSON.stringify({
-            error:
-              "Conversa está em atendimento humano (status diferente de fechada). Feche a conversa antes de religar o bot.",
-            reason: "human_operator_active",
-          }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
+      // Auto-liberação: se conversa está atribuída a operador humano e/ou aberta,
+      // não bloqueamos mais. Limpamos atendente_id e fechamos a conversa no
+      // mesmo update do cliente. Auditoria registrada abaixo.
+      // (controlado pelas flags autoReleaseConversation / previousAtendenteId / previousStatusConversa)
 
       // Consome o challenge AGORA (antes do update do cliente) — uso único
       await supabase
