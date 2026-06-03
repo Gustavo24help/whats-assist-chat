@@ -515,6 +515,30 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (autoReleaseConversation) {
+      try {
+        await supabase.from("system_logs").insert({
+          nivel: "info",
+          categoria: "bot",
+          mensagem: `enable_bot AUTO-LIBEROU conversa: ${telefone}`,
+          cliente_telefone: telefone,
+          user_id: executedByUserId,
+          detalhes: {
+            event: "enable_bot_auto_release",
+            previous_atendente_id: previousAtendenteId,
+            previous_status_conversa: previousStatusConversa,
+            executed_by_user_id: executedByUserId,
+            resolved_origin: resolvedOrigin,
+            trigger_source: triggerSource,
+            request_id: requestId,
+          },
+          url: "edge://toggle-bot-status",
+        });
+      } catch (logErr) {
+        console.warn("[toggle-bot-status] falha ao gravar auto_release log:", logErr);
+      }
+    }
+
     console.log(
       `[toggle-bot-status] ✅ ${telefone} ${acaoLegacy} | origem=${resolvedOrigin} trigger=${triggerSource} prev=(${previousBotEnabled},${previousManualLock}) new=(${newBotEnabled},${newManualLock})${incoherentState ? " [INCOERENTE]" : ""}`,
     );
