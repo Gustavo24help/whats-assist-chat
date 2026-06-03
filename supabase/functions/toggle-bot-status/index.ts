@@ -464,6 +464,9 @@ Deno.serve(async (req) => {
       `prev_enabled=${previousBotEnabled}, prev_manual_lock=${previousManualLock}, ` +
       `new_enabled=${newBotEnabled}, new_manual_lock=${newManualLock}` +
       (body.template_name ? `, template=${body.template_name}` : "") +
+      (autoReleaseConversation
+        ? `, auto_released=true, prev_atendente_id=${previousAtendenteId ?? "null"}, prev_status_conversa=${previousStatusConversa ?? "null"}`
+        : "") +
       `]`;
 
     const observacaoFinal = incoherentState
