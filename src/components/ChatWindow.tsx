@@ -1960,17 +1960,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
           });
         }
       } else {
-        if (temOperadorAtivo) {
-          toast.error("Bot não reativado", {
-            description: "Há um operador ativo nessa conversa. Feche ou transfira o atendimento antes de devolver para o bot.",
-          });
-          setAssumirDialogOpen(false);
-          setBotDesabilitado(true);
-          setBotStatusNoDialog(null);
-          return;
-        }
-
-        // Reativar bot
+        // Reativar bot — auto-libera conversa no backend se houver atendente/aberta
         const { data, error } = await supabase.functions.invoke('toggle-bot-status', {
           body: {
             telefone: clienteTelefone,
@@ -1987,7 +1977,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
         if (data?.blocked) {
           toast.error("Bot não reativado", {
-            description: "O backend bloqueou a ativação porque ainda existe atendimento humano ativo.",
+            description: data?.error || "O backend bloqueou a ativação.",
           });
           setBotDesabilitado(true);
           setBotStatusNoDialog(null);
@@ -1995,8 +1985,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
         }
 
         setBotDesabilitado(false);
-        logChatEvent("bot_reativado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "toggle-bot-status" });
-        toast.success(`Bot reativado por ${userName}`);
+        logChatEvent("bot_reativado", { telefone: clienteTelefone, ficha_id: fichaId || null, via: "toggle-bot-status", auto_released: !!data?.auto_released });
+        if (data?.auto_released) {
+          toast.success(`Bot reativado por ${userName}`, {
+            description: "Conversa foi fechada e atribuição liberada automaticamente.",
+          });
+        } else {
+          toast.success(`Bot reativado por ${userName}`);
+        }
         setUltimaAcaoBot({
           acao: 'habilitado',
           por: userName,
