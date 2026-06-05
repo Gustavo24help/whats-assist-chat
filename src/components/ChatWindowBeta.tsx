@@ -216,6 +216,7 @@ export const ChatWindowBeta = ({
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
   const [replyingTo, setReplyingTo] = useState<Mensagem | null>(null);
   const [fichaId, setFichaId] = useState<string | undefined>();
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -1837,13 +1838,14 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       return;
     }
 
-    if (!novaMsg.trim() || isSending) return;
+    if (!novaMsg.trim() || isSending || isSendingRef.current) return;
 
     if (statusConversa === "fechada") {
       toast.error("Conversa fechada! Use templates aprovados para enviar mensagens.");
       return;
     }
 
+    isSendingRef.current = true;
     setIsSending(true);
     const mensagemTexto = novaMsg;
 
@@ -1930,11 +1932,13 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       setNovaMsg(mensagemTexto); // Restaurar texto original (capturado na linha 1412)
     } finally {
       setIsSending(false);
+      isSendingRef.current = false;
     }
   };
 
   // Wrapper que intercepta envio quando conversa é de outro operador
   const enviarMensagem = async () => {
+    if (isSendingRef.current) return;
     if (isOtherOperatorTicket) {
       // Operadores configurados em AUTO_TAKEOVER_FIRST_NAMES (Paula, Valentina)
       // assumem a conversa automaticamente, sem popup de confirmação.
@@ -3163,11 +3167,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
+                      if (isSendingRef.current || isSending || uploading) return;
                       enviarMensagem();
                     }
                   }}
                   onPaste={handlePaste}
-                  disabled={statusConversa === "fechada" || !!pendingFile}
+                  disabled={statusConversa === "fechada" || !!pendingFile || isSending || uploading}
                   className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
                   rows={1}
                   style={{ height: "auto", overflowY: "hidden" }}
