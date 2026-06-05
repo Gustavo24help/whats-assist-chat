@@ -75,21 +75,26 @@ Deno.serve(async (req) => {
     // Se QUALQUER um estiver com bot_habilitado=false, o status final é "disabled".
     const { data: rows, error } = await supabase
       .from('clientes')
-      .select('id, telefone, bot_habilitado, bot_desligado_manualmente, atendente_id, status_conversa')
+      .select('telefone, bot_habilitado, bot_desligado_manualmente, atendente_id, status_conversa')
       .in('telefone', variants);
 
     if (error) {
       console.error('[check-bot-status] Erro ao consultar clientes:', error);
-      // Fail-open só em erro de infraestrutura, com log para auditoria.
+      // Fail-CLOSED em erro de infraestrutura: preferimos silenciar o bot a deixar ele responder
+      // sem checagem. Cliente novo (sem registro) continua tratado mais abaixo como enabled.
       await supabase.from('system_logs').insert({
-        event_type: 'check_bot_status_db_error',
-        event_data: { telefone, variants, error: error.message },
+        nivel: 'error',
+        categoria: 'bot',
+        mensagem: 'check-bot-status: erro ao consultar clientes',
+        detalhes: { telefone, variants, error: error.message, code: (error as any).code ?? null },
+        cliente_telefone: telefone,
       }).then(() => {}, () => {});
       return new Response(
         JSON.stringify({
-          bot_status: 'enabled',
+          bot_status: 'disabled',
           telefone,
-          message: 'Erro ao consultar banco; bot habilitado por padrão',
+          message: 'Erro ao consultar banco; bot desabilitado por segurança (fail-closed)',
+          error: error.message,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
