@@ -75,21 +75,26 @@ Deno.serve(async (req) => {
     // Se QUALQUER um estiver com bot_habilitado=false, o status final é "disabled".
     const { data: rows, error } = await supabase
       .from('clientes')
-      .select('id, telefone, bot_habilitado, bot_desligado_manualmente, atendente_id, status_conversa')
+      .select('telefone, bot_habilitado, bot_desligado_manualmente, atendente_id, status_conversa')
       .in('telefone', variants);
 
     if (error) {
       console.error('[check-bot-status] Erro ao consultar clientes:', error);
-      // Fail-open só em erro de infraestrutura, com log para auditoria.
+      // Fail-CLOSED em erro de infraestrutura: preferimos silenciar o bot a deixar ele responder
+      // sem checagem. Cliente novo (sem registro) continua tratado mais abaixo como enabled.
       await supabase.from('system_logs').insert({
-        event_type: 'check_bot_status_db_error',
-        event_data: { telefone, variants, error: error.message },
+        nivel: 'error',
+        categoria: 'bot',
+        mensagem: 'check-bot-status: erro ao consultar clientes',
+        detalhes: { telefone, variants, error: error.message, code: (error as any).code ?? null },
+        cliente_telefone: telefone,
       }).then(() => {}, () => {});
       return new Response(
         JSON.stringify({
-          bot_status: 'enabled',
+          bot_status: 'disabled',
           telefone,
-          message: 'Erro ao consultar banco; bot habilitado por padrão',
+          message: 'Erro ao consultar banco; bot desabilitado por segurança (fail-closed)',
+          error: error.message,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -100,8 +105,11 @@ Deno.serve(async (req) => {
       // Mantém fail-open mas registra para detectarmos casos suspeitos.
       console.log(`[check-bot-status] Nenhum cliente encontrado em nenhum formato. Bot=enabled (default).`);
       await supabase.from('system_logs').insert({
-        event_type: 'check_bot_status_no_client',
-        event_data: { telefone, variants },
+        nivel: 'info',
+        categoria: 'bot',
+        mensagem: 'check-bot-status: cliente não encontrado (primeiro contato)',
+        detalhes: { telefone, variants },
+        cliente_telefone: telefone,
       }).then(() => {}, () => {});
       return new Response(
         JSON.stringify({
@@ -118,16 +126,18 @@ Deno.serve(async (req) => {
     const botStatus = anyDisabled ? 'disabled' : 'enabled';
 
     if (rows.length > 1) {
-      // Loga duplicidade para tratarmos na Fase C.
-      console.warn(`[check-bot-status] Múltiplos registros (${rows.length}) para ${telefone}:`, rows.map((r: any) => ({ id: r.id, telefone: r.telefone, bot: r.bot_habilitado })));
+      console.warn(`[check-bot-status] Múltiplos registros (${rows.length}) para ${telefone}:`, rows.map((r: any) => ({ telefone: r.telefone, bot: r.bot_habilitado })));
       await supabase.from('system_logs').insert({
-        event_type: 'check_bot_status_duplicate_clients',
-        event_data: {
+        nivel: 'warn',
+        categoria: 'bot',
+        mensagem: 'check-bot-status: múltiplos registros para o mesmo cliente',
+        detalhes: {
           telefone_consulta: telefone,
           variants,
-          registros: rows.map((r: any) => ({ id: r.id, telefone: r.telefone, bot_habilitado: r.bot_habilitado })),
+          registros: rows.map((r: any) => ({ telefone: r.telefone, bot_habilitado: r.bot_habilitado })),
           resolvido_como: botStatus,
         },
+        cliente_telefone: telefone,
       }).then(() => {}, () => {});
     }
 
