@@ -1932,6 +1932,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       setNovaMsg(mensagemTexto); // Restaurar texto original (capturado na linha 1412)
     } finally {
       setIsSending(false);
+      isSendingRef.current = false;
     }
   };
 
