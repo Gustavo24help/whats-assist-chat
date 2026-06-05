@@ -1751,6 +1751,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
 
   // Wrapper que intercepta envio quando conversa é de outro operador
   const enviarMensagem = async () => {
+    if (isSendingRef.current) return;
     if (isOtherOperatorTicket) {
       // Operadores em AUTO_TAKEOVER_FIRST_NAMES (Paula, Valentina) assumem
       // automaticamente, sem popup de confirmação.
