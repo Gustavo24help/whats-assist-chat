@@ -1650,13 +1650,14 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
       return;
     }
 
-    if (!novaMsg.trim() || isSending) return;
+    if (!novaMsg.trim() || isSending || isSendingRef.current) return;
 
     if (statusConversa === "fechada") {
       toast.error("Conversa fechada! Use templates aprovados para enviar mensagens.");
       return;
     }
 
+    isSendingRef.current = true;
     setIsSending(true);
     const mensagemTexto = novaMsg;
 
