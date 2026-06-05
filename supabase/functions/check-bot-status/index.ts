@@ -126,16 +126,18 @@ Deno.serve(async (req) => {
     const botStatus = anyDisabled ? 'disabled' : 'enabled';
 
     if (rows.length > 1) {
-      // Loga duplicidade para tratarmos na Fase C.
-      console.warn(`[check-bot-status] Múltiplos registros (${rows.length}) para ${telefone}:`, rows.map((r: any) => ({ id: r.id, telefone: r.telefone, bot: r.bot_habilitado })));
+      console.warn(`[check-bot-status] Múltiplos registros (${rows.length}) para ${telefone}:`, rows.map((r: any) => ({ telefone: r.telefone, bot: r.bot_habilitado })));
       await supabase.from('system_logs').insert({
-        event_type: 'check_bot_status_duplicate_clients',
-        event_data: {
+        nivel: 'warn',
+        categoria: 'bot',
+        mensagem: 'check-bot-status: múltiplos registros para o mesmo cliente',
+        detalhes: {
           telefone_consulta: telefone,
           variants,
-          registros: rows.map((r: any) => ({ id: r.id, telefone: r.telefone, bot_habilitado: r.bot_habilitado })),
+          registros: rows.map((r: any) => ({ telefone: r.telefone, bot_habilitado: r.bot_habilitado })),
           resolvido_como: botStatus,
         },
+        cliente_telefone: telefone,
       }).then(() => {}, () => {});
     }
 
