@@ -105,8 +105,11 @@ Deno.serve(async (req) => {
       // Mantém fail-open mas registra para detectarmos casos suspeitos.
       console.log(`[check-bot-status] Nenhum cliente encontrado em nenhum formato. Bot=enabled (default).`);
       await supabase.from('system_logs').insert({
-        event_type: 'check_bot_status_no_client',
-        event_data: { telefone, variants },
+        nivel: 'info',
+        categoria: 'bot',
+        mensagem: 'check-bot-status: cliente não encontrado (primeiro contato)',
+        detalhes: { telefone, variants },
+        cliente_telefone: telefone,
       }).then(() => {}, () => {});
       return new Response(
         JSON.stringify({
