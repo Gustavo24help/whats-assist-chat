@@ -216,6 +216,7 @@ export const ChatWindowBeta = ({
   const [novaMsg, setNovaMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
   const [replyingTo, setReplyingTo] = useState<Mensagem | null>(null);
   const [fichaId, setFichaId] = useState<string | undefined>();
   const [conversationId, setConversationId] = useState<string | null>(null);
