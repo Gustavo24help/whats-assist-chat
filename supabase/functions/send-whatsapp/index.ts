@@ -86,6 +86,74 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // ========== DEDUP DEFENSIVO: bloquear envio idêntico nos últimos 10s ==========
+    // Captura cliques duplos / Enter duplo em qualquer ponto da UI antes de chamar a Twilio.
+    // Só aplica para texto puro (sem mídia) — reenvio de arquivo/template é responsabilidade da UI.
+    if (message && typeof message === 'string' && !mediaUrl) {
+      const dedupSince = new Date(Date.now() - 10_000).toISOString();
+      const targetTable = isPrestadorMessage ? 'mensagens_prestadores' : 'mensagens';
+      const targetIdCol = isPrestadorMessage ? 'prestador_telefone' : 'cliente_id';
+      try {
+        const { data: dupRows } = await supabase
+          .from(targetTable)
+          .select('id, message_sid, data_hora, texto, remetente, tipo_remetente')
+          .eq(targetIdCol, to)
+          .gte('data_hora', dedupSince)
+          .order('data_hora', { ascending: false })
+          .limit(10);
+
+        const dup = (dupRows || []).find((r: any) => {
+          if (!r?.texto || r.texto !== message) return false;
+          const fromOperator = r.tipo_remetente === 'atendente'
+            || r.tipo_remetente === 'operador'
+            || (r.remetente && r.remetente.startsWith('whatsapp:+5541389'));
+          return fromOperator;
+        });
+
+        if (dup) {
+          console.warn('🛑 [send-whatsapp] DEDUP: envio idêntico bloqueado', {
+            to,
+            messagePreview: message.substring(0, 60),
+            existing_id: dup.id,
+            existing_sid: dup.message_sid,
+            operador: userData.user.id,
+          });
+          try {
+            await supabase.from('system_logs').insert({
+              nivel: 'warn',
+              categoria: 'automation',
+              mensagem: `send_whatsapp_dedup_block: envio duplicado bloqueado para ${to}`,
+              detalhes: {
+                event: 'send_whatsapp_dedup_block',
+                to,
+                operador_id: userData.user.id,
+                ficha_id: ficha_id || null,
+                texto_preview: message.substring(0, 120),
+                existing_message_id: dup.id,
+                existing_message_sid: dup.message_sid,
+                existing_data_hora: dup.data_hora,
+              },
+              url: 'edge://send-whatsapp',
+            } as any);
+          } catch (_) { /* não falhar por causa do log */ }
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              deduplicated: true,
+              message_sid: dup.message_sid || null,
+              message_id: dup.id,
+              info: 'Mensagem idêntica já enviada há poucos segundos — envio duplicado ignorado.',
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+      } catch (e) {
+        console.warn('[send-whatsapp] dedup check falhou (seguindo envio):', (e as Error)?.message);
+      }
+    }
+
+
     // ========== PROTEÇÃO FAIL-CLOSED: bot desabilitado ==========
     // Esta edge JÁ exige JWT válido (validado acima nas linhas 28-45),
     // então qualquer chamada aqui é de OPERADOR autenticado pela UI.
