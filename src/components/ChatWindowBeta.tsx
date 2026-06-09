@@ -1583,14 +1583,18 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   };
 
   const highlightText = (text: string, searchTerm: string) => {
-    if (!searchTerm.trim()) return text;
-
-    const parts = text.split(new RegExp(`(${searchTerm})`, "gi"));
-    return parts
-      .map((part, i) =>
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    if (!searchTerm.trim()) return escapeHtml(text);
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let re: RegExp;
+    try { re = new RegExp(`(${escapeRegex(searchTerm)})`, "gi"); } catch { return escapeHtml(text); }
+    return text
+      .split(re)
+      .map((part) =>
         part.toLowerCase() === searchTerm.toLowerCase()
-          ? `<mark class="bg-yellow-300 dark:bg-yellow-600">${part}</mark>`
-          : part,
+          ? `<mark class="bg-yellow-300 dark:bg-yellow-600">${escapeHtml(part)}</mark>`
+          : escapeHtml(part),
       )
       .join("");
   };
