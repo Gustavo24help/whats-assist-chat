@@ -2369,6 +2369,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                 <ClipboardList className="h-4 w-4" />
               </Button>
             )}
+            <PropostaButton fichaId={fichaId} telefoneCliente={clienteTelefone} clienteNome={clienteNome} />
             {/* Botão de busca no chat */}
             <Button
               variant="ghost"
