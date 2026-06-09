@@ -48,7 +48,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
 import { BotHistoricoDialog } from "./BotHistoricoDialog";
 import { MessageContextMenu } from "./MessageContextMenu";
-import PropostaButton from "./proposta/PropostaButton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
@@ -223,6 +222,7 @@ export const ChatWindowBeta = ({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [assumirDialogOpen, setAssumirDialogOpen] = useState(false);
   const [botDesabilitado, setBotDesabilitado] = useState(false);
+  const [botSnoozedUntil, setBotSnoozedUntil] = useState<string | null>(null);
   const [isTogglingBot, setIsTogglingBot] = useState(false);
   const [ultimaAcaoBot, setUltimaAcaoBot] = useState<{
     acao: string;
@@ -790,8 +790,10 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         },
         (payload) => {
           console.log("[ChatWindow] Status do bot atualizado:", payload);
-          if (payload.new && "bot_habilitado" in payload.new) {
-            setBotDesabilitado(payload.new.bot_habilitado === false);
+          if (payload.new && "bot_snoozed_until" in payload.new) {
+            const s = (payload.new as any).bot_snoozed_until ?? null;
+            setBotSnoozedUntil(s);
+            setBotDesabilitado(isSnoozed(s));
           }
         },
       )
@@ -1160,6 +1162,40 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     toast.success("Transcrição em PDF gerada com sucesso.");
   };
 
+  // Helpers da soneca do bot (mesmo padrao do check-bot-status)
+  const buildPhoneVariants = (input: string): string[] => {
+    const v = new Set<string>();
+    if (!input) return [];
+    const raw = input.trim();
+    v.add(raw);
+    const noWhats = raw.replace(/^whatsapp:/i, "").trim();
+    v.add(noWhats);
+    const digits = noWhats.replace(/\D/g, "");
+    if (!digits) return [...v];
+    const wc = digits.startsWith("55") ? digits : `55${digits}`;
+    v.add(digits);
+    v.add(wc);
+    v.add(wc.slice(2));
+    v.add(`+${wc}`);
+    v.add(`+${digits}`);
+    v.add(`whatsapp:+${wc}`);
+    v.add(`whatsapp:+${digits}`);
+    v.add(`whatsapp:${wc}`);
+    return [...v].filter(Boolean);
+  };
+  const isSnoozed = (val: unknown): boolean => {
+    if (val == null) return false;
+    if (val === "infinity") return true;
+    const t = Date.parse(String(val));
+    return !isNaN(t) && t > Date.now();
+  };
+  const maxSnooze = (rows: any[] | null | undefined): string | null =>
+    (rows ?? [])
+      .map((r) => r.bot_snoozed_until)
+      .filter(Boolean)
+      .sort()
+      .pop() ?? null;
+
   // ✅ Função consolidada para buscar dados do cliente (ficha, bot, atendente, notas)
   const fetchClienteData = async () => {
     try {
@@ -1178,8 +1214,14 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         .maybeSingle();
 
       if (clienteData) {
-        // Bot status
-        setBotDesabilitado(clienteData.bot_habilitado === false);
+        // Bot status — soneca (todas as variacoes -> mais restritiva)
+        const { data: snoozeRows } = await supabase
+          .from("clientes")
+          .select("bot_snoozed_until")
+          .in("telefone", buildPhoneVariants(clienteTelefone));
+        const snooze = maxSnooze(snoozeRows);
+        setBotSnoozedUntil(snooze);
+        setBotDesabilitado(isSnoozed(snooze));
 
         // Notas — não sobrescrever enquanto o diálogo estiver aberto (usuário digitando)
         if (!notasDialogOpenRef.current) {
@@ -1249,7 +1291,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       const { data: ultimaAcao } = await supabase
         .from("bot_historico")
         .select("acao, created_at, executado_por_id")
-        .eq("telefone_cliente", clienteTelefone)
+        .in("telefone_cliente", buildPhoneVariants(clienteTelefone))
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -1281,9 +1323,12 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   useEffect(() => {
     if (!user || !clienteTelefone || mensagens.length === 0) return;
     const lastMsg = mensagens[mensagens.length - 1];
-    const isClienteMsg = lastMsg?.tipo_remetente === "cliente" || (
-      lastMsg?.remetente && !["whatsapp:+554138911555", "whatsapp:+14155238886", "atendente", "bot", "operador", "system"].includes(lastMsg.remetente)
-    );
+    const isClienteMsg =
+      lastMsg?.tipo_remetente === "cliente" ||
+      (lastMsg?.remetente &&
+        !["whatsapp:+554138911555", "whatsapp:+14155238886", "atendente", "bot", "operador", "system"].includes(
+          lastMsg.remetente,
+        ));
     if (!isClienteMsg) return;
 
     import("@/lib/chatBetaUnread").then(({ isClientMessage, markConversationAutoRead }) => {
@@ -1621,7 +1666,6 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
   };
 
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1944,7 +1988,9 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       // Operadores configurados em AUTO_TAKEOVER_FIRST_NAMES (Paula, Valentina)
       // assumem a conversa automaticamente, sem popup de confirmação.
       try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
         if (currentUser) {
           const { data: profile } = await supabase
             .from("profiles")
@@ -1991,24 +2037,26 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
   // Função para verificar estado atual e abrir dialog
   const handleAssumirClick = async () => {
-    const { data } = await supabase.from("clientes").select("bot_habilitado").eq("telefone", clienteTelefone).single();
+    const { data: rows } = await supabase
+      .from("clientes")
+      .select("bot_snoozed_until")
+      .in("telefone", buildPhoneVariants(clienteTelefone));
+    const snooze = maxSnooze(rows);
 
-    if (data) {
-      const botDesativado = data.bot_habilitado === false;
+    if (rows) {
+      const botDesativado = isSnoozed(snooze);
+      setBotSnoozedUntil(snooze);
       setBotDesabilitado(botDesativado);
       setBotStatusNoDialog(botDesativado);
 
       if (botDesativado) {
         try {
-          const { data: chId, error: chErr } = await supabase.rpc(
-            "create_bot_reactivation_challenge",
-            {
-              _telefone: clienteTelefone,
-              _ficha_id: fichaId || null,
-              _origem_tela: "ChatWindowBeta",
-              _user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-            },
-          );
+          const { data: chId, error: chErr } = await supabase.rpc("create_bot_reactivation_challenge", {
+            _telefone: clienteTelefone,
+            _ficha_id: fichaId || null,
+            _origem_tela: "ChatWindowBeta",
+            _user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+          });
           if (chErr) throw chErr;
           setReactivationChallengeId(chId as unknown as string);
         } catch (e) {
@@ -2036,17 +2084,18 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
 
     try {
       // 🔒 VERIFICAÇÃO DE SEGURANÇA: buscar estado ATUAL do banco antes de executar
-      const { data: clienteAtual, error: fetchError } = await supabase
+      const variants = buildPhoneVariants(clienteTelefone);
+      const { data: clienteRows, error: fetchError } = await supabase
         .from("clientes")
-        .select("bot_habilitado, atendente_id, status_conversa")
-        .eq("telefone", clienteTelefone)
-        .single();
+        .select("bot_snoozed_until, atendente_id, status_conversa")
+        .in("telefone", variants);
+      const clienteAtual = (clienteRows ?? [])[0];
 
       if (fetchError) {
         throw new Error("Erro ao verificar estado atual do bot");
       }
 
-      const botRealmenteDesabilitado = clienteAtual?.bot_habilitado === false;
+      const botRealmenteDesabilitado = isSnoozed(maxSnooze(clienteRows));
       const temOperadorAtivo = Boolean(clienteAtual?.atendente_id) && clienteAtual?.status_conversa !== "fechada";
 
       // 🔒 Se o estado mudou desde a abertura do dialog, abortar e notificar
@@ -2089,7 +2138,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
         if (data?.skipped && data?.reason === "recent_manual_reactivation") {
           setBotDesabilitado(false);
           toast.warning("Bot mantido ativo", {
-            description: "Um religamento manual acabou de acontecer; bloqueei o novo desligamento para evitar inversão acidental.",
+            description:
+              "Um religamento manual acabou de acontecer; bloqueei o novo desligamento para evitar inversão acidental.",
           });
           setUltimaAcaoBot({
             acao: "habilitado",
@@ -2125,7 +2175,8 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
           if (toggleData?.skipped && toggleData?.reason === "recent_manual_reactivation") {
             setBotDesabilitado(false);
             toast.warning("Bot mantido ativo", {
-              description: "Um religamento manual acabou de acontecer; bloqueei o novo desligamento para evitar inversão acidental.",
+              description:
+                "Um religamento manual acabou de acontecer; bloqueei o novo desligamento para evitar inversão acidental.",
             });
             setUltimaAcaoBot({
               acao: "habilitado",
@@ -2301,7 +2352,6 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       onDrop={handleDrop}
       onPaste={handlePaste}
     >
-
       <header className="bg-card border-b flex flex-col gap-2 px-3 py-2 shrink-0">
         {/* ─── Linha 1: Info do cliente ─── */}
         <div className="flex items-center gap-2 md:gap-3 min-w-0 w-full">
@@ -2330,6 +2380,14 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                       <span className={botDesabilitado ? "text-destructive" : "text-green-600"}>
                         {botDesabilitado ? "Desativado" : "Ativado"}
                       </span>
+                      {botDesabilitado && botSnoozedUntil && botSnoozedUntil !== "infinity" && (
+                        <span className="text-muted-foreground ml-1">
+                          · volta {format(new Date(botSnoozedUntil), "dd/MM HH:mm", { locale: ptBR })}
+                        </span>
+                      )}
+                      {botDesabilitado && botSnoozedUntil === "infinity" && (
+                        <span className="text-muted-foreground ml-1">· até mudar status</span>
+                      )}
                       {ultimaAcaoBot && ultimaAcaoBot.por && (
                         <span className="text-muted-foreground ml-1">por {ultimaAcaoBot.por.split(" ")[0]}</span>
                       )}
@@ -2370,7 +2428,6 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                 <ClipboardList className="h-4 w-4" />
               </Button>
             )}
-            <PropostaButton fichaId={fichaId} telefoneCliente={clienteTelefone} clienteNome={clienteNome} />
             {/* Botão de busca no chat */}
             <Button
               variant="ghost"
@@ -2686,12 +2743,14 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                         const v = e.target.value.toUpperCase();
                         setConfirmacaoTexto(v);
                         if (reactivationChallengeId) {
-                          supabase.rpc("record_bot_reactivation_typed", {
-                            _challenge_id: reactivationChallengeId,
-                            _texto: v,
-                          }).then(({ error }) => {
-                            if (error) console.warn("[record_typed]", error);
-                          });
+                          supabase
+                            .rpc("record_bot_reactivation_typed", {
+                              _challenge_id: reactivationChallengeId,
+                              _texto: v,
+                            })
+                            .then(({ error }) => {
+                              if (error) console.warn("[record_typed]", error);
+                            });
                         }
                       }}
                       placeholder="Digite LIGAR"
@@ -2768,7 +2827,6 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
       <div
         ref={setMessagesContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 md:py-5 space-y-3 bg-muted/10 relative"
-
         onCopy={(e) => {
           const selection = window.getSelection()?.toString();
           if (selection) {
