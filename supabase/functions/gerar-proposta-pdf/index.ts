@@ -241,19 +241,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const versao = (prev?.versao || 0) + 1;
 
-    // Gera número via sequence
-    const { data: seqRow } = await supabase.rpc("nextval_propostas_numero").select?.() ?? { data: null };
-    // fallback sem RPC: usar SELECT nextval direto via insert temporário
-    let numero: string;
-    if (seqRow && typeof seqRow === "number") {
-      numero = `PROP-2026-${String(seqRow).padStart(5, "0")}`;
-    } else {
-      // usar consulta crua
-      const { data: rawSeq } = await supabase.from("propostas_comerciais")
-        .select("id", { count: "exact", head: true });
-      const fallbackN = (rawSeq as any)?.count || 0;
-      numero = `PROP-2026-${String(fallbackN + 1).padStart(5, "0")}`;
-    }
+    // Gera número sequencial baseado em count total + 1 (suficiente; unique constraint protege colisão)
+    const { count: total } = await supabase
+      .from("propostas_comerciais")
+      .select("id", { count: "exact", head: true });
+    const numero = `PROP-2026-${String((total || 0) + 1).padStart(5, "0")}`;
 
     // Insere a linha (gera id + aceite_token)
     const { data: inserted, error: insErr } = await supabase
