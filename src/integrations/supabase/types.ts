@@ -397,6 +397,21 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_config: {
+        Row: {
+          key: string
+          value: string
+        }
+        Insert: {
+          key: string
+          value: string
+        }
+        Update: {
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
       bot_historico: {
         Row: {
           acao: string
@@ -545,6 +560,27 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_snooze_rules: {
+        Row: {
+          off_until_change: boolean
+          reactivate_after: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          off_until_change?: boolean
+          reactivate_after?: string | null
+          status: string
+          updated_at?: string | null
+        }
+        Update: {
+          off_until_change?: boolean
+          reactivate_after?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       categorias: {
         Row: {
           created_at: string | null
@@ -572,6 +608,7 @@ export type Database = {
           bot_desligado_manualmente: boolean | null
           bot_habilitado: boolean | null
           bot_ja_desligado_alguma_vez: boolean | null
+          bot_snoozed_until: string | null
           cidade: string | null
           cpf: string | null
           created_at: string | null
@@ -599,6 +636,7 @@ export type Database = {
           bot_desligado_manualmente?: boolean | null
           bot_habilitado?: boolean | null
           bot_ja_desligado_alguma_vez?: boolean | null
+          bot_snoozed_until?: string | null
           cidade?: string | null
           cpf?: string | null
           created_at?: string | null
@@ -626,6 +664,7 @@ export type Database = {
           bot_desligado_manualmente?: boolean | null
           bot_habilitado?: boolean | null
           bot_ja_desligado_alguma_vez?: boolean | null
+          bot_snoozed_until?: string | null
           cidade?: string | null
           cpf?: string | null
           created_at?: string | null
@@ -3710,6 +3749,10 @@ export type Database = {
       recalc_customer_aggregates: {
         Args: { _customer_id: string }
         Returns: undefined
+      }
+      recompute_bot_snooze: {
+        Args: { p_force?: boolean; p_telefone: string }
+        Returns: string
       }
       record_bot_reactivation_typed: {
         Args: { _challenge_id: string; _texto: string }
