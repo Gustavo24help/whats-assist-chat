@@ -24,6 +24,20 @@ function buildPhoneVariants(input: string): string[] {
   v.add(`whatsapp:+${withCountry}`);
   v.add(`whatsapp:+${digits}`);
   v.add(`whatsapp:${withCountry}`);
+  // Pegadinha do 9 (celular BR): gera a forma alternativa (com/sem o nono digito)
+  // para casar linhas duplicadas que diferem so pelo 9.
+  const ddd = withCountry.slice(2, 4);
+  const sub = withCountry.slice(4);
+  let alt = "";
+  if (sub.length === 9 && sub.startsWith("9")) alt = `55${ddd}${sub.slice(1)}`;
+  else if (sub.length === 8 && /[6-9]/.test(sub[0])) alt = `55${ddd}9${sub}`;
+  if (alt) {
+    v.add(alt);
+    v.add(alt.slice(2));
+    v.add(`+${alt}`);
+    v.add(`whatsapp:+${alt}`);
+    v.add(`whatsapp:${alt}`);
+  }
   return [...v].filter(Boolean);
 }
 
