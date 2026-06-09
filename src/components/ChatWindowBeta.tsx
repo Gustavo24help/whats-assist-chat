@@ -1181,6 +1181,18 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     v.add(`whatsapp:+${wc}`);
     v.add(`whatsapp:+${digits}`);
     v.add(`whatsapp:${wc}`);
+    const ddd = wc.slice(2, 4),
+      sub = wc.slice(4);
+    let alt = ""; // pegadinha do 9
+    if (sub.length === 9 && sub.startsWith("9")) alt = `55${ddd}${sub.slice(1)}`;
+    else if (sub.length === 8 && /[6-9]/.test(sub[0])) alt = `55${ddd}9${sub}`;
+    if (alt) {
+      v.add(alt);
+      v.add(alt.slice(2));
+      v.add(`+${alt}`);
+      v.add(`whatsapp:+${alt}`);
+      v.add(`whatsapp:${alt}`);
+    }
     return [...v].filter(Boolean);
   };
   const isSnoozed = (val: unknown): boolean => {
@@ -1583,18 +1595,14 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   };
 
   const highlightText = (text: string, searchTerm: string) => {
-    const escapeHtml = (s: string) =>
-      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-    if (!searchTerm.trim()) return escapeHtml(text);
-    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    let re: RegExp;
-    try { re = new RegExp(`(${escapeRegex(searchTerm)})`, "gi"); } catch { return escapeHtml(text); }
-    return text
-      .split(re)
-      .map((part) =>
+    if (!searchTerm.trim()) return text;
+
+    const parts = text.split(new RegExp(`(${searchTerm})`, "gi"));
+    return parts
+      .map((part, i) =>
         part.toLowerCase() === searchTerm.toLowerCase()
-          ? `<mark class="bg-yellow-300 dark:bg-yellow-600">${escapeHtml(part)}</mark>`
-          : escapeHtml(part),
+          ? `<mark class="bg-yellow-300 dark:bg-yellow-600">${part}</mark>`
+          : part,
       )
       .join("");
   };
