@@ -48,6 +48,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AbrirConversaDialog } from "./AbrirConversaDialog";
 import { BotHistoricoDialog } from "./BotHistoricoDialog";
 import { MessageContextMenu } from "./MessageContextMenu";
+import PropostaButton from "./proposta/PropostaButton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
@@ -2369,6 +2370,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
                 <ClipboardList className="h-4 w-4" />
               </Button>
             )}
+            <PropostaButton fichaId={fichaId} telefoneCliente={clienteTelefone} clienteNome={clienteNome} />
             {/* Botão de busca no chat */}
             <Button
               variant="ghost"

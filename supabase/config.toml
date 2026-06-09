@@ -99,3 +99,6 @@ verify_jwt = false
 
 [functions.processar-analise-diaria]
 verify_jwt = false
+
+[functions.aceitar-proposta]
+verify_jwt = false

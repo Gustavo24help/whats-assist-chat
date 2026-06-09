@@ -28,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TakeoverRequestDialog } from "./TakeoverRequestDialog";
+import PropostaButton from "./proposta/PropostaButton";
 import { TakeoverWaitingDialog } from "./TakeoverWaitingDialog";
 import { ReplyIndicator } from "./ReplyIndicator";
 import { AtribuicaoDescricaoDialog } from "./AtribuicaoDescricaoDialog";
@@ -2186,6 +2187,7 @@ export const ChatWindow = ({ clienteTelefone, clienteNome, statusConversa, onOpe
                   <ClipboardList className="h-4 w-4" />
                 </Button>
               )}
+              <PropostaButton fichaId={fichaId} telefoneCliente={clienteTelefone} clienteNome={clienteNome} />
               {/* Botão de busca no chat */}
               <Button
                 variant="ghost"

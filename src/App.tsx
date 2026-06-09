@@ -63,6 +63,7 @@ import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
 import PagamentosOrfaos from "./pages/PagamentosOrfaos";
 import Customers from "./pages/Customers";
+import PropostaAceite from "./pages/PropostaAceite";
 
 
 const queryClient = new QueryClient();
@@ -75,6 +76,7 @@ const isPublicRoute = (pathname: string): boolean => {
     p.startsWith("/orcamento") ||
     p.startsWith("/or%c3%a7amento") ||
     p.startsWith("/orçamento") ||
+    p.startsWith("/proposta-aceite") ||
     p.startsWith("/prestador") ||
     p.startsWith("/auth") ||
     p.startsWith("/ficha-whatsapp-demo")
@@ -155,6 +157,7 @@ const App = () => (
               <Route path="/or%C3%A7amento" element={<OrcamentoPublico />} />
               <Route path="/or%C3%A7amento/:fichaId" element={<OrcamentoPublico />} />
               <Route path="/ficha-whatsapp-demo" element={<FichaWhatsAppDemo />} />
+              <Route path="/proposta-aceite/:token" element={<PropostaAceite />} />
               <Route path="/prestador" element={<PrestadorPortal />} />
               <Route
                 path="/"

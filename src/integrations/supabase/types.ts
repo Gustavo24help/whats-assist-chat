@@ -2709,6 +2709,72 @@ export type Database = {
         }
         Relationships: []
       }
+      propostas_comerciais: {
+        Row: {
+          aceita_em: string | null
+          aceita_ip: string | null
+          aceita_por_nome: string | null
+          aceite_token: string
+          cliente_id: string | null
+          created_at: string
+          criado_por: string | null
+          criado_por_nome: string | null
+          dados_snapshot: Json
+          enviada_em: string | null
+          enviada_whatsapp: boolean
+          ficha_id: string
+          id: string
+          numero: string
+          pdf_storage_path: string | null
+          updated_at: string
+          validade_dias: number
+          valor_total: number
+          versao: number
+        }
+        Insert: {
+          aceita_em?: string | null
+          aceita_ip?: string | null
+          aceita_por_nome?: string | null
+          aceite_token?: string
+          cliente_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          criado_por_nome?: string | null
+          dados_snapshot: Json
+          enviada_em?: string | null
+          enviada_whatsapp?: boolean
+          ficha_id: string
+          id?: string
+          numero: string
+          pdf_storage_path?: string | null
+          updated_at?: string
+          validade_dias?: number
+          valor_total?: number
+          versao?: number
+        }
+        Update: {
+          aceita_em?: string | null
+          aceita_ip?: string | null
+          aceita_por_nome?: string | null
+          aceite_token?: string
+          cliente_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          criado_por_nome?: string | null
+          dados_snapshot?: Json
+          enviada_em?: string | null
+          enviada_whatsapp?: boolean
+          ficha_id?: string
+          id?: string
+          numero?: string
+          pdf_storage_path?: string | null
+          updated_at?: string
+          validade_dias?: number
+          valor_total?: number
+          versao?: number
+        }
+        Relationships: []
+      }
       registro_ponto: {
         Row: {
           created_at: string
