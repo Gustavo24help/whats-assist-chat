@@ -19,16 +19,7 @@ function formatHHMM(date: Date): string {
 }
 
 serve(async (req) => {
-  // TESTE TEMPORÁRIO - remover depois
-  if (req.method === "GET") {
-    return new Response(
-      JSON.stringify({
-        tem_key: !!ANTHROPIC_API_KEY,
-        key_prefix: ANTHROPIC_API_KEY?.slice(0, 10) || "VAZIA",
-      }),
-      { headers: { "Content-Type": "application/json" } },
-    );
-  }
+
 
   const { data: reqData } = await req.json().catch(() => ({ data: null }));
   const targetDate = reqData?.data || new Date().toISOString().slice(0, 10);
