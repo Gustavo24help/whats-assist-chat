@@ -16,6 +16,25 @@ serve(async (req) => {
   }
 
   try {
+    // JWT auth — only authenticated operators can send templates
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const sbAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: uData, error: uErr } = await sbAuth.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (uErr || !uData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     console.log("📤 Iniciando envio de template...");
     
     const { to, contentSid, contentVariables, templateBody, userId } = await req.json();
