@@ -1,164 +1,89 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface RequestBody {
-  telefone: string;
+// Mesmas variacoes de telefone usadas no resto do sistema.
+function buildPhoneVariants(input: string): string[] {
+  const v = new Set<string>();
+  if (!input) return [];
+  const raw = input.trim();
+  v.add(raw);
+  const noWhats = raw.replace(/^whatsapp:/i, "").trim();
+  v.add(noWhats);
+  const digits = noWhats.replace(/\D/g, "");
+  if (!digits) return [...v];
+  const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
+  v.add(digits);
+  v.add(withCountry);
+  v.add(withCountry.slice(2));
+  v.add(`+${withCountry}`);
+  v.add(`+${digits}`);
+  v.add(`whatsapp:+${withCountry}`);
+  v.add(`whatsapp:+${digits}`);
+  v.add(`whatsapp:${withCountry}`);
+  return [...v].filter(Boolean);
 }
 
-/**
- * Gera todas as variações de telefone que podem existir no banco para
- * o mesmo cliente (legado tem registros em múltiplos formatos).
- *
- * Recebe qualquer formato (whatsapp:+5541999999999, +5541999999999,
- * 5541999999999, 41999999999) e devolve todos eles.
- */
-function buildPhoneVariants(input: string): string[] {
-  const variants = new Set<string>();
-  if (!input) return [];
-
-  const raw = input.trim();
-  variants.add(raw);
-
-  // Remove prefixo whatsapp:
-  const noWhats = raw.replace(/^whatsapp:/i, '').trim();
-  variants.add(noWhats);
-
-  // Mantém só dígitos para normalizar
-  const digits = noWhats.replace(/\D/g, '');
-  if (!digits) return Array.from(variants);
-
-  // Garante DDI 55 quando aplicável
-  const withCountry = digits.startsWith('55') ? digits : `55${digits}`;
-  const withoutCountry = withCountry.startsWith('55') ? withCountry.slice(2) : withCountry;
-
-  // Variantes canônicas
-  variants.add(digits);
-  variants.add(withCountry);
-  variants.add(withoutCountry);
-  variants.add(`+${withCountry}`);
-  variants.add(`+${digits}`);
-  variants.add(`whatsapp:+${withCountry}`);
-  variants.add(`whatsapp:+${digits}`);
-  variants.add(`whatsapp:${withCountry}`);
-
-  return Array.from(variants).filter(Boolean);
+// A regra unica do bot: esta "em soneca" (desligado) se o campo for infinity
+// ou uma data futura. NULL ou passado = bot pode falar.
+function isSnoozed(val: unknown): boolean {
+  if (val == null) return false;
+  if (val === "infinity") return true;
+  const t = Date.parse(String(val));
+  return !isNaN(t) && t > Date.now();
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const json = (b: unknown, s = 200) =>
+    new Response(JSON.stringify(b), {
+      status: s,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  );
+  const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
 
   try {
-    const { telefone }: RequestBody = await req.json();
-
-    if (!telefone) {
-      return new Response(
-        JSON.stringify({ error: 'Telefone é obrigatório' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { telefone } = await req.json();
+    if (!telefone) return json({ error: "Telefone é obrigatório" }, 400);
 
     const variants = buildPhoneVariants(telefone);
-    console.log(`[check-bot-status] telefone="${telefone}" variants=`, variants);
 
-    // Busca TODOS os registros que casarem com qualquer variação do telefone.
-    // Se QUALQUER um estiver com bot_habilitado=false, o status final é "disabled".
     const { data: rows, error } = await supabase
-      .from('clientes')
-      .select('telefone, bot_habilitado, bot_desligado_manualmente, atendente_id, status_conversa')
-      .in('telefone', variants);
+      .from("clientes")
+      .select("telefone, bot_snoozed_until")
+      .in("telefone", variants);
 
     if (error) {
-      console.error('[check-bot-status] Erro ao consultar clientes:', error);
-      // Fail-CLOSED em erro de infraestrutura: preferimos silenciar o bot a deixar ele responder
-      // sem checagem. Cliente novo (sem registro) continua tratado mais abaixo como enabled.
-      await supabase.from('system_logs').insert({
-        nivel: 'error',
-        categoria: 'bot',
-        mensagem: 'check-bot-status: erro ao consultar clientes',
-        detalhes: { telefone, variants, error: error.message, code: (error as any).code ?? null },
-        cliente_telefone: telefone,
-      }).then(() => {}, () => {});
-      return new Response(
-        JSON.stringify({
-          bot_status: 'disabled',
-          telefone,
-          message: 'Erro ao consultar banco; bot desabilitado por segurança (fail-closed)',
-          error: error.message,
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!rows || rows.length === 0) {
-      // Nenhum cliente em NENHUM dos formatos — provável primeiro contato.
-      // Mantém fail-open mas registra para detectarmos casos suspeitos.
-      console.log(`[check-bot-status] Nenhum cliente encontrado em nenhum formato. Bot=enabled (default).`);
-      await supabase.from('system_logs').insert({
-        nivel: 'info',
-        categoria: 'bot',
-        mensagem: 'check-bot-status: cliente não encontrado (primeiro contato)',
-        detalhes: { telefone, variants },
-        cliente_telefone: telefone,
-      }).then(() => {}, () => {});
-      return new Response(
-        JSON.stringify({
-          bot_status: 'enabled',
-          telefone,
-          message: 'Cliente não encontrado, bot habilitado por padrão',
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Fail-closed: qualquer registro com bot_habilitado=false vence.
-    const anyDisabled = rows.some((r: any) => r.bot_habilitado === false);
-    const botStatus = anyDisabled ? 'disabled' : 'enabled';
-
-    if (rows.length > 1) {
-      console.warn(`[check-bot-status] Múltiplos registros (${rows.length}) para ${telefone}:`, rows.map((r: any) => ({ telefone: r.telefone, bot: r.bot_habilitado })));
-      await supabase.from('system_logs').insert({
-        nivel: 'warn',
-        categoria: 'bot',
-        mensagem: 'check-bot-status: múltiplos registros para o mesmo cliente',
-        detalhes: {
-          telefone_consulta: telefone,
-          variants,
-          registros: rows.map((r: any) => ({ telefone: r.telefone, bot_habilitado: r.bot_habilitado })),
-          resolvido_como: botStatus,
-        },
-        cliente_telefone: telefone,
-      }).then(() => {}, () => {});
-    }
-
-    console.log(`[check-bot-status] telefone="${telefone}" → ${botStatus} (matched=${rows.length}, anyDisabled=${anyDisabled})`);
-
-    return new Response(
-      JSON.stringify({
-        bot_status: botStatus,
+      // Fail-closed: na duvida, silencia o bot.
+      return json({
+        bot_status: "disabled",
         telefone,
-        matched_records: rows.length,
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+        message: "Erro ao consultar; bot desabilitado por seguranca (fail-closed)",
+        error: error.message,
+      });
+    }
+
+    // Cliente novo (sem registro) -> primeiro contato -> bot ativo.
+    if (!rows || rows.length === 0) {
+      return json({ bot_status: "enabled", telefone, message: "Cliente não encontrado, bot habilitado por padrão" });
+    }
+
+    // Se QUALQUER variacao do cliente estiver em soneca -> disabled (mais restritivo).
+    const anySnoozed = rows.some((r: any) => isSnoozed(r.bot_snoozed_until));
+    return json({
+      bot_status: anySnoozed ? "disabled" : "enabled",
+      telefone,
+      matched_records: rows.length,
+    });
   } catch (error) {
-    console.error('[check-bot-status] Erro:', error);
-    return new Response(
-      JSON.stringify({
-        error: 'Erro interno do servidor',
-        details: error instanceof Error ? error.message : 'Erro desconhecido',
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    return json(
+      { error: "Erro interno do servidor", details: error instanceof Error ? error.message : "Erro desconhecido" },
+      500,
     );
   }
 });
