@@ -3112,7 +3112,7 @@ export const ChatWindow = ({
                     }
                   }}
                   onPaste={handlePaste}
-                  disabled={statusConversa === "fechada" || !!pendingFile}
+                  disabled={statusConversa === "fechada" || !!pendingFile || isSending || uploading}
                   className="flex-1 min-h-[36px] md:min-h-[40px] resize-none rounded-2xl text-sm md:text-base py-2 md:py-2.5"
                   rows={1}
                   style={{ height: "auto", overflowY: "hidden" }}
