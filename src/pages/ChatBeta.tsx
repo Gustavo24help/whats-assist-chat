@@ -204,6 +204,7 @@ const ChatBeta = () => {
         </div>
 
         <div className="flex items-center gap-1">
+          <FseLeadNotification onSelectCliente={handleSelectCliente} />
           <BotSemFichaNotification onSelectCliente={handleSelectCliente} />
           <FichaSemNomeNotification />
           <OrcamentoNotification onSelectFicha={handleOrcamentoNotification} />
