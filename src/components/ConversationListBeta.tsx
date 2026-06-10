@@ -529,13 +529,15 @@ export const ConversationListBeta = ({
             if (idx === -1) return prev;
             found = true;
             if (!dataHora) return prev;
-            const updated = [...prev];
-            const cur = updated[idx];
+            const cur = prev[idx];
             // Só atualiza se a nova for mais recente
             if (!cur.ultima_interacao || new Date(dataHora) > new Date(cur.ultima_interacao)) {
-              updated[idx] = { ...cur, ultima_interacao: dataHora };
+              const updatedCliente = { ...cur, ultima_interacao: dataHora };
+              // Reordenar: mover para o topo (ultima_interacao DESC)
+              const rest = prev.filter((_, i) => i !== idx);
+              return [updatedCliente, ...rest];
             }
-            return updated;
+            return prev;
           });
           if (!found) {
             // Cliente novo (ou ainda não carregado) — refetch debounce
