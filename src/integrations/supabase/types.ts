@@ -3800,6 +3800,10 @@ export type Database = {
           ultima_data_cliente: string
         }[]
       }
+      handle_fse_lead: {
+        Args: { p_nome?: string; p_telefone: string; p_texto?: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

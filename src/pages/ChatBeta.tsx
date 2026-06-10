@@ -16,6 +16,7 @@ import { OrcamentoNotification } from "@/components/OrcamentoNotification";
 import { PageLayout } from "@/components/PageLayout";
 import { BotSemFichaNotification } from "@/components/BotSemFichaNotification";
 import { FichaSemNomeNotification } from "@/components/FichaSemNomeNotification";
+import { FseLeadNotification } from "@/components/FseLeadNotification";
 import { cn } from "@/lib/utils";
 
 const ChatBeta = () => {
@@ -203,6 +204,7 @@ const ChatBeta = () => {
         </div>
 
         <div className="flex items-center gap-1">
+          <FseLeadNotification onSelectCliente={handleSelectCliente} />
           <BotSemFichaNotification onSelectCliente={handleSelectCliente} />
           <FichaSemNomeNotification />
           <OrcamentoNotification onSelectFicha={handleOrcamentoNotification} />
