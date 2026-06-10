@@ -631,10 +631,11 @@ export const ChatWindow = ({
         },
         (payload) => {
           console.log("[ChatWindow] Status do bot atualizado:", payload);
-          if (payload.new && "bot_snoozed_until" in payload.new) {
-            const s = (payload.new as any).bot_snoozed_until ?? null;
+          const novo: any = payload.new;
+          if (novo) {
+            const s = novo.bot_snoozed_until ?? null;
             setBotSnoozedUntil(s);
-            setBotDesabilitado(isSnoozed(s));
+            setBotDesabilitado(isBotDisabledFromRow(novo));
           }
         },
       )
@@ -1048,6 +1049,15 @@ export const ChatWindow = ({
       .filter(Boolean)
       .sort()
       .pop() ?? null;
+  // Bot esta desativado se QUALQUER sinal indicar bloqueio:
+  // soneca futura/infinity, bot_habilitado=false, ou trava manual.
+  const isBotDisabledFromRows = (rows: any[] | null | undefined): boolean => {
+    const list = rows ?? [];
+    if (list.some((r) => r?.bot_habilitado === false)) return true;
+    if (list.some((r) => r?.bot_desligado_manualmente === true)) return true;
+    return isSnoozed(maxSnooze(list));
+  };
+  const isBotDisabledFromRow = (row: any): boolean => isBotDisabledFromRows(row ? [row] : []);
 
   // ✅ Função consolidada para buscar dados do cliente (ficha, bot, atendente, notas)
   const fetchClienteData = async () => {
@@ -1067,14 +1077,14 @@ export const ChatWindow = ({
         .maybeSingle();
 
       if (clienteData) {
-        // Bot status — soneca (todas as variacoes -> mais restritiva)
+        // Bot status — combina soneca + bot_habilitado + trava manual (todas as variacoes -> mais restritiva)
         const { data: snoozeRows } = await supabase
           .from("clientes")
-          .select("bot_snoozed_until")
+          .select("bot_snoozed_until, bot_habilitado, bot_desligado_manualmente")
           .in("telefone", buildPhoneVariants(clienteTelefone));
         const snooze = maxSnooze(snoozeRows);
         setBotSnoozedUntil(snooze);
-        setBotDesabilitado(isSnoozed(snooze));
+        setBotDesabilitado(isBotDisabledFromRows(snoozeRows));
 
         // Notas — não sobrescrever enquanto o diálogo estiver aberto (usuário digitando)
         if (!notasDialogOpenRef.current) {
@@ -1940,12 +1950,12 @@ export const ChatWindow = ({
     // Buscar estado atual do banco antes de abrir o dialog para garantir sincronização
     const { data: rows } = await supabase
       .from("clientes")
-      .select("bot_snoozed_until")
+      .select("bot_snoozed_until, bot_habilitado, bot_desligado_manualmente")
       .in("telefone", buildPhoneVariants(clienteTelefone));
     const snooze = maxSnooze(rows);
 
     if (rows) {
-      const botDesativado = isSnoozed(snooze);
+      const botDesativado = isBotDisabledFromRows(rows);
       setBotSnoozedUntil(snooze);
       setBotDesabilitado(botDesativado);
       // 🔒 Capturar estado FIXO para uso durante toda a interação do dialog
@@ -1991,7 +2001,7 @@ export const ChatWindow = ({
       const variants = buildPhoneVariants(clienteTelefone);
       const { data: clienteRows, error: fetchError } = await supabase
         .from("clientes")
-        .select("bot_snoozed_until, atendente_id, status_conversa")
+        .select("bot_snoozed_until, bot_habilitado, bot_desligado_manualmente, atendente_id, status_conversa")
         .in("telefone", variants);
       const clienteAtual = (clienteRows ?? [])[0];
 
@@ -1999,7 +2009,7 @@ export const ChatWindow = ({
         throw new Error("Erro ao verificar estado atual do bot");
       }
 
-      const botRealmenteDesabilitado = isSnoozed(maxSnooze(clienteRows));
+      const botRealmenteDesabilitado = isBotDisabledFromRows(clienteRows);
       const temOperadorAtivo = Boolean(clienteAtual?.atendente_id) && clienteAtual?.status_conversa !== "fechada";
 
       // 🔒 Se o estado mudou desde a abertura do dialog, abortar e notificar
