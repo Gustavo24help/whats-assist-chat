@@ -1,10 +1,29 @@
+// twilio-webhook — COM detecção de lead FSE (landing page) — 10/06
+// Base: versão do repositório local (whats-assist-chat-main). ANTES de publicar,
+// confira se a versão live no Supabase não tem mudanças mais novas que esta base.
+//
+// O que mudou (1 bloco só): na rota CLIENTES, depois de garantir o cliente,
+// se a mensagem contém o marcador FSE- (bot_config.fse_marker):
+//   1. chama a RPC handle_fse_lead (cria ficha FSE<n>@<data>, soneca infinity
+//      9-aware, vincula ficha_ativa_id, notifica operadores);
+//   2. se a RPC criou (não-duplicado), envia a mensagem automática via Twilio
+//      (texto em bot_config.fse_auto_message) — a resposta volta por este
+//      mesmo webhook e é logada em `mensagens` normalmente.
+// Procure por "FSE" para achar o bloco.
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
-import { getManagedWhatsappNumbers, isManagedWhatsappNumber, normalizeWhatsappNumber, isPrestadoresNumber } from "../_shared/twilioNumbers.ts";
+import {
+  getManagedWhatsappNumbers,
+  isManagedWhatsappNumber,
+  normalizeWhatsappNumber,
+  isPrestadoresNumber,
+} from "../_shared/twilioNumbers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const MANAGED_WHATSAPP_NUMBERS = getManagedWhatsappNumbers();
@@ -74,7 +93,7 @@ serve(async (req) => {
     const to = normalizeWhatsappNumber(formData.get("To") as string);
     const body = (formData.get("Body") as string) || "";
     const messageSid = formData.get("MessageSid") as string;
-    const numMedia = parseInt(formData.get("NumMedia") as string || "0", 10);
+    const numMedia = parseInt((formData.get("NumMedia") as string) || "0", 10);
 
     console.log(`[${requestId}] 📤 From: ${from}`);
     console.log(`[${requestId}] 📤 To: ${to}`);
@@ -159,7 +178,8 @@ serve(async (req) => {
           .maybeSingle();
 
         const profileName = ((formData.get("ProfileName") as string) || "").trim();
-        const nomePrestador = profileName || prestadorCadastrado?.nome || clienteTelefone.replace("whatsapp:", "").replace("+", "");
+        const nomePrestador =
+          profileName || prestadorCadastrado?.nome || clienteTelefone.replace("whatsapp:", "").replace("+", "");
 
         console.log(`[${requestId}] 🆕 Criando prestador_chat: ${clienteTelefone} (nome: ${nomePrestador})`);
         const { data: novoPrestador, error: createError } = await supabase
@@ -196,10 +216,7 @@ serve(async (req) => {
         const currentName = (prestadorChat.nome || "").trim();
         if (profileName && profileName !== currentName) {
           console.log(`[${requestId}] 📝 Atualizando nome prestador: ${currentName} → ${profileName}`);
-          await supabase
-            .from("prestadores_chat")
-            .update({ nome: profileName })
-            .eq("telefone", clienteTelefone);
+          await supabase.from("prestadores_chat").update({ nome: profileName }).eq("telefone", clienteTelefone);
           prestadorChat.nome = profileName;
         }
       }
@@ -208,8 +225,8 @@ serve(async (req) => {
       let tipo = "texto";
       let arquivoUrl: string | null = null;
       if (numMedia > 0) {
-        const mediaContentType = formData.get("MediaContentType0") as string || "";
-        const mediaUrl = formData.get("MediaUrl0") as string || "";
+        const mediaContentType = (formData.get("MediaContentType0") as string) || "";
+        const mediaUrl = (formData.get("MediaUrl0") as string) || "";
         if (mediaContentType.startsWith("image/")) tipo = "imagem";
         else if (mediaContentType.startsWith("video/")) tipo = "video";
         else if (mediaContentType.startsWith("audio/")) tipo = "audio";
@@ -232,7 +249,11 @@ serve(async (req) => {
         message_sid: messageSid,
       };
 
-      const { data: savedPrestMsg, error: saveError } = await supabase.from("mensagens_prestadores").insert(mensagemPrestador).select("id").single();
+      const { data: savedPrestMsg, error: saveError } = await supabase
+        .from("mensagens_prestadores")
+        .insert(mensagemPrestador)
+        .select("id")
+        .single();
 
       if (saveError) {
         console.error(`[${requestId}] ❌ Erro ao salvar msg prestador:`, saveError);
@@ -262,7 +283,6 @@ serve(async (req) => {
           }).catch((e) => console.error(`[${requestId}] ⚠️ Erro ao chamar transcribe-audio:`, e));
         }
       }
-
     } else {
       // ========== ROTA CLIENTES (lógica 100% original) ==========
 
@@ -319,6 +339,67 @@ serve(async (req) => {
         });
       }
 
+      // ========== FSE: lead de landing page → bypass do bot ==========
+      // Detecta o marcador (bot_config.fse_marker) na msg do cliente:
+      // cria ficha FSE + soneca infinity + notifica operadores (RPC) e
+      // envia a mensagem automática (1x por lead; dedupe na RPC).
+      if (isClientMessage && body) {
+        try {
+          const { data: cfgRows } = await supabase
+            .from("bot_config")
+            .select("key, value")
+            .in("key", ["fse_marker", "fse_auto_message"]);
+          const cfg = Object.fromEntries((cfgRows || []).map((r: any) => [r.key, r.value]));
+          const marker = (cfg["fse_marker"] || "FSE-").toUpperCase();
+
+          if (body.toUpperCase().includes(marker)) {
+            console.log(`[${requestId}] 🔥 Lead FSE detectado!`);
+            const profileName = ((formData.get("ProfileName") as string) || "").trim();
+
+            const { data: fse, error: fseErr } = await supabase.rpc("handle_fse_lead", {
+              p_telefone: cliente.telefone,
+              p_nome: profileName || null,
+              p_texto: body,
+            });
+
+            if (fseErr) {
+              console.error(`[${requestId}] ❌ handle_fse_lead:`, fseErr);
+            } else {
+              console.log(`[${requestId}] ✅ FSE: ${JSON.stringify(fse)}`);
+
+              if (fse?.created) {
+                const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+                const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+                const autoMsg =
+                  cfg["fse_auto_message"] ||
+                  "✅ Recebemos seu pedido pelo site da 24help! Um dos nossos operadores já está com o seu atendimento e fala com você em instantes. 🛠️";
+
+                if (accountSid && authToken) {
+                  const params = new URLSearchParams({ From: to, To: from, Body: autoMsg });
+                  const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+                      "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    body: params,
+                  });
+                  console.log(`[${requestId}] 📨 Msg automática FSE enviada: HTTP ${resp.status}`);
+                } else {
+                  console.error(
+                    `[${requestId}] ⚠️ TWILIO_ACCOUNT_SID/AUTH_TOKEN ausentes — msg automática não enviada`,
+                  );
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // FSE nunca pode derrubar o log da mensagem — segue o fluxo normal
+          console.error(`[${requestId}] ⚠️ Erro no tratamento FSE:`, e);
+        }
+      }
+      // ========== fim do bloco FSE ==========
+
       // Buscar ficha ativa do cliente (prioriza ficha_ativa_id)
       const { data: clienteComFicha } = await supabase
         .from("clientes")
@@ -347,8 +428,8 @@ serve(async (req) => {
       let arquivoUrl: string | null = null;
 
       if (numMedia > 0) {
-        const mediaContentType = formData.get("MediaContentType0") as string || "";
-        const mediaUrl = formData.get("MediaUrl0") as string || "";
+        const mediaContentType = (formData.get("MediaContentType0") as string) || "";
+        const mediaUrl = (formData.get("MediaUrl0") as string) || "";
 
         if (mediaContentType.startsWith("image/")) tipo = "imagem";
         else if (mediaContentType.startsWith("video/")) tipo = "video";
@@ -375,13 +456,19 @@ serve(async (req) => {
         ficha_id: fichaId,
         message_sid: messageSid,
         reply_to_message_id: null,
-        tipo_remetente: isClientMessage ? 'cliente' : 'bot',
-        operador_nome: isBotMessage ? 'Bot Automático' : null,
+        tipo_remetente: isClientMessage ? "cliente" : "bot",
+        operador_nome: isBotMessage ? "Bot Automático" : null,
       };
 
-      console.log(`[${requestId}] 💾 Salvando: cliente_id=${mensagem.cliente_id}, remetente=${mensagem.remetente}, status=${mensagem.status}`);
+      console.log(
+        `[${requestId}] 💾 Salvando: cliente_id=${mensagem.cliente_id}, remetente=${mensagem.remetente}, status=${mensagem.status}`,
+      );
 
-      const { data: savedMsg, error: saveError } = await supabase.from("mensagens").insert(mensagem).select("id").single();
+      const { data: savedMsg, error: saveError } = await supabase
+        .from("mensagens")
+        .insert(mensagem)
+        .select("id")
+        .single();
 
       if (saveError) {
         console.error(`[${requestId}] ❌ Erro ao salvar:`, saveError);
@@ -397,7 +484,7 @@ serve(async (req) => {
           step: "SAVE_ERROR",
         });
       } else {
-        console.log(`[${requestId}] ✅ Mensagem salva com sucesso! (${isBotMessage ? 'bot' : 'cliente'})`);
+        console.log(`[${requestId}] ✅ Mensagem salva com sucesso! (${isBotMessage ? "bot" : "cliente"})`);
 
         if (isClientMessage) {
           // ⚠️ Não escrever mais `marcado_nao_lido` global — leitura é por operador
@@ -405,7 +492,7 @@ serve(async (req) => {
           // `mensagens.data_hora > last_read_at` por usuário.
           await supabase
             .from("clientes")
-            .update({ 
+            .update({
               ultima_interacao: new Date().toISOString(),
               ultima_mensagem_recebida: new Date().toISOString(),
             })
