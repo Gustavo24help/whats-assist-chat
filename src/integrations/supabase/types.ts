@@ -3811,6 +3811,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_financeiro_role: { Args: { _uid: string }; Returns: boolean }
       is_internal_conversation_member: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
