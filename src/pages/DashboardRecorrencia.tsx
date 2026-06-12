@@ -23,13 +23,24 @@ const fmtBRL = (v: number | null | undefined) =>
 const fmtPct = (v: number | null | undefined) => (v == null ? "—" : `${Number(v).toFixed(1)}%`);
 const fmtNum = (v: number | null | undefined) => (v == null ? "—" : new Intl.NumberFormat("pt-BR").format(v));
 
-const PERIODOS = [
-  { value: "30", label: "Últimos 30 dias" },
-  { value: "90", label: "Últimos 90 dias" },
-  { value: "180", label: "Últimos 180 dias" },
-  { value: "365", label: "Último ano" },
-  { value: "all", label: "Todo o histórico" },
-];
+// Lista de meses disponíveis: de out/2025 até o mês atual
+const buildMeses = () => {
+  const out: { value: string; label: string }[] = [];
+  const start = new Date(2025, 9, 1); // out/2025
+  const today = new Date();
+  const end = new Date(today.getFullYear(), today.getMonth(), 1);
+  const cursor = new Date(end);
+  while (cursor >= start) {
+    const y = cursor.getFullYear();
+    const m = cursor.getMonth();
+    const value = `${y}-${String(m + 1).padStart(2, "0")}`;
+    const label = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    out.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+    cursor.setMonth(cursor.getMonth() - 1);
+  }
+  return [{ value: "all", label: "Todo o histórico" }, ...out];
+};
+const MESES = buildMeses();
 
 const KPI = ({ titulo, valor, hint, icon: Icon }: { titulo: string; valor: string; hint?: string; icon?: any }) => (
   <Card className="border-border/60">
