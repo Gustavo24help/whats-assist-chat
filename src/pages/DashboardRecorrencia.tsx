@@ -72,15 +72,21 @@ const TAG_LABEL: Record<string, { label: string; variant: "default" | "destructi
 };
 
 const DashboardRecorrencia = () => {
-  const [periodo, setPeriodo] = useState("90");
+  const [periodo, setPeriodo] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [segment, setSegment] = useState<Segment>("all");
   const [filtroPrestador, setFiltroPrestador] = useState("");
   const [filtroTag, setFiltroTag] = useState<string>("all");
 
   const { start, end } = useMemo(() => {
-    const e = new Date();
-    if (periodo === "all") return { start: new Date(2020, 0, 1), end: e };
-    const s = new Date(); s.setDate(s.getDate() - Number(periodo));
+    if (periodo === "all") {
+      return { start: new Date(2020, 0, 1), end: new Date() };
+    }
+    const [y, m] = periodo.split("-").map(Number);
+    const s = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const e = new Date(y, m, 0, 23, 59, 59, 999); // último dia do mês
     return { start: s, end: e };
   }, [periodo]);
 
