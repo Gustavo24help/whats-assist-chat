@@ -201,7 +201,7 @@ const PrestadoresReportPage = () => {
   };
 
   const fetchAllPaginated = async <T,>(
-    queryBuilder: () => ReturnType<ReturnType<typeof supabase.from>['select']>
+    queryBuilder: () => any
   ): Promise<T[]> => {
     let allData: T[] = [];
     let from = 0;
