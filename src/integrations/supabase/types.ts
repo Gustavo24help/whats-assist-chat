@@ -3754,6 +3754,7 @@ export type Database = {
           completed_at: string | null
           created_at: string | null
           customer_id: string | null
+          event_date: string | null
           ficha_id: string | null
           id: string | null
           is_valid: boolean | null

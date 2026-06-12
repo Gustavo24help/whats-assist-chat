@@ -23,13 +23,24 @@ const fmtBRL = (v: number | null | undefined) =>
 const fmtPct = (v: number | null | undefined) => (v == null ? "—" : `${Number(v).toFixed(1)}%`);
 const fmtNum = (v: number | null | undefined) => (v == null ? "—" : new Intl.NumberFormat("pt-BR").format(v));
 
-const PERIODOS = [
-  { value: "30", label: "Últimos 30 dias" },
-  { value: "90", label: "Últimos 90 dias" },
-  { value: "180", label: "Últimos 180 dias" },
-  { value: "365", label: "Último ano" },
-  { value: "all", label: "Todo o histórico" },
-];
+// Lista de meses disponíveis: de out/2025 até o mês atual
+const buildMeses = () => {
+  const out: { value: string; label: string }[] = [];
+  const start = new Date(2025, 9, 1); // out/2025
+  const today = new Date();
+  const end = new Date(today.getFullYear(), today.getMonth(), 1);
+  const cursor = new Date(end);
+  while (cursor >= start) {
+    const y = cursor.getFullYear();
+    const m = cursor.getMonth();
+    const value = `${y}-${String(m + 1).padStart(2, "0")}`;
+    const label = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    out.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+    cursor.setMonth(cursor.getMonth() - 1);
+  }
+  return [{ value: "all", label: "Todo o histórico" }, ...out];
+};
+const MESES = buildMeses();
 
 const KPI = ({ titulo, valor, hint, icon: Icon }: { titulo: string; valor: string; hint?: string; icon?: any }) => (
   <Card className="border-border/60">
@@ -61,15 +72,21 @@ const TAG_LABEL: Record<string, { label: string; variant: "default" | "destructi
 };
 
 const DashboardRecorrencia = () => {
-  const [periodo, setPeriodo] = useState("90");
+  const [periodo, setPeriodo] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [segment, setSegment] = useState<Segment>("all");
   const [filtroPrestador, setFiltroPrestador] = useState("");
   const [filtroTag, setFiltroTag] = useState<string>("all");
 
   const { start, end } = useMemo(() => {
-    const e = new Date();
-    if (periodo === "all") return { start: new Date(2020, 0, 1), end: e };
-    const s = new Date(); s.setDate(s.getDate() - Number(periodo));
+    if (periodo === "all") {
+      return { start: new Date(2020, 0, 1), end: new Date() };
+    }
+    const [y, m] = periodo.split("-").map(Number);
+    const s = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const e = new Date(y, m, 0, 23, 59, 59, 999); // último dia do mês
     return { start: s, end: e };
   }, [periodo]);
 
@@ -114,8 +131,8 @@ const DashboardRecorrencia = () => {
           </div>
           <div className="flex items-center gap-2">
             <Select value={periodo} onValueChange={setPeriodo}>
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>{PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectContent className="max-h-80">{MESES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={segment} onValueChange={(v) => setSegment(v as Segment)}>
               <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
