@@ -65,6 +65,7 @@ const sidebarEntries: SidebarEntry[] = [
     items: [
       { label: "Dashboard", icon: BarChart3, route: "/dashboard" },
       { label: "Dashboard TV", icon: Tv, route: "/dashboard-tv" },
+      { label: "Recorrência, LTV e Cohorts", icon: TrendingUp, route: "/dashboard/recorrencia" },
       { label: "Análise de Serviços", icon: ClipboardList, route: "/analise-servicos" },
     ],
   },
