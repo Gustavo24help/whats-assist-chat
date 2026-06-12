@@ -30,6 +30,7 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { label: 'Dashboard TV', icon: Monitor, path: '/dashboard-tv' },
+  { label: 'Recorrência', icon: TrendingUp, path: '/dashboard/recorrencia' },
   { label: 'Chat', icon: MessageCircle, path: '/chat' },
   { label: 'Prestadores', icon: Users, path: '/prestadores' },
   { label: 'Bairros', icon: MapPin, path: '/bairros' },
