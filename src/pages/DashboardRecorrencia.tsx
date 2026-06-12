@@ -131,8 +131,8 @@ const DashboardRecorrencia = () => {
           </div>
           <div className="flex items-center gap-2">
             <Select value={periodo} onValueChange={setPeriodo}>
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>{PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectContent className="max-h-80">{MESES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={segment} onValueChange={(v) => setSegment(v as Segment)}>
               <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
