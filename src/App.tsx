@@ -64,6 +64,7 @@ import ContasPagar from "./pages/ContasPagar";
 import PagamentosOrfaos from "./pages/PagamentosOrfaos";
 import Customers from "./pages/Customers";
 import PropostaAceite from "./pages/PropostaAceite";
+import DashboardRecorrencia from "./pages/DashboardRecorrencia";
 
 
 const queryClient = new QueryClient();
@@ -188,6 +189,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/recorrencia"
+                element={
+                  <ProtectedRoute>
+                    <DashboardRecorrencia />
                   </ProtectedRoute>
                 }
               />

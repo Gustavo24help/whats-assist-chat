@@ -1120,6 +1120,13 @@ export type Database = {
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "customer_services_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_canonical"
+            referencedColumns: ["id"]
+          },
         ]
       }
       customers: {
@@ -1234,6 +1241,13 @@ export type Database = {
             columns: ["referred_by_customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_referred_by_customer_id_fkey"
+            columns: ["referred_by_customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_canonical"
             referencedColumns: ["id"]
           },
         ]
@@ -2054,6 +2068,13 @@ export type Database = {
             columns: ["converted_to_customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_converted_to_customer_id_fkey"
+            columns: ["converted_to_customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_canonical"
             referencedColumns: ["id"]
           },
         ]
@@ -3712,7 +3733,57 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_customer_canonical: {
+        Row: {
+          canonical_id: string | null
+          cpf: string | null
+          dedup_key: string | null
+          first_service_at: string | null
+          id: string | null
+          last_service_at: string | null
+          name: string | null
+          phone: string | null
+          segmento: string | null
+          total_spent: number | null
+        }
+        Relationships: []
+      }
+      v_customer_services_enriched: {
+        Row: {
+          canonical_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          customer_id: string | null
+          ficha_id: string | null
+          id: string | null
+          is_valid: boolean | null
+          nps_nota: number | null
+          provider_id: string | null
+          provider_name: string | null
+          requested_at: string | null
+          segmento: string | null
+          service_date: string | null
+          sku: string | null
+          status: string | null
+          valor: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_services_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_services_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_canonical"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       adicionar_dias_uteis: {
@@ -3749,6 +3820,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      customer_dedup_key: {
+        Args: { _cpf: string; _name: string; _phone: string }
+        Returns: string
+      }
+      customer_doc_digits: { Args: { _cpf: string }; Returns: string }
+      customer_segment: { Args: { _cpf: string }; Returns: string }
       fichas_sem_nome_cliente_recentes: {
         Args: never
         Returns: {
@@ -3828,6 +3905,67 @@ export type Database = {
       record_bot_reactivation_typed: {
         Args: { _challenge_id: string; _texto: string }
         Returns: undefined
+      }
+      recurrence_cohorts: {
+        Args: { p_segment?: string }
+        Returns: {
+          clientes: number
+          cohort_label: string
+          cohort_start: string
+          ltv_avg: number
+          receita_recorrente: number
+          tempo_avg: number
+          tempo_med: number
+          voltou_180: number
+          voltou_30: number
+          voltou_365: number
+          voltou_60: number
+          voltou_90: number
+          voltou_any: number
+        }[]
+      }
+      recurrence_provider_first: {
+        Args: { p_segment?: string }
+        Returns: {
+          clientes_iniciados: number
+          clientes_voltaram: number
+          ltv_avg: number
+          nps_avg: number
+          provider_id: string
+          provider_name: string
+          receita_recorrente: number
+          taxa_retorno_pct: number
+          ticket_primeiro_avg: number
+        }[]
+      }
+      recurrence_provider_last_dormant: {
+        Args: { p_segment?: string }
+        Returns: {
+          clientes_que_sumiram: number
+          nps_avg_ultimo: number
+          provider_id: string
+          provider_name: string
+          ticket_avg_ultimo: number
+        }[]
+      }
+      recurrence_reactivation_tags: {
+        Args: { p_limit?: number; p_offset?: number; p_segment?: string }
+        Returns: {
+          canonical_id: string
+          cliente_nome: string
+          cliente_telefone: string
+          dias_sem_servico: number
+          ltv: number
+          nps_ultimo: number
+          segmento: string
+          tag: string
+          ultimo_prestador: string
+          ultimo_servico: string
+        }[]
+      }
+      recurrence_summary: {
+        Args: { p_end: string; p_segment?: string; p_start: string }
+        Returns: Json
       }
       redistribute_chats_silent: {
         Args: { _target_user_id: string; _telefones: string[] }
