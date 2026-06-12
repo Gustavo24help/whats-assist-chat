@@ -3906,6 +3906,67 @@ export type Database = {
         Args: { _challenge_id: string; _texto: string }
         Returns: undefined
       }
+      recurrence_cohorts: {
+        Args: { p_segment?: string }
+        Returns: {
+          clientes: number
+          cohort_label: string
+          cohort_start: string
+          ltv_avg: number
+          receita_recorrente: number
+          tempo_avg: number
+          tempo_med: number
+          voltou_180: number
+          voltou_30: number
+          voltou_365: number
+          voltou_60: number
+          voltou_90: number
+          voltou_any: number
+        }[]
+      }
+      recurrence_provider_first: {
+        Args: { p_segment?: string }
+        Returns: {
+          clientes_iniciados: number
+          clientes_voltaram: number
+          ltv_avg: number
+          nps_avg: number
+          provider_id: string
+          provider_name: string
+          receita_recorrente: number
+          taxa_retorno_pct: number
+          ticket_primeiro_avg: number
+        }[]
+      }
+      recurrence_provider_last_dormant: {
+        Args: { p_segment?: string }
+        Returns: {
+          clientes_que_sumiram: number
+          nps_avg_ultimo: number
+          provider_id: string
+          provider_name: string
+          ticket_avg_ultimo: number
+        }[]
+      }
+      recurrence_reactivation_tags: {
+        Args: { p_limit?: number; p_offset?: number; p_segment?: string }
+        Returns: {
+          canonical_id: string
+          cliente_nome: string
+          cliente_telefone: string
+          dias_sem_servico: number
+          ltv: number
+          nps_ultimo: number
+          segmento: string
+          tag: string
+          ultimo_prestador: string
+          ultimo_servico: string
+        }[]
+      }
+      recurrence_summary: {
+        Args: { p_end: string; p_segment?: string; p_start: string }
+        Returns: Json
+      }
       redistribute_chats_silent: {
         Args: { _target_user_id: string; _telefones: string[] }
         Returns: number
