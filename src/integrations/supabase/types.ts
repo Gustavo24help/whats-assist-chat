@@ -1120,6 +1120,13 @@ export type Database = {
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "customer_services_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_canonical"
+            referencedColumns: ["id"]
+          },
         ]
       }
       customers: {
@@ -1234,6 +1241,13 @@ export type Database = {
             columns: ["referred_by_customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_referred_by_customer_id_fkey"
+            columns: ["referred_by_customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_canonical"
             referencedColumns: ["id"]
           },
         ]
@@ -2054,6 +2068,13 @@ export type Database = {
             columns: ["converted_to_customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_converted_to_customer_id_fkey"
+            columns: ["converted_to_customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_canonical"
             referencedColumns: ["id"]
           },
         ]
@@ -3712,7 +3733,57 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_customer_canonical: {
+        Row: {
+          canonical_id: string | null
+          cpf: string | null
+          dedup_key: string | null
+          first_service_at: string | null
+          id: string | null
+          last_service_at: string | null
+          name: string | null
+          phone: string | null
+          segmento: string | null
+          total_spent: number | null
+        }
+        Relationships: []
+      }
+      v_customer_services_enriched: {
+        Row: {
+          canonical_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          customer_id: string | null
+          ficha_id: string | null
+          id: string | null
+          is_valid: boolean | null
+          nps_nota: number | null
+          provider_id: string | null
+          provider_name: string | null
+          requested_at: string | null
+          segmento: string | null
+          service_date: string | null
+          sku: string | null
+          status: string | null
+          valor: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_services_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_services_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_canonical"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       adicionar_dias_uteis: {
@@ -3749,6 +3820,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      customer_dedup_key: {
+        Args: { _cpf: string; _name: string; _phone: string }
+        Returns: string
+      }
+      customer_doc_digits: { Args: { _cpf: string }; Returns: string }
+      customer_segment: { Args: { _cpf: string }; Returns: string }
       fichas_sem_nome_cliente_recentes: {
         Args: never
         Returns: {
