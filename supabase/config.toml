@@ -102,3 +102,6 @@ verify_jwt = false
 
 [functions.aceitar-proposta]
 verify_jwt = false
+
+[functions.receber-lead-site]
+verify_jwt = false
