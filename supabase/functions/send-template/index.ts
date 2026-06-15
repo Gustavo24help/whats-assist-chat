@@ -72,7 +72,7 @@ serve(async (req) => {
 
     // Enviar mensagem usando Content Template
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
-    const authHeader = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+    const twilioAuth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
 
     const formData = new URLSearchParams();
     formData.append('To', whatsappNumber);
@@ -92,7 +92,7 @@ serve(async (req) => {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${authHeader}`,
+        'Authorization': `Basic ${twilioAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: formData.toString(),
