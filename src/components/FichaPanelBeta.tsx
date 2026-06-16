@@ -77,7 +77,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
 
   // Fetch ficha details when fichaAtual changes
   useEffect(() => {
-    if (!fichaAtual) { setFichaDetalhes(null); return; }
+    if (!fichaAtual) { setFichaDetalhes(null); setHasSiteDados(false); return; }
     const fetchFichaDetalhes = async () => {
       const { data } = await supabase
         .from('fichas_de_servico')
@@ -97,6 +97,12 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
           setCategoriaNome(null);
         }
       }
+      const { data: pq } = await supabase
+        .from('pre_qualificacao_bot')
+        .select('id')
+        .eq('ficha_id', fichaAtual)
+        .maybeSingle();
+      setHasSiteDados(!!pq);
     };
     fetchFichaDetalhes();
   }, [fichaAtual]);
