@@ -2347,12 +2347,6 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                       <span className="text-muted-foreground">
                         Sugerido pelo site:{' '}
                         <span className="font-medium text-foreground">{estimativaStr || '—'}</span>
-                        {escopoCliente.taxa_visita ? (
-                          <>
-                            {' · '}taxa visita{' '}
-                            <span className="font-medium text-foreground">{escopoCliente.taxa_visita}</span>
-                          </>
-                        ) : null}
                       </span>
                       <Button
                         type="button"

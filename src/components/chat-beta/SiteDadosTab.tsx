@@ -139,6 +139,10 @@ export const SiteDadosTab = ({ fichaId }: Props) => {
         <Bloco label="Categoria" value={dados.orcamento?.categoria} />
         <Bloco label="Subcategoria" value={dados.orcamento?.subcategoria} />
         <Bloco label="Serviço" value={dados.orcamento?.servico} />
+        <Bloco
+          label="Valor estimado no site"
+          value={dados.orcamento?.estimativa}
+        />
         <Bloco label="Problema" value={dados.orcamento?.problema} multiline />
         <Bloco
           label="Resumo/Solução"
