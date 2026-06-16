@@ -726,6 +726,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         subtotal: fichaData.subtotal,
         valor_antes_arredondamento: fichaData.valor_antes_arredondamento,
         material_pago_24help: fichaData.material_pago_24help,
+        // Quando o operador confirma o agendamento (status vira 'Agendado'),
+        // o agendamento deixa de ser provisório (vindo do site) e passa a ser oficial.
+        ...((statusFinal as string) === 'Agendado' ? { agendamento_provisorio: false } : {}),
         // Time window fields - client windows (using explicit params, not closures)
         hora_inicio_agendamento: horaAgend?.trim() || null,
         hora_fim_agendamento: horaFimAgend?.trim() || null,
