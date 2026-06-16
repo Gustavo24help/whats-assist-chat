@@ -67,9 +67,15 @@ async function gerarProximoFSE(
 function normalizeTelefoneSite(raw: unknown): string {
   let d = String(raw ?? "").replace(/\D/g, "");
   if (!d) return "";
-  d = d.replace(/^0+/, ""); // tira zeros de operadora
-  if (d.length <= 11) d = "55" + d; // número local BR (DDD + 9 + 8) → acrescenta país
-  return "whatsapp:+" + d;
+  d = d.replace(/^0+/, ""); // tira zeros de operadora/DDD
+  // Tira o código do país só quando é claramente país+nacional (>= 12 díg.).
+  if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
+  // d = DDD(2) + assinante. Se assinante tem 8 díg. e é celular (começa 6-9),
+  // insere o 9º dígito → 13 díg. no total. (Fixo começa 2-5: NÃO insere.)
+  if (d.length === 10 && /^[6-9]/.test(d.slice(2))) {
+    d = d.slice(0, 2) + "9" + d.slice(2);
+  }
+  return "whatsapp:+55" + d;
 }
 
 function nonEmpty(v: unknown): string {
@@ -144,6 +150,7 @@ Deno.serve(async (req) => {
     const telefone_cliente = normalizeTelefoneSite(
       findTelefoneRaw(cliente, payload),
     );
+    console.log("[receber-lead-site] telefone normalizado:", telefone_cliente);
     if (!telefone_cliente) {
       return jsonResp({ error: "telefone do cliente é obrigatório" }, 400);
     }
