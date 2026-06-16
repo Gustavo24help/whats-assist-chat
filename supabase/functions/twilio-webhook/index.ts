@@ -19,6 +19,7 @@ import {
   normalizeWhatsappNumber,
   isPrestadoresNumber,
 } from "../_shared/twilioNumbers.ts";
+import { variantesTelefone } from "../_shared/telefoneBR.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -302,12 +303,21 @@ serve(async (req) => {
         }
       }
 
-      // Buscar ou criar cliente pelo telefone correto
+      // Buscar cliente de forma TOLERANTE (variantes com/sem 9º dígito).
+      // Se existir, usamos o telefone canônico já cadastrado (onde está a ficha).
+      const varsCliente = variantesTelefone(clienteTelefone);
+      const lookupTelefones = varsCliente.length ? varsCliente : [clienteTelefone];
       let { data: cliente } = await supabase
         .from("clientes")
         .select("telefone")
-        .eq("telefone", clienteTelefone)
+        .in("telefone", lookupTelefones)
+        .limit(1)
         .maybeSingle();
+      if (cliente?.telefone && cliente.telefone !== clienteTelefone) {
+        console.log(
+          `[${requestId}] 🔗 Cliente existente encontrado por variante: ${clienteTelefone} → ${cliente.telefone}`,
+        );
+      }
 
       if (!cliente && isClientMessage) {
         const profileName = formData.get("ProfileName") as string;

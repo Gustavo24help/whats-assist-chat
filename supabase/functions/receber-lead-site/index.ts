@@ -15,6 +15,7 @@
 // NÃO grava valor_total → não dispara o auto-finalizacao/Asaas (cobrança só em 'Finalizado').
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { variantesTelefone } from "../_shared/telefoneBR.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,20 +64,7 @@ async function gerarProximoFSE(
   return `FSE${maxN + 1}${sufixo}`;
 }
 
-// Telefone cru do site -> canônico "whatsapp:+55DDDNÚMERO" (igual ao From da Twilio).
-function normalizeTelefoneSite(raw: unknown): string {
-  let d = String(raw ?? "").replace(/\D/g, "");
-  if (!d) return "";
-  d = d.replace(/^0+/, ""); // tira zeros de operadora/DDD
-  // Tira o código do país só quando é claramente país+nacional (>= 12 díg.).
-  if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
-  // d = DDD(2) + assinante. Se assinante tem 8 díg. e é celular (começa 6-9),
-  // insere o 9º dígito → 13 díg. no total. (Fixo começa 2-5: NÃO insere.)
-  if (d.length === 10 && /^[6-9]/.test(d.slice(2))) {
-    d = d.slice(0, 2) + "9" + d.slice(2);
-  }
-  return "whatsapp:+55" + d;
-}
+// (normalizeTelefoneSite removida — agora usamos variantesTelefone + lookup canônico)
 
 function nonEmpty(v: unknown): string {
   const s = String(v ?? "").trim();
@@ -147,13 +135,11 @@ Deno.serve(async (req) => {
     const esc = (payload.escopo_cliente ?? {}) as Record<string, any>;
     const agend = (payload.agendamento ?? null) as Record<string, any> | null;
 
-    const telefone_cliente = normalizeTelefoneSite(
-      findTelefoneRaw(cliente, payload),
-    );
-    console.log("[receber-lead-site] telefone normalizado:", telefone_cliente);
-    if (!telefone_cliente) {
-      return jsonResp({ error: "telefone do cliente é obrigatório" }, 400);
+    const variantes = variantesTelefone(findTelefoneRaw(cliente, payload));
+    if (variantes.length === 0) {
+      return jsonResp({ error: "telefone inválido" }, 400);
     }
+    console.log("[receber-lead-site] variantes telefone:", variantes);
     const nome_cliente = nonEmpty(cliente.nome) || "Cliente";
     const lead_id = nonEmpty(payload.lead_id) || null;
 
@@ -161,6 +147,28 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Resolve telefone CANÔNICO: prioriza onde a conversa/cliente já existe
+    let telefone_cliente = variantes[0];
+    const { data: msgRow } = await supabase
+      .from("mensagens")
+      .select("cliente_id")
+      .in("cliente_id", variantes)
+      .order("data_hora", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (msgRow?.cliente_id) {
+      telefone_cliente = msgRow.cliente_id as string;
+    } else {
+      const { data: cliRow } = await supabase
+        .from("clientes")
+        .select("telefone")
+        .in("telefone", variantes)
+        .limit(1)
+        .maybeSingle();
+      if (cliRow?.telefone) telefone_cliente = cliRow.telefone as string;
+    }
+    console.log("[receber-lead-site] telefone canônico:", telefone_cliente);
 
     // ===== Idempotência: não duplica em reenvio/duplo-clique =====
     // Se já existe uma ficha FSE pra esse telefone criada nos últimos 2 min, reusa.
