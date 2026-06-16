@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus, MapPin, Phone, User, History, Sparkles, ClipboardList } from "lucide-react";
+import { X, FileText, DollarSign, Plus, MapPin, Phone, User, History, Sparkles, ClipboardList, Globe } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
@@ -10,6 +10,7 @@ import { CriarFichaDialog } from "./CriarFichaDialog";
 import { HistoricoClienteTab } from "./chat-beta/HistoricoClienteTab";
 import { ResumoFichaTab } from "./chat-beta/ResumoFichaTab";
 import { NinaTab } from "./chat-beta/NinaTab";
+import { SiteDadosTab } from "./chat-beta/SiteDadosTab";
 import { useClienteSignalsBeta } from "@/hooks/useClienteSignalsBeta";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -55,6 +56,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
   const [clienteInfo, setClienteInfo] = useState<ClienteInfo | null>(null);
   const [fichaDetalhes, setFichaDetalhes] = useState<FichaDetalhes | null>(null);
   const [categoriaNome, setCategoriaNome] = useState<string | null>(null);
+  const [hasSiteDados, setHasSiteDados] = useState(false);
 
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
 
@@ -75,7 +77,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
 
   // Fetch ficha details when fichaAtual changes
   useEffect(() => {
-    if (!fichaAtual) { setFichaDetalhes(null); return; }
+    if (!fichaAtual) { setFichaDetalhes(null); setHasSiteDados(false); return; }
     const fetchFichaDetalhes = async () => {
       const { data } = await supabase
         .from('fichas_de_servico')
@@ -95,6 +97,12 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
           setCategoriaNome(null);
         }
       }
+      const { data: pq } = await supabase
+        .from('pre_qualificacao_bot')
+        .select('id')
+        .eq('ficha_id', fichaAtual)
+        .maybeSingle();
+      setHasSiteDados(!!pq);
     };
     fetchFichaDetalhes();
   }, [fichaAtual]);
@@ -238,7 +246,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
 
             {/* ── TABS ── */}
             <Tabs defaultValue="resumo" className="flex flex-col">
-              <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid grid-cols-6">
+              <TabsList className={`mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid ${hasSiteDados ? 'grid-cols-7' : 'grid-cols-6'}`}>
                 <TabsTrigger value="resumo" className="text-[10px] h-7 px-1" title="Resumo">
                   <ClipboardList className="h-3 w-3" />
                 </TabsTrigger>
@@ -257,6 +265,11 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
                 <TabsTrigger value="orcamentos" className="text-[10px] h-7 px-1" title="Orçamento">
                   <DollarSign className="h-3 w-3" />
                 </TabsTrigger>
+                {hasSiteDados && (
+                  <TabsTrigger value="site" className="text-[10px] h-7 px-1" title="Site (lead do formulário)">
+                    <Globe className="h-3 w-3" />
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               {/* ── RESUMO TAB (default) ── */}
@@ -343,6 +356,13 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
               <TabsContent value="orcamentos" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
                 <OrcamentosTab fichaId={fichaAtual} />
               </TabsContent>
+
+              {/* ── SITE (LEAD) TAB ── */}
+              {hasSiteDados && (
+                <TabsContent value="site" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                  <SiteDadosTab fichaId={fichaAtual} />
+                </TabsContent>
+              )}
             </Tabs>
           </div>
         )}

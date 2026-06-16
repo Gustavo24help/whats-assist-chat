@@ -13,6 +13,7 @@ import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Save, FileText, DollarSign, Calendar as CalendarIcon, CreditCard, User, Clock, X, Copy, Check, XCircle, Loader2, Link, Send, Zap, Lock, Unlock, MessageCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { DescontoField } from "@/components/DescontoField";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { format, parse } from "date-fns";
@@ -90,6 +91,7 @@ interface Ficha {
   observacao_financeira: string | null;
   observacao_financeira_por: string | null;
   material_pago_24help: boolean;
+  agendamento_provisorio?: boolean | null;
 }
 
 interface Prestador {
@@ -163,6 +165,7 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   const [dataRetorno, setDataRetorno] = useState<string>('');
   const [horaRetorno, setHoraRetorno] = useState<string>('');
   const [horaFimRetorno, setHoraFimRetorno] = useState<string>('');
+  const [escopoCliente, setEscopoCliente] = useState<any | null>(null);
   const skipRealtimeRef = useRef(false);
   // 🛡️ Ref sempre apontando para o ficha mais recente — evita stale closure em handlers
   // de data/hora que rodam dentro da janela de debounce do autoSave (bug de reverter status).
@@ -723,6 +726,9 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         subtotal: fichaData.subtotal,
         valor_antes_arredondamento: fichaData.valor_antes_arredondamento,
         material_pago_24help: fichaData.material_pago_24help,
+        // Quando o operador confirma o agendamento (status vira 'Agendado'),
+        // o agendamento deixa de ser provisório (vindo do site) e passa a ser oficial.
+        ...((statusFinal as string) === 'Agendado' ? { agendamento_provisorio: false } : {}),
         // Time window fields - client windows (using explicit params, not closures)
         hora_inicio_agendamento: horaAgend?.trim() || null,
         hora_fim_agendamento: horaFimAgend?.trim() || null,
@@ -872,6 +878,24 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
       supabase.removeChannel(channel);
     };
   }, [fichaId]);
+
+  // Fetch escopo_cliente (sugestões do site) — somente leitura, NÃO grava nada automático.
+  useEffect(() => {
+    if (!fichaId) { setEscopoCliente(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('pre_qualificacao_bot')
+        .select('dados')
+        .eq('ficha_id', fichaId)
+        .maybeSingle();
+      if (cancelled) return;
+      const escopo = (data?.dados as any)?.escopo_cliente ?? null;
+      setEscopoCliente(escopo);
+    })();
+    return () => { cancelled = true; };
+  }, [fichaId]);
+
 
   const fetchFicha = async () => {
     const { data, error } = await supabase
@@ -1646,6 +1670,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
                     <CalendarIcon className="h-3 w-3" />
                     Agendamento do Serviço
+                    {ficha?.agendamento_provisorio ? (
+                      <Badge variant="outline" className="ml-1 text-[9px] px-1.5 py-0 border-amber-500 text-amber-700 bg-amber-50">
+                        Provisório
+                      </Badge>
+                    ) : null}
                   </Label>
                   {(dataAgendamento || horaAgendamento) && (
                     <Button
@@ -2297,6 +2326,48 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
               <div className="space-y-1.5">
                 <Label htmlFor="valor_mao_obra" className="text-xs font-medium text-muted-foreground">Valor Mão de Obra</Label>
+                {escopoCliente && (escopoCliente.estimativa || escopoCliente.taxa_visita) && (() => {
+                  const estimativaStr = String(escopoCliente.estimativa || '');
+                  // Captura número (R$ 158, R$ 1.234,50, 158, etc). "sob orçamento" → null.
+                  const match = estimativaStr.match(/(\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?|\d+(?:[.,]\d+)?)/);
+                  let numero: number | null = null;
+                  if (match) {
+                    const limpo = match[1].replace(/\./g, '').replace(',', '.');
+                    const n = parseFloat(limpo);
+                    if (Number.isFinite(n) && n > 0) numero = n;
+                  }
+                  const aplicarSugestao = () => {
+                    if (numero == null) return;
+                    const valorMaoObra = Math.round(numero * 0.77);
+                    updateFicha({ valor_mao_obra: valorMaoObra });
+                    toast.success(`Mão de obra aplicada: R$ ${valorMaoObra}`, { duration: 1500, id: 'apply-sugestao' });
+                  };
+                  return (
+                    <div className="flex items-center gap-2 flex-wrap text-[11px] bg-primary/5 border border-primary/20 rounded-md px-2 py-1.5">
+                      <span className="text-muted-foreground">
+                        Sugerido pelo site:{' '}
+                        <span className="font-medium text-foreground">{estimativaStr || '—'}</span>
+                        {escopoCliente.taxa_visita ? (
+                          <>
+                            {' · '}taxa visita{' '}
+                            <span className="font-medium text-foreground">{escopoCliente.taxa_visita}</span>
+                          </>
+                        ) : null}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px] ml-auto"
+                        disabled={numero == null}
+                        onClick={aplicarSugestao}
+                        title={numero == null ? 'Estimativa sob orçamento — sem número para aplicar' : 'Aplicar sugestão à mão de obra'}
+                      >
+                        Aplicar
+                      </Button>
+                    </div>
+                  );
+                })()}
                 <Input
                   id="valor_mao_obra"
                   type="text"
