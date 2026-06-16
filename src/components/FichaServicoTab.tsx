@@ -2323,6 +2323,48 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
 
               <div className="space-y-1.5">
                 <Label htmlFor="valor_mao_obra" className="text-xs font-medium text-muted-foreground">Valor Mão de Obra</Label>
+                {escopoCliente && (escopoCliente.estimativa || escopoCliente.taxa_visita) && (() => {
+                  const estimativaStr = String(escopoCliente.estimativa || '');
+                  // Captura número (R$ 158, R$ 1.234,50, 158, etc). "sob orçamento" → null.
+                  const match = estimativaStr.match(/(\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?|\d+(?:[.,]\d+)?)/);
+                  let numero: number | null = null;
+                  if (match) {
+                    const limpo = match[1].replace(/\./g, '').replace(',', '.');
+                    const n = parseFloat(limpo);
+                    if (Number.isFinite(n) && n > 0) numero = n;
+                  }
+                  const aplicarSugestao = () => {
+                    if (numero == null) return;
+                    const valorMaoObra = Math.round(numero * 0.77);
+                    updateFicha({ valor_mao_obra: valorMaoObra });
+                    toast.success(`Mão de obra aplicada: R$ ${valorMaoObra}`, { duration: 1500, id: 'apply-sugestao' });
+                  };
+                  return (
+                    <div className="flex items-center gap-2 flex-wrap text-[11px] bg-primary/5 border border-primary/20 rounded-md px-2 py-1.5">
+                      <span className="text-muted-foreground">
+                        Sugerido pelo site:{' '}
+                        <span className="font-medium text-foreground">{estimativaStr || '—'}</span>
+                        {escopoCliente.taxa_visita ? (
+                          <>
+                            {' · '}taxa visita{' '}
+                            <span className="font-medium text-foreground">{escopoCliente.taxa_visita}</span>
+                          </>
+                        ) : null}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px] ml-auto"
+                        disabled={numero == null}
+                        onClick={aplicarSugestao}
+                        title={numero == null ? 'Estimativa sob orçamento — sem número para aplicar' : 'Aplicar sugestão à mão de obra'}
+                      >
+                        Aplicar
+                      </Button>
+                    </div>
+                  );
+                })()}
                 <Input
                   id="valor_mao_obra"
                   type="text"
