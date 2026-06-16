@@ -135,13 +135,11 @@ Deno.serve(async (req) => {
     const esc = (payload.escopo_cliente ?? {}) as Record<string, any>;
     const agend = (payload.agendamento ?? null) as Record<string, any> | null;
 
-    const telefone_cliente = normalizeTelefoneSite(
-      findTelefoneRaw(cliente, payload),
-    );
-    console.log("[receber-lead-site] telefone normalizado:", telefone_cliente);
-    if (!telefone_cliente) {
-      return jsonResp({ error: "telefone do cliente é obrigatório" }, 400);
+    const variantes = variantesTelefone(findTelefoneRaw(cliente, payload));
+    if (variantes.length === 0) {
+      return jsonResp({ error: "telefone inválido" }, 400);
     }
+    console.log("[receber-lead-site] variantes telefone:", variantes);
     const nome_cliente = nonEmpty(cliente.nome) || "Cliente";
     const lead_id = nonEmpty(payload.lead_id) || null;
 
@@ -149,6 +147,28 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Resolve telefone CANÔNICO: prioriza onde a conversa/cliente já existe
+    let telefone_cliente = variantes[0];
+    const { data: msgRow } = await supabase
+      .from("mensagens")
+      .select("cliente_id")
+      .in("cliente_id", variantes)
+      .order("data_hora", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (msgRow?.cliente_id) {
+      telefone_cliente = msgRow.cliente_id as string;
+    } else {
+      const { data: cliRow } = await supabase
+        .from("clientes")
+        .select("telefone")
+        .in("telefone", variantes)
+        .limit(1)
+        .maybeSingle();
+      if (cliRow?.telefone) telefone_cliente = cliRow.telefone as string;
+    }
+    console.log("[receber-lead-site] telefone canônico:", telefone_cliente);
 
     // ===== Idempotência: não duplica em reenvio/duplo-clique =====
     // Se já existe uma ficha FSE pra esse telefone criada nos últimos 2 min, reusa.
