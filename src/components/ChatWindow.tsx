@@ -2263,8 +2263,19 @@ export const ChatWindow = ({
         <img
           src={msg.arquivo_url}
           alt="Imagem"
+          draggable
           className="max-w-[280px] max-h-[280px] rounded-xl mt-2 cursor-pointer hover:opacity-95 transition-all shadow-sm hover:shadow-md object-cover"
           onLoad={keepBottomOnInitialMediaLoad}
+          onDragStart={(e) => {
+            isDraggingMediaOutRef.current = true;
+            setIsDragging(false);
+            e.dataTransfer.setData("text/uri-list", msg.arquivo_url || "");
+            e.dataTransfer.setData("text/plain", msg.arquivo_url || "");
+          }}
+          onDragEnd={() => {
+            isDraggingMediaOutRef.current = false;
+            setIsDragging(false);
+          }}
           onClick={() => window.open(msg.arquivo_url || "", "_blank")}
         />
       );

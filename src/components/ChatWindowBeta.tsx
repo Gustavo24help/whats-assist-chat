@@ -471,6 +471,7 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const latestMessageDateRef = useRef<string | null>(null);
+  const isDraggingMediaOutRef = useRef(false);
 
   // Ticket ownership
   const isMyTicket = atendenteAtual?.id === user?.id;
@@ -1667,8 +1668,17 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
     }
   };
 
+  const shouldHandleIncomingFileDrag = (e: React.DragEvent) => {
+    const types = Array.from(e.dataTransfer?.types || []);
+    return !isDraggingMediaOutRef.current && types.includes("Files");
+  };
+
   // Drag and Drop handlers
   const handleDragEnter = (e: React.DragEvent) => {
+    if (!shouldHandleIncomingFileDrag(e)) {
+      setIsDragging(false);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     if (statusConversa === "fechada") return;
@@ -1676,6 +1686,10 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
+    if (!shouldHandleIncomingFileDrag(e)) {
+      setIsDragging(false);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     // Só sair do modo drag se realmente saiu da área raiz do chat.
@@ -1689,11 +1703,16 @@ Responda APENAS com o texto da mensagem, sem explicação, sem aspas, sem prefix
   };
 
   const handleDragOver = (e: React.DragEvent) => {
+    if (!shouldHandleIncomingFileDrag(e)) return;
     e.preventDefault();
     e.stopPropagation();
   };
 
   const handleDrop = (e: React.DragEvent) => {
+    if (!shouldHandleIncomingFileDrag(e)) {
+      setIsDragging(false);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
