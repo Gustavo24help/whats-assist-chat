@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { X, FileText, DollarSign, Plus, MapPin, Phone, User, History, Sparkles, ClipboardList } from "lucide-react";
+import { X, FileText, DollarSign, Plus, MapPin, Phone, User, History, Sparkles, ClipboardList, Globe } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FichaServicoTab } from "./FichaServicoTab";
@@ -10,6 +10,7 @@ import { CriarFichaDialog } from "./CriarFichaDialog";
 import { HistoricoClienteTab } from "./chat-beta/HistoricoClienteTab";
 import { ResumoFichaTab } from "./chat-beta/ResumoFichaTab";
 import { NinaTab } from "./chat-beta/NinaTab";
+import { SiteDadosTab } from "./chat-beta/SiteDadosTab";
 import { useClienteSignalsBeta } from "@/hooks/useClienteSignalsBeta";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
