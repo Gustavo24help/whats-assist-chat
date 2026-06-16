@@ -290,6 +290,7 @@ export const ChatWindow = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const dropZoneRef = useRef<HTMLDivElement>(null);
+  const isDraggingMediaOutRef = useRef(false);
   const { dentroJanela } = useConversationTimer(clienteTelefone);
 
   const isMyTicket = atendenteAtual?.id === user?.id;
@@ -1522,8 +1523,17 @@ export const ChatWindow = ({
     }
   };
 
+  const shouldHandleIncomingFileDrag = (e: React.DragEvent) => {
+    const types = Array.from(e.dataTransfer?.types || []);
+    return !isDraggingMediaOutRef.current && types.includes("Files");
+  };
+
   // Drag and Drop handlers
   const handleDragEnter = (e: React.DragEvent) => {
+    if (!shouldHandleIncomingFileDrag(e)) {
+      setIsDragging(false);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     if (statusConversa === "fechada") return;
@@ -1531,6 +1541,10 @@ export const ChatWindow = ({
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
+    if (!shouldHandleIncomingFileDrag(e)) {
+      setIsDragging(false);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     // Só sair do modo drag se realmente saiu da área
@@ -1540,11 +1554,16 @@ export const ChatWindow = ({
   };
 
   const handleDragOver = (e: React.DragEvent) => {
+    if (!shouldHandleIncomingFileDrag(e)) return;
     e.preventDefault();
     e.stopPropagation();
   };
 
   const handleDrop = (e: React.DragEvent) => {
+    if (!shouldHandleIncomingFileDrag(e)) {
+      setIsDragging(false);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -2244,8 +2263,19 @@ export const ChatWindow = ({
         <img
           src={msg.arquivo_url}
           alt="Imagem"
+          draggable
           className="max-w-[280px] max-h-[280px] rounded-xl mt-2 cursor-pointer hover:opacity-95 transition-all shadow-sm hover:shadow-md object-cover"
           onLoad={keepBottomOnInitialMediaLoad}
+          onDragStart={(e) => {
+            isDraggingMediaOutRef.current = true;
+            setIsDragging(false);
+            e.dataTransfer.setData("text/uri-list", msg.arquivo_url || "");
+            e.dataTransfer.setData("text/plain", msg.arquivo_url || "");
+          }}
+          onDragEnd={() => {
+            isDraggingMediaOutRef.current = false;
+            setIsDragging(false);
+          }}
           onClick={() => window.open(msg.arquivo_url || "", "_blank")}
         />
       );
