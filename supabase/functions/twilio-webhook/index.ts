@@ -19,6 +19,7 @@ import {
   normalizeWhatsappNumber,
   isPrestadoresNumber,
 } from "../_shared/twilioNumbers.ts";
+import { variantesTelefone } from "../_shared/telefoneBR.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
