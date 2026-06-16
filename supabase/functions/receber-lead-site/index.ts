@@ -150,6 +150,7 @@ Deno.serve(async (req) => {
     const telefone_cliente = normalizeTelefoneSite(
       findTelefoneRaw(cliente, payload),
     );
+    console.log("[receber-lead-site] telefone normalizado:", telefone_cliente);
     if (!telefone_cliente) {
       return jsonResp({ error: "telefone do cliente é obrigatório" }, 400);
     }
