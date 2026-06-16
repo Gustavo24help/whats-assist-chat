@@ -1575,9 +1575,7 @@ export type Database = {
       }
       fichas_de_servico: {
         Row: {
-          agendamento_provisorio: boolean
           bairro: string | null
-          boas_vindas_lead_enviada: boolean
           categoria_id: number | null
           cidade: string | null
           comparecimento_prestador: string | null
@@ -1653,9 +1651,7 @@ export type Database = {
           webhook_pendente: boolean | null
         }
         Insert: {
-          agendamento_provisorio?: boolean
           bairro?: string | null
-          boas_vindas_lead_enviada?: boolean
           categoria_id?: number | null
           cidade?: string | null
           comparecimento_prestador?: string | null
@@ -1731,9 +1727,7 @@ export type Database = {
           webhook_pendente?: boolean | null
         }
         Update: {
-          agendamento_provisorio?: boolean
           bairro?: string | null
-          boas_vindas_lead_enviada?: boolean
           categoria_id?: number | null
           cidade?: string | null
           comparecimento_prestador?: string | null

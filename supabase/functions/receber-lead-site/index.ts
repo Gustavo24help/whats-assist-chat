@@ -228,30 +228,11 @@ Deno.serve(async (req) => {
 
     // Preferência de horário a partir do agendamento provisório do site.
     let preferencia_horario_cliente: string | null = null;
-    let horario_agendamento: string | null = null;
-    let hora_inicio_agendamento: string | null = null;
-    let hora_fim_agendamento: string | null = null;
-    let agendamento_provisorio = false;
-
     if (agend) {
       const partes = [nonEmpty(agend.data_pretty), nonEmpty(agend.janela)]
         .filter(Boolean)
         .join(" ");
       preferencia_horario_cliente = partes || null;
-
-      const janelaRaw = nonEmpty(agend.janela);
-      const dataRaw = nonEmpty(agend.data);
-      if (janelaRaw && dataRaw) {
-        const m = /^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(janelaRaw);
-        if (m) {
-          const inicio = m[1];
-          const fim = m[2];
-          horario_agendamento = `${dataRaw}T${inicio}:00-03:00`;
-          hora_inicio_agendamento = inicio;
-          hora_fim_agendamento = fim;
-          agendamento_provisorio = true;
-        }
-      }
     }
 
     // ===== Insere a ficha (status default 'Ficha Criada'; SEM valor) =====
@@ -262,10 +243,6 @@ Deno.serve(async (req) => {
       nome_cliente,
       descricao,
       preferencia_horario_cliente,
-      horario_agendamento,
-      hora_inicio_agendamento,
-      hora_fim_agendamento,
-      agendamento_provisorio,
     };
     Object.keys(insertFicha).forEach((k) => {
       if (insertFicha[k] === null || insertFicha[k] === undefined) {
