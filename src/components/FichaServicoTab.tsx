@@ -1667,6 +1667,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                   <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
                     <CalendarIcon className="h-3 w-3" />
                     Agendamento do Serviço
+                    {ficha?.agendamento_provisorio ? (
+                      <Badge variant="outline" className="ml-1 text-[9px] px-1.5 py-0 border-amber-500 text-amber-700 bg-amber-50">
+                        Provisório
+                      </Badge>
+                    ) : null}
                   </Label>
                   {(dataAgendamento || horaAgendamento) && (
                     <Button
