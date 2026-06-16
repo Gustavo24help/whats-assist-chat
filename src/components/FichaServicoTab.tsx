@@ -90,6 +90,7 @@ interface Ficha {
   observacao_financeira: string | null;
   observacao_financeira_por: string | null;
   material_pago_24help: boolean;
+  agendamento_provisorio?: boolean | null;
 }
 
 interface Prestador {
