@@ -356,6 +356,13 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
               <TabsContent value="orcamentos" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
                 <OrcamentosTab fichaId={fichaAtual} />
               </TabsContent>
+
+              {/* ── SITE (LEAD) TAB ── */}
+              {hasSiteDados && (
+                <TabsContent value="site" className="p-2.5 m-0 animate-in fade-in-50 duration-200">
+                  <SiteDadosTab fichaId={fichaAtual} />
+                </TabsContent>
+              )}
             </Tabs>
           </div>
         )}
