@@ -15,6 +15,7 @@
 // NÃO grava valor_total → não dispara o auto-finalizacao/Asaas (cobrança só em 'Finalizado').
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { variantesTelefone } from "../_shared/telefoneBR.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
