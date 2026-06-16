@@ -64,20 +64,7 @@ async function gerarProximoFSE(
   return `FSE${maxN + 1}${sufixo}`;
 }
 
-// Telefone cru do site -> canônico "whatsapp:+55DDDNÚMERO" (igual ao From da Twilio).
-function normalizeTelefoneSite(raw: unknown): string {
-  let d = String(raw ?? "").replace(/\D/g, "");
-  if (!d) return "";
-  d = d.replace(/^0+/, ""); // tira zeros de operadora/DDD
-  // Tira o código do país só quando é claramente país+nacional (>= 12 díg.).
-  if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
-  // d = DDD(2) + assinante. Se assinante tem 8 díg. e é celular (começa 6-9),
-  // insere o 9º dígito → 13 díg. no total. (Fixo começa 2-5: NÃO insere.)
-  if (d.length === 10 && /^[6-9]/.test(d.slice(2))) {
-    d = d.slice(0, 2) + "9" + d.slice(2);
-  }
-  return "whatsapp:+55" + d;
-}
+// (normalizeTelefoneSite removida — agora usamos variantesTelefone + lookup canônico)
 
 function nonEmpty(v: unknown): string {
   const s = String(v ?? "").trim();
