@@ -1035,6 +1035,7 @@ export type Database = {
           created_at: string
           customer_feedback: string | null
           customer_id: string
+          customer_phone: string | null
           customer_rating: number | null
           description: string | null
           diagnosis: string | null
@@ -1063,6 +1064,7 @@ export type Database = {
           created_at?: string
           customer_feedback?: string | null
           customer_id: string
+          customer_phone?: string | null
           customer_rating?: number | null
           description?: string | null
           diagnosis?: string | null
@@ -1091,6 +1093,7 @@ export type Database = {
           created_at?: string
           customer_feedback?: string | null
           customer_id?: string
+          customer_phone?: string | null
           customer_rating?: number | null
           description?: string | null
           diagnosis?: string | null
@@ -3754,6 +3757,7 @@ export type Database = {
           completed_at: string | null
           created_at: string | null
           customer_id: string | null
+          customer_phone: string | null
           event_date: string | null
           ficha_id: string | null
           id: string | null
