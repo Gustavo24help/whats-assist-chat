@@ -338,6 +338,37 @@ Deno.serve(async (req) => {
       console.warn("[receber-lead-site] erro toggle-bot-status:", String(e));
     }
 
+    // ===== Race condition: se o cliente já mandou msg nos últimos 5 min, dispara boas-vindas agora =====
+    try {
+      const cincoMinAtras = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: msgRecente } = await supabase
+        .from("mensagens")
+        .select("id")
+        .eq("cliente_id", telefone_cliente)
+        .eq("status", "recebido")
+        .gte("data_hora", cincoMinAtras)
+        .limit(1)
+        .maybeSingle();
+      if (msgRecente) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        fetch(`${supabaseUrl}/functions/v1/enviar-boas-vindas-lead`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            telefone: telefone_cliente,
+            ficha_id,
+            numero_origem: "",
+          }),
+        }).catch((e) => console.warn("[receber-lead-site] boas-vindas dispatch:", String(e)));
+      }
+    } catch (e) {
+      console.warn("[receber-lead-site] erro check msg recente:", String(e));
+    }
+
     return jsonResp({ ok: true, ficha_id });
   } catch (err) {
     console.error("[receber-lead-site] erro fatal:", err);
