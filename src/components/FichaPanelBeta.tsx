@@ -56,6 +56,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
   const [clienteInfo, setClienteInfo] = useState<ClienteInfo | null>(null);
   const [fichaDetalhes, setFichaDetalhes] = useState<FichaDetalhes | null>(null);
   const [categoriaNome, setCategoriaNome] = useState<string | null>(null);
+  const [hasSiteDados, setHasSiteDados] = useState(false);
 
   const { coaching } = useClienteSignalsBeta(clienteTelefone);
 
