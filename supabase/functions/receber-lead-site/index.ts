@@ -235,6 +235,27 @@ Deno.serve(async (req) => {
       preferencia_horario_cliente = partes || null;
     }
 
+    // Parse da janela "HH:MM-HH:MM" -> inicio/fim (agendamento PROVISÓRIO).
+    // Não calculamos a janela do prestador aqui; isso fica no FichaServicoTab
+    // quando o operador confirmar. Também NÃO gravamos valor_total/valor_mao_obra
+    // pra não disparar auto-finalizacao/Asaas.
+    let horario_agendamento: string | null = null;
+    let hora_inicio_agendamento: string | null = null;
+    let hora_fim_agendamento: string | null = null;
+    let agendamento_provisorio = false;
+    if (agend) {
+      const dataAgend = nonEmpty(agend.data);
+      const janela = nonEmpty(agend.janela);
+      const m = /^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(janela);
+      if (dataAgend && m) {
+        hora_inicio_agendamento = m[1];
+        hora_fim_agendamento = m[2];
+        // ISO no fuso do Brasil (UTC-3)
+        horario_agendamento = `${dataAgend}T${m[1]}:00-03:00`;
+        agendamento_provisorio = true;
+      }
+    }
+
     // ===== Insere a ficha (status default 'Ficha Criada'; SEM valor) =====
     const insertFicha: Record<string, unknown> = {
       id: ficha_id,
@@ -243,6 +264,10 @@ Deno.serve(async (req) => {
       nome_cliente,
       descricao,
       preferencia_horario_cliente,
+      horario_agendamento,
+      hora_inicio_agendamento,
+      hora_fim_agendamento,
+      agendamento_provisorio: agendamento_provisorio || undefined,
     };
     Object.keys(insertFicha).forEach((k) => {
       if (insertFicha[k] === null || insertFicha[k] === undefined) {
