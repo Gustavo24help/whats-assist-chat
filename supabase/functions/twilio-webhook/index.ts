@@ -497,6 +497,29 @@ serve(async (req) => {
               ultima_mensagem_recebida: new Date().toISOString(),
             })
             .eq("telefone", cliente.telefone);
+
+          // Boas-vindas automática para leads do site (ficha FSE*)
+          if (fichaId && /^FSE/.test(fichaId)) {
+            const { data: fichaLead } = await supabase
+              .from("fichas_de_servico")
+              .select("boas_vindas_lead_enviada")
+              .eq("id", fichaId)
+              .maybeSingle();
+            if (fichaLead && (fichaLead as any).boas_vindas_lead_enviada === false) {
+              fetch(`${supabaseUrl}/functions/v1/enviar-boas-vindas-lead`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({
+                  telefone: cliente.telefone,
+                  ficha_id: fichaId,
+                  numero_origem: numeroDestino,
+                }),
+              }).catch((e) => console.error(`[${requestId}] erro boas-vindas-lead:`, e));
+            }
+          }
         }
 
         // Fire-and-forget: transcribe audio messages
