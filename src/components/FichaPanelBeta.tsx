@@ -246,7 +246,7 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
 
             {/* ── TABS ── */}
             <Tabs defaultValue="resumo" className="flex flex-col">
-              <TabsList className="mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid grid-cols-6">
+              <TabsList className={`mx-2.5 mt-2 shrink-0 h-8 p-0.5 grid ${hasSiteDados ? 'grid-cols-7' : 'grid-cols-6'}`}>
                 <TabsTrigger value="resumo" className="text-[10px] h-7 px-1" title="Resumo">
                   <ClipboardList className="h-3 w-3" />
                 </TabsTrigger>
@@ -265,6 +265,11 @@ export const FichaPanelBeta = ({ clienteTelefone, clienteNome, onClose }: FichaP
                 <TabsTrigger value="orcamentos" className="text-[10px] h-7 px-1" title="Orçamento">
                   <DollarSign className="h-3 w-3" />
                 </TabsTrigger>
+                {hasSiteDados && (
+                  <TabsTrigger value="site" className="text-[10px] h-7 px-1" title="Site (lead do formulário)">
+                    <Globe className="h-3 w-3" />
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               {/* ── RESUMO TAB (default) ── */}
