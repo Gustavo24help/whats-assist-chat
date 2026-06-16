@@ -875,6 +875,24 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
     };
   }, [fichaId]);
 
+  // Fetch escopo_cliente (sugestões do site) — somente leitura, NÃO grava nada automático.
+  useEffect(() => {
+    if (!fichaId) { setEscopoCliente(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('pre_qualificacao_bot')
+        .select('dados')
+        .eq('ficha_id', fichaId)
+        .maybeSingle();
+      if (cancelled) return;
+      const escopo = (data?.dados as any)?.escopo_cliente ?? null;
+      setEscopoCliente(escopo);
+    })();
+    return () => { cancelled = true; };
+  }, [fichaId]);
+
+
   const fetchFicha = async () => {
     const { data, error } = await supabase
       .from('fichas_de_servico')
