@@ -105,3 +105,13 @@ verify_jwt = false
 
 [functions.receber-lead-site]
 verify_jwt = false
+
+[functions.enviar-convite-prestador]
+verify_jwt = true
+
+[functions.responder-convite]
+verify_jwt = false
+
+[functions.processar-convites-expiracao]
+verify_jwt = false
+

@@ -28,6 +28,8 @@ import { PopupConfirmacaoFinanceira } from "@/components/PopupConfirmacaoFinance
 import { EnviarLinkPagamentoDialog } from "@/components/EnviarLinkPagamentoDialog";
 import { ConfirmReenvioDialog } from "@/components/ConfirmReenvioDialog";
 import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
+import { EnviarConviteDialog } from "@/components/EnviarConviteDialog";
+import { ConviteAtivoBadge } from "@/components/ConviteAtivoBadge";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
 import { validateAsaasLink } from "@/lib/asaasLinkValidator";
@@ -189,12 +191,28 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   } | null>(null);
   const pendingGerarLinkRef = useRef(false);
 
+  // Convite ao prestador
+  const [conviteDialogOpen, setConviteDialogOpen] = useState(false);
+  const [conviteCpfPre, setConviteCpfPre] = useState<string | null>(null);
+  const [categoriaNome, setCategoriaNome] = useState<string | null>(null);
+
   // Conflito de agendamento do prestador
   const [conflitoDialog, setConflitoDialog] = useState<{
     avisos: ConflitoSlot[];
     onConfirm: () => void;
   } | null>(null);
   const ultimoAvisoFichasRef = useRef<string>(''); // para evitar repetir toast no autoSave
+
+  // Busca o nome da categoria pra alimentar o convite ao prestador (filtro dropdown).
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      if (!ficha?.categoria_id) { setCategoriaNome(null); return; }
+      const { data } = await supabase.from('categorias').select('nome').eq('id', ficha.categoria_id).maybeSingle();
+      if (!cancel) setCategoriaNome((data as any)?.nome ?? null);
+    })();
+    return () => { cancel = true; };
+  }, [ficha?.categoria_id]);
 
   /** Pré-check: se já houve envio prévio (auto OU manual), pede confirmação. */
   const checarEnviosPrevios = useCallback(async (): Promise<boolean> => {
@@ -1665,6 +1683,25 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 </Select>
               </div>
 
+              {/* Convite ao prestador (WhatsApp) */}
+              <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                <ConviteAtivoBadge
+                  fichaId={fichaId}
+                  categoriaNome={categoriaNome}
+                  onSugerirProximo={(cpf) => { setConviteCpfPre(cpf); setConviteDialogOpen(true); }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs ml-auto"
+                  onClick={() => { setConviteCpfPre(ficha?.prestador_id ?? null); setConviteDialogOpen(true); }}
+                >
+                  <Send className="h-3 w-3 mr-1" />
+                  Enviar convite
+                </Button>
+              </div>
+
               <div>
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
@@ -2956,6 +2993,16 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
           onAjustado={() => fetchFicha()}
         />
       )}
+
+      <EnviarConviteDialog
+        open={conviteDialogOpen}
+        onOpenChange={(v) => { setConviteDialogOpen(v); if (!v) setConviteCpfPre(null); }}
+        fichaId={fichaId}
+        categoriaNome={categoriaNome}
+        prestadorPreSelecionadoCpf={conviteCpfPre}
+      />
+
+
 
       {/* Confirmação de Finalização */}
       <AlertDialog open={showFinalizarConfirm} onOpenChange={setShowFinalizarConfirm}>
