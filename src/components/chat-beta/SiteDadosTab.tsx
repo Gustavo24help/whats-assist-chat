@@ -59,23 +59,43 @@ const Bloco = ({
 
 export const SiteDadosTab = ({ fichaId }: Props) => {
   const [dados, setDados] = useState<any | null>(null);
+  const [ficha, setFicha] = useState<any | null>(null);
+  const [cliente, setCliente] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!fichaId) {
       setDados(null);
+      setFicha(null);
+      setCliente(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const { data } = await supabase
+      const { data: pq } = await supabase
         .from("pre_qualificacao_bot")
         .select("dados")
         .eq("ficha_id", fichaId)
         .maybeSingle();
+      const { data: f } = await supabase
+        .from("fichas_de_servico")
+        .select("horario_agendamento, janela_horario, agendamento_provisorio, endereco_servico, telefone_cliente")
+        .eq("id", fichaId)
+        .maybeSingle();
+      let c: any = null;
+      if (f?.telefone_cliente) {
+        const { data: cli } = await supabase
+          .from("clientes")
+          .select("bairro, nome")
+          .eq("telefone", f.telefone_cliente)
+          .maybeSingle();
+        c = cli;
+      }
       if (!cancelled) {
-        setDados((data?.dados as any) ?? null);
+        setDados((pq?.dados as any) ?? null);
+        setFicha(f ?? null);
+        setCliente(c);
         setLoading(false);
       }
     })();
@@ -83,6 +103,7 @@ export const SiteDadosTab = ({ fichaId }: Props) => {
       cancelled = true;
     };
   }, [fichaId]);
+
 
   if (loading) {
     return <p className="text-xs text-muted-foreground p-2">Carregando…</p>;
