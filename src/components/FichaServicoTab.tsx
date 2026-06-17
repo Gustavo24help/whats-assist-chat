@@ -203,6 +203,17 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   } | null>(null);
   const ultimoAvisoFichasRef = useRef<string>(''); // para evitar repetir toast no autoSave
 
+  // Busca o nome da categoria pra alimentar o convite ao prestador (filtro dropdown).
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      if (!ficha?.categoria_id) { setCategoriaNome(null); return; }
+      const { data } = await supabase.from('categorias').select('nome').eq('id', ficha.categoria_id).maybeSingle();
+      if (!cancel) setCategoriaNome((data as any)?.nome ?? null);
+    })();
+    return () => { cancel = true; };
+  }, [ficha?.categoria_id]);
+
   /** Pré-check: se já houve envio prévio (auto OU manual), pede confirmação. */
   const checarEnviosPrevios = useCallback(async (): Promise<boolean> => {
     if (!ficha) return true;
