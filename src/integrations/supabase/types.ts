@@ -1027,6 +1027,74 @@ export type Database = {
           },
         ]
       }
+      convites_prestador: {
+        Row: {
+          created_at: string
+          enviado_em: string
+          enviado_por_id: string | null
+          enviado_por_nome: string | null
+          expira_em: string
+          ficha_id: string
+          id: string
+          lembrete_enviado: boolean
+          message_sid: string | null
+          prestador_cpf: string
+          prestador_nome: string | null
+          prestador_telefone: string | null
+          respondido_em: string | null
+          resumo_texto: string | null
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enviado_em?: string
+          enviado_por_id?: string | null
+          enviado_por_nome?: string | null
+          expira_em: string
+          ficha_id: string
+          id?: string
+          lembrete_enviado?: boolean
+          message_sid?: string | null
+          prestador_cpf: string
+          prestador_nome?: string | null
+          prestador_telefone?: string | null
+          respondido_em?: string | null
+          resumo_texto?: string | null
+          status?: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enviado_em?: string
+          enviado_por_id?: string | null
+          enviado_por_nome?: string | null
+          expira_em?: string
+          ficha_id?: string
+          id?: string
+          lembrete_enviado?: boolean
+          message_sid?: string | null
+          prestador_cpf?: string
+          prestador_nome?: string | null
+          prestador_telefone?: string | null
+          respondido_em?: string | null
+          resumo_texto?: string | null
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convites_prestador_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas_de_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_services: {
         Row: {
           address_used: string | null
