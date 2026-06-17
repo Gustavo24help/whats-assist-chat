@@ -2994,6 +2994,16 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
         />
       )}
 
+      <EnviarConviteDialog
+        open={conviteDialogOpen}
+        onOpenChange={(v) => { setConviteDialogOpen(v); if (!v) setConviteCpfPre(null); }}
+        fichaId={fichaId}
+        categoriaNome={categoriaNome}
+        prestadorPreSelecionadoCpf={conviteCpfPre}
+      />
+
+
+
       {/* Confirmação de Finalização */}
       <AlertDialog open={showFinalizarConfirm} onOpenChange={setShowFinalizarConfirm}>
         <AlertDialogContent>
