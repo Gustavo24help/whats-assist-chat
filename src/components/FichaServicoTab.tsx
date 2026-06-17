@@ -191,6 +191,11 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
   } | null>(null);
   const pendingGerarLinkRef = useRef(false);
 
+  // Convite ao prestador
+  const [conviteDialogOpen, setConviteDialogOpen] = useState(false);
+  const [conviteCpfPre, setConviteCpfPre] = useState<string | null>(null);
+  const [categoriaNome, setCategoriaNome] = useState<string | null>(null);
+
   // Conflito de agendamento do prestador
   const [conflitoDialog, setConflitoDialog] = useState<{
     avisos: ConflitoSlot[];
