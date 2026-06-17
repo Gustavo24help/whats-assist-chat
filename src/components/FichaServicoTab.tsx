@@ -1683,6 +1683,25 @@ export const FichaServicoTab = ({ fichaId }: FichaServicoTabProps) => {
                 </Select>
               </div>
 
+              {/* Convite ao prestador (WhatsApp) */}
+              <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                <ConviteAtivoBadge
+                  fichaId={fichaId}
+                  categoriaNome={categoriaNome}
+                  onSugerirProximo={(cpf) => { setConviteCpfPre(cpf); setConviteDialogOpen(true); }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs ml-auto"
+                  onClick={() => { setConviteCpfPre(ficha?.prestador_id ?? null); setConviteDialogOpen(true); }}
+                >
+                  <Send className="h-3 w-3 mr-1" />
+                  Enviar convite
+                </Button>
+              </div>
+
               <div>
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
