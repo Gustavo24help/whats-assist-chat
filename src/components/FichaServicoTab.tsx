@@ -28,6 +28,8 @@ import { PopupConfirmacaoFinanceira } from "@/components/PopupConfirmacaoFinance
 import { EnviarLinkPagamentoDialog } from "@/components/EnviarLinkPagamentoDialog";
 import { ConfirmReenvioDialog } from "@/components/ConfirmReenvioDialog";
 import { AjustarDataFinalizacaoDialog } from "@/components/AjustarDataFinalizacaoDialog";
+import { EnviarConviteDialog } from "@/components/EnviarConviteDialog";
+import { ConviteAtivoBadge } from "@/components/ConviteAtivoBadge";
 import { useFichaGrupo } from "@/hooks/useFichaGrupo";
 import { FichaVinculoBadge } from "./FichaVinculoBadge";
 import { validateAsaasLink } from "@/lib/asaasLinkValidator";
