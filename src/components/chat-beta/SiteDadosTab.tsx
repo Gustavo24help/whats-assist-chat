@@ -80,9 +80,10 @@ export const SiteDadosTab = ({ fichaId }: Props) => {
         .maybeSingle();
       const { data: f } = await supabase
         .from("fichas_de_servico")
-        .select("horario_agendamento, janela_horario, agendamento_provisorio, endereco_servico, telefone_cliente")
+        .select("horario_agendamento, hora_inicio_agendamento, hora_fim_agendamento, agendamento_provisorio, endereco, telefone_cliente")
         .eq("id", fichaId)
         .maybeSingle();
+
       let c: any = null;
       if (f?.telefone_cliente) {
         const { data: cli } = await supabase
