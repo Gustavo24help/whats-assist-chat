@@ -146,8 +146,58 @@ export const SiteDadosTab = ({ fichaId }: Props) => {
     copy(partes);
   };
 
+  const copiarParaPrestador = () => {
+    const orc = (dados.orcamento || {}) as Record<string, any>;
+    const cli = (dados.cliente || {}) as Record<string, any>;
+    const catSub = [orc.categoria, orc.subcategoria].filter(Boolean).join(" › ");
+    const bairro = cliente?.bairro || cli.bairro || "";
+    const enderecoLinha = [bairro, ficha?.endereco].filter(Boolean).join(" — ");
+    const perguntasLinhas = perguntasEntries
+      .map(([p, r]) => {
+        const rs = Array.isArray(r) ? r.join(", ") : String(r ?? "");
+        return `• ${p}: ${rs}`;
+      })
+      .join("\n");
+
+    const agParts: string[] = [];
+    if (ficha?.horario_agendamento) agParts.push(String(ficha.horario_agendamento));
+    if (ficha?.hora_inicio_agendamento || ficha?.hora_fim_agendamento) {
+      agParts.push(
+        `${ficha.hora_inicio_agendamento ?? ""}${
+          ficha.hora_fim_agendamento ? " - " + ficha.hora_fim_agendamento : ""
+        }`.trim()
+      );
+    }
+    let agendamento = agParts.filter(Boolean).join(" ");
+    if (ficha?.agendamento_provisorio) agendamento += " (provisório)";
+
+    const linhas = [
+      orc.servico ? `*Serviço:* ${orc.servico}${catSub ? `  (${catSub})` : ""}` : "",
+      orc.problema ? `*Problema:* ${orc.problema}` : "",
+      enderecoLinha ? `*Bairro:* ${enderecoLinha}` : "",
+      perguntasLinhas ? `*Perguntas:*\n${perguntasLinhas}` : "",
+      obs ? `*Detalhes:* ${obs}` : "",
+      agendamento ? `*Agendamento:* ${agendamento}` : "",
+      escopo.estimativa ? `*Valor sugerido:* ${escopo.estimativa}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    copy(linhas);
+  };
+
   return (
     <div className="space-y-4">
+      <Button
+        variant="default"
+        size="sm"
+        className="w-full h-8 text-xs"
+        onClick={copiarParaPrestador}
+      >
+        <Copy className="h-3 w-3 mr-1" />
+        📋 Copiar para o prestador
+      </Button>
+
+
       {/* DADOS DO SERVIÇO */}
       <section className="space-y-2">
         <div className="flex items-center gap-1.5">
