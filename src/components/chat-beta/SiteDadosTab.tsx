@@ -59,23 +59,44 @@ const Bloco = ({
 
 export const SiteDadosTab = ({ fichaId }: Props) => {
   const [dados, setDados] = useState<any | null>(null);
+  const [ficha, setFicha] = useState<any | null>(null);
+  const [cliente, setCliente] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!fichaId) {
       setDados(null);
+      setFicha(null);
+      setCliente(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const { data } = await supabase
+      const { data: pq } = await supabase
         .from("pre_qualificacao_bot")
         .select("dados")
         .eq("ficha_id", fichaId)
         .maybeSingle();
+      const { data: f } = await supabase
+        .from("fichas_de_servico")
+        .select("horario_agendamento, hora_inicio_agendamento, hora_fim_agendamento, agendamento_provisorio, endereco, telefone_cliente")
+        .eq("id", fichaId)
+        .maybeSingle();
+
+      let c: any = null;
+      if (f?.telefone_cliente) {
+        const { data: cli } = await supabase
+          .from("clientes")
+          .select("bairro, nome")
+          .eq("telefone", f.telefone_cliente)
+          .maybeSingle();
+        c = cli;
+      }
       if (!cancelled) {
-        setDados((data?.dados as any) ?? null);
+        setDados((pq?.dados as any) ?? null);
+        setFicha(f ?? null);
+        setCliente(c);
         setLoading(false);
       }
     })();
@@ -83,6 +104,7 @@ export const SiteDadosTab = ({ fichaId }: Props) => {
       cancelled = true;
     };
   }, [fichaId]);
+
 
   if (loading) {
     return <p className="text-xs text-muted-foreground p-2">Carregando…</p>;
@@ -124,8 +146,58 @@ export const SiteDadosTab = ({ fichaId }: Props) => {
     copy(partes);
   };
 
+  const copiarParaPrestador = () => {
+    const orc = (dados.orcamento || {}) as Record<string, any>;
+    const cli = (dados.cliente || {}) as Record<string, any>;
+    const catSub = [orc.categoria, orc.subcategoria].filter(Boolean).join(" › ");
+    const bairro = cliente?.bairro || cli.bairro || "";
+    const enderecoLinha = [bairro, ficha?.endereco].filter(Boolean).join(" — ");
+    const perguntasLinhas = perguntasEntries
+      .map(([p, r]) => {
+        const rs = Array.isArray(r) ? r.join(", ") : String(r ?? "");
+        return `• ${p}: ${rs}`;
+      })
+      .join("\n");
+
+    const agParts: string[] = [];
+    if (ficha?.horario_agendamento) agParts.push(String(ficha.horario_agendamento));
+    if (ficha?.hora_inicio_agendamento || ficha?.hora_fim_agendamento) {
+      agParts.push(
+        `${ficha.hora_inicio_agendamento ?? ""}${
+          ficha.hora_fim_agendamento ? " - " + ficha.hora_fim_agendamento : ""
+        }`.trim()
+      );
+    }
+    let agendamento = agParts.filter(Boolean).join(" ");
+    if (ficha?.agendamento_provisorio) agendamento += " (provisório)";
+
+    const linhas = [
+      orc.servico ? `*Serviço:* ${orc.servico}${catSub ? `  (${catSub})` : ""}` : "",
+      orc.problema ? `*Problema:* ${orc.problema}` : "",
+      enderecoLinha ? `*Bairro:* ${enderecoLinha}` : "",
+      perguntasLinhas ? `*Perguntas:*\n${perguntasLinhas}` : "",
+      obs ? `*Detalhes:* ${obs}` : "",
+      agendamento ? `*Agendamento:* ${agendamento}` : "",
+      escopo.estimativa ? `*Valor sugerido:* ${escopo.estimativa}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    copy(linhas);
+  };
+
   return (
     <div className="space-y-4">
+      <Button
+        variant="default"
+        size="sm"
+        className="w-full h-8 text-xs"
+        onClick={copiarParaPrestador}
+      >
+        <Copy className="h-3 w-3 mr-1" />
+        📋 Copiar para o prestador
+      </Button>
+
+
       {/* DADOS DO SERVIÇO */}
       <section className="space-y-2">
         <div className="flex items-center gap-1.5">
